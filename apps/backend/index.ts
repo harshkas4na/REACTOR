@@ -1,0 +1,24 @@
+// create a basic express app
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import generateRouter from './routes/generate';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(bodyParser.json());
+
+
+
+
+app.get('/', (req, res) => {
+  res.send('Hello World!');
+});
+
+app.use('/generate', generateRouter);
+
+
+app.listen(5000, () => {
+  console.log('Server listening on port 5000');
+});
