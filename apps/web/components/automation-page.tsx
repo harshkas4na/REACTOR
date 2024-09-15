@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,11 @@ import { PlusCircle, Trash2 } from "lucide-react";
 interface Automation {
   event: string;
   function: string;
+  topic0: string;
 }
 
 export function AutomationPageComponent() {
-  const [automations, setAutomations] = useState<Automation[]>([{ event: '', function: '' }]);
+  const [automations, setAutomations] = useState<Automation[]>([{ event: '', function: '', topic0: '' }]);
   const [reactiveContract, setReactiveContract] = useState('');
   const [abi, setAbi] = useState<any>(null);
   const [bytecode, setBytecode] = useState('');
@@ -22,9 +24,10 @@ export function AutomationPageComponent() {
   const [originAddress, setOriginAddress] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
   const [deployedAddress, setDeployedAddress] = useState('');
+  const [chainId, setChainId] = useState('11155111'); // Default to Sepolia
 
   const handleAddAutomation = () => {
-    setAutomations([...automations, { event: '', function: '' }]);
+    setAutomations([...automations, { event: '', function: '', topic0: '' }]);
   };
 
   const handleRemoveAutomation = (index: number) => {
@@ -35,7 +38,11 @@ export function AutomationPageComponent() {
   const handleAutomationChange = (index: number, field: 'event' | 'function', value: string) => {
     const newAutomations = automations.map((automation, i) => {
       if (i === index) {
-        return { ...automation, [field]: value };
+        const updatedAutomation = { ...automation, [field]: value };
+        if (field === 'event') {
+          updatedAutomation.topic0 = ethers.keccak256(ethers.toUtf8Bytes(value));
+        }
+        return updatedAutomation;
       }
       return automation;
     });
@@ -54,7 +61,10 @@ export function AutomationPageComponent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          eventFunctionPairs: automations,
+          topicFunctionPairs: automations.map(({ topic0, function: func }) => ({ topic0, function: func })),
+          chainId: parseInt(chainId),
+          originContract: originAddress,
+          destinationContract: destinationAddress,
         }),
       });
 
@@ -121,7 +131,7 @@ export function AutomationPageComponent() {
 
       const factory = new ethers.ContractFactory(abi, bytecode, signer);
       
-      const contract = await factory.deploy("0x0000000000000000000000000000000000FFFFFF", originAddress, destinationAddress);
+      const contract = await factory.deploy("0x0000000000000000000000000000000000FFFFFF");
       await contract.waitForDeployment();
 
       setDeployedAddress(await contract.getAddress());
@@ -136,6 +146,8 @@ export function AutomationPageComponent() {
       setIsLoading(false);
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -170,6 +182,16 @@ export function AutomationPageComponent() {
                       />
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <Label htmlFor={`topic0-${index}`}>Topic0 (auto-generated)</Label>
+                    <Input
+                    
+                      id={`topic0-${index}`}
+                      value={automation.topic0}
+                      readOnly
+                      className="bg-gray-100"
+                    />
+                  </div>
                   {index > 0 && (
                     <Button
                       type="button"
@@ -189,6 +211,42 @@ export function AutomationPageComponent() {
               <PlusCircle className="h-4 w-4 mr-2" />
               Add Automation
             </Button>
+          </div>
+
+          <div>
+            <Label htmlFor="chainId" className='text-gray-900'>Chain ID</Label>
+            <Input
+              id="chainId"
+              className='text-gray-900'
+              value={chainId}
+              onChange={(e) => setChainId(e.target.value)}
+              placeholder="Chain ID (e.g., 11155111 for Sepolia)"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="originAddress" className='text-gray-900'>Origin Contract Address</Label>
+            <Input
+            className='text-gray-900'
+              id="originAddress"
+              value={originAddress}
+              onChange={(e) => setOriginAddress(e.target.value)}
+              placeholder="0x..."
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="destinationAddress" className='text-gray-900'>Destination Contract Address</Label>
+            <Input
+            className='text-gray-900'
+              id="destinationAddress"
+              value={destinationAddress}
+              onChange={(e) => setDestinationAddress(e.target.value)}
+              placeholder="0x..."
+              required
+            />
           </div>
 
           {error && <p className="text-red-500">{error}</p>}
@@ -217,46 +275,24 @@ export function AutomationPageComponent() {
               <CardTitle>Deploy Contract</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="originAddress">Origin Contract Address</Label>
-                  <Input
-                    id="originAddress"
-                    value={originAddress}
-                    onChange={(e) => setOriginAddress(e.target.value)}
-                    placeholder="0x..."
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="destinationAddress">Destination Contract Address</Label>
-                  <Input
-                    id="destinationAddress"
-                    value={destinationAddress}
-                    onChange={(e) => setDestinationAddress(e.target.value)}
-                    placeholder="0x..."
-                    required
-                  />
-                </div>
-                <Button onClick={deployContract} className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Deploying...' : 'Deploy Contract with MetaMask'}
-                </Button>
-              </div>
+              <Button onClick={deployContract} className="w-full" disabled={isLoading}>
+                {isLoading ? 'Deploying...' : 'Deploy Contract with MetaMask'}
+              </Button>
             </CardContent>
           </Card>
         )}
 
         {deployedAddress && (
           <div className="mt-4">
-            <p className="text-green-600">Contract deployed successfully on Kopli Testnet!</p>
+            <p className="text-green-600">Contract deployed successfully!</p>
             <p className="text-gray-700">Deployed address: {deployedAddress}</p>
             <a 
-              href={`https://kopli.reactscan.net/address/${deployedAddress}`} 
+              href={`https://custom-block-explorer.com/address/${deployedAddress}`} 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-blue-500 hover:underline"
             >
-              View on Kopli Block Explorer
+              View on Block Explorer
             </a>
           </div>
         )}

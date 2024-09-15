@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { validateContractInput } from "../zod/validateContractInput";
-var solc = require('solc');
+import crypto from 'crypto';
+const solc = require('solc');
 
 export default async function handleGenerate(req: Request, res: Response) {
     try {
@@ -39,11 +40,14 @@ async function compileContract(sourceCode: string): Promise<{ abi: any, bytecode
     };
 
     const output = JSON.parse(solc.compile(JSON.stringify(input)));
-    const contractName = 'BasicDemoReactiveContract'; // Make sure this matches your contract name
+    const contractName = 'ReactiveSmartContract';
 
     if (output.errors) {
-        console.error('Compilation errors:', output.errors);
-        throw new Error('Contract compilation failed');
+        const errors = output.errors.filter((error: any) => error.severity === 'error');
+        if (errors.length > 0) {
+            console.error('Compilation errors:', errors);
+            throw new Error('Contract compilation failed');
+        }
     }
 
     const contract = output.contracts['Contract.sol'][contractName];
@@ -53,23 +57,69 @@ async function compileContract(sourceCode: string): Promise<{ abi: any, bytecode
     };
 }
 
-export const generateReactiveSmartContractTemplate = (input: any) => {
-    const result = validateContractInput(input);
-    if (!result.success) {
-      throw new Error('Invalid input');
-    }
-  
-    const { eventFunctionPairs } = result.data;
-  
+interface TopicFunctionPair {
+    topic0: string;
+    function: string;
+}
+
+interface ContractInput {
+    topicFunctionPairs: TopicFunctionPair[];
+    chainId: number;
+    originContract: string;
+    destinationContract: string;
+}
+
+function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
+    return topicFunctionPairs.map((pair, index) => {
+        return `uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.topic0};`;
+    }).join('\n    ');
+}
+
+function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string {
+    return topicFunctionPairs.map((pair, index) => `
+        payload = abi.encodeWithSignature(
+            "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
+            CHAIN_ID,
+            _ORIGIN_CONTRACT,
+            EVENT_${index}_TOPIC_0,
+            REACTIVE_IGNORE,
+            REACTIVE_IGNORE,
+            REACTIVE_IGNORE
+        );
+        (subscription_result,) = address(service).call(payload);
+        if (!subscription_result) {
+            vm = true;
+        }`).join('\n');
+}
+
+function generateReactLogic(topicFunctionPairs: TopicFunctionPair[]): string {
+    return topicFunctionPairs.map((pair, index) => `
+        if (topic_0 == EVENT_${index}_TOPIC_0) {
+            bytes memory payload = abi.encodeWithSignature(
+                "${pair.function}(address,uint256)",
+                address(0),
+                topic_1
+            );
+            emit Callback(chain_id, _DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
+        }`).join(' else ');
+}
+
+export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
+    const { topicFunctionPairs, chainId, originContract, destinationContract } = input;
+
+    const eventConstants = generateEventConstants(topicFunctionPairs);
+    const subscriptions = generateSubscriptions(topicFunctionPairs);
+    const reactLogic = generateReactLogic(topicFunctionPairs);
+
     const template = `
     // SPDX-License-Identifier: UNLICENSED
 
     pragma solidity >=0.8.0;
     
     interface IReactive {
-        event DESTINATION_CONTRACT(
+        event Callback(
             uint256 indexed chain_id,
-            address indexed ORIGIN_CONTRACT,
+            address indexed _contract,
             uint64 indexed gas_limit,
             bytes payload
         );
@@ -86,6 +136,7 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
             uint256 op_code
         ) external;
     }
+
     interface ISubscriptionService {
         function subscribe(
             uint256 chain_id,
@@ -96,7 +147,6 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
             uint256 topic_3
         ) external;
     
-      
         function unsubscribe(
             uint256 chain_id,
             address ORIGIN_CONTRACT,
@@ -107,7 +157,7 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
         ) external;
     }
     
-    contract BasicDemoReactiveContract is IReactive {
+    contract ReactiveSmartContract is IReactive {
         event Event(
             uint256 indexed chain_id,
             address indexed ORIGIN_CONTRACT,
@@ -121,45 +171,27 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
     
         uint256 private constant REACTIVE_IGNORE = 0xa65f96fc951c35ead38878e0f0b7a3c744a6f5ccc1476b313353ce31712313ad;
     
-        uint256 private constant SEPOLIA_CHAIN_ID = 11155111;
-
-        uint256 private constant EVENT_TOPIC_0 = 0x81b9c57fe7f61efea7e67d0add56f05cfc1eb0739ce8f328576502b545b7bed4;
-
+        uint256 private constant CHAIN_ID = ${chainId};
+        address private immutable _ORIGIN_CONTRACT;
+        address private immutable _DESTINATION_CONTRACT;
     
-        uint64 private constant GAS_LIMIT = 1000000;
+        uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
     
-        /**
-         * Indicates whether this is a ReactVM instance of the contract.
-         */
+        ${eventConstants}
+    
         bool private vm;
-    
-        // State specific to reactive network instance of the contract
-    
-        ISubscriptionService private service;
-        address private _ORIGIN_CONTRACT;
-        address private _DESTINATION_CONTRACT;
-    
-        // State specific to ReactVM instance of the contract
-    
+        ISubscriptionService private immutable service;
         uint256 public counter;
     
-        constructor(address service_address, address ORIGIN_CONTRACT, address DESTINATION_CONTRACT) {
+        constructor(address service_address) {
             service = ISubscriptionService(service_address);
-            bytes memory payload = abi.encodeWithSignature(
-                "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
-                SEPOLIA_CHAIN_ID,
-                ORIGIN_CONTRACT,
-                EVENT_TOPIC_0,
-                REACTIVE_IGNORE,
-                REACTIVE_IGNORE,
-                REACTIVE_IGNORE
-            );
-            (bool subscription_result,) = address(service).call(payload);
-            if (!subscription_result) {
-                vm = true;
-            }
-            _ORIGIN_CONTRACT = ORIGIN_CONTRACT;
-            _DESTINATION_CONTRACT = DESTINATION_CONTRACT;
+            bytes memory payload;
+            bool subscription_result;
+            
+            _ORIGIN_CONTRACT = ${originContract};
+            _DESTINATION_CONTRACT = ${destinationContract};
+            
+            ${subscriptions}
         }
     
         modifier vmOnly() {
@@ -167,11 +199,9 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
             _;
         }
     
-        // Methods specific to ReactVM instance of the contract
-    
         function react(
             uint256 chain_id,
-            address ORIGIN_CONTRACT,
+            address /* ORIGIN_CONTRACT */,
             uint256 topic_0,
             uint256 topic_1,
             uint256 topic_2,
@@ -180,18 +210,15 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
             uint256 /* block_number */,
             uint256 /* op_code */
         ) external vmOnly {
-            emit Event(chain_id, ORIGIN_CONTRACT, topic_0, topic_1, topic_2, topic_3, data, ++counter);
+            emit Event(chain_id, _ORIGIN_CONTRACT, topic_0, topic_1, topic_2, topic_3, data, ++counter);
             
-            // Add your event-function pairs logic here
-            ${generateEventFunctionPairsLogic(eventFunctionPairs)}
+            ${reactLogic}
         }
     
-        // Methods for testing environment only
-    
-        function subscribe(address ORIGIN_CONTRACT, uint256 topic_0) external {
+        function subscribe(uint256 topic_0) external {
             service.subscribe(
-                SEPOLIA_CHAIN_ID,
-                ORIGIN_CONTRACT,
+                CHAIN_ID,
+                _ORIGIN_CONTRACT,
                 topic_0,
                 REACTIVE_IGNORE,
                 REACTIVE_IGNORE,
@@ -199,10 +226,10 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
             );
         }
     
-        function unsubscribe(address ORIGIN_CONTRACT, uint256 topic_0) external {
+        function unsubscribe(uint256 topic_0) external {
             service.unsubscribe(
-                SEPOLIA_CHAIN_ID,
-                ORIGIN_CONTRACT,
+                CHAIN_ID,
+                _ORIGIN_CONTRACT,
                 topic_0,
                 REACTIVE_IGNORE,
                 REACTIVE_IGNORE,
@@ -213,17 +240,10 @@ export const generateReactiveSmartContractTemplate = (input: any) => {
         function resetCounter() external {
             counter = 0;
         }
+
+        
     }
     `;
-  
+
     return template;
 };
-
-function generateEventFunctionPairsLogic(eventFunctionPairs) {
-    return eventFunctionPairs.map(pair => `
-        if (topic_0 == uint256(keccak256(bytes("${pair.event}")))) {
-            bytes memory payload = abi.encodeWithSignature("${pair.function}(address,uint256,uint256,uint256,bytes)", ORIGIN_CONTRACT, topic_1, topic_2, topic_3, data);
-            emit DESTINATION_CONTRACT(chain_id, _DESTINATION_CONTRACT, GAS_LIMIT, payload);
-        }
-    `).join('\n');
-}
