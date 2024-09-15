@@ -11,12 +11,7 @@ app.use(bodyParser.json());
 
 
 
-
-app.get('/', (req, res) => {
-  res.send('Hello World!');
-});
-
-app.use('/generate', generateRouter);
+app.use('/', generateRouter);
 
 
 app.listen(5000, () => {

@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2 } from "lucide-react";
-
+import { PlusCircle, Trash2, ChevronDown, ChevronUp, Edit, Save } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 interface Automation {
   event: string;
   function: string;
@@ -24,7 +24,49 @@ export function AutomationPageComponent() {
   const [originAddress, setOriginAddress] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
   const [deployedAddress, setDeployedAddress] = useState('');
-  const [chainId, setChainId] = useState('11155111'); // Default to Sepolia
+  const [chainId, setChainId] = useState('11155111');
+  const [showContract, setShowContract] = useState(false);
+  const [editingContract, setEditingContract] = useState(false);
+  const [editedContract, setEditedContract] = useState('');
+  const handleEditContract = () => {
+    setEditingContract(true);
+    setEditedContract(reactiveContract);
+  };
+
+  const handleSaveEditedContract = () => {
+    setReactiveContract(editedContract);
+    setEditingContract(false);
+  };
+
+  const handleRecompile = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/recompile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceCode: editedContract,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to recompile contract');
+      }
+
+      const data = await response.json();
+      setAbi(data.abi);
+      setBytecode(data.bytecode);
+    } catch (err) {
+      setError('An error occurred while recompiling the contract. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddAutomation = () => {
     setAutomations([...automations, { event: '', function: '', topic0: '' }]);
@@ -259,35 +301,78 @@ export function AutomationPageComponent() {
         {reactiveContract && (
           <Card className="mt-8">
             <CardHeader>
-              <CardTitle>Reactive Contract</CardTitle>
+              <CardTitle className="flex justify-between items-center">
+                <span>Reactive Contract</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowContract(!showContract)}
+                >
+                  {showContract ? <ChevronUp /> : <ChevronDown />}
+                </Button>
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="bg-gray-200 p-4 rounded-md">
-                <pre className="text-sm text-gray-600 whitespace-pre-wrap">{reactiveContract}</pre>
-              </div>
-            </CardContent>
+            {showContract && (
+              <CardContent>
+                {!editingContract ? (
+                  <>
+                    <div className="bg-gray-200 p-4 rounded-md">
+                      <pre className="text-sm text-gray-600 whitespace-pre-wrap">{reactiveContract}</pre>
+                    </div>
+                    <Button onClick={handleEditContract} className="mt-4">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Contract
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Textarea
+                      value={editedContract}
+                      onChange={(e) => setEditedContract(e.target.value)}
+                      className="h-64 mb-4"
+                    />
+                    <div className="flex justify-end space-x-2">
+                      <Button onClick={() => setEditingContract(false)} variant="outline">
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveEditedContract}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Changes
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            )}
           </Card>
         )}
 
         {abi && bytecode && (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Deploy Contract</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={deployContract} className="w-full" disabled={isLoading}>
-                {isLoading ? 'Deploying...' : 'Deploy Contract with MetaMask'}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                  <Card className="mt-8">
+                    <CardHeader>
+                      <CardTitle>Deploy Contract</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Button onClick={handleRecompile} className="w-full mb-4" disabled={isLoading}>
+                        {isLoading ? 'Recompiling...' : 'Recompile Contract'}
+                      </Button>
+                      <Button onClick={deployContract} className="w-full" disabled={isLoading}>
+                        {isLoading ? 'Deploying...' : 'Deploy Contract with MetaMask'}
+                      </Button>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Please make sure to recompile the contract before deploying if you've made any changes.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
 
         {deployedAddress && (
           <div className="mt-4">
             <p className="text-green-600">Contract deployed successfully!</p>
             <p className="text-gray-700">Deployed address: {deployedAddress}</p>
             <a 
-              href={`https://custom-block-explorer.com/address/${deployedAddress}`} 
+              href={` https://kopli.reactscan.net/`} 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-blue-500 hover:underline"

@@ -77,7 +77,7 @@ function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string
 
 function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string {
     return topicFunctionPairs.map((pair, index) => `
-        payload_${index} = abi.encodeWithSignature(
+    bytes memory payload_${index} = abi.encodeWithSignature(
             "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
             CHAIN_ID,
             _ORIGIN_CONTRACT,
@@ -185,7 +185,6 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
     
         constructor(address service_address) {
             service = ISubscriptionService(service_address);
-            bytes memory payload;
             bool subscription_result;
             
             _ORIGIN_CONTRACT = ${originContract};
