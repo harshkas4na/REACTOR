@@ -77,7 +77,7 @@ function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string
 
 function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string {
     return topicFunctionPairs.map((pair, index) => `
-        payload = abi.encodeWithSignature(
+        payload_${index} = abi.encodeWithSignature(
             "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
             CHAIN_ID,
             _ORIGIN_CONTRACT,
@@ -86,7 +86,7 @@ function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string 
             REACTIVE_IGNORE,
             REACTIVE_IGNORE
         );
-        (subscription_result,) = address(service).call(payload);
+        (subscription_result,) = address(service).call(payload_${index});
         if (!subscription_result) {
             vm = true;
         }`).join('\n');
