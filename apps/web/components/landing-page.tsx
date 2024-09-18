@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, Star, Menu } from "lucide-react"
+import { ChevronLeft, ChevronRight, Star, Menu, X } from "lucide-react"
 import Link from "next/link"
+import { motion } from "framer-motion"
 
 export function LandingPageComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -31,96 +32,131 @@ export function LandingPageComponent() {
   }, [])
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Navbar */}
-      <nav className="bg-white shadow-md">
+      <motion.nav 
+        className="bg-white shadow-lg sticky top-0 z-50"
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex-shrink-0 flex items-center">
               <span className="text-2xl font-bold text-primary">Logo</span>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <Link href="#" className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
-                Home
-              </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
-                Features
-              </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
-                Testimonials
-              </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
-                Contact
-              </Link>
+              {['Home', 'Templates', 'Community', 'Contact'].map((item) => (
+                <Link key={item} href={`/${item}`} className="text-gray-500 hover:text-primary pt-5 relative group">
+                  <span className="relative z-10 px-1  text-sm font-medium transition-colors duration-300 ease-in-out">
+                    {item}
+                  </span>
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-in-out"></span>
+                </Link>
+              ))}
             </div>
             <div className="sm:hidden flex items-center">
               <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                <Menu className="h-6 w-6" />
+                {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
             </div>
           </div>
         </div>
         {isMenuOpen && (
-          <div className="sm:hidden">
-            <div className="pt-2 pb-3 space-y-1">
-              <Link href="#" className="text-gray-900 block px-3 py-2 text-base font-medium">
-                Home
-              </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 block px-3 py-2 text-base font-medium">
-                Features
-              </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 block px-3 py-2 text-base font-medium">
-                Testimonials
-              </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 block px-3 py-2 text-base font-medium">
-                Contact
-              </Link>
+          <motion.div 
+            className="sm:hidden absolute top-16 inset-x-0 bg-white shadow-lg"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {['Home', 'Templates', 'Community', 'Contact'].map((item) => (
+                <Link key={item} href="#" className="text-gray-500 hover:text-primary hover:bg-gray-50 block px-3 py-2 rounded-md text-base font-medium transition-all duration-300 ease-in-out">
+                  {item}
+                </Link>
+              ))}
             </div>
-          </div>
+          </motion.div>
         )}
-      </nav>
+      </motion.nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary to-primary-foreground text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative bg-gradient-to-r from-primary to-primary-foreground text-white py-24 sm:py-32 overflow-hidden">
+        <motion.div 
+          className="absolute inset-0 z-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1 }}
+        >
+          <div className="absolute inset-0 bg-black opacity-50"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary-foreground opacity-75"></div>
+          <div className="absolute inset-0 bg-[url('/placeholder.svg')] bg-cover bg-center"></div>
+        </motion.div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold animate-fade-in-up">
+            <motion.h1 
+              className="text-4xl sm:text-5xl md:text-6xl font-extrabold"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
               You Think, We Automate
-            </h1>
-            <p className="mt-3 max-w-md mx-auto text-xl sm:text-2xl md:mt-5 md:max-w-3xl animate-fade-in-up animation-delay-300">
+            </motion.h1>
+            <motion.p 
+              className="mt-3 max-w-md mx-auto text-xl sm:text-2xl md:mt-5 md:max-w-3xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
               A tech that works on top of Reactive Network
-            </p>
-            <div className="mt-10 flex justify-center space-x-4 animate-fade-in-up animation-delay-600">
-             <Link href={"/generate"}>
-              <Button size="lg">Get Started</Button>
-             </Link> 
-              <Button size="lg" variant="outline">Read Docs</Button>
-            </div>
+            </motion.p>
+            <motion.div 
+              className="mt-10 flex justify-center space-x-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+            >
+              <Link href="/generate">
+                <Button size="lg" className="bg-white text-primary hover:bg-gray-100 transition-all duration-300 ease-in-out transform hover:scale-105">
+                  Get Started
+                </Button>
+              </Link>
+              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-primary transition-all duration-300 ease-in-out transform hover:scale-105">
+                Read Docs
+              </Button>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-extrabold text-center mb-12">Our Features</h2>
+          <h2 className="text-3xl font-extrabold text-center mb-12 text-gray-900">Our Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
-                  <CardTitle>{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>{feature.description}</p>
-                </CardContent>
-              </Card>
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <Card className="hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 bg-white h-full">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-semibold text-primary">{feature.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Testimonial Section */}
-      <section className="py-20 bg-white">
+      <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-extrabold text-center mb-12 text-gray-900">What Our Clients Say</h2>
           <div className="relative">
@@ -128,15 +164,15 @@ export function LandingPageComponent() {
               <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${currentTestimonial * 100}%)` }}>
                 {testimonials.map((testimonial, index) => (
                   <div key={index} className="w-full flex-shrink-0">
-                    <Card className="mx-auto max-w-2xl">
+                    <Card className="mx-auto max-w-2xl bg-gray-50 hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105">
                       <CardContent className="text-center py-10">
-                        <p className="text-xl mb-6">"{testimonial.content}"</p>
+                        <p className="text-xl mb-6 text-gray-700">"{testimonial.content}"</p>
                         <div className="flex justify-center items-center mb-4">
                           {[...Array(5)].map((_, i) => (
                             <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                           ))}
                         </div>
-                        <p className="font-semibold">{testimonial.name}</p>
+                        <p className="font-semibold text-gray-900">{testimonial.name}</p>
                         <p className="text-sm text-gray-500">{testimonial.role}</p>
                       </CardContent>
                     </Card>
@@ -144,10 +180,10 @@ export function LandingPageComponent() {
                 ))}
               </div>
             </div>
-            <Button variant="outline" size="icon" className="absolute top-1/2 left-4 transform -translate-y-1/2" onClick={() => setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length)}>
+            <Button variant="outline" size="icon" className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-white hover:bg-gray-100 transition-all duration-300 ease-in-out" onClick={() => setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length)}>
               <ChevronLeft className="h-6 w-6" />
             </Button>
-            <Button variant="outline" size="icon" className="absolute top-1/2 right-4 transform -translate-y-1/2" onClick={() => setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)}>
+            <Button variant="outline" size="icon" className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-white hover:bg-gray-100 transition-all duration-300 ease-in-out" onClick={() => setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)}>
               <ChevronRight className="h-6 w-6" />
             </Button>
           </div>
@@ -155,11 +191,33 @@ export function LandingPageComponent() {
       </section>
 
       {/* Call to Action Section */}
-      <section className="py-20 bg-primary text-white">
+      <section className="py-24 bg-primary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-extrabold mb-4">Ready to Get Started?</h2>
-          <p className="text-xl mb-8">Join thousands of satisfied customers and transform your business today.</p>
-          <Button size="lg" variant="secondary">Sign Up Now</Button>
+          <motion.h2 
+            className="text-3xl font-extrabold mb-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            Ready to Get Started?
+          </motion.h2>
+          <motion.p 
+            className="text-xl mb-8 max-w-2xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            Join thousands of satisfied customers and transform your business today.
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-gray-100 transition-all duration-300 ease-in-out transform hover:scale-105">
+              Sign Up Now
+            </Button>
+          </motion.div>
         </div>
       </section>
 
@@ -169,37 +227,45 @@ export function LandingPageComponent() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-lg font-semibold mb-4">About Us</h3>
-              <p className="text-sm">We are dedicated to providing cutting-edge automation solutions for businesses of all sizes.</p>
+              <p className="text-sm text-gray-400">We are dedicated to providing cutting-edge automation solutions for businesses of all sizes.</p>
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
               <ul className="space-y-2">
-                <li><Link href="#" className="text-sm hover:underline">Home</Link></li>
-                <li><Link href="#" className="text-sm hover:underline">Features</Link></li>
-                <li><Link href="#" className="text-sm hover:underline">Pricing</Link></li>
-                <li><Link href="#" className="text-sm hover:underline">Contact</Link></li>
+                {['Home', 'Templates', 'Community', 'Contact'].map((item) => (
+                  <li key={item}>
+                    <Link href="#" className="text-sm text-gray-400 hover:text-white transition-all duration-300 ease-in-out">
+                      {item}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-4">Connect</h3>
               <ul className="space-y-2">
-                <li><Link href="#" className="text-sm hover:underline">Twitter</Link></li>
-                <li><Link href="#" className="text-sm hover:underline">LinkedIn</Link></li>
-                <li><Link href="#" className="text-sm hover:underline">Facebook</Link></li>
-                <li><Link href="#" className="text-sm hover:underline">Instagram</Link></li>
+                {['Twitter', 'LinkedIn', 'Facebook', 'Instagram'].map((item) => (
+                  <li key={item}>
+                    <Link href="#" className="text-sm text-gray-400 hover:text-white transition-all duration-300 ease-in-out">
+                      {item}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-4">Newsletter</h3>
-              <p className="text-sm mb-4">Stay updated with our latest news and offers.</p>
+              <p className="text-sm text-gray-400 mb-4">Stay updated with our latest news and offers.</p>
               <div className="flex">
                 <input type="email" placeholder="Enter your email" className="flex-grow px-3 py-2 text-gray-900 rounded-l-md focus:outline-none" />
-                <Button className="rounded-l-none">Subscribe</Button>
+                <Button className="rounded-l-none bg-primary hover:bg-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105">
+                  Subscribe
+                </Button>
               </div>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-700 text-center">
-            <p className="text-sm">&copy; 2023 Your Company Name. All rights reserved.</p>
+            <p className="text-sm text-gray-400">&copy; 2023 Your Company Name. All rights reserved.</p>
           </div>
         </div>
       </footer>

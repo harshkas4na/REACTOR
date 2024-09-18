@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TemplateLibrary {
+  id                         String   @id @default(uuid())
+  libraryName                String
+  originContractGuide        String
+  destinationContractGuide   String?
+  isSameContract             Boolean  @default(false)
+  visualRepresentation       String?
+  hasReactiveTemplate        Boolean  @default(false)
+  reactiveContractExplanation String?
+  reactiveContractCode       String?
+  reactiveContractMetadata   String?
+  hasGithubRepo              Boolean  @default(false)
+  githubRepoLink             String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  originMetadataId           String? @unique
+  destinationMetadataId      String? @unique
+
+  originMetadata             SmartContractMetadata? @relation("OriginMetadata", fields: [originMetadataId], references: [id])
+  destinationMetadata        SmartContractMetadata? @relation("DestinationMetadata", fields: [destinationMetadataId], references: [id])
+  eventFunctionPairs         EventFunctionPair[]  
+}
+
+model SmartContractMetadata {
+  id                String   @id @default(uuid())
+  exampleContract   String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  originLibrary     TemplateLibrary? @relation("OriginMetadata")
+  destinationLibrary TemplateLibrary? @relation("DestinationMetadata")
+}
+
+model EventFunctionPair {
+  id                   String   @id @default(uuid())
+  originEvent          String
+  destinationFunction  String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  templateLibrary      TemplateLibrary @relation(fields: [templateLibraryId], references: [id])
+  templateLibraryId    String
+}

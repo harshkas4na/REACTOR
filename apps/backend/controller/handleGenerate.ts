@@ -67,6 +67,7 @@ interface ContractInput {
     chainId: number;
     originContract: string;
     destinationContract: string;
+    ownerAddress?: string;  // Optional ownerAddress parameter
 }
 
 function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
@@ -92,8 +93,11 @@ function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string 
         }`).join('\n');
 }
 
-function generateReactLogic(topicFunctionPairs: TopicFunctionPair[]): string {
-    return topicFunctionPairs.map((pair, index) => `
+function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], ownerCheck: boolean): string {
+    const ownerCondition = ownerCheck ? `
+        require(msg.sender == _OWNER, 'Only owner can trigger react');` : '';
+
+    const reactLogic = topicFunctionPairs.map((pair, index) => `
         if (topic_0 == EVENT_${index}_TOPIC_0) {
             bytes memory payload = abi.encodeWithSignature(
                 "${pair.function}(address,uint256)",
@@ -102,14 +106,18 @@ function generateReactLogic(topicFunctionPairs: TopicFunctionPair[]): string {
             );
             emit Callback(chain_id, _DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
         }`).join(' else ');
+
+    return `${ownerCondition} ${reactLogic}`;
 }
 
 export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
-    const { topicFunctionPairs, chainId, originContract, destinationContract } = input;
+    const { topicFunctionPairs, chainId, originContract, destinationContract, ownerAddress } = input;
 
     const eventConstants = generateEventConstants(topicFunctionPairs);
     const subscriptions = generateSubscriptions(topicFunctionPairs);
-    const reactLogic = generateReactLogic(topicFunctionPairs);
+    const reactLogic = generateReactLogic(topicFunctionPairs, !!ownerAddress);
+
+    const ownerDeclaration = ownerAddress ? `address private immutable _OWNER = ${ownerAddress};` : '';
 
     const template = `
     // SPDX-License-Identifier: UNLICENSED
@@ -176,6 +184,8 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
         address private immutable _DESTINATION_CONTRACT;
     
         uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
+
+        ${ownerDeclaration}
     
         ${eventConstants}
     

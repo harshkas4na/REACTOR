@@ -21,6 +21,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "lucide-react": "^0.441.0"
+    "lucide-react": "^0.441.0",
+    "psql": "^0.0.1"
   }
 }
