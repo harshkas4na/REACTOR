@@ -20,13 +20,16 @@ export default async function handleAutomation(req: Request, res: Response) {
 
     const abi = JSON.parse(etherscanData.result);
 
-    // Extract and format events
+    // Extract and format events, including full event ABIs
     const events = abi
       .filter((item: any) => item.type === 'event')
       .map((item: any) => {
         const eventName = item.name;
         const inputs = item.inputs.map((input: any) => input.type).join(',');
-        return `${eventName}(${inputs})`;
+        return {
+          formatted: `${eventName}(${inputs})`,
+          abi: item  // Include the full event ABI
+        };
       });
 
     // Extract and format functions
@@ -38,10 +41,9 @@ export default async function handleAutomation(req: Request, res: Response) {
         return `${functionName}(${inputs})`;
       });
 
-    console.log('events:', events);
-    console.log('functions:', functions);
+    
 
-    // Respond with extracted events and functions
+    // Respond with extracted events (including ABIs) and functions
     return res.json({ events, functions });
 
   } catch (error) {

@@ -27,10 +27,11 @@ export default function AutomationPage() {
   const [error, setError] = useState('')
   const [chainId, setChainId] = useState('11155111')
   const [contractData, setContractData] = useState<{
-    events: string[],
+    events: { formatted: string, abi: any }[],
     functions: string[]
   } | null>(null)
-  const [selectedPairs, setSelectedPairs] = useState<{ topic0: string, function: string }[]>([])
+
+  const [selectedPairs, setSelectedPairs] = useState<{ topic0: string, function: string, eventAbi: any }[]>([])
   const [originAddress, setOriginAddress] = useState('')
   const [destinationAddress, setDestinationAddress] = useState('')
   const [reactiveContract, setReactiveContract] = useState('')
@@ -72,14 +73,14 @@ export default function AutomationPage() {
     }
   }
 
-  const handlePairSelection = (event: string, func: string) => {
-    const topic0 = ethers.keccak256(ethers.toUtf8Bytes(event))
+  const handlePairSelection = (event: { formatted: string, abi: any }, func: string) => {
+    const topic0 = ethers.keccak256(ethers.toUtf8Bytes(event.formatted))
     setSelectedPairs(prev => {
       const exists = prev.some(pair => pair.topic0 === topic0 && pair.function === func)
       if (exists) {
         return prev.filter(pair => !(pair.topic0 === topic0 && pair.function === func))
       } else {
-        return [...prev, { topic0, function: func }]
+        return [...prev, { topic0, function: func, eventAbi: event.abi }]
       }
     })
   }
@@ -283,46 +284,6 @@ export default function AutomationPage() {
 
       {/* Contract Data Modal */}
       {contractData && (
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="w-full max-w-md mx-auto flex items-center justify-center">
-              <Info className="mr-2 h-4 w-4" />
-              View Contract Information
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Contract Information</DialogTitle>
-              <DialogDescription>
-                Details of the processed contract
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="h-[60vh] w-full pr-4">
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">Events</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {contractData.events.map((event, index) => (
-                      <li key={`event-${index}`}>{event}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">Functions</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {contractData.functions.map((func, index) => (
-                      <li key={`function-${index}`}>{func}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Select Event-Function Pairs */}
-      {contractData && (
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Select Event-Function Pairs</CardTitle>
@@ -349,10 +310,13 @@ export default function AutomationPage() {
                         <div key={`pair-${eventIndex}-${funcIndex}`} className="flex items-center space-x-2">
                           <Checkbox
                             id={`pair-${eventIndex}-${funcIndex}`}
-                            checked={selectedPairs.some(pair => pair.topic0 === ethers.keccak256(ethers.toUtf8Bytes(event)) && pair.function === func)}
+                            checked={selectedPairs.some(pair => 
+                              pair.topic0 === ethers.keccak256(ethers.toUtf8Bytes(event.formatted)) && 
+                              pair.function === func
+                            )}
                             onCheckedChange={() => handlePairSelection(event, func)}
                           />
-                          <Label htmlFor={`pair-${eventIndex}-${funcIndex}`}>{event}</Label>
+                          <Label htmlFor={`pair-${eventIndex}-${funcIndex}`}>{event.formatted}</Label>
                         </div>
                       ))}
                     </div>
@@ -363,6 +327,8 @@ export default function AutomationPage() {
           </CardContent>
         </Card>
       )}
+
+     
 
       {/* Generate Contract */}
       {selectedPairs.length > 0 && (

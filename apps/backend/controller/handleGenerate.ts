@@ -3,12 +3,35 @@ import { validateContractInput } from "../zod/validateContractInput";
 import crypto from 'crypto';
 const solc = require('solc');
 
+interface EventInput {
+    name: string;
+    type: string;
+    indexed: boolean;
+}
+
+interface TopicFunctionPair {
+    topic0: string;
+    function: string;
+    eventAbi: {
+        name: string;
+        type: string;
+        inputs: EventInput[];
+    };
+}
+
+interface ContractInput {
+    topicFunctionPairs: TopicFunctionPair[];
+    chainId: number;
+    originContract: string;
+    destinationContract: string;
+    ownerAddress?: string;
+}
+
 export default async function handleGenerate(req: Request, res: Response) {
     try {
-        const input = req.body;
+        const input: ContractInput = req.body;
         const reactiveSmartContractTemplate = generateReactiveSmartContractTemplate(input);
 
-        // Compile the contract to get ABI and bytecode
         const { abi, bytecode } = await compileContract(reactiveSmartContractTemplate);
 
         res.json({
@@ -57,18 +80,7 @@ async function compileContract(sourceCode: string): Promise<{ abi: any, bytecode
     };
 }
 
-interface TopicFunctionPair {
-    topic0: string;
-    function: string;
-}
 
-interface ContractInput {
-    topicFunctionPairs: TopicFunctionPair[];
-    chainId: number;
-    originContract: string;
-    destinationContract: string;
-    ownerAddress?: string;  // Optional ownerAddress parameter
-}
 
 function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
     return topicFunctionPairs.map((pair, index) => {
@@ -97,15 +109,43 @@ function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], ownerCheck:
     const ownerCondition = ownerCheck ? `
         require(msg.sender == _OWNER, 'Only owner can trigger react');` : '';
 
-    const reactLogic = topicFunctionPairs.map((pair, index) => `
+    const reactLogic = topicFunctionPairs.map((pair, index) => {
+        const { eventAbi, function: functionSignature } = pair;
+        const indexedInputs = eventAbi.inputs.filter(input => input.indexed);
+        const nonIndexedInputs = eventAbi.inputs.filter(input => !input.indexed);
+
+        let decodingLogic = '';
+        let functionInputs = '';
+        let customLogic = '';
+
+        // Handle non-indexed inputs
+        // if (nonIndexedInputs.length > 0) {
+        //     const structName = `${eventAbi.name}Data`;
+        //     decodingLogic = `
+        //     ${structName} memory eventData = abi.decode(data, (${structName}));`;
+        // }
+
+        // Generate custom logic based on event data 
+        // customLogic = `
+        //     // Custom logic for ${eventAbi.name} event
+        //     // TODO: Add custom logic here based on the event data`;
+
+        // // Prepare function inputs
+        // functionInputs = indexedInputs.map((input, i) => `address(uint160(topic_${i + 1}))`).join(', ');
+        // if (nonIndexedInputs.length > 0) {
+        //     if (functionInputs) functionInputs += ', ';
+        //     functionInputs += nonIndexedInputs.map(input => `eventData.${input.name}`).join(', ');
+        // }
+
+        return `
         if (topic_0 == EVENT_${index}_TOPIC_0) {
             bytes memory payload = abi.encodeWithSignature(
-                "${pair.function}(address,uint256)",
-                address(0),
-                topic_1
+                "${functionSignature}"
+                
             );
             emit Callback(chain_id, _DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
-        }`).join(' else ');
+        }`;
+    }).join(' else ');
 
     return `${ownerCondition} ${reactLogic}`;
 }
