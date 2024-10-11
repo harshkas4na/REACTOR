@@ -1,4 +1,4 @@
-import { TemplatesPage } from '@/components/templates-page'
+import TemplatesPage from '@/components/templates-page'
 import React from 'react'
 
 const Templetes = () => {

@@ -1,72 +1,40 @@
 "use client";
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, ChevronDown, ChevronUp, Edit, Save } from "lucide-react";
+import { PlusCircle, Trash2, ChevronDown, ChevronUp, Edit, Save,ArrowRight  } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-interface Automation {
-  event: string;
-  function: string;
-  topic0: string;
-}
+import { Switch } from "@/components/ui/switch";
+import { useAutomationContext } from '@/app/_context/AutomationContext';
+// import { useRouter } from 'next/router';
+import Link from 'next/link';
+
 
 export function AutomationPageComponent() {
-  const [automations, setAutomations] = useState<Automation[]>([{ event: '', function: '', topic0: '' }]);
-  const [reactiveContract, setReactiveContract] = useState('');
-  const [abi, setAbi] = useState<any>(null);
-  const [bytecode, setBytecode] = useState('');
+  const {
+    automations,
+    setAutomations,
+    reactiveContract,
+    setReactiveContract,
+    isPausable,
+    setIsPausable,
+    chainId,
+    setChainId,
+    originAddress,
+    setOriginAddress,
+    destinationAddress,
+    setDestinationAddress,
+  } = useAutomationContext();
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [originAddress, setOriginAddress] = useState('');
-  const [destinationAddress, setDestinationAddress] = useState('');
-  const [deployedAddress, setDeployedAddress] = useState('');
-  const [chainId, setChainId] = useState('11155111');
   const [showContract, setShowContract] = useState(false);
   const [editingContract, setEditingContract] = useState(false);
   const [editedContract, setEditedContract] = useState('');
-  const handleEditContract = () => {
-    setEditingContract(true);
-    setEditedContract(reactiveContract);
-  };
-
-  const handleSaveEditedContract = () => {
-    setReactiveContract(editedContract);
-    setEditingContract(false);
-  };
-
-  const handleRecompile = async () => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('http://localhost:5000/recompile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sourceCode: editedContract,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to recompile contract');
-      }
-
-      const data = await response.json();
-      setAbi(data.abi);
-      setBytecode(data.bytecode);
-    } catch (err) {
-      setError('An error occurred while recompiling the contract. Please try again.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const router = useRouter();
 
   const handleAddAutomation = () => {
     setAutomations([...automations, { event: '', function: '', topic0: '' }]);
@@ -77,7 +45,51 @@ export function AutomationPageComponent() {
     setAutomations(newAutomations);
   };
 
-  const handleAutomationChange = (index: number, field: 'event' | 'function', value: string) => {
+  const handlePausableToggle = async (checked: boolean) => {
+    setIsPausable(checked);
+    await regenerateContract(checked);
+  };
+
+  const regenerateContract = async (isPausable: boolean) => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topicFunctionPairs: automations.map(({ topic0, function: func }) => ({ topic0, function: func })),
+          chainId: parseInt(chainId),
+          originContract: originAddress,
+          destinationContract: destinationAddress,
+          isPausable: isPausable,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate contract');
+      }
+
+      const data = await response.json();
+      setReactiveContract(data.reactiveSmartContractTemplate);
+    } catch (err) {
+      setError('An error occurred while regenerating the contract. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (reactiveContract) {
+      setEditedContract(reactiveContract);
+    }
+  }, [reactiveContract]);
+
+  const handleAutomationChange = (index: number, field: 'event' | 'function' | 'topic0', value: string) => {
     const newAutomations = automations.map((automation, i) => {
       if (i === index) {
         const updatedAutomation = { ...automation, [field]: value };
@@ -97,7 +109,7 @@ export function AutomationPageComponent() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/user/generate', {
+      const response = await fetch('http://localhost:5000/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,6 +119,7 @@ export function AutomationPageComponent() {
           chainId: parseInt(chainId),
           originContract: originAddress,
           destinationContract: destinationAddress,
+          isPausable,
         }),
       });
 
@@ -116,8 +129,6 @@ export function AutomationPageComponent() {
 
       const data = await response.json();
       setReactiveContract(data.reactiveSmartContractTemplate);
-      setAbi(data.abi);
-      setBytecode(data.bytecode);
     } catch (err) {
       setError('An error occurred while generating the contract. Please try again.');
       console.error(err);
@@ -126,112 +137,65 @@ export function AutomationPageComponent() {
     }
   };
 
-  const deployContract = async () => {
-    if (typeof window.ethereum === 'undefined') {
-      setError('Please install MetaMask to deploy the contract.');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-
-      // Switch to Kopli Testnet
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x512578' }],
-        });
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          try {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0x512578',
-                chainName: 'Kopli Testnet',
-                nativeCurrency: {
-                  name: 'REACT',
-                  symbol: 'REACT',
-                  decimals: 18
-                },
-                rpcUrls: ['https://kopli-rpc.rkt.ink'],
-                blockExplorerUrls: ['https://kopli.reactscan.net']
-              }],
-            });
-          } catch (addError) {
-            throw new Error('Failed to add Kopli Testnet to MetaMask');
-          }
-        } else {
-          throw switchError;
-        }
-      }
-
-      const factory = new ethers.ContractFactory(abi, bytecode, signer);
-      
-      const contract = await factory.deploy("0x0000000000000000000000000000000000FFFFFF");
-      await contract.waitForDeployment();
-
-      setDeployedAddress(await contract.getAddress());
-    } catch (err) {
-      if (err instanceof Error) {
-        setError('Failed to deploy the contract. ' + err.message);
-      } else {
-        setError('Failed to deploy the contract. An unknown error occurred.');
-      }
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleEditContract = () => {
+    setEditingContract(true);
+    setEditedContract(reactiveContract);
   };
 
+  const handleSaveEditedContract = () => {
+    setReactiveContract(editedContract);
+    setEditingContract(false);
+  };
 
+  // const handleMoveToNextPage = () => {
+  //   router.push('/deployment-guide');
+  // };
+ 
+ 
+  
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-900 text-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Create Your Automation</h1>
+        <h1 className="text-3xl font-bold text-center text-gray-100 mb-8">Create Your Automation</h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
-            <Label className='text-gray-800'>Automations</Label>
+            <Label className="text-gray-300">Automations</Label>
             {automations.map((automation, index) => (
-              <Card key={index}>
+              <Card key={index} className="bg-gray-800 border-gray-700">
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor={`event-${index}`}>Event</Label>
+                      <Label htmlFor={`event-${index}`} className="text-gray-300">Event</Label>
                       <Input
                         id={`event-${index}`}
                         value={automation.event}
                         onChange={(e) => handleAutomationChange(index, 'event', e.target.value)}
                         placeholder="Event name"
                         required
+                        className="bg-gray-700 text-gray-100 border-gray-600"
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`function-${index}`}>Function</Label>
+                      <Label htmlFor={`function-${index}`} className="text-gray-300">Function</Label>
                       <Input
                         id={`function-${index}`}
                         value={automation.function}
                         onChange={(e) => handleAutomationChange(index, 'function', e.target.value)}
                         placeholder="Function name"
                         required
+                        className="bg-gray-700 text-gray-100 border-gray-600"
                       />
                     </div>
                   </div>
                   <div className="mt-2">
-                    <Label htmlFor={`topic0-${index}`}>Topic0 (auto-generated)</Label>
+                    <Label htmlFor={`topic0-${index}`} className="text-gray-300">Topic0 (auto-generated)</Label>
                     <Input
-                    
                       id={`topic0-${index}`}
                       value={automation.topic0}
                       readOnly
-                      className="bg-gray-100"
+                      className="bg-gray-600 text-gray-300 border-gray-700"
                     />
                   </div>
                   {index > 0 && (
@@ -249,28 +213,29 @@ export function AutomationPageComponent() {
                 </CardContent>
               </Card>
             ))}
-            <Button type="button" variant="outline" onClick={handleAddAutomation} className='text-gray-800'>
+            <Button type="button" variant="outline" onClick={handleAddAutomation} className="text-gray-300 border-gray-600 hover:bg-gray-700">
               <PlusCircle className="h-4 w-4 mr-2" />
               Add Automation
             </Button>
           </div>
 
           <div>
-            <Label htmlFor="chainId" className='text-gray-900'>Chain ID</Label>
+            <Label htmlFor="chainId" className="text-gray-300">Chain ID</Label>
             <Input
               id="chainId"
-              className='text-gray-900'
+              className="bg-gray-700 text-gray-100 border-gray-600"
               value={chainId}
               onChange={(e) => setChainId(e.target.value)}
               placeholder="Chain ID (e.g., 11155111 for Sepolia)"
               required
             />
           </div>
+          
 
           <div>
-            <Label htmlFor="originAddress" className='text-gray-900'>Origin Contract Address</Label>
+            <Label htmlFor="originAddress" className="text-gray-300">Origin Contract Address</Label>
             <Input
-            className='text-gray-900'
+              className="bg-gray-700 text-gray-100 border-gray-600"
               id="originAddress"
               value={originAddress}
               onChange={(e) => setOriginAddress(e.target.value)}
@@ -280,9 +245,9 @@ export function AutomationPageComponent() {
           </div>
 
           <div>
-            <Label htmlFor="destinationAddress" className='text-gray-900'>Destination Contract Address</Label>
+            <Label htmlFor="destinationAddress" className="text-gray-300">Destination Contract Address</Label>
             <Input
-            className='text-gray-900'
+              className="bg-gray-700 text-gray-100 border-gray-600"
               id="destinationAddress"
               value={destinationAddress}
               onChange={(e) => setDestinationAddress(e.target.value)}
@@ -291,22 +256,35 @@ export function AutomationPageComponent() {
             />
           </div>
 
-          {error && <p className="text-red-500">{error}</p>}
+        <div className="flex items-center space-x-2">
+            <Switch
+              id="pausable-mode"
+              checked={isPausable}
+              className='bg-gray-700 text-gray-100 border-gray-600 focus:ring-primary'
+              onCheckedChange={handlePausableToggle}
+            />
+            <Label htmlFor="pausable-mode" className="text-gray-300">Enable Pausable Functionality</Label>
+          </div>
+          {error && <p className="text-red-400">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full bg-primary hover:bg-primary-foreground" disabled={isLoading}>
             {isLoading ? 'Generating...' : 'Generate Contract'}
           </Button>
         </form>
 
+
+
+
         {reactiveContract && (
-          <Card className="mt-8">
+          <Card className="mt-8 bg-gray-800 border-gray-700">
             <CardHeader>
-              <CardTitle className="flex justify-between items-center">
+              <CardTitle className="flex justify-between items-center text-gray-100">
                 <span>Reactive Contract</span>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowContract(!showContract)}
+                  className="text-gray-300 hover:text-gray-100"
                 >
                   {showContract ? <ChevronUp /> : <ChevronDown />}
                 </Button>
@@ -316,10 +294,10 @@ export function AutomationPageComponent() {
               <CardContent>
                 {!editingContract ? (
                   <>
-                    <div className="bg-gray-200 p-4 rounded-md">
-                      <pre className="text-sm text-gray-600 whitespace-pre-wrap">{reactiveContract}</pre>
+                    <div className="bg-gray-700 p-4 rounded-md">
+                      <pre className="text-sm text-gray-300 whitespace-pre-wrap">{reactiveContract}</pre>
                     </div>
-                    <Button onClick={handleEditContract} className="mt-4">
+                    <Button onClick={handleEditContract} className="mt-4 bg-primary hover:bg-primary-foreground">
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Contract
                     </Button>
@@ -329,57 +307,43 @@ export function AutomationPageComponent() {
                     <Textarea
                       value={editedContract}
                       onChange={(e) => setEditedContract(e.target.value)}
-                      className="h-64 mb-4"
+                      className="h-64 mb-4 bg-gray-700 text-gray-100 border-gray-600"
                     />
                     <div className="flex justify-end space-x-2">
-                      <Button onClick={() => setEditingContract(false)} variant="outline">
+                      <Button onClick={() => setEditingContract(false)} variant="outline" className="text-gray-300 border-gray-600 hover:bg-gray-700">
                         Cancel
                       </Button>
-                      <Button onClick={handleSaveEditedContract}>
+                      <Button onClick={handleSaveEditedContract} className="bg-primary hover:bg-primary-foreground">
                         <Save className="h-4 w-4 mr-2" />
                         Save Changes
                       </Button>
                     </div>
                   </>
                 )}
+                
+                <Card className="bg-gray-800 mt-4 border-gray-700 mb-6">
+                  <CardHeader>
+                    <CardTitle className="text-gray-100">Is Your Template Complete?</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-300 mb-4">
+                      If you're satisfied with your Reactive Smart Contract template, you can proceed to the deployment guide.
+                      If you need to make changes, you can edit the contract using the "View Contract" button below.
+                    </p>
+                    <div className="mt-4 flex justify-between">
+                  
+                        <Link href={"/deployment-guide"}>
+                      <Button className="bg-green-600 hover:bg-green-700">
+                          <ArrowRight className="h-4 w-4 mr-2" />
+                          Proceed to Deployment Guide
+                      </Button>
+                        </Link>
+                    </div>
+                  </CardContent>
+                </Card>
               </CardContent>
             )}
           </Card>
-        )}
-
-        {abi && bytecode && (
-                  <Card className="mt-8">
-                    <CardHeader>
-                      <CardTitle>Deploy Contract</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Button onClick={handleRecompile} className="w-full mb-4" disabled={isLoading}>
-                        {isLoading ? 'Recompiling...' : 'Recompile Contract'}
-                      </Button>
-                      <Button onClick={deployContract} className="w-full" disabled={isLoading}>
-                        {isLoading ? 'Deploying...' : 'Deploy Contract with MetaMask'}
-                      </Button>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Please make sure to recompile the contract before deploying if you've made any changes.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-
-        {deployedAddress && (
-          <div className="mt-4">
-            <p className="text-green-600">Contract deployed successfully!</p>
-            <p className="text-gray-700">Deployed address: {deployedAddress}</p>
-            <a 
-              href={` https://kopli.reactscan.net/`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              View on Block Explorer
-            </a>
-          </div>
         )}
       </div>
     </div>

@@ -67,20 +67,19 @@ const dapps: Dapp[] = [
     imageUrl: "/placeholder.svg?height=100&width=100",
     details: "Aave is a decentralized non-custodial liquidity protocol where users can participate as depositors or borrowers."
   },
-  // Add more dApps here...
 ]
 
 export function DappsLibraryPage() {
   const [selectedDapp, setSelectedDapp] = useState<Dapp | null>(null)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-12 text-gray-900">Popular dApps Library</h1>
+        <h1 className="text-4xl font-bold text-center mb-12 text-gray-100">Popular dApps Library</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {dapps.map((dapp) => (
-            <Card key={dapp.id} className="flex flex-col hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+            <Card key={dapp.id} className="flex flex-col hover:shadow-lg transition-all duration-300 transform hover:scale-105 bg-gray-800 border-gray-700">
               <CardHeader className="flex flex-row items-center space-x-4 pb-4">
                 <Image
                   src={dapp.imageUrl}
@@ -89,17 +88,17 @@ export function DappsLibraryPage() {
                   height={50}
                   className="rounded-full"
                 />
-                <CardTitle className="text-xl font-bold">{dapp.title}</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-100">{dapp.title}</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow">
-                <p className="text-gray-600">{dapp.description}</p>
+                <p className="text-gray-300">{dapp.description}</p>
               </CardContent>
               <CardFooter className="flex justify-between items-center pt-4">
                 <Link href={dapp.url} target="_blank" rel="noopener noreferrer">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex items-center space-x-2 transition-all duration-300 hover:bg-primary hover:text-white"
+                    className="flex items-center space-x-2 transition-all duration-300 hover:bg-primary hover:text-white border-gray-600 text-gray-300"
                   >
                     <ExternalLink className="w-4 h-4" />
                     <span>Visit</span>
@@ -110,19 +109,19 @@ export function DappsLibraryPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="flex items-center space-x-2 transition-all duration-300 hover:bg-gray-100"
+                      className="flex items-center space-x-2 transition-all duration-300 hover:bg-gray-700 text-gray-300"
                       onClick={() => setSelectedDapp(dapp)}
                     >
                       <Info className="w-4 h-4" />
                       <span>Details</span>
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="bg-gray-800 text-gray-100">
                     <DialogHeader>
-                      <DialogTitle>{selectedDapp?.title}</DialogTitle>
+                      <DialogTitle className="text-gray-100">{selectedDapp?.title}</DialogTitle>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[60vh] w-full rounded-md border p-4">
-                      <p>{selectedDapp?.details}</p>
+                    <ScrollArea className="max-h-[60vh] w-full rounded-md border border-gray-700 p-4">
+                      <p className="text-gray-300">{selectedDapp?.details}</p>
                     </ScrollArea>
                   </DialogContent>
                 </Dialog>

@@ -10,13 +10,10 @@ interface EventInput {
 }
 
 interface TopicFunctionPair {
-    topic0: string;
+    event: string;
     function: string;
-    eventAbi: {
-        name: string;
-        type: string;
-        inputs: EventInput[];
-    };
+    topic0: string;
+    eventInputs?: EventInput[];
 }
 
 interface ContractInput {
@@ -25,6 +22,7 @@ interface ContractInput {
     originContract: string;
     destinationContract: string;
     ownerAddress?: string;
+    isPausable: boolean;
 }
 
 export default async function handleGenerate(req: Request, res: Response) {
@@ -32,12 +30,8 @@ export default async function handleGenerate(req: Request, res: Response) {
         const input: ContractInput = req.body;
         const reactiveSmartContractTemplate = generateReactiveSmartContractTemplate(input);
 
-        const { abi, bytecode } = await compileContract(reactiveSmartContractTemplate);
-
         res.json({
             reactiveSmartContractTemplate,
-            abi,
-            bytecode
         });
     } catch (error) {
         console.error('Error in handleGenerate:', error);
@@ -45,126 +39,86 @@ export default async function handleGenerate(req: Request, res: Response) {
     }
 }
 
-async function compileContract(sourceCode: string): Promise<{ abi: any, bytecode: string }> {
-    const input = {
-        language: 'Solidity',
-        sources: {
-            'Contract.sol': {
-                content: sourceCode
-            }
-        },
-        settings: {
-            outputSelection: {
-                '*': {
-                    '*': ['abi', 'evm.bytecode']
-                }
-            }
-        }
-    };
-
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
-    const contractName = 'ReactiveSmartContract';
-
-    if (output.errors) {
-        const errors = output.errors.filter((error: any) => error.severity === 'error');
-        if (errors.length > 0) {
-            console.error('Compilation errors:', errors);
-            throw new Error('Contract compilation failed');
-        }
-    }
-
-    const contract = output.contracts['Contract.sol'][contractName];
-    return {
-        abi: contract.abi,
-        bytecode: contract.evm.bytecode.object
-    };
-}
-
-
-
 function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
     return topicFunctionPairs.map((pair, index) => {
         return `uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.topic0};`;
     }).join('\n    ');
 }
 
-function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string {
+function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], chainId: number, originContract: string): string {
     return topicFunctionPairs.map((pair, index) => `
-    bytes memory payload_${index} = abi.encodeWithSignature(
+        bytes memory payload_${index} = abi.encodeWithSignature(
             "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
             CHAIN_ID,
-            _ORIGIN_CONTRACT,
+            ORIGIN_CONTRACT,
             EVENT_${index}_TOPIC_0,
             REACTIVE_IGNORE,
             REACTIVE_IGNORE,
             REACTIVE_IGNORE
         );
-        (subscription_result,) = address(service).call(payload_${index});
-        if (!subscription_result) {
-            vm = true;
-        }`).join('\n');
+        (bool subscription_result_${index},) = address(service).call(payload_${index});
+        vm = !subscription_result_${index};`).join('\n');
 }
 
-function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], ownerCheck: boolean): string {
-    const ownerCondition = ownerCheck ? `
-        require(msg.sender == _OWNER, 'Only owner can trigger react');` : '';
-
-    const reactLogic = topicFunctionPairs.map((pair, index) => {
-        const { eventAbi, function: functionSignature } = pair;
-        const indexedInputs = eventAbi.inputs.filter(input => input.indexed);
-        const nonIndexedInputs = eventAbi.inputs.filter(input => !input.indexed);
-
+function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], destinationContract: string): string {
+    return topicFunctionPairs.map((pair, index) => {
+        const { event, function: functionName, eventInputs } = pair;
         let decodingLogic = '';
         let functionInputs = '';
-        let customLogic = '';
 
-        // Handle non-indexed inputs
-        // if (nonIndexedInputs.length > 0) {
-        //     const structName = `${eventAbi.name}Data`;
-        //     decodingLogic = `
-        //     ${structName} memory eventData = abi.decode(data, (${structName}));`;
-        // }
-
-        // Generate custom logic based on event data 
-        // customLogic = `
-        //     // Custom logic for ${eventAbi.name} event
-        //     // TODO: Add custom logic here based on the event data`;
-
-        // // Prepare function inputs
-        // functionInputs = indexedInputs.map((input, i) => `address(uint160(topic_${i + 1}))`).join(', ');
-        // if (nonIndexedInputs.length > 0) {
-        //     if (functionInputs) functionInputs += ', ';
-        //     functionInputs += nonIndexedInputs.map(input => `eventData.${input.name}`).join(', ');
-        // }
+        if (eventInputs && eventInputs.length > 0) {
+            const structName = `${event}Data`;
+            decodingLogic = `
+            ${structName} memory eventData = abi.decode(data, (${structName}));`;
+            functionInputs = eventInputs.map(input => `eventData.${input.name}`).join(', ');
+        }
 
         return `
         if (topic_0 == EVENT_${index}_TOPIC_0) {
+            ${decodingLogic}
             bytes memory payload = abi.encodeWithSignature(
-                "${functionSignature}"
-                
+                "${functionName}(${eventInputs ? eventInputs.map(i => i.type).join(',') : ''})",
+                ${functionInputs}
             );
-            emit Callback(chain_id, _DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
+            emit Callback(chain_id, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
         }`;
     }).join(' else ');
-
-    return `${ownerCondition} ${reactLogic}`;
 }
 
 export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
-    const { topicFunctionPairs, chainId, originContract, destinationContract, ownerAddress } = input;
+    const { topicFunctionPairs, chainId, originContract, destinationContract, ownerAddress, isPausable } = input;
 
     const eventConstants = generateEventConstants(topicFunctionPairs);
-    const subscriptions = generateSubscriptions(topicFunctionPairs);
-    const reactLogic = generateReactLogic(topicFunctionPairs, !!ownerAddress);
+    const subscriptions = generateSubscriptions(topicFunctionPairs, chainId, originContract);
+    const reactLogic = generateReactLogic(topicFunctionPairs, destinationContract);
 
-    const ownerDeclaration = ownerAddress ? `address private immutable _OWNER = ${ownerAddress};` : '';
+    const baseContract = isPausable ? 'AbstractPausableReactive' : 'AbstractReactive';
+    const pausableImport = isPausable ? "import '../../AbstractPausableReactive.sol';" : "import '../../AbstractReactive.sol';";
+    const pausedInitialization = isPausable ? 'paused = false;' : '';
+    const getPausableSubscriptionsFunction = isPausable ? `
+    function getPausableSubscriptions() override internal pure returns (Subscription[] memory) {
+        Subscription[] memory result = new Subscription[](${topicFunctionPairs.length});
+        ${topicFunctionPairs.map((_, index) => `
+        result[${index}] = Subscription(
+            CHAIN_ID,
+            ORIGIN_CONTRACT,
+            EVENT_${index}_TOPIC_0,
+            REACTIVE_IGNORE,
+            REACTIVE_IGNORE,
+            REACTIVE_IGNORE
+        );`).join('\n')}
+        return result;
+    }` : '';
 
     const template = `
-    // SPDX-License-Identifier: UNLICENSED
-
+    // SPDX-License-Identifier: GPL-2.0-or-later
     pragma solidity >=0.8.0;
     
-    interface IReactive {
+    import '../../IReactive.sol';
+    ${pausableImport}
+    import '../../ISubscriptionService.sol';
+    
+    contract ReactiveSmartContract is IReactive, ${baseContract} {
         event Callback(
             uint256 indexed chain_id,
             address indexed _contract,
@@ -172,9 +126,30 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
             bytes payload
         );
     
+        uint256 private constant REACTIVE_IGNORE = 0xa65f96fc951c35ead38878e0f0b7a3c744a6f5ccc1476b313353ce31712313ad;
+    
+        uint256 private constant CHAIN_ID = ${chainId};
+        address private immutable ORIGIN_CONTRACT = ${originContract};
+        address private immutable DESTINATION_CONTRACT = ${destinationContract};
+    
+        uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
+    
+        ${eventConstants}
+    
+        constructor() {
+            ${pausedInitialization}
+            owner = ${ownerAddress || 'msg.sender'};
+            
+            ${subscriptions}
+        }
+    
+        receive() external payable {}
+    
+        ${getPausableSubscriptionsFunction}
+    
         function react(
             uint256 chain_id,
-            address ORIGIN_CONTRACT,
+            address _contract,
             uint256 topic_0,
             uint256 topic_1,
             uint256 topic_2,
@@ -182,115 +157,9 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
             bytes calldata data,
             uint256 block_number,
             uint256 op_code
-        ) external;
-    }
-
-    interface ISubscriptionService {
-        function subscribe(
-            uint256 chain_id,
-            address ORIGIN_CONTRACT,
-            uint256 topic_0,
-            uint256 topic_1,
-            uint256 topic_2,
-            uint256 topic_3
-        ) external;
-    
-        function unsubscribe(
-            uint256 chain_id,
-            address ORIGIN_CONTRACT,
-            uint256 topic_0,
-            uint256 topic_1,
-            uint256 topic_2,
-            uint256 topic_3
-        ) external;
-    }
-    
-    contract ReactiveSmartContract is IReactive {
-        event Event(
-            uint256 indexed chain_id,
-            address indexed ORIGIN_CONTRACT,
-            uint256 indexed topic_0,
-            uint256 topic_1,
-            uint256 topic_2,
-            uint256 topic_3,
-            bytes data,
-            uint256 counter
-        );
-    
-        uint256 private constant REACTIVE_IGNORE = 0xa65f96fc951c35ead38878e0f0b7a3c744a6f5ccc1476b313353ce31712313ad;
-    
-        uint256 private constant CHAIN_ID = ${chainId};
-        address private immutable _ORIGIN_CONTRACT;
-        address private immutable _DESTINATION_CONTRACT;
-    
-        uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
-
-        ${ownerDeclaration}
-    
-        ${eventConstants}
-    
-        bool private vm;
-        ISubscriptionService private immutable service;
-        uint256 public counter;
-    
-        constructor(address service_address) {
-            service = ISubscriptionService(service_address);
-            bool subscription_result;
-            
-            _ORIGIN_CONTRACT = ${originContract};
-            _DESTINATION_CONTRACT = ${destinationContract};
-            
-            ${subscriptions}
-        }
-    
-        modifier vmOnly() {
-            require(vm, 'VM only');
-            _;
-        }
-    
-        function react(
-            uint256 chain_id,
-            address /* ORIGIN_CONTRACT */,
-            uint256 topic_0,
-            uint256 topic_1,
-            uint256 topic_2,
-            uint256 topic_3,
-            bytes calldata data,
-            uint256 /* block_number */,
-            uint256 /* op_code */
         ) external vmOnly {
-            emit Event(chain_id, _ORIGIN_CONTRACT, topic_0, topic_1, topic_2, topic_3, data, ++counter);
-            
             ${reactLogic}
         }
-    
-        function subscribe(uint256 topic_0) external {
-            service.subscribe(
-                CHAIN_ID,
-                _ORIGIN_CONTRACT,
-                topic_0,
-                REACTIVE_IGNORE,
-                REACTIVE_IGNORE,
-                REACTIVE_IGNORE
-            );
-        }
-    
-        function unsubscribe(uint256 topic_0) external {
-            service.unsubscribe(
-                CHAIN_ID,
-                _ORIGIN_CONTRACT,
-                topic_0,
-                REACTIVE_IGNORE,
-                REACTIVE_IGNORE,
-                REACTIVE_IGNORE
-            );
-        }
-    
-        function resetCounter() external {
-            counter = 0;
-        }
-
-        
     }
     `;
 

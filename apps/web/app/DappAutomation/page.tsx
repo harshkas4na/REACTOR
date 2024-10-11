@@ -227,37 +227,39 @@ export default function AutomationPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-8 bg-gray-50 min-h-screen">
-      <h1 className="text-4xl font-bold text-center text-gray-800">DApp Automation</h1>
+    <div className="container mx-auto p-4 space-y-8 bg-gray-900 text-gray-100 min-h-screen">
+      <h1 className="text-4xl font-bold text-center text-gray-100">DApp Automation</h1>
 
       {/* Contract Processing Form */}
-      <Card className="w-full max-w-md mx-auto">
+      <Card className="w-full max-w-md mx-auto bg-gray-800 border-gray-700">
         <CardHeader>
-          <CardTitle>Process Contract</CardTitle>
+          <CardTitle className="text-gray-100">Process Contract</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="contractAddress">Contract Address</Label>
+              <Label htmlFor="contractAddress" className="text-gray-300">Contract Address</Label>
               <Input
                 id="contractAddress"
                 value={contractAddress}
                 onChange={(e) => setContractAddress(e.target.value)}
                 placeholder="0x..."
                 required
+                className="bg-gray-700 text-gray-100 border-gray-600"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="userAddress">Your Address</Label>
+              <Label htmlFor="userAddress" className="text-gray-300">Your Address</Label>
               <Input
                 id="userAddress"
                 value={userAddress}
                 onChange={(e) => setUserAddress(e.target.value)}
                 placeholder="0x..."
                 required
+                className="bg-gray-700 text-gray-100 border-gray-600"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary-foreground" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Process Contract'}
             </Button>
           </form>
@@ -266,7 +268,7 @@ export default function AutomationPage() {
 
       {/* Error Alert */}
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="bg-red-900 border-red-700 text-red-100">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
@@ -275,18 +277,18 @@ export default function AutomationPage() {
 
       {/* Success Message */}
       {successMessage && (
-        <Alert variant="default" className="bg-green-100 border-green-400">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Success</AlertTitle>
-          <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
+        <Alert variant="default" className="bg-green-900 border-green-700 text-green-100">
+          <CheckCircle className="h-4 w-4 text-green-400" />
+          <AlertTitle className="text-green-100">Success</AlertTitle>
+          <AlertDescription className="text-green-200">{successMessage}</AlertDescription>
         </Alert>
       )}
 
       {/* Contract Data Modal */}
       {contractData && (
-        <Card className="mt-6">
+        <Card className="mt-6 bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle>Select Event-Function Pairs</CardTitle>
+            <CardTitle className="text-gray-100">Select Event-Function Pairs</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
@@ -295,15 +297,15 @@ export default function AutomationPage() {
                   <DialogTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full bg-gray-700 text-gray-100 border-gray-600 hover:bg-gray-600"
                       onClick={() => setSelectedFunction(func)}
                     >
                       {func}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
+                  <DialogContent className="sm:max-w-[425px] bg-gray-800 text-gray-100">
                     <DialogHeader>
-                      <DialogTitle>Select Events for {func}</DialogTitle>
+                      <DialogTitle className="text-gray-100">Select Events for {func}</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       {contractData.events.map((event, eventIndex) => (
@@ -315,8 +317,9 @@ export default function AutomationPage() {
                               pair.function === func
                             )}
                             onCheckedChange={() => handlePairSelection(event, func)}
+                            className="border-gray-500"
                           />
-                          <Label htmlFor={`pair-${eventIndex}-${funcIndex}`}>{event.formatted}</Label>
+                          <Label htmlFor={`pair-${eventIndex}-${funcIndex}`} className="text-gray-300">{event.formatted}</Label>
                         </div>
                       ))}
                     </div>
@@ -328,46 +331,48 @@ export default function AutomationPage() {
         </Card>
       )}
 
-     
-
       {/* Generate Contract */}
       {selectedPairs.length > 0 && (
-        <Card className="mt-6">
+        <Card className="mt-6 bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle>Generate Reactive Contract</CardTitle>
+            <CardTitle className="text-gray-100">Generate Reactive Contract</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="originAddress">Origin Address</Label>
+              <Label htmlFor="originAddress" className="text-gray-300">Origin Address</Label>
               <Input
                 id="originAddress"
                 value={originAddress}
                 onChange={(e) => setOriginAddress(e.target.value)}
                 placeholder="0x..."
                 required
+                className="bg-gray-700 text-gray-100 border-gray-600"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="destinationAddress">Destination Address</Label>
+              <Label htmlFor="destinationAddress" className="text-gray-300">Destination Address</Label>
               <Input
                 id="destinationAddress"
                 value={destinationAddress}
                 onChange={(e) => setDestinationAddress(e.target.value)}
                 placeholder="0x..."
                 required
+                className="bg-gray-700 text-gray-100 border-gray-600"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="chainId">Chain ID</Label>
+              <Label htmlFor="chainId" className="text-gray-300">Chain ID</Label>
               <Input
                 id="chainId"
                 value={chainId}
                 onChange={(e) => setChainId(e.target.value)}
                 placeholder="Chain ID (e.g., 11155111 for Sepolia)"
                 required
+                className="bg-gray-700 text-gray-100 border-gray-600"
               />
             </div>
-            <Button onClick={handleGenerateContract} className="w-full" disabled={isLoading}>
+            <Button onClick={handleGenerateContract} className="w-full bg-primary hover:bg-primary-foreground" 
+disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Contract'}
             </Button>
           </CardContent>
@@ -376,14 +381,15 @@ export default function AutomationPage() {
 
       {/* Reactive Contract Display */}
       {reactiveContract && (
-        <Card className="mt-6">
+        <Card className="mt-6 bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle className="flex justify-between items-center">
+            <CardTitle className="flex justify-between items-center text-gray-100">
               <span>Reactive Contract</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowContract(!showContract)}
+                className="text-gray-300 hover:text-gray-100"
               >
                 {showContract ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
@@ -393,10 +399,10 @@ export default function AutomationPage() {
             <CardContent>
               {!editingContract ? (
                 <>
-                  <div className="bg-gray-100 p-4 rounded-md overflow-x-auto">
-                    <pre className="text-sm text-gray-800 whitespace-pre-wrap">{reactiveContract}</pre>
+                  <div className="bg-gray-700 p-4 rounded-md overflow-x-auto">
+                    <pre className="text-sm text-gray-300 whitespace-pre-wrap">{reactiveContract}</pre>
                   </div>
-                  <Button onClick={handleEditContract} className="mt-4">
+                  <Button onClick={handleEditContract} className="mt-4 bg-primary hover:bg-primary-foreground">
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Contract
                   </Button>
@@ -406,13 +412,13 @@ export default function AutomationPage() {
                   <Textarea
                     value={editedContract}
                     onChange={(e) => setEditedContract(e.target.value)}
-                    className="h-64 mb-4 font-mono"
+                    className="h-64 mb-4 font-mono bg-gray-700 text-gray-100 border-gray-600"
                   />
                   <div className="flex justify-end space-x-2">
-                    <Button onClick={() => setEditingContract(false)} variant="outline">
+                    <Button onClick={() => setEditingContract(false)} variant="outline" className="text-gray-300 border-gray-600 hover:bg-gray-700">
                       Cancel
                     </Button>
-                    <Button onClick={handleSaveEditedContract}>
+                    <Button onClick={handleSaveEditedContract} className="bg-primary hover:bg-primary-foreground">
                       <Save className="h-4 w-4 mr-2" />
                       Save Changes
                     </Button>
@@ -426,18 +432,18 @@ export default function AutomationPage() {
 
       {/* Recompile and Deploy */}
       {abi && bytecode && (
-        <Card className="mt-6">
+        <Card className="mt-6 bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle>Deploy Contract</CardTitle>
+            <CardTitle className="text-gray-100">Deploy Contract</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={handleRecompile} className="w-full" disabled={isLoading}>
+            <Button onClick={handleRecompile} className="w-full bg-primary hover:bg-primary-foreground" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Recompile Contract'}
             </Button>
-            <Button onClick={deployContract} className="w-full" disabled={isLoading}>
+            <Button onClick={deployContract} className="w-full bg-primary hover:bg-primary-foreground" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Deploy Contract with MetaMask'}
             </Button>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-400">
               Please make sure to recompile the contract before deploying if you've made any changes.
             </p>
           </CardContent>
@@ -446,18 +452,18 @@ export default function AutomationPage() {
 
       {/* Deployed Contract Information */}
       {deployedAddress && (
-        <Card className="mt-6">
+        <Card className="mt-6 bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle>Deployed Contract</CardTitle>
+            <CardTitle className="text-gray-100">Deployed Contract</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-green-600 font-semibold">Contract deployed successfully!</p>
-            <p className="text-gray-700">Deployed address: {deployedAddress}</p>
+            <p className="text-green-400 font-semibold">Contract deployed successfully!</p>
+            <p className="text-gray-300">Deployed address: {deployedAddress}</p>
             <a 
               href={`https://kopli.reactscan.net/address/${deployedAddress}`}
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
+              className="text-blue-400 hover:underline"
             >
               View on Block Explorer
             </a>

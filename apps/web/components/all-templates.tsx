@@ -72,20 +72,20 @@ export function AllTemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-12 text-gray-900">All Templates</h1>
+        <h1 className="text-4xl font-bold text-center mb-12 text-gray-100">All Templates</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {templates.map((template) => (
-            <Card key={template.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300">
+            <Card key={template.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300 bg-gray-800 border-gray-700">
               <CardHeader className="bg-gradient-to-r from-primary to-primary-foreground text-white rounded-t-lg">
                 <CardTitle className="text-xl font-bold">{template.title}</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow p-6">
-                <p className="text-gray-600">{template.description}</p>
+                <p className="text-gray-300">{template.description}</p>
               </CardContent>
-              <CardFooter className="flex justify-center p-6 bg-gray-50 rounded-b-lg">
+              <CardFooter className="flex justify-center p-6 bg-gray-700 rounded-b-lg">
                 <TooltipProvider>
                   <div className="flex space-x-2">
                     <Tooltip>
@@ -95,18 +95,18 @@ export function AllTemplatesPage() {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12"
+                              className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-gray-600 border-gray-500 text-gray-200"
                               onClick={() => setSelectedTemplate(template)}
                             >
                               <Code className="w-5 h-5" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-3xl">
+                          <DialogContent className="max-w-3xl bg-gray-800 text-gray-100">
                             <DialogHeader>
                               <DialogTitle>{selectedTemplate?.title} - Source Code</DialogTitle>
                             </DialogHeader>
-                            <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-gray-100">
-                              <pre className="text-sm">
+                            <ScrollArea className="h-[400px] w-full rounded-md border border-gray-700 p-4 bg-gray-900">
+                              <pre className="text-sm text-gray-300">
                                 <code>{selectedTemplate?.sourceCode}</code>
                               </pre>
                             </ScrollArea>
@@ -125,18 +125,18 @@ export function AllTemplatesPage() {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12"
+                              className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-gray-600 border-gray-500 text-gray-200"
                               onClick={() => setSelectedTemplate(template)}
                             >
                               <Zap className="w-5 h-5" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-3xl">
+                          <DialogContent className="max-w-3xl bg-gray-800 text-gray-100">
                             <DialogHeader>
                               <DialogTitle>{selectedTemplate?.title} - Reactive Template</DialogTitle>
                             </DialogHeader>
-                            <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-gray-100">
-                              <pre className="text-sm">
+                            <ScrollArea className="h-[400px] w-full rounded-md border border-gray-700 p-4 bg-gray-900">
+                              <pre className="text-sm text-gray-300">
                                 <code>{selectedTemplate?.reactiveTemplate}</code>
                               </pre>
                             </ScrollArea>
@@ -155,13 +155,13 @@ export function AllTemplatesPage() {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12"
+                              className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-gray-600 border-gray-500 text-gray-200"
                               onClick={() => setSelectedTemplate(template)}
                             >
                               <Github className="w-5 h-5" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent>
+                          <DialogContent className="bg-gray-800 text-gray-100">
                             <DialogHeader>
                               <DialogTitle>{selectedTemplate?.title} - GitHub Repository</DialogTitle>
                             </DialogHeader>
@@ -170,7 +170,7 @@ export function AllTemplatesPage() {
                                 href={selectedTemplate?.githubRepo}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
+                                className="text-blue-400 hover:underline"
                               >
                                 {selectedTemplate?.githubRepo}
                               </a>
