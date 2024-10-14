@@ -25,7 +25,7 @@ interface ContractInput {
     isPausable: boolean;
 }
 
-export default async function handleGenerate(req: Request, res: Response) {
+export default async function handleGenerateSC(req: Request, res: Response) {
     try {
         const input: ContractInput = req.body;
         const reactiveSmartContractTemplate = generateReactiveSmartContractTemplate(input);

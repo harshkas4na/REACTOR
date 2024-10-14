@@ -3,7 +3,7 @@ import { validateContractInput } from "../zod/validateContractInput";
 import crypto from 'crypto';
 const solc = require('solc');
 
-export default async function handleRecGen(req: Request, res: Response) {
+export default async function handleGenerateDA(req: Request, res: Response) {
     try {
         const input = req.body;
         const reactiveSmartContractTemplate = generateReactiveSmartContractTemplate(input);
@@ -57,27 +57,35 @@ async function compileContract(sourceCode: string): Promise<{ abi: any, bytecode
     };
 }
 
-interface TopicFunctionPair {
-    topic0: string;
-    function: string;
+interface EventFunctionPair {
+    event: {
+        name: string;
+        topic0: string;
+    };
+    function: {
+        name: string;
+        inputs: any[];
+    };
 }
 
 interface ContractInput {
-    topicFunctionPairs: TopicFunctionPair[];
-    chainId: number;
-    originContract: string;
-    destinationContract: string;
-    ownerAddress?: string;  // Optional ownerAddress parameter
+    automationType: string;
+    originAddress: string;
+    destinationAddress: string;
+    selectedPairs: EventFunctionPair[];
+    functionInputs: Record<string, Record<string, string>>;
+    conditions: Record<string, string>;
+    applicableAddresses: string[];
 }
 
-function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
-    return topicFunctionPairs.map((pair, index) => {
-        return `uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.topic0};`;
+function generateEventConstants(selectedPairs: EventFunctionPair[]): string {
+    return selectedPairs.map((pair, index) => {
+        return `uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.event.topic0};`;
     }).join('\n    ');
 }
 
-function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string {
-    return topicFunctionPairs.map((pair, index) => `
+function generateSubscriptions(selectedPairs: EventFunctionPair[]): string {
+    return selectedPairs.map((pair, index) => `
     bytes memory payload_${index} = abi.encodeWithSignature(
             "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
             CHAIN_ID,
@@ -93,31 +101,58 @@ function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[]): string 
         }`).join('\n');
 }
 
-function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], ownerCheck: boolean): string {
-    const ownerCondition = ownerCheck ? `
-        require(msg.sender == _OWNER, 'Only owner can trigger react');` : '';
+function generateReactLogic(input: ContractInput): string {
+    const { selectedPairs, functionInputs, conditions, applicableAddresses } = input;
 
-    const reactLogic = topicFunctionPairs.map((pair, index) => `
+    const addressCheck = applicableAddresses.length > 0 
+        ? `require(isApplicableAddress(msg.sender), "Address not allowed");`
+        : '';
+
+    const reactLogic = selectedPairs.map((pair, index) => {
+        const condition = conditions[pair.function.name] 
+            ? `require(${conditions[pair.function.name]}, "Condition not met");`
+            : '';
+
+        const functionInputsStr = pair.function.inputs
+            .map(input => functionInputs[pair.function.name]?.[input.name] || '0')
+            .join(', ');
+
+        return `
         if (topic_0 == EVENT_${index}_TOPIC_0) {
+            ${condition}
             bytes memory payload = abi.encodeWithSignature(
-                "${pair.function}(address,uint256)",
-                address(0),
-                topic_1
+                "${pair.function.name}(${pair.function.inputs.map(i => i.type).join(',')})",
+                ${functionInputsStr}
             );
             emit Callback(chain_id, _DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
-        }`).join(' else ');
+        }`;
+    }).join(' else ');
 
-    return `${ownerCondition} ${reactLogic}`;
+    return `${addressCheck} ${reactLogic}`;
 }
 
 export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
-    const { topicFunctionPairs, chainId, originContract, destinationContract, ownerAddress } = input;
+    const { automationType, originAddress, destinationAddress, selectedPairs, applicableAddresses } = input;
 
-    const eventConstants = generateEventConstants(topicFunctionPairs);
-    const subscriptions = generateSubscriptions(topicFunctionPairs);
-    const reactLogic = generateReactLogic(topicFunctionPairs, !!ownerAddress);
+    const eventConstants = generateEventConstants(selectedPairs);
+    const subscriptions = generateSubscriptions(selectedPairs);
+    const reactLogic = generateReactLogic(input);
 
-    const ownerDeclaration = ownerAddress ? `address private immutable _OWNER = ${ownerAddress};` : '';
+    const applicableAddressesArray = applicableAddresses.length > 0
+        ? `address[] private applicableAddresses = [${applicableAddresses.join(', ')}];`
+        : '';
+
+    const isApplicableAddressFunction = applicableAddresses.length > 0
+        ? `
+    function isApplicableAddress(address addr) private view returns (bool) {
+        for (uint i = 0; i < applicableAddresses.length; i++) {
+            if (applicableAddresses[i] == addr) {
+                return true;
+            }
+        }
+        return false;
+    }`
+        : '';
 
     const template = `
     // SPDX-License-Identifier: UNLICENSED
@@ -179,13 +214,13 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
     
         uint256 private constant REACTIVE_IGNORE = 0xa65f96fc951c35ead38878e0f0b7a3c744a6f5ccc1476b313353ce31712313ad;
     
-        uint256 private constant CHAIN_ID = ${chainId};
+        uint256 private constant CHAIN_ID = 1; // Assuming Ethereum mainnet, adjust as needed
         address private immutable _ORIGIN_CONTRACT;
         address private immutable _DESTINATION_CONTRACT;
     
         uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
 
-        ${ownerDeclaration}
+        ${applicableAddressesArray}
     
         ${eventConstants}
     
@@ -197,8 +232,8 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
             service = ISubscriptionService(service_address);
             bool subscription_result;
             
-            _ORIGIN_CONTRACT = ${originContract};
-            _DESTINATION_CONTRACT = ${destinationContract};
+            _ORIGIN_CONTRACT = ${originAddress};
+            _DESTINATION_CONTRACT = ${destinationAddress};
             
             ${subscriptions}
         }
@@ -250,7 +285,7 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
             counter = 0;
         }
 
-        
+        ${isApplicableAddressFunction}
     }
     `;
 
