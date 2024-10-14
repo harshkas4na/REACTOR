@@ -21,7 +21,9 @@
     "packages/*"
   ],
   "dependencies": {
+    "ethers": "^6.13.3",
     "lucide-react": "^0.441.0",
-    "psql": "^0.0.1"
+    "psql": "^0.0.1",
+    "reactive-contracts": "^1.0.3"
   }
 }

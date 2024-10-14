@@ -50,7 +50,7 @@ export function LandingPageComponent() {
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               {['Home', 'Templates', 'Community', 'Contact'].map((item) => (
-                <Link key={item} href={`/${item.toLowerCase()}`} className="text-gray-300 hover:text-primary py-2 relative group">
+                <Link key={item} href={`/${item}`} className="text-gray-300 hover:text-primary py-2 relative group">
                   <span className="relative z-10 px-1 text-sm font-medium transition-colors duration-300 ease-in-out">
                     {item}
                   </span>

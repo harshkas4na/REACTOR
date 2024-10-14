@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^5.19.1",
+    "@prisma/client": "^5.20.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "axios": "^1.7.7",
@@ -18,13 +18,14 @@
     "dotenv": "^16.4.5",
     "ethers": "^6.13.2",
     "express": "^4.21.0",
-    "prisma": "^5.19.1",
+    "psql": "^0.0.1",
     "solc": "^0.8.27",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*"
+    "@repo/typescript-config": "*",
+    "prisma": "^5.20.0"
   },
   "description": ""
 }

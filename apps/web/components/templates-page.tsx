@@ -56,7 +56,7 @@ export default function TemplatesPage() {
                     See All Templates
                   </Button>
                 </Link>
-                <Link href="/contribute">
+                <Link href="/contribute/SmartContracts">
                   <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white transition-colors duration-300">
                     Contribute
                   </Button>
@@ -106,7 +106,7 @@ export default function TemplatesPage() {
                     See All Templates
                   </Button>
                 </Link>
-                <Link href="/contribute">
+                <Link href="/contribute/DappLibrary">
                   <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white transition-colors duration-300">
                     Contribute
                   </Button>

@@ -1,10 +1,10 @@
-import { AllTemplatesPage } from '@/components/all-templates'
+import { UseCasesPage } from '@/components/UseCasesPage'
 import React from 'react'
 
 const TemplateLibrary = () => {
   return (
     <div>
-        <AllTemplatesPage/>
+        <UseCasesPage/>
     </div>
   )
 }

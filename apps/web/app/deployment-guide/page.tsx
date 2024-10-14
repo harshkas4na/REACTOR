@@ -38,7 +38,7 @@ export default function DeploymentGuideComponent() {
           <CardContent>
             <p className="text-gray-300 mb-4">First, clone the basic Reactive Smart Contract repository:</p>
             <pre className="bg-gray-700 p-4 rounded-md text-gray-300 overflow-x-auto">
-              git clone https://github.com/your-repo/reactive-smart-contract.git
+              git clone https://github.com/harshkas4na/ReactiveBaseSetup.git
             </pre>
           </CardContent>
         </Card>
