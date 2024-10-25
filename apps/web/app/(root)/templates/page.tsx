@@ -51,12 +51,12 @@ export default function TemplatesPage() {
                 </ul>
               </CardContent>
               <CardFooter className="flex justify-between">
-                <Link href="/Templates/SmartContracts">
+                <Link href="/templates/SmartContracts">
                   <Button size="sm" className="bg-primary text-white hover:bg-primary-dark transition-colors duration-300">
                     See All Templates
                   </Button>
                 </Link>
-                <Link href="/contribute/SmartContracts">
+                <Link href="/templates/SmartContracts/contribute">
                   <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white transition-colors duration-300">
                     Contribute
                   </Button>
@@ -101,12 +101,12 @@ export default function TemplatesPage() {
                 </p>
               </CardContent>
               <CardFooter className="flex justify-between">
-                <Link href="/Templates/DappLibrary">
+                <Link href="/templates/DappLibrary">
                   <Button size="sm" className="bg-primary text-white hover:bg-primary-dark transition-colors duration-300">
                     See All Templates
                   </Button>
                 </Link>
-                <Link href="/contribute/DappLibrary">
+                <Link href="/templates/DappLibrary/contribute">
                   <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white transition-colors duration-300">
                     Contribute
                   </Button>

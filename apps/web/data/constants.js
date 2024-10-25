@@ -1,8 +1,8 @@
 export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
-    { label: 'Templates', path: '/Templates' },
-    { label: 'Community', path: '/Community' },
-    { label: 'Dapp-Automation', path: '/DappAutomation' }
+    { label: 'Templates', path: '/templates' },
+    { label: 'Community', path: '/community' },
+    { label: 'Dapp-Automation', path: '/automation/DappAutomation' }
   ]
 
 export const FEATURES = [
@@ -18,3 +18,8 @@ export const TESTIMONIALS = [
     { name: "Jane Smith", role: "CTO, InnovateCo", content: "The automation capabilities are truly game-changing." },
     { name: "Alex Johnson", role: "Founder, StartupX", content: "We've seen a 50% increase in productivity since implementing this." },
   ]
+
+
+  export const API_ENDPOINTS = {
+    GENERATE_CONTRACT: 'http://localhost:5000/generateSC'
+  }

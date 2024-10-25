@@ -42,7 +42,7 @@ const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.6 }}
             >
-              <Link href="/generate">
+              <Link href="/automation/SCAutomation">
                 <Button size="lg" className="bg-primary text-white hover:bg-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105">
                   Get Started
                 </Button>

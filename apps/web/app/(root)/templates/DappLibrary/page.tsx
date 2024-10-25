@@ -69,7 +69,7 @@ const dapps: Dapp[] = [
   },
 ]
 
-export function DappsLibraryPage() {
+export default function DappsLibraryPage() {
   const [selectedDapp, setSelectedDapp] = useState<Dapp | null>(null)
 
   return (
