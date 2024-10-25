@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import dotenv from 'dotenv';
 import { ethers } from 'ethers';
-import axios from 'axios';
 
 dotenv.config();
 
@@ -9,11 +8,16 @@ export default async function handleAutomation(req: Request, res: Response) {
   const { originAddress, destinationAddress } = req.body;
 
   try {
-    // Verify contract on Etherscan using axios
+    // Verify contract on Etherscan using fetch
     const etherscanUrl = `https://api.etherscan.io/api?module=contract&action=getabi&address=${originAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
 
-    const etherscanResponse = await axios.get(etherscanUrl);
-    const etherscanData = etherscanResponse.data;
+    const etherscanResponse = await fetch(etherscanUrl);
+    
+    if (!etherscanResponse.ok) {
+      return res.status(400).json({ message: 'Failed to fetch contract from Etherscan' });
+    }
+    
+    const etherscanData = await etherscanResponse.json();
 
     // Check if the contract is verified
     if (etherscanData.status !== '1') {
@@ -28,7 +32,7 @@ export default async function handleAutomation(req: Request, res: Response) {
       .map((item: any) => ({
         name: item.name,
         inputs: item.inputs,
-        topic0: ethers.utils.id(`${item.name}(${item.inputs.map((input: any) => input.type).join(',')})`),
+        topic0: ethers.id(`${item.name}(${item.inputs.map((input: any) => input.type).join(',')})`),
         abi: item
       }));
 
@@ -41,22 +45,17 @@ export default async function handleAutomation(req: Request, res: Response) {
         abi: item
       }));
 
+    console.log(functions,events);  
+
     // Respond with extracted events (including ABIs) and functions
     return res.json({ events, functions });
 
   } catch (error) {
     console.error('Error processing contract:', error);
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error(error.response.data);
-      console.error(error.response.status);
-      console.error(error.response.headers);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error(error.request);
+    if (error.name === 'FetchError') {
+      // Handle fetch-specific error
+      console.error('Fetch error', error.message);
     } else {
-      // Something happened in setting up the request that triggered an Error
       console.error('Error', error.message);
     }
     return res.status(500).json({ message: 'Internal Server Error', error: error.message });

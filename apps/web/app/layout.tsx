@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AutomationProvider } from "./_context/AutomationContext";
 import ConvexClerkProvider from "./ConvexClerkProvider";
+import Navigation from "@/components/navigation/Navigation";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,6 +33,7 @@ export default function RootLayout({
       > 
       <AutomationProvider>
         <ConvexClerkProvider>
+        <Navigation />
           {children}
         </ConvexClerkProvider>
       </AutomationProvider>
