@@ -1,501 +1,169 @@
-"use client";
-import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, HelpCircle, Loader2, CheckCircle } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+'use client'
 
-const AutomationPage = () => {
-  // State Management
-  const [state, setState] = useState({
-    automationType: 'single',
-    originAddress: '',
-    destinationAddress: '',
-    contractData: null,
-    selectedEvent: null,
-    selectedPairs: [],
-    inputConfigurations: {},
-    eventDecodingConfig: {},
-    validationErrors: {},
-    isLoading: false,
-    error: '',
-    successMessage: '',
-    step: 1,
-    isPausable: false,
-    applicableAddresses: '',
-    reactiveContract: '',
-  });
+import { useState } from 'react'
+import { Search, Loader2, Info } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-  const [inputConfig, setInputConfig] = useState({
-    mappings: {},
-    staticValues: {},
-    decodedData: {},
-    conditions: {},
-  });
+const templates = [
+  {
+    id: 'single-dapp',
+    title: 'Single DApp Automation',
+    description: 'Automate actions within a single DApp based on its internal events',
+    icon: (
+      <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
+        <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <circle cx="12" cy="12" r="10" strokeWidth="2" />
+          <circle cx="12" cy="12" r="4" strokeWidth="2" />
+        </svg>
+      </div>
+    ),
+  },
+  {
+    id: 'chain-wide',
+    title: 'Chain-Wide Triggers',
+    description: 'Create automations that respond to blockchain-wide events',
+    icon: (
+      <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
+        <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+    ),
+  },
+  {
+    id: 'cross-dapp',
+    title: 'Cross-DApp Integration',
+    description: 'Build automated workflows connecting multiple DApps',
+    icon: (
+      <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
+        <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+        </svg>
+      </div>
+    ),
+  },
+]
 
-  // Load saved configuration on mount
-  useEffect(() => {
-    const savedConfig = localStorage.getItem('automationConfig');
-    if (savedConfig) {
-      const parsedConfig = JSON.parse(savedConfig);
-      setState(prev => ({ ...prev, ...parsedConfig }));
-    }
-  }, []);
+export default function TemplateSelection() {
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  // Save configuration
-  const saveConfiguration = () => {
-    const config = {
-      automationType: state.automationType,
-      originAddress: state.originAddress,
-      destinationAddress: state.destinationAddress,
-      selectedPairs: state.selectedPairs,
-      inputConfigurations: state.inputConfigurations,
-      applicableAddresses: state.applicableAddresses,
-      isPausable: state.isPausable,
-    };
-    localStorage.setItem('automationConfig', JSON.stringify(config));
-  };
+  const handleTemplateSelect = (template) => {
+    setLoading(true)
+    setSelectedTemplate(null)
+    setTimeout(() => {
+      setSelectedTemplate(template)
+      setLoading(false)
+    }, 1000)
+  }
 
-  // Handlers
-  const handleAutomationTypeChange = (value) => {
-    setState(prev => ({
-      ...prev,
-      automationType: value,
-      destinationAddress: value === 'single' ? '' : prev.destinationAddress
-    }));
-  };
-
-  const fetchContractData = async () => {
-    setState(prev => ({ ...prev, isLoading: true, error: '' }));
-    try {
-      const response = await fetch('http://localhost:5000/DappAutomation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          originAddress: state.originAddress,
-          destinationAddress: state.destinationAddress
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch contract data');
-      const data = await response.json();
-      
-      setState(prev => ({
-        ...prev,
-        contractData: data,
-        isLoading: false,
-        step: 2,
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: error.message,
-        isLoading: false,
-      }));
-    }
-  };
-
-  const handleEventSelection = (eventName) => {
-    setState(prev => ({
-      ...prev,
-      selectedEvent: prev.selectedEvent === eventName ? null : eventName
-    }));
-  };
-
-  const handlePairSelection = (eventName, functionName) => {
-    setState(prev => {
-      const pair = { event: eventName, function: functionName };
-      const exists = prev.selectedPairs.some(
-        p => p.event === eventName && p.function === functionName
-      );
-
-      return {
-        ...prev,
-        selectedPairs: exists 
-          ? prev.selectedPairs.filter(p => p.event !== eventName || p.function !== functionName)
-          : [...prev.selectedPairs, pair],
-      };
-    });
-  };
-
-  const handleInputConfigChange = (functionName, inputName, value) => {
-    setInputConfig(prev => ({
-      ...prev,
-      staticValues: {
-        ...prev.staticValues,
-        [functionName]: {
-          ...(prev.staticValues[functionName] || {}),
-          [inputName]: value
-        }
-      }
-    }));
-  };
-
-  const handleConditionChange = (functionName, condition) => {
-    setInputConfig(prev => ({
-      ...prev,
-      conditions: {
-        ...prev.conditions,
-        [functionName]: condition
-      }
-    }));
-  };
-
-  const generateContract = async () => {
-    setState(prev => ({ ...prev, isLoading: true, error: '' }));
-    try {
-      const response = await fetch('http://localhost:5000/generateDA', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          automationType: state.automationType,
-          originAddress: state.originAddress,
-          destinationAddress: state.destinationAddress,
-          selectedPairs: state.selectedPairs,
-          functionInputs: inputConfig.staticValues,
-          conditions: inputConfig.conditions,
-          applicableAddresses: state.applicableAddresses.split(',').map(addr => addr.trim()),
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to generate contract');
-      const data = await response.json();
-      
-      setState(prev => ({
-        ...prev,
-        reactiveContract: data.reactiveSmartContractTemplate,
-        successMessage: 'Contract generated successfully!',
-        step: 3,
-        isLoading: false,
-      }));
-      saveConfiguration();
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: error.message,
-        isLoading: false,
-      }));
-    }
-  };
+  const filteredTemplates = templates.filter(template =>
+    template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    template.description.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Create Automation</h1>
+    <div className="container mx-auto px-4 py-8 bg-gradient-to-br from-gray-900 to-black text-gray-100 min-h-screen">
+      <h1 className="text-3xl font-bold mb-8 text-gray-100">DApp Automation Templates</h1>
       
-      {/* Step 1: Initial Configuration */}
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>Step 1: Contract Configuration</CardTitle>
-          <CardDescription>Set up your automation parameters</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="mb-4">
-              <Label>Automation Type</Label>
-              <RadioGroup 
-                value={state.automationType} 
-                onValueChange={handleAutomationTypeChange}
-                className="mt-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="single" id="single" />
-                  <Label htmlFor="single">Single Contract</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="multiple" id="multiple" />
-                  <Label htmlFor="multiple">Multiple Contracts</Label>
-                </div>
-              </RadioGroup>
-            </div>
+      <Alert className="mb-8 bg-gray-800 border-gray-600 shadow-lg">
+        <Info className="h-4 w-4 text-gray-400" />
+        <AlertTitle className="text-gray-200">Welcome to DApp Automation Templates</AlertTitle>
+        <AlertDescription className="text-gray-300">
+          This page allows you to explore and select automation templates for your DApps. You can:
+          <ul className="list-disc list-inside mt-2">
+            <li>Browse different types of automation templates</li>
+            <li>Search for specific templates using the search bar</li>
+            <li>Select a template to view more details and customize it</li>
+            <li>See popular templates that are coming soon</li>
+          </ul>
+          Choose a template that best fits your DApp's needs and start automating your blockchain workflows!
+        </AlertDescription>
+      </Alert>
 
-            <div>
-              <Label htmlFor="originAddress">Origin Contract Address</Label>
-              <Input
-                id="originAddress"
-                value={state.originAddress}
-                onChange={(e) => setState(prev => ({ ...prev, originAddress: e.target.value }))}
-                placeholder="0x..."
-                className="mt-1"
-              />
-            </div>
-            
-            {state.automationType === 'multiple' && (
-              <div>
-                <Label htmlFor="destinationAddress">Destination Contract Address</Label>
-                <Input
-                  id="destinationAddress"
-                  value={state.destinationAddress}
-                  onChange={(e) => setState(prev => ({ ...prev, destinationAddress: e.target.value }))}
-                  placeholder="0x..."
-                  className="mt-1"
-                />
-              </div>
-            )}
-            
-            <Button 
-              onClick={fetchContractData} 
-              disabled={state.isLoading}
-              className="w-full"
-            >
-              {state.isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Fetching Contract Data...
-                </>
-              ) : (
-                'Fetch Contract Data'
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Error Display */}
-      {state.error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{state.error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Step 2: Event-Function Pairing */}
-      {state.contractData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Events</CardTitle>
-              <CardDescription>Select events to pair with functions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                {state.contractData.events.map((event) => (
-                  <div 
-                    key={event.name} 
-                    className={`mb-4 p-2 rounded cursor-pointer hover:bg-slate-100 ${
-                      state.selectedEvent === event.name ? 'bg-slate-100' : ''
-                    }`}
-                    onClick={() => handleEventSelection(event.name)}
-                  >
-                    <div className="flex items-center">
-                      <h3 className="font-semibold flex-grow">{event.name}</h3>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <HelpCircle className="h-4 w-4" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Click to select this event for pairing</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="ml-4 mt-2">
-                      {event.inputs.map((input) => (
-                        <div key={input.name} className="text-sm">
-                          {input.name}: {input.type}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Functions</CardTitle>
-              <CardDescription>
-                {state.selectedEvent 
-                  ? `Select functions to pair with event: ${state.selectedEvent}`
-                  : 'Select an event first to pair with functions'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                {state.contractData.functions.map((func) => (
-                  <div key={func.name} className="mb-4 p-2">
-                    <div className="flex items-center space-x-2">
-                      {state.selectedEvent && (
-                        <Checkbox
-                          id={`${state.selectedEvent}-${func.name}`}
-                          checked={state.selectedPairs.some(
-                            pair => pair.event === state.selectedEvent && pair.function === func.name
-                          )}
-                          onCheckedChange={() => handlePairSelection(state.selectedEvent, func.name)}
-                        />
-                      )}
-                      <Label
-                        htmlFor={`${state.selectedEvent}-${func.name}`}
-                        className="font-semibold cursor-pointer flex-grow"
-                      >
-                        {func.name}
-                      </Label>
-                    </div>
-                    <div className="ml-4 mt-2">
-                      {func.inputs.map((input) => (
-                        <div key={input.name} className="text-sm">
-                          {input.name}: {input.type}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+      <div className="mb-8">
+        <div className="relative max-w-md">
+          <Input
+            type="search"
+            placeholder="Search templates..."
+            className="pl-10 bg-gray-800 text-gray-100 border-gray-600 placeholder-gray-400 shadow-md"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
-      )}
+      </div>
 
-      {/* Step 3: Function Input Configuration */}
-      {state.selectedPairs.length > 0 && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Selected Pairs Configuration</CardTitle>
-            <CardDescription>Configure inputs and conditions for selected pairs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {state.selectedPairs.map((pair, index) => (
-              <div key={index} className="mb-4">
-                <h3 className="font-medium mb-2">{pair.event} → {pair.function}</h3>
-                {state.contractData.functions
-                  .find(f => f.name === pair.function)
-                  .inputs.map((input) => (
-                    <div key={input.name} className="mb-2">
-                      <Label htmlFor={`${pair.function}-${input.name}`}>
-                        {input.name} ({input.type})
-                      </Label>
-                      <Input
-                        id={`${pair.function}-${input.name}`}
-                        value={inputConfig.staticValues[pair.function]?.[input.name] || ''}
-                        onChange={(e) => handleInputConfigChange(pair.function, input.name, e.target.value)}
-                        placeholder={`Enter ${input.type} value`}
-                        className="mt-1"
-                      />
-                    </div>
-                  ))}
-                <div className="mt-2">
-                  <Label htmlFor={`${pair.function}-condition`}>Execution Condition</Label>
-                  <Input
-                    id={`${pair.function}-condition`}
-                    value={inputConfig.conditions[pair.function] || ''}
-                    onChange={(e) => handleConditionChange(pair.function, e.target.value)}
-                    placeholder="e.g., msg.value > 1 ether"
-                    className="mt-1"
-                  />
-                </div>
-                {index < state.selectedPairs.length - 1 && <Separator className="my-4" />}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        {filteredTemplates.map((template) => (
+          <Card
+            key={template.id}
+            className="hover:shadow-xl transition-shadow duration-300 bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 shadow-lg"
+          >
+            <CardHeader>
+              <div className="flex justify-center mb-4">{template.icon}</div>
+              <CardTitle className="text-gray-100">{template.title}</CardTitle>
+              <CardDescription className="text-gray-300">{template.description}</CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button
+                className="w-full bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-gray-100 shadow-md"
+                onClick={() => handleTemplateSelect(template)}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Select Template'}
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
 
-      {/* Step 4: Additional Settings */}
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>Additional Settings</CardTitle>
-          <CardDescription>Configure contract behavior and restrictions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="applicableAddresses">Whitelisted Addresses (comma-separated)</Label>
-              <Input
-                id="applicableAddresses"
-                value={state.applicableAddresses}
-                onChange={(e) => setState(prev => ({ ...prev, applicableAddresses: e.target.value }))}
-                placeholder="0x123..., 0x456..."
-                className="mt-1"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-            <Checkbox
-                  id="isPausable"
-                  checked={state.isPausable}
-                  onCheckedChange={(checked) => setState(prev => ({ ...prev, isPausable: checked }))}
-                />
-                <Label htmlFor="isPausable" className="cursor-pointer">
-                  Allow pausing automation
-                </Label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AnimatePresence>
+        {selectedTemplate && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <Card className="mb-8 bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-gray-100">Template Preview: {selectedTemplate.title}</CardTitle>
+                <CardDescription className="text-gray-300">{selectedTemplate.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-200">Template configuration options will be displayed here.</p>
+              </CardContent>
+              <CardFooter>
+                <Button className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-gray-100 shadow-md">
+                  Customize Template
+                </Button>
+              </CardFooter>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Generate Button */}
-      {state.selectedPairs.length > 0 && (
-        <Button
-          onClick={generateContract}
-          disabled={state.isLoading}
-          className="mt-4 w-full"
-        >
-          {state.isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating Contract...
-            </>
-          ) : (
-            'Generate Contract'
-          )}
-        </Button>
-      )}
-
-      {/* Success Message */}
-      {state.successMessage && (
-        <Alert className="mt-4">
-          <CheckCircle className="h-4 w-4" />
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>{state.successMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Generated Contract Display */}
-      {state.reactiveContract && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Generated Contract</CardTitle>
-            <CardDescription>Your reactive smart contract code</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px] w-full">
-              <Textarea
-                value={state.reactiveContract}
-                readOnly
-                className="font-mono"
-              />
-            </ScrollArea>
-            <Button
-              onClick={() => navigator.clipboard.writeText(state.reactiveContract)}
-              className="mt-4"
-            >
-              Copy to Clipboard
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <section className="mt-12">
+        <h2 className="text-2xl font-semibold mb-6 text-gray-100">Popular Templates</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 opacity-50">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="hover:shadow-xl transition-shadow duration-300 bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-gray-100">Popular Template {i}</CardTitle>
+                <CardDescription className="text-gray-300">This is a placeholder for a popular template.</CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button disabled className="bg-gray-700 text-gray-400 shadow-md">Coming Soon</Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </section>
     </div>
-  );
-};
-
-export default AutomationPage;
+  )
+}

@@ -18,7 +18,8 @@ interface TopicFunctionPair {
 
 interface ContractInput {
     topicFunctionPairs: TopicFunctionPair[];
-    chainId: number;
+    originChainId: number;
+    destinationChainId: number;
     originContract: string;
     destinationContract: string;
     ownerAddress?: string;
@@ -45,11 +46,11 @@ function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string
     }).join('\n    ');
 }
 
-function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], chainId: number, originContract: string): string {
+function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], originChainId: number, originContract: string): string {
     return topicFunctionPairs.map((pair, index) => `
         bytes memory payload_${index} = abi.encodeWithSignature(
             "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
-            CHAIN_ID,
+            ORIGIN_CHAIN_ID,
             ORIGIN_CONTRACT,
             EVENT_${index}_TOPIC_0,
             REACTIVE_IGNORE,
@@ -79,17 +80,26 @@ function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], destination
             bytes memory payload = abi.encodeWithSignature(
                 "${functionName}(${eventInputs ? eventInputs.map(i => i.type).join(',') : ''})",
                 ${functionInputs}
+                //Please add the rest of the function inputs and logics here
             );
-            emit Callback(chain_id, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
+            emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
         }`;
     }).join(' else ');
 }
 
 export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
-    const { topicFunctionPairs, chainId, originContract, destinationContract, ownerAddress, isPausable } = input;
+    const { 
+        topicFunctionPairs, 
+        originChainId, 
+        destinationChainId,
+        originContract, 
+        destinationContract, 
+        ownerAddress, 
+        isPausable 
+    } = input;
 
     const eventConstants = generateEventConstants(topicFunctionPairs);
-    const subscriptions = generateSubscriptions(topicFunctionPairs, chainId, originContract);
+    const subscriptions = generateSubscriptions(topicFunctionPairs, originChainId, originContract);
     const reactLogic = generateReactLogic(topicFunctionPairs, destinationContract);
 
     const baseContract = isPausable ? 'AbstractPausableReactive' : 'AbstractReactive';
@@ -100,7 +110,7 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
         Subscription[] memory result = new Subscription[](${topicFunctionPairs.length});
         ${topicFunctionPairs.map((_, index) => `
         result[${index}] = Subscription(
-            CHAIN_ID,
+            ORIGIN_CHAIN_ID,
             ORIGIN_CONTRACT,
             EVENT_${index}_TOPIC_0,
             REACTIVE_IGNORE,
@@ -126,14 +136,15 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
             bytes payload
         );
     
-        uint256 private constant REACTIVE_IGNORE = 0xa65f96fc951c35ead38878e0f0b7a3c744a6f5ccc1476b313353ce31712313ad;
     
-        uint256 private constant CHAIN_ID = ${chainId};
+        uint256 private constant ORIGIN_CHAIN_ID = ${originChainId};
+        uint256 private constant DESTINATION_CHAIN_ID = ${destinationChainId};
         address private immutable ORIGIN_CONTRACT = ${originContract};
         address private immutable DESTINATION_CONTRACT = ${destinationContract};
     
         uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
-    
+        
+        //You Can Rename Your Events Topic For Better Clarity(Here and in Subscription or react function as well)
         ${eventConstants}
     
         constructor() {

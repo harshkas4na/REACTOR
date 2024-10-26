@@ -3,7 +3,8 @@ import { AutomationType } from '../../types/Automation';
 
 interface GenerateContractParams {
   automations: AutomationType[];
-  chainId: string;
+  OrgChainId: number;
+  DesChainId: number;
   originAddress: string;
   destinationAddress: string;
   isPausable: boolean;
@@ -11,7 +12,8 @@ interface GenerateContractParams {
 
 export async function generateContract({
   automations,
-  chainId,
+  OrgChainId,
+  DesChainId,
   originAddress,
   destinationAddress,
   isPausable,
@@ -26,7 +28,8 @@ export async function generateContract({
         topic0, 
         function: func 
       })),
-      chainId: parseInt(chainId),
+      originChainId: (OrgChainId),
+      destinationChainId: (DesChainId),
       originContract: originAddress,
       destinationContract: destinationAddress,
       isPausable,

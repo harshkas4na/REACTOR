@@ -1,3 +1,5 @@
+
+
 export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
     { label: 'Templates', path: '/templates' },
@@ -23,3 +25,58 @@ export const TESTIMONIALS = [
   export const API_ENDPOINTS = {
     GENERATE_CONTRACT: 'http://localhost:5000/generateSC'
   }
+
+  export const TEMPLATE_CARDS = [
+    {
+      title: "Template Library",
+      description: "Provide a library of pre-built RSC templates for common use cases. Users could choose a template, customize it with parameters like wallet addresses, token types, or conditions, and deploy without needing to modify the underlying code.",
+      features: {
+        title: "Use Cases Examples:",
+        items: [
+          "Multi-signature wallets",
+          "Subscription services",
+          "Escrow services"
+        ]
+      },
+      links: {
+        primary: {
+          href: "/templates/SmartContracts",
+          text: "See All Templates"
+        },
+        secondary: {
+          href: "/templates/SmartContracts/contribute",
+          text: "Contribute"
+        }
+      },
+      image: {
+        src: "/placeholder.svg?height=300&width=400",
+        alt: "Template Library"
+      }
+    },
+    {
+      title: "Templates for Common dApps",
+      description: "Offer templates that integrate with common decentralized applications (e.g., Uniswap, Compound). Users can input parameters to automate actions on these dApps without modifying their code.",
+      features: {
+        title: "Features:",
+        items: [
+          "Pre-built dApp Integrations",
+          "Trigger Automation for Specific Use Cases"
+        ]
+      },
+      additionalInfo: "Automate RSCs for actions like swapping tokens on Uniswap after a certain threshold or automating yield farming operations based on specific market conditions.",
+      links: {
+        primary: {
+          href: "/templates/DappLibrary",
+          text: "See All Templates"
+        },
+        secondary: {
+          href: "/templates/DappLibrary/contribute",
+          text: "Contribute"
+        }
+      },
+      image: {
+        src: "/placeholder.svg?height=300&width=400",
+        alt: "Templates for Common dApps"
+      }
+    }
+  ];

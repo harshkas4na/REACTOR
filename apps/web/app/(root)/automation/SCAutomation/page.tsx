@@ -11,10 +11,11 @@ export default function AutomationPage() {
   const [editedContract, setEditedContract] = useState('');
 
   const {
+    OrgChainId,
+    DesChainId,
     automations,
     reactiveContract,
     setReactiveContract,
-    chainId,
     originAddress,
     destinationAddress,
     isPausable,
@@ -31,7 +32,8 @@ export default function AutomationPage() {
     e.preventDefault();
     await generateContractTemplate({
       automations,
-      chainId,
+      OrgChainId,
+      DesChainId,
       originAddress,
       destinationAddress,
       isPausable,

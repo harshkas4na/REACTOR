@@ -12,7 +12,8 @@ export function useContractGeneration({ onSuccess }: UseContractGenerationProps)
 
   const generateContractTemplate = async (params: {
     automations: AutomationType[];
-    chainId: string;
+    OrgChainId: number;
+    DesChainId: number;
     originAddress: string;
     destinationAddress: string;
     isPausable: boolean;
