@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import AutomationForm from '@/components/automation/SCAutomation/AutomationForm';
 import ContractDisplay from '@/components/automation/SCAutomation/ContractDispaly';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
@@ -132,7 +131,7 @@ export default function AutomationPage() {
         data: bytecode,
         arguments: []
       });
-
+      console.log('Deploying contract:', deployTransaction);
       const gasEstimate = await deployTransaction.estimateGas({ from: account });
       const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
       const gasPrice = await web3.eth.getGasPrice();
@@ -149,9 +148,9 @@ export default function AutomationPage() {
         gas: String(gasLimit),
         gasPrice: String(gasPrice),
       });
-
+      // console.log('Contract deployed:', deployedContract);
       setDeployedAddress(String(deployedContract.options.address));
-      setDeploymentTxHash(deployedContract.transactionHash);
+      // setDeploymentTxHash(deployTransaction);
 
       const code = await web3.eth.getCode(String(deployedContract.options.address));
       if (code === '0x' || code === '0x0') {
@@ -202,16 +201,28 @@ export default function AutomationPage() {
                 onCancelEdit={() => setEditingContract(false)}
                 onContractChange={handleContractChange}
               />
-              <div className="mt-4 space-x-4">
-                <Button onClick={handleCompile} disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <div className="mt-4 ">
+                <div className='flex justify-between'>
+                <Button onClick={handleCompile} className="hover:bg-primary-foreground hover:text-gray-100" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2  h-4 w-4 animate-spin" /> : null}
                   Compile Contract
                 </Button>
+                <Button 
+                  type="submit"
+                  onSubmit={handleSubmit} 
+                  className=" bg-primary hover:bg-primary-foreground hover:text-gray-100" 
+                  disabled={isLoading || !isValidForm}
+                >
+                  {isLoading ? 'Regenerating...' : 'ReGenerate Contract'}
+                </Button>
+                </div>
                 {abi && bytecode && (
-                  <Button onClick={handleDeploy} disabled={isLoading}>
+                  <div className='inline-block mt-8 '>
+                  <Button onClick={handleDeploy}  className='hover:bg-primary-foreground hover:text-gray-100' disabled={isLoading}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Deploy to KOPLI Network
                   </Button>
+                  </div>
                 )}
               </div>
             </CardContent>

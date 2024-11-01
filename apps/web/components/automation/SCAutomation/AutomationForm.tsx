@@ -67,15 +67,6 @@ export default function AutomationForm({
     }
   };
 
-  const validateEventInput = (input: string) => {
-    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$$(address|uint256|string|bool|bytes32|uint8)(\s*,\s*(address|uint256|string|bool|bytes32|uint8))*$$$/;
-    return eventRegex.test(input);
-  };
-
-  const validateFunctionInput = (input: string) => {
-    const functionRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$$address(\s*,\s*(address|uint256|string|bool|bytes32|uint8))*$$$/;
-    return functionRegex.test(input);
-  };
 
   const validateEthereumAddress = (address: string) => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
@@ -85,22 +76,7 @@ export default function AutomationForm({
     return !isNaN(Number(chainId)) && Number(chainId) > 0;
   };
 
-  const handleAutomationChange = (index: number, field: 'event' | 'function', value: string) => {
-    const newAutomations = [...automations];
-    newAutomations[index][field] = value;
-    setAutomations(newAutomations);
-
-    const newValidations = { ...validations };
-    if (field === 'event') {
-      console.log("value",value);
-      newValidations.event[index] = validateEventInput(value);
-    } else {
-      newValidations.function[index] = validateFunctionInput(value);
-    }
-    // console.log('newValidations:', newValidations);
-    setValidations(newValidations);
-  };
-  // console.log('isValidForm:', validations);
+  
 
   useEffect(() => {
     setValidations(prev => ({
@@ -121,9 +97,7 @@ export default function AutomationForm({
             key={index}
             automation={automation}
             index={index}
-            onChange={handleAutomationChange}
-            isEventValid={validations.event[index]}
-            isFunctionValid={validations.function[index]}
+            
           />
         ))}
         <Button 
@@ -240,10 +214,6 @@ export default function AutomationForm({
       </div>
 
       <ConfigurationFields 
-        originAddress={originAddress}
-        destinationAddress={destinationAddress}
-        setOriginAddress={setOriginAddress}
-        setDestinationAddress={setDestinationAddress}
         isOriginAddressValid={validations.originAddress}
         isDestinationAddressValid={validations.destinationAddress}
       />
@@ -252,7 +222,7 @@ export default function AutomationForm({
 
       <Button 
         type="submit" 
-        className="w-full bg-primary hover:bg-primary-foreground hover:text-gray-900" 
+        className="w-full bg-primary hover:bg-primary-foreground hover:text-gray-100" 
         disabled={isLoading || !isValidForm}
       >
         {isLoading ? 'Generating...' : 'Generate Contract'}

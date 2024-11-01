@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 
-export default function ConfigurationFields() {
+export default function ConfigurationFields({isOriginAddressValid,isDestinationAddressValid}: {isOriginAddressValid: boolean,isDestinationAddressValid: boolean}) {
   const {
     originAddress,
     setOriginAddress,
@@ -22,7 +22,9 @@ export default function ConfigurationFields() {
       <div>
         <Label htmlFor="originAddress" className="text-gray-300">Origin Contract Address</Label>
         <Input
-          className="bg-gray-700 text-gray-100 border-gray-600"
+          className={`bg-gray-700 text-gray-100 border-gray-600
+            ${isOriginAddressValid ? 'border-green-500' : 'border-red-500'}
+            `}
           id="originAddress"
           value={originAddress}
           onChange={(e) => setOriginAddress(e.target.value)}
@@ -34,7 +36,9 @@ export default function ConfigurationFields() {
       <div>
         <Label htmlFor="destinationAddress" className="text-gray-300">Destination Contract Address</Label>
         <Input
-          className="bg-gray-700 text-gray-100 border-gray-600"
+          className={`bg-gray-700 text-gray-100 border-gray-600
+          ${isDestinationAddressValid ? 'border-green-500' : 'border-red-500'}
+          `}
           id="destinationAddress"
           value={destinationAddress}
           onChange={(e) => setDestinationAddress(e.target.value)}

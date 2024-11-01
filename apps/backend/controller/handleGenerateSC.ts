@@ -6,10 +6,10 @@ interface EventInput {
 }
 
 interface TopicFunctionPair {
-    event: string;
+    
     function: string;
     topic0: string;
-    eventInputs?: EventInput[];
+    
 }
 
 interface ContractInput {
@@ -59,46 +59,71 @@ function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], originCh
         vm = !subscription_result_${index};`).join('\n');
 }
 
-function generateReactLogic(topicFunctionPairs: TopicFunctionPair[], destinationContract: string): string {
+function generateReactLogic(topicFunctionPairs: TopicFunctionPair[]): string {
     return topicFunctionPairs.map((pair, index) => {
-        const { event, function: functionName, eventInputs } = pair;
-        let decodingLogic = '';
-        let functionInputs = '';
-
-        if (eventInputs && eventInputs.length > 0) {
-            const structName = `${event}Data`;
-            decodingLogic = `
-            ${structName} memory eventData = abi.decode(data, (${structName}));`;
-            functionInputs = eventInputs.map(input => `eventData.${input.name}`).join(', ');
+      const { function: functionSignature, topic0 } = pair;
+      
+      // Separate function name and input types
+      const match = functionSignature.match(/^(\w+)\((.*)\)$/);
+      if (!match) {
+        throw new Error(`Invalid function signature: ${functionSignature}`);
+      }
+      
+      const [, functionName, inputTypesString] = match;
+      const inputTypes = inputTypesString.split(',').map(type => type.trim()).filter(Boolean);
+      
+      // Generate function inputs based on input types and topics
+      const functionInputs = inputTypes.map((type, paramIndex) => {
+        // First parameter (index 0) is usually sender or special first parameter
+        if (paramIndex === 0) {
+          switch (type) {
+            case 'address':
+                return paramIndex === 0 ? 'address(0)' : `address(uint160(topic_${paramIndex + 1}))`;
+            case 'uint256':
+              return `topic_${paramIndex + 1}`;
+            default:
+              return `topic_${paramIndex + 1}`;
+          }
         }
-
-        return `
-        if (topic_0 == EVENT_${index}_TOPIC_0) {
-            ${decodingLogic}
-            bytes memory payload = abi.encodeWithSignature(
-                "transferFrom(address,uint256)",
-                address(0),
-                topic_1
-            );
-            emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
+        
+        // Subsequent parameters
+        switch (type) {
+          case 'address':
+            return `address(uint160(topic_${paramIndex + 1}))`;
+          case 'uint256':
+            return `topic_${paramIndex }`;
+          case 'bool':
+            return `topic_${paramIndex } != 0`;
+          default:
+            return `topic_${paramIndex }`;
+        }
+      }).join(', ');
+  
+      return `
+        if (topic_0 == ${topic0}) {
+          // Call the destination contract with decoded parameters
+          bytes memory payload = abi.encodeWithSignature(
+            "${functionSignature}",
+            ${functionInputs}
+          );
+          emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
         }`;
     }).join(' else ');
 }
-
 export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
     const { 
         topicFunctionPairs, 
         originChainId, 
-        destinationChainId,
+        destinationChainId, 
         originContract, 
         destinationContract, 
         ownerAddress, 
         isPausable 
     } = input;
-
+    console.log("topicFunctionPairs",topicFunctionPairs);
     const eventConstants = generateEventConstants(topicFunctionPairs);
     const subscriptions = generateSubscriptions(topicFunctionPairs, originChainId, originContract);
-    const reactLogic = generateReactLogic(topicFunctionPairs, destinationContract);
+    const reactLogic = generateReactLogic(topicFunctionPairs);
 
     const baseContract = isPausable ? 'AbstractPausableReactive' : 'AbstractReactive';
     const pausableImport = isPausable ? "import '../../AbstractPausableReactive.sol';" : "import '../../AbstractReactive.sol';";
