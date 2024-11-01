@@ -6,7 +6,7 @@ import handleGenerateDA from '../controller/handleGenerateDA';
 
 const router = express.Router();
 
-router.post('/recompile', handleCompile);
+router.post('/compile', handleCompile);
 
 //To generate template for Personal Smart contracts
 router.post('/generateSC',handleGenerateSC );

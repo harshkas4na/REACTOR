@@ -1,4 +1,5 @@
 "use client";
+
 import React from 'react';
 import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
@@ -8,15 +9,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 import { AutomationType } from '../../../types/Automation';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface AutomationCardProps {
   automation: AutomationType;
   index: number;
+  isEventValid: boolean;
+  isFunctionValid: boolean;
+  onChange: (field: 'event' | 'function' | 'topic0', value: string) => void;
 }
 
-export default function AutomationCard({ automation, index }: AutomationCardProps) {
-  const { automations, setAutomations } = useAutomationContext();
 
+export default function AutomationCard({
+  automation,
+  index,
+  isEventValid,
+  isFunctionValid,
+  onChange
+}: AutomationCardProps) {
+  const { automations, setAutomations } = useAutomationContext();
+  // console.log("isEventValid", isEventValid);
+  // console.log("isFunctionValid", isFunctionValid);
   const handleAutomationChange = (field: 'event' | 'function' | 'topic0', value: string) => {
     const newAutomations = automations.map((a, i) => {
       if (i === index) {
@@ -38,51 +56,62 @@ export default function AutomationCard({ automation, index }: AutomationCardProp
 
   return (
     <Card className="bg-gray-800 border-gray-700">
-      <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor={`event-${index}`} className="text-gray-300">Event</Label>
-            <Input
-              id={`event-${index}`}
-              value={automation.event}
-              onChange={(e) => handleAutomationChange('event', e.target.value)}
-              placeholder="Event name"
-              required
-              className="bg-gray-700 text-gray-100 border-gray-600"
-            />
-          </div>
-          <div>
-            <Label htmlFor={`function-${index}`} className="text-gray-300">Function</Label>
-            <Input
-              id={`function-${index}`}
-              value={automation.function}
-              onChange={(e) => handleAutomationChange('function', e.target.value)}
-              placeholder="Function name"
-              required
-              className="bg-gray-700 text-gray-100 border-gray-600"
-            />
-          </div>
-        </div>
-        <div className="mt-2">
-          <Label htmlFor={`topic0-${index}`} className="text-gray-300">Topic0 (auto-generated)</Label>
+      <CardContent className="space-y-4 p-4">
+        <div className="space-y-2">
+          <Label className="text-gray-300">Event</Label>
           <Input
-            id={`topic0-${index}`}
-            value={automation.topic0}
-            readOnly
-            className="bg-gray-600 text-gray-300 border-gray-700"
+            value={automation.event}
+            onChange={(e) => handleAutomationChange('event', e.target.value)}
+            placeholder="Event name and parameters"
+            required
+            className={`bg-gray-700 text-gray-100 border ${
+              isEventValid ? 'border-green-500' : 'border-red-500'
+            }`}
           />
         </div>
+
+        <div className="space-y-2">
+          <Label className="text-gray-300">Function</Label>
+          <Input
+            value={automation.function}
+            onChange={(e) => handleAutomationChange('function', e.target.value)}
+            placeholder="Function name and parameters"
+            required
+            className={`bg-gray-700 text-gray-100 border ${
+              isFunctionValid ? 'border-green-500' : 'border-red-500'
+            }`}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-gray-300">Topic0 (auto-generated)</Label>
+          <Input
+            value={automation.topic0}
+            readOnly
+            className="bg-gray-700 text-gray-100 border-gray-600"
+          />
+        </div>
+
         {index > 0 && (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="mt-2"
-            onClick={handleRemoveAutomation}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Remove
-          </Button>
+          <div className="flex justify-end">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRemoveAutomation}
+                    className="text-red-400 hover:text-red-300 hover:bg-gray-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Remove automation</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         )}
       </CardContent>
     </Card>

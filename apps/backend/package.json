@@ -19,7 +19,7 @@
     "ethers": "^6.13.2",
     "express": "^4.21.0",
     "psql": "^0.0.1",
-    "solc": "^0.8.27",
+    "solc": "^0.8.28",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -1,21 +1,32 @@
 "use client";
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { PlusCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import AutomationCard from './AutomationCard';
 import ConfigurationFields from './ConfigurationFields';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function AutomationForm({ 
   onSubmit, 
   isLoading, 
-  error 
+  error,
+  isValidForm
 }: { 
   onSubmit: (e: React.FormEvent) => Promise<void>,
   isLoading: boolean,
-  error: string
+  error: string,
+  isValidForm: boolean
 }) {
   const {
     automations,
@@ -24,17 +35,82 @@ export default function AutomationForm({
     DesChainId,
     setOrgChainId,
     setDesChainId,
+    originAddress,
+    destinationAddress,
+    setOriginAddress,
+    setDestinationAddress,
   } = useAutomationContext();
 
   const [sameChain, setSameChain] = useState(false);
+  const [validations, setValidations] = useState({
+    event: Array(automations.length).fill(false),
+    function: Array(automations.length).fill(false),
+    originAddress: false,
+    destinationAddress: false,
+    OrgChainId: false,
+    DesChainId: false,
+  });
 
   const handleAddAutomation = () => {
     setAutomations([...automations, { event: '', function: '', topic0: '' }]);
+    setValidations(prev => ({
+      ...prev,
+      event: [...prev.event, true],
+      function: [...prev.function, true],
+    }));
   };
 
   const handleSameChainToggle = (checked: boolean) => {
     setSameChain(checked);
+    if (checked) {
+      setDesChainId(OrgChainId);
+    }
   };
+
+  const validateEventInput = (input: string) => {
+    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$$(address|uint256|string|bool|bytes32|uint8)(\s*,\s*(address|uint256|string|bool|bytes32|uint8))*$$$/;
+    return eventRegex.test(input);
+  };
+
+  const validateFunctionInput = (input: string) => {
+    const functionRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$$address(\s*,\s*(address|uint256|string|bool|bytes32|uint8))*$$$/;
+    return functionRegex.test(input);
+  };
+
+  const validateEthereumAddress = (address: string) => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
+  const validateChainId = (chainId: string) => {
+    return !isNaN(Number(chainId)) && Number(chainId) > 0;
+  };
+
+  const handleAutomationChange = (index: number, field: 'event' | 'function', value: string) => {
+    const newAutomations = [...automations];
+    newAutomations[index][field] = value;
+    setAutomations(newAutomations);
+
+    const newValidations = { ...validations };
+    if (field === 'event') {
+      console.log("value",value);
+      newValidations.event[index] = validateEventInput(value);
+    } else {
+      newValidations.function[index] = validateFunctionInput(value);
+    }
+    // console.log('newValidations:', newValidations);
+    setValidations(newValidations);
+  };
+  // console.log('isValidForm:', validations);
+
+  useEffect(() => {
+    setValidations(prev => ({
+      ...prev,
+      originAddress: validateEthereumAddress(originAddress),
+      destinationAddress: validateEthereumAddress(destinationAddress),
+      OrgChainId: validateChainId(OrgChainId),
+      DesChainId: validateChainId(DesChainId),
+    }));
+  }, [originAddress, destinationAddress, OrgChainId, DesChainId]);
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -45,6 +121,9 @@ export default function AutomationForm({
             key={index}
             automation={automation}
             index={index}
+            onChange={handleAutomationChange}
+            isEventValid={validations.event[index]}
+            isFunctionValid={validations.function[index]}
           />
         ))}
         <Button 
@@ -57,6 +136,19 @@ export default function AutomationForm({
           Add Automation
         </Button>
       </div>
+
+      <Alert>
+        <AlertDescription>
+          <strong>Input Rules:</strong>
+          <ul className="list-disc pl-5 mt-2">
+            <li>Event format: EventName(type1,type2,...)</li>
+            <li>Function format: functionName(address,type2,...)</li>
+            <li>Valid types: address, uint256, string, bool, bytes32, uint8</li>
+            <li>Addresses must be valid Ethereum addresses (0x...)</li>
+            <li>Chain IDs must be positive numbers</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
 
       <div className="space-y-4 text-gray-200">
         <div className="flex items-center space-x-2">
@@ -77,49 +169,91 @@ export default function AutomationForm({
         {sameChain ? (
           <div className="space-y-2">
             <Label className="text-gray-300">Chain ID</Label>
-            <input
-              type="number"
-              name="chainId"
-              placeholder="Enter Chain ID"
-              className="w-full p-2 bg-gray-800 border border-gray-600 rounded-md text-gray-300"
-            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Input
+                    type="number"
+                    value={OrgChainId}
+                    onChange={(e) => {
+                      setOrgChainId(e.target.value);
+                      setDesChainId(e.target.value);
+                    }}
+                    placeholder="Enter Chain ID"
+                    className={`w-full p-2 bg-gray-800 border rounded-md text-gray-300 ${
+                      validations.OrgChainId ? 'border-green-500' : 'border-red-500'
+                    }`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Enter a valid positive number</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-gray-300">Origin Chain ID</Label>
-              <input
-                type="number"
-                value={OrgChainId}
-                onChange={(e) => setOrgChainId(e.target.value)}
-                name="originChainId"
-                placeholder="Enter Origin Chain ID"
-                className="w-full p-2 bg-gray-800 border border-gray-600 rounded-md text-gray-300"
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Input
+                      type="number"
+                      value={OrgChainId}
+                      onChange={(e) => setOrgChainId(e.target.value)}
+                      placeholder="Enter Origin Chain ID"
+                      className={`w-full p-2 bg-gray-800 border rounded-md text-gray-300 ${
+                        validations.OrgChainId ? 'border-green-500' : 'border-red-500'
+                      }`}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Enter a valid positive number</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <div className="space-y-2">
               <Label className="text-gray-300">Destination Chain ID</Label>
-              <input
-                type="number"
-                name="destinationChainId"
-                value={DesChainId}
-                onChange={(e) => setDesChainId(e.target.value)}
-                placeholder="Enter Destination Chain ID"
-                className="w-full p-2 bg-gray-800 border border-gray-600 rounded-md text-gray-300"
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Input
+                      type="number"
+                      value={DesChainId}
+                      onChange={(e) => setDesChainId(e.target.value)}
+                      placeholder="Enter Destination Chain ID"
+                      className={`w-full p-2 bg-gray-800 border rounded-md text-gray-300 ${
+                        validations.DesChainId ? 'border-green-500' : 'border-red-500'
+                      }`}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Enter a valid positive number</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         )}
       </div>
 
-      <ConfigurationFields />
+      <ConfigurationFields 
+        originAddress={originAddress}
+        destinationAddress={destinationAddress}
+        setOriginAddress={setOriginAddress}
+        setDestinationAddress={setDestinationAddress}
+        isOriginAddressValid={validations.originAddress}
+        isDestinationAddressValid={validations.destinationAddress}
+      />
 
       {error && <p className="text-red-400">{error}</p>}
 
       <Button 
         type="submit" 
         className="w-full bg-primary hover:bg-primary-foreground hover:text-gray-900" 
-        disabled={isLoading}
+        disabled={isLoading || !isValidForm}
       >
         {isLoading ? 'Generating...' : 'Generate Contract'}
       </Button>

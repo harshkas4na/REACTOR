@@ -13,6 +13,23 @@ import { ArrowLeft } from "lucide-react";
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { api } from '@/convex/_generated/api';
+import { PenSquare } from "lucide-react";
+import EditorPage from './EditorPage';
+import "@blocknote/core/fonts/inter.css";
+import { BlockNoteView } from "@blocknote/mantine";
+import "@blocknote/mantine/style.css";
+import { useCreateBlockNote } from "@blocknote/react";
+
+type EditorContent = {
+  type: string;
+  content: Array<{
+    type: string;
+    text: string;
+    styles?: Record<string, boolean>;
+  }>;
+  children: any[];
+  // Add other properties as needed based on your BlockNote structure
+}[];
 
 export default function AddUseCasePage() {
   const router = useRouter();
@@ -21,20 +38,40 @@ export default function AddUseCasePage() {
   const createUseCase = useMutation(api.useCases.createUseCase);
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
 
-  const [title, setTitle] = useState("");
-  const [shortDescription, setShortDescription] = useState("");
-  const [longDescription, setLongDescription] = useState("");
-  const [reactiveTemplate, setReactiveTemplate] = useState("");
-  const [githubRepo, setGithubRepo] = useState("");
+  // State management
+  const [formData, setFormData] = useState({
+    title: "",
+    shortDescription: "",
+    longDescription: "",
+    reactiveTemplate: "",
+    githubRepo: "",
+  });
+  const [editorContent, setEditorContent] = useState(null);
   const [convexUserId, setConvexUserId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
-  
+  // Create editor instance
+  const editor = useCreateBlockNote({
+  });
+
+  // Load editor content when available
+  useEffect(() => {
+  if (formData.longDescription) {
+    try {
+      const parsedContent = JSON.parse(formData.longDescription);
+      editor.replaceBlocks(editor.document, parsedContent);
+    } catch (error) {
+      console.error("Error parsing editor content:", error);
+    }
+  }
+}, [formData.longDescription]);
+
   useEffect(() => {
     const setupUser = async () => {
       if (isAuthenticated && user) {
-        const userId = await getOrCreateUser({ 
-          clerkId: user.id, 
-          name: user.fullName ?? "", 
+        const userId = await getOrCreateUser({
+          clerkId: user.id,
+          name: user.fullName ?? "",
           email: user.emailAddresses[0]?.emailAddress ?? "",
           imageUrl: user.imageUrl ?? ""
         });
@@ -43,6 +80,25 @@ export default function AddUseCasePage() {
     };
     setupUser();
   }, [isAuthenticated, user, getOrCreateUser]);
+
+  // Handle form input changes
+  const handleInputChange = (field: string) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
+  };
+
+  // Handle editor content save
+  const handleEditorSave = (content: string) => {
+    setFormData(prev => ({
+      ...prev,
+      longDescription: content
+    }));
+    setIsEditing(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,20 +109,26 @@ export default function AddUseCasePage() {
 
     try {
       await createUseCase({
-        title,
-        shortDescription,
-        longDescription,
-        reactiveTemplate,
-        githubRepo,
+        ...formData,
         userId: convexUserId
       });
       toast.success("Use case created successfully!");
-      router.push('/Templates/SmartContracts');
+      router.push('/templates/SmartContracts');
     } catch (error) {
       toast.error("Failed to create use case. Please try again.");
       console.error("Error creating use case:", error);
     }
   };
+
+  if (isEditing) {
+    return (
+      <EditorPage
+        initialContent={formData.longDescription}
+        onSave={handleEditorSave}
+        onCancel={() => setIsEditing(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black py-12 px-4 sm:px-6 lg:px-8">
@@ -87,8 +149,8 @@ export default function AddUseCasePage() {
                 <Label htmlFor="title" className="text-gray-200">Title</Label>
                 <Input
                   id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  value={formData.title}
+                  onChange={handleInputChange('title')}
                   required
                   className="bg-gray-700 text-gray-200 border-gray-600"
                 />
@@ -97,28 +159,36 @@ export default function AddUseCasePage() {
                 <Label htmlFor="shortDescription" className="text-gray-200">Short Description</Label>
                 <Textarea
                   id="shortDescription"
-                  value={shortDescription}
-                  onChange={(e) => setShortDescription(e.target.value)}
+                  value={formData.shortDescription}
+                  onChange={handleInputChange('shortDescription')}
                   required
                   className="bg-gray-700 text-gray-200 border-gray-600"
                 />
               </div>
               <div>
                 <Label htmlFor="longDescription" className="text-gray-200">Long Description</Label>
-                <Textarea
-                  id="longDescription"
-                  value={longDescription}
-                  onChange={(e) => setLongDescription(e.target.value)}
-                  required
-                  className="bg-gray-700 text-gray-200 border-gray-600"
-                />
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    <PenSquare className="h-4 w-4" />
+                    {formData.longDescription ? 'Edit Description' : 'Add Description'}
+                  </Button>
+                </div>
               </div>
+              {formData.longDescription && (
+                <div className="mt-4 p-4 bg-gray-700 rounded-lg">
+                  <BlockNoteView editor={editor} theme="dark" />
+                </div>
+              )}
               <div>
                 <Label htmlFor="reactiveTemplate" className="text-gray-200">Reactive Template</Label>
                 <Textarea
                   id="reactiveTemplate"
-                  value={reactiveTemplate}
-                  onChange={(e) => setReactiveTemplate(e.target.value)}
+                  value={formData.reactiveTemplate}
+                  onChange={handleInputChange('reactiveTemplate')}
                   required
                   className="bg-gray-700 text-gray-200 border-gray-600 font-mono"
                   rows={10}
@@ -129,8 +199,8 @@ export default function AddUseCasePage() {
                 <Input
                   id="githubRepo"
                   type="url"
-                  value={githubRepo}
-                  onChange={(e) => setGithubRepo(e.target.value)}
+                  value={formData.githubRepo}
+                  onChange={handleInputChange('githubRepo')}
                   required
                   className="bg-gray-700 text-gray-200 border-gray-600"
                 />
