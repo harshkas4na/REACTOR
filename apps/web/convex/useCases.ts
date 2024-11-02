@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const listUseCases = query({
@@ -50,6 +50,14 @@ export const likeUseCase = mutation({
     } else {
       await ctx.db.insert("likes", { useCaseId: args.useCaseId, userId: args.userId });
     }
+    
+    // Update the likes count in the useCase document
+    const useCase = await ctx.db.get(args.useCaseId);
+    if (useCase) {
+      await ctx.db.patch(args.useCaseId, { 
+        likes: existing ? useCase.likes - 1 : useCase.likes + 1 
+      });
+    }
   },
 });
 
@@ -58,10 +66,26 @@ export const addComment = mutation({
   handler: async (ctx, args) => {
     await ctx.db.insert("comments", {
       useCaseId: args.useCaseId,
-      user: args.userId,
+      userId: args.userId,
+      user: args.userId, // Add this field to match the schema
       text: args.text,
       timestamp: new Date().toISOString(),
     });
+  },
+});
+
+export const migrateComments = internalMutation({
+  handler: async (ctx) => {
+    const comments = await ctx.db.query("comments").collect();
+    
+    for (const comment of comments) {
+      if (comment.user && !comment.userId) {
+        await ctx.db.patch(comment._id, {
+          userId: comment.user,
+          user: null,  // Set to null after migrating
+        });
+      }
+    }
   },
 });
 
@@ -72,6 +96,8 @@ export const createUseCase = mutation({
     longDescription: v.string(),
     reactiveTemplate: v.string(),
     githubRepo: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
     userId: v.id("users")
   },
   handler: async (ctx, args) => {
@@ -81,9 +107,35 @@ export const createUseCase = mutation({
       longDescription: args.longDescription,
       reactiveTemplate: args.reactiveTemplate,
       githubRepo: args.githubRepo,
+      category: args.category,
+      tags: args.tags,
       likes: 0,
+      userId: args.userId,
     });
 
     return newUseCaseId;
+  },
+});
+
+export const searchUseCases = query({
+  args: { 
+    searchTerm: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let useCasesQuery = ctx.db.query("useCases");
+
+    if (args.searchTerm) {
+      // Use the defined search index from the schema
+      useCasesQuery = useCasesQuery.withSearchIndex("search_title", (q) => 
+        q.search("title", args.searchTerm!)
+      );
+    }
+
+    if (args.category) {
+      useCasesQuery = useCasesQuery.filter(q => q.eq(q.field("category"), args.category));
+    }
+
+    return await useCasesQuery.collect();
   },
 });

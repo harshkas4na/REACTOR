@@ -8,18 +8,23 @@ export default defineSchema({
     longDescription: v.string(),
     reactiveTemplate: v.string(),
     githubRepo: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
     likes: v.number(),
+    userId: v.id("users"),
   })
-    .searchIndex("serach_title",{searchField:'title'} )
-    .searchIndex("search_shortDescription",{searchField:'shortDescription'})
-  ,
+    .searchIndex("search_title", { searchField: 'title' })
+    .searchIndex("search_shortDescription", { searchField: 'shortDescription' })
+    .searchIndex("search_category", { searchField: 'category' })
+    .index("by_user", ["userId"]),
 
-  comments: defineTable({
-    useCaseId: v.id("useCases"),
-    user: v.id("users"),
-    text: v.string(),
-    timestamp: v.string(),
-  }).index("by_useCase", ["useCaseId"]),
+    comments: defineTable({
+      useCaseId: v.id("useCases"),
+      userId: v.union(v.id("users"), v.null()),  // Allow null temporarily
+      user: v.union(v.id("users"), v.null()),    // Add this field temporarily
+      text: v.string(),
+      timestamp: v.string(),
+    }).index("by_useCase", ["useCaseId"]),
 
   users: defineTable({
     name: v.string(),

@@ -1,11 +1,17 @@
-// UseCaseContent.tsx
 "use client";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UseCase } from "@/types/detail-useCase";
 import { UseCaseActions } from "./UseCaseActions";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
+import { Id } from '@/convex/_generated/dataModel';
+
+interface UseCase {
+  _id: Id<"useCases">;
+  title: string;
+  shortDescription: string;
+  longDescription: string;
+}
 
 interface UseCaseContentProps {
   useCase: UseCase;
@@ -31,9 +37,11 @@ export function UseCaseContent({
         editor.replaceBlocks(editor.document, parsedContent);
       } catch (error) {
         console.error("Error parsing content:", error);
+        // If parsing fails, set the longDescription as plain text
+        editor.replaceBlocks(editor.document, [{ type: "paragraph", content: useCase.longDescription }]);
       }
     }
-  }, [useCase.longDescription]);
+  }, [useCase.longDescription, editor]);
 
   return (
     <Card className="bg-gray-800 border-gray-700 mb-8">
