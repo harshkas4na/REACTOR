@@ -34,7 +34,7 @@ const options = [
     description: 'Share your Smart Contract or DApp templates with the community.',
     icon: PlusCircle,
     color: 'bg-orange-500',
-    route: '/contribute'
+    route: '/templates'
   }
 ]
 

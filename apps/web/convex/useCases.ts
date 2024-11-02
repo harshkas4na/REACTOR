@@ -93,7 +93,8 @@ export const createUseCase = mutation({
   args: {
     title: v.string(),
     shortDescription: v.string(),
-    longDescription: v.string(),
+    overview: v.string(),
+    implementation: v.string(),
     reactiveTemplate: v.string(),
     githubRepo: v.string(),
     category: v.string(),
@@ -104,7 +105,8 @@ export const createUseCase = mutation({
     const newUseCaseId = await ctx.db.insert("useCases", {
       title: args.title,
       shortDescription: args.shortDescription,
-      longDescription: args.longDescription,
+      overview: args.overview,
+      implementation: args.implementation,
       reactiveTemplate: args.reactiveTemplate,
       githubRepo: args.githubRepo,
       category: args.category,

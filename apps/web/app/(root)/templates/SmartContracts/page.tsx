@@ -26,7 +26,6 @@ export default function UseCasesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [complexityFilter, setComplexityFilter] = useState('all');
 
   const handleLike = async (useCaseId: Id<"useCases">) => {
     if (!isAuthenticated || !convexUserId) return;
@@ -40,8 +39,7 @@ export default function UseCasesPage() {
 
   const filteredUseCases = useCases?.filter(useCase => 
     useCase.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (categoryFilter === 'all' || useCase.category === categoryFilter) &&
-    (complexityFilter === 'all' || useCase.complexity === complexityFilter)
+    (categoryFilter === 'all' || useCase.category === categoryFilter)
   ) || [];
 
   if (!useCases || !comments || !likes || !users) {
@@ -77,17 +75,7 @@ export default function UseCasesPage() {
                 <SelectItem value="dao">DAO</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={complexityFilter} onValueChange={setComplexityFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Complexity" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
+            
             <Button variant="outline" size="icon" onClick={() => setViewMode('grid')}>
               <Grid className="h-4 w-4" />
             </Button>

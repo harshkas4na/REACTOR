@@ -3,8 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThumbsUp, MessageSquare, Code, BookOpen } from "lucide-react";
-import { UseCase } from "@/types/detail-useCase";
+// import { UseCase } from "@/types/detail-useCase";
 import { CodeViewDialog } from "./CodeViewDialog";
+import { Id } from "@/convex/_generated/dataModel";
+
+
+interface UseCase {
+  _id: Id<"useCases">;
+  title: string;
+  shortDescription: string;
+  overview: string;
+  githubRepo: string;
+  reactiveTemplate: string;
+  implementation: string;
+}
 
 interface UseCaseActionsProps {
   useCase: UseCase;

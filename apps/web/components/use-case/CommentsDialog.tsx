@@ -20,6 +20,7 @@ interface User {
 interface CommentsDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  
   comments: Comment[];
   users: User[];
   useCaseTitle: string;

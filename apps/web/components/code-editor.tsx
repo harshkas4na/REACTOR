@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
+import {useAutomationContext} from "@/app/_context/AutomationContext"
 
 interface CodeEditorProps {
   value: string;
@@ -11,7 +12,8 @@ interface CodeEditorProps {
 }
 
 export default function CodeEditor({ value, onChange }: CodeEditorProps) {
-  const [code, setCode] = useState(value);
+  const { reactiveContract } = useAutomationContext();
+  const [code, setCode] = useState(reactiveContract? reactiveContract : value);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(e.target.value);
@@ -28,7 +30,7 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
         className="font-mono min-h-[300px] bg-gray-800 text-gray-100 border-gray-700"
         value={code}
         onChange={handleCodeChange}
-        placeholder="// Write your smart contract code here"
+        placeholder=""
       />
       <Button onClick={handleSave}>Save Code</Button>
     </div>

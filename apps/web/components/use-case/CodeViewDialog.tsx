@@ -1,8 +1,19 @@
-import { UseCase } from "@/types/detail-useCase";
+// import { UseCase } from "@/types/detail-useCase";
 import { Dialog,DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Code } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Id } from "@/convex/_generated/dataModel";
+
+interface UseCase {
+  _id: Id<"useCases">;
+  title: string;
+  shortDescription: string;
+  overview: string;
+  githubRepo: string;
+  reactiveTemplate: string;
+  implementation: string;
+}
 
 export function CodeViewDialog({ useCase }: { useCase: UseCase }) {
     return (
@@ -18,8 +29,8 @@ export function CodeViewDialog({ useCase }: { useCase: UseCase }) {
             <DialogTitle>{useCase.title} - Reactive Template</DialogTitle>
           </DialogHeader>
           <ScrollArea className="h-[400px] w-full rounded-md border border-gray-700 p-4 bg-gray-900">
-            <pre className="text-sm text-gray-300">
-              <code>{useCase.reactiveTemplate}</code>
+            <pre className="text-sm overflow-auto text-gray-300">
+              <code className="overflow-auto">{useCase.reactiveTemplate}</code>
             </pre>
           </ScrollArea>
         </DialogContent>

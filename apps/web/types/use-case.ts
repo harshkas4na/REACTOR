@@ -3,6 +3,9 @@ import { Id } from '@/convex/_generated/dataModel';
 export interface UseCase {
   _id: Id<"useCases">;
   title: string;
+  overview: string;
+  implementation: string;
+  tags: string;
   shortDescription: string;
   reactiveTemplate: string;
   githubRepo: string;

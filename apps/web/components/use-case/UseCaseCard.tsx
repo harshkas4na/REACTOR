@@ -17,7 +17,17 @@ interface UseCaseCardProps {
 export function UseCaseCard({ useCase, comments, likes, onLike, onComment }: UseCaseCardProps) {
   const useCaseComments = comments.filter(comment => comment.useCaseId === useCase._id);
   const useCaseLikes = likes.filter(like => like.useCaseId === useCase._id);
-
+  const formatTags = (tags: string[] | string): string => {
+    if (Array.isArray(tags)) {
+      return tags.map(tag => `#${tag.trim()}`).join(', ');
+    }
+    // If tags is a string, split it into array and format
+    return tags
+      .split(/[,\s]+/) // Split by commas or whitespace
+      .filter(tag => tag.length > 0)
+      .map(tag => `#${tag.trim()}`)
+      .join(', ');
+  };
   return (
     <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300 bg-gray-800 border-gray-700">
       <CardHeader className="bg-gradient-to-r from-primary to-primary-foreground text-white rounded-t-lg">
@@ -26,6 +36,7 @@ export function UseCaseCard({ useCase, comments, likes, onLike, onComment }: Use
       <CardContent className="flex-grow p-6">
         <p className="text-gray-300">{useCase.shortDescription}</p>
       </CardContent>
+      <CardContent className="p-6 text-gray-300">{useCase.tags && formatTags(useCase.tags)}</CardContent>
       <CardFooter className="flex justify-between items-center p-6 bg-gray-700 rounded-b-lg">
         <ActionButtons
           useCaseId={useCase._id}

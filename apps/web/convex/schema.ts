@@ -5,7 +5,8 @@ export default defineSchema({
   useCases: defineTable({
     title: v.string(),
     shortDescription: v.string(),
-    longDescription: v.string(),
+    overview: v.string(),
+    implementation: v.string(),
     reactiveTemplate: v.string(),
     githubRepo: v.string(),
     category: v.string(),
