@@ -1,51 +1,60 @@
 import { Request, Response } from "express";
-interface EventInput {
-    name: string;
-    type: string;
-    indexed: boolean;
-}
 
-interface TopicFunctionPair {
-    
-    function: string;
-    topic0: string;
-    
+// Updated interfaces to match new requirements
+interface EventInput {
+    topic0: string;  // The event's topic_0 hash
+    eventABI: string; // The event ABI (e.g., "Transfer(address,uint256,address)")
+    indexedParams: number[]; // Array of param indices that should use topic_1, topic_2, etc.
 }
 
 interface ContractInput {
-    topicFunctionPairs: TopicFunctionPair[];
+    events: EventInput[];
     originChainId: number;
     destinationChainId: number;
     originContract: string;
     destinationContract: string;
-    ownerAddress?: string;
-    isPausable: boolean;
 }
 
+// Interface for the response to frontend
+interface GeneratorResponse {
+    reactiveSmartContractTemplate: string;
+    generatedFunctions: string[]; // Array of function signatures like ["function_1(address,uint256,uint256,address)"]
+}
 
-export default async function handleGenerateSC(req: Request, res: Response) {
+export default async function handleLiveDataAutomation(req: Request, res: Response) {
     try {
         const input = req.body;
-        const reactiveSmartContractTemplate = generateReactiveSmartContractTemplate(input);
+        const result = generateReactiveContract(input);
 
-        res.json({
-            reactiveSmartContractTemplate
-        });
+        res.json(result);
     } catch (error) {
         console.error('Error in handleGenerate:', error);
         res.status(500).json({ error: 'An error occurred while generating the contract' });
     }
 }
 
+function parseEventABI(eventABI: string): { name: string; params: { type: string }[] } {
+    const match = eventABI.match(/^(\w+)\((.*)\)$/);
+    if (!match) {
+        throw new Error(`Invalid event ABI: ${eventABI}`);
+    }
+    
+    const [, name, paramsString] = match;
+    const params = paramsString.split(',')
+        .map(type => ({ type: type.trim() }))
+        .filter(param => param.type !== '');
 
-function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
-    return topicFunctionPairs.map((pair, index) => {
-        return `uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.topic0};`;
+    return { name, params };
+}
+
+function generateEventConstants(events: EventInput[]): string {
+    return events.map((event, index) => {
+        return `uint256 private constant EVENT_${index}_TOPIC_0 = ${event.topic0};`;
     }).join('\n    ');
 }
 
-function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], originChainId: number, originContract: string): string {
-    return topicFunctionPairs.map((pair, index) => `
+function generateSubscriptions(events: EventInput[], originChainId: number, originContract: string): string {
+    return events.map((event, index) => `
         bytes memory payload_${index} = abi.encodeWithSignature(
             "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
             ORIGIN_CHAIN_ID,
@@ -59,79 +68,90 @@ function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], originCh
         vm = !subscription_result_${index};`).join('\n');
 }
 
-function generateReactLogic(topicFunctionPairs: TopicFunctionPair[]): string {
-    return topicFunctionPairs.map((pair, index) => {
-      const { function: functionSignature, topic0 } = pair;
-      
-      // Separate function name and input types
-      const match = functionSignature.match(/^(\w+)\((.*)\)$/);
-      if (!match) {
-        throw new Error(`Invalid function signature: ${functionSignature}`);
-      }
-      
-      const [, functionName, inputTypesString] = match;
-      const inputTypes = inputTypesString.split(',').map(type => type.trim()).filter(Boolean);
-      
-      // Generate function inputs based on input types and topics
-      const functionInputs = inputTypes.map((type, paramIndex) => {
-        // First parameter (index 0) is usually sender or special first parameter
-        if (paramIndex === 0) {
-          switch (type) {
-            case 'address':
-                return paramIndex === 0 ? 'address(0)' : `address(uint160(topic_${paramIndex + 1}))`;
-            case 'uint256':
-              return `topic_${paramIndex + 1}`;
-            default:
-              return `topic_${paramIndex + 1}`;
-          }
-        }
+function generateReactLogic(events: EventInput[]): {
+    reactLogic: string;
+    generatedFunctions: string[];
+} {
+    const generatedFunctions: string[] = [];
+    
+    const reactLogic = events.map((event, index) => {
+        const { params } = parseEventABI(event.eventABI);
         
-        // Subsequent parameters
-        switch (type) {
-          case 'address':
-            return `address(uint160(topic_${paramIndex + 1}))`;
-          case 'uint256':
-            return `topic_${paramIndex }`;
-          case 'bool':
-            return `topic_${paramIndex } != 0`;
-          default:
-            return `topic_${paramIndex }`;
-        }
-      }).join(', ');
-  
-      return `
-        if (topic_0 == ${topic0}) {
-          // Call the destination contract with decoded parameters
-          bytes memory payload = abi.encodeWithSignature(
-            "${functionSignature}",
-            ${functionInputs}
-          );
-          emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
+        // Generate function signature
+        const functionParams = ['address', ...params.map(p => p.type)];
+        const functionSignature = `function_${index + 1}(${functionParams.join(',')})`;
+        generatedFunctions.push(functionSignature);
+        
+        // Create an array of default values for all parameters
+        const defaultValues: string[] = functionParams.map(paramType => {
+            switch (paramType) {
+                case 'address':
+                    return 'address(0)';
+                case 'uint256':
+                    return '0';
+                case 'bool':
+                    return 'false';
+                default:
+                    return '0'; // Default fallback
+            }
+        });
+
+        // Replace default values with actual topic values for indexed parameters
+        event.indexedParams.forEach((paramIndex, topicIndex) => {
+            // Add 1 to skip the first parameter (address)
+            const actualParamIndex = paramIndex + 1;
+            const paramType = params[paramIndex].type;
+            
+            if (actualParamIndex < defaultValues.length) {
+                switch (paramType) {
+                    case 'address':
+                        defaultValues[actualParamIndex] = `address(uint160(topic_${topicIndex + 1}))`;
+                        break;
+                    case 'uint256':
+                        defaultValues[actualParamIndex] = `topic_${topicIndex + 1}`;
+                        break;
+                    case 'bool':
+                        defaultValues[actualParamIndex] = `topic_${topicIndex + 1} != 0`;
+                        break;
+                    default:
+                        defaultValues[actualParamIndex] = `topic_${topicIndex + 1}`;
+                }
+            }
+        });
+
+        return `
+        if (topic_0 == EVENT_${index}_TOPIC_0) {
+            bytes memory payload = abi.encodeWithSignature(
+                "${functionSignature}",
+                ${defaultValues.join(', ')}
+            );
+            emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
         }`;
     }).join(' else ');
+
+    return { reactLogic, generatedFunctions };
 }
-export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
+
+function generateReactiveContract(input: ContractInput): GeneratorResponse {
     const { 
-        topicFunctionPairs, 
+        events,
         originChainId, 
         destinationChainId, 
         originContract, 
-        destinationContract, 
-        ownerAddress, 
-        isPausable 
+        destinationContract 
     } = input;
-    // console.log("topicFunctionPairs",topicFunctionPairs);
-    const eventConstants = generateEventConstants(topicFunctionPairs);
-    const subscriptions = generateSubscriptions(topicFunctionPairs, originChainId, originContract);
-    const reactLogic = generateReactLogic(topicFunctionPairs);
 
-    const baseContract = isPausable ? 'AbstractPausableReactive' : 'AbstractReactive';
-    const pausableImport = isPausable ? "import '../../AbstractPausableReactive.sol';" : "import '../../AbstractReactive.sol';";
-    const pausedInitialization = isPausable ? 'paused = false;' : '';
-    const getPausableSubscriptionsFunction = isPausable ? `
+    const eventConstants = generateEventConstants(events);
+    const subscriptions = generateSubscriptions(events, originChainId, originContract);
+    const { reactLogic, generatedFunctions } = generateReactLogic(events);
+
+    const baseContract = 'AbstractPausableReactive';
+    const pausedInitialization = 'paused = false;';
+    
+    const getPausableSubscriptionsFunction = `
     function getPausableSubscriptions() override internal pure returns (Subscription[] memory) {
-        Subscription[] memory result = new Subscription[](${topicFunctionPairs.length});
-        ${topicFunctionPairs.map((_, index) => `
+        Subscription[] memory result = new Subscription[](${events.length});
+        ${events.map((_, index) => `
         result[${index}] = Subscription(
             ORIGIN_CHAIN_ID,
             ORIGIN_CONTRACT,
@@ -141,10 +161,9 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
             REACTIVE_IGNORE
         );`).join('\n')}
         return result;
-    }` : '';
+    }`;
 
-    const template = `
-    // SPDX-License-Identifier: UNLICENSED
+    const template = ` // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity >=0.8.0;
 // @title Interface for reactive contracts.
@@ -376,7 +395,6 @@ contract ReactiveContract is ${baseContract} {
     ${eventConstants}
 
     constructor() {
-        ${ownerAddress ? `owner = ${ownerAddress};` : ''}
         ${pausedInitialization}
         
         // Subscribe to all events
@@ -394,14 +412,16 @@ contract ReactiveContract is ${baseContract} {
         uint256 topic_1,
         uint256 topic_2,
         uint256 topic_3,
-        bytes calldata data,
+        bytes calldata /*data*/,
         uint256 /*block_number*/,
         uint256 /*op_code*/
     ) external vmOnly {
         ${reactLogic}
     }
-    }
-    `;
+}`;
 
-    return template;
-};
+    return {
+        reactiveSmartContractTemplate: template,
+        generatedFunctions
+    };
+}

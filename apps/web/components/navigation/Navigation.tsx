@@ -71,7 +71,7 @@ export default function Navigation() {
         setAccount(accounts[0])
         const web3Instance = new Web3(window.ethereum)
         const chainId = await web3Instance.eth.getChainId()
-        setSelectedNetwork(getCurrentNetworkKey(chainId))
+        setSelectedNetwork(getCurrentNetworkKey(Number(chainId)))
         setWeb3(web3Instance)
       }
     } catch (error: any) {
@@ -137,7 +137,7 @@ export default function Navigation() {
       setWeb3(web3Instance)
 
       web3Instance.eth.getChainId().then((currentChainId) => {
-        const networkKey = getCurrentNetworkKey(currentChainId)
+        const networkKey = getCurrentNetworkKey(Number(currentChainId))
         setSelectedNetwork(networkKey)
       })
 

@@ -9,22 +9,22 @@ export default async function handleAutomation(req: Request, res: Response) {
 
   try {
     // Verify contract on Etherscan using fetch
-    const etherscanUrl = `https://api.etherscan.io/api?module=contract&action=getabi&address=${originAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+    const etherscanUrlORG = `https://api.etherscan.io/api?module=contract&action=getabi&address=${originAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
 
-    const etherscanResponse = await fetch(etherscanUrl);
+    const etherscanResponseORG = await fetch(etherscanUrlORG);
     
-    if (!etherscanResponse.ok) {
+    if (!etherscanResponseORG.ok) {
       return res.status(400).json({ message: 'Failed to fetch contract from Etherscan' });
     }
     
-    const etherscanData = await etherscanResponse.json();
+    const etherscanDataORG = await etherscanResponseORG.json();
 
     // Check if the contract is verified
-    if (etherscanData.status !== '1') {
+    if (etherscanDataORG.status !== '1') {
       return res.status(400).json({ message: 'Contract is not verified' });
     }
 
-    const abi = JSON.parse(etherscanData.result);
+    const abi = JSON.parse(etherscanDataORG.result);
 
     // Extract and format events, including full event ABIs
     const events = abi
@@ -45,12 +45,12 @@ export default async function handleAutomation(req: Request, res: Response) {
         abi: item
       }));
 
-    console.log(functions,events);  
+    // console.log(functions,events);  
 
     // Respond with extracted events (including ABIs) and functions
     return res.json({ events, functions });
 
-  } catch (error) {
+  } catch (error:any) {
     console.error('Error processing contract:', error);
     if (error.name === 'FetchError') {
       // Handle fetch-specific error
