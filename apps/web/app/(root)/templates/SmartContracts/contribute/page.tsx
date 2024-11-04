@@ -23,6 +23,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CodeEditor from '@/components/code-editor';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
+import dynamic from 'next/dynamic';
+const BlockNoteViewClient = dynamic(() => import('@/components/BlockNoteViewClient'), {
+  ssr: false // This is important - it prevents server-side rendering
+});
 
 const steps = ['Basic Info', 'Long Description', 'Reactive Template', 'GitHub & Finalize'];
 
@@ -257,7 +261,7 @@ export default function AddUseCasePage() {
                   </div>
                   {formData.overview && (
                     <div className="mt-4 p-4 bg-gray-700 rounded-lg">
-                      <BlockNoteView editor={overviewEditor} theme="dark" />
+                      <BlockNoteViewClient editor={overviewEditor} theme="dark" />
                     </div>
                   )}
                 </div>
@@ -276,7 +280,7 @@ export default function AddUseCasePage() {
                   </div>
                   {formData.implementation && (
                     <div className="mt-4 p-4 bg-gray-700 rounded-lg">
-                      <BlockNoteView editor={implementationEditor} theme="dark" />
+                      <BlockNoteViewClient editor={implementationEditor} theme="dark" />
                     </div>
                   )}
                 </div>

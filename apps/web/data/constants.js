@@ -3,8 +3,8 @@
 export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
     { label: 'Templates', path: '/templates' },
-    { label: 'Community', path: '/community' },
-    { label: 'Dapp-Automation', path: '/automation/DappAutomation' }
+    { label: 'Deploy RSC', path: '/deploy-reactive-contract' },
+    { label: 'Dapp-Automation', path: '/dapp-automation' }
   ]
 
 export const FEATURES = [
@@ -28,7 +28,7 @@ export const TESTIMONIALS = [
 
   export const TEMPLATE_CARDS = [
     {
-      title: "Template Library",
+      title: "Smart Contracts Library",
       description: "Provide a library of pre-built RSC templates for common use cases. Users could choose a template, customize it with parameters like wallet addresses, token types, or conditions, and deploy without needing to modify the underlying code.",
       features: {
         title: "Use Cases Examples:",
@@ -49,12 +49,12 @@ export const TESTIMONIALS = [
         }
       },
       image: {
-        src: "/placeholder.svg?height=300&width=400",
-        alt: "Template Library"
+        src: "/solidity.jpg",
+        alt: "DApp Library"
       }
     },
     {
-      title: "Templates for Common dApps",
+      title: "DApp Library",
       description: "Offer templates that integrate with common decentralized applications (e.g., Uniswap, Compound). Users can input parameters to automate actions on these dApps without modifying their code.",
       features: {
         title: "Features:",
@@ -75,7 +75,7 @@ export const TESTIMONIALS = [
         }
       },
       image: {
-        src: "/placeholder.svg?height=300&width=400",
+        src: "/DApp.jpg",
         alt: "Templates for Common dApps"
       }
     }

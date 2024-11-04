@@ -62,15 +62,21 @@ export const likeUseCase = mutation({
 });
 
 export const addComment = mutation({
-  args: { useCaseId: v.id("useCases"), userId: v.id("users"), text: v.string() },
+  args: {
+    useCaseId: v.id("useCases"),
+    userId: v.id("users"),
+    text: v.string(),
+    timestamp: v.string() // Add this if you want to handle timestamp on client
+  },
   handler: async (ctx, args) => {
-    await ctx.db.insert("comments", {
+    const commentId = await ctx.db.insert("comments", {
       useCaseId: args.useCaseId,
       userId: args.userId,
-      user: args.userId, // Add this field to match the schema
       text: args.text,
-      timestamp: new Date().toISOString(),
+      timestamp: args.timestamp,
+      user: args.userId // Assuming this is how you want to store the user reference
     });
+    return commentId;
   },
 });
 
@@ -125,19 +131,39 @@ export const searchUseCases = query({
     category: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let useCasesQuery = ctx.db.query("useCases");
-
+    if (args.searchTerm && args.category) {
+      // If both filters are present, search by title and filter results
+      const results = await ctx.db
+        .query("useCases")
+        .withSearchIndex("search_title", (q) => 
+          q.search("title", args.searchTerm!)
+        )
+        .collect();
+      
+      return results.filter(useCase => useCase.category === args.category);
+    } 
+    
     if (args.searchTerm) {
-      // Use the defined search index from the schema
-      useCasesQuery = useCasesQuery.withSearchIndex("search_title", (q) => 
-        q.search("title", args.searchTerm!)
-      );
+      // Only search term present
+      return await ctx.db
+        .query("useCases")
+        .withSearchIndex("search_title", (q) => 
+          q.search("title", args.searchTerm!)
+        )
+        .collect();
     }
-
+    
     if (args.category) {
-      useCasesQuery = useCasesQuery.filter(q => q.eq(q.field("category"), args.category));
+      // Only category filter present
+      return await ctx.db
+        .query("useCases")
+        .withSearchIndex("search_category", (q) => 
+          q.search("category", String(args.category))
+        )
+        .collect();
     }
-
-    return await useCasesQuery.collect();
+    
+    // No filters, return all
+    return await ctx.db.query("useCases").collect();
   },
 });

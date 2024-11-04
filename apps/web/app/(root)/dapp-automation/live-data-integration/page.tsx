@@ -11,7 +11,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { AlertCircle, CheckCircle2, Info, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
-import { Toast } from "@/components/ui/toast"
 import { useWeb3 } from '@/app/_context/Web3Context'
 
 const steps = ['Contract Input', 'Event Selection', 'Input Selection', 'Template Preview']
@@ -22,8 +21,8 @@ export default function LiveDataIntegration() {
   const [isValidating, setIsValidating] = useState(false)
   const [isContractValid, setIsContractValid] = useState(false)
   const [events, setEvents] = useState([])
-  const [selectedEvents, setSelectedEvents] = useState([])
-  const [selectedInputs, setSelectedInputs] = useState({})
+  const [selectedEvents, setSelectedEvents] = useState<any>([])
+  const [selectedInputs, setSelectedInputs] = useState<any>({})
   const [previewCode, setPreviewCode] = useState('')
   const [destinationFunctions, setDestinationFunctions] = useState('')
   const [destinationAddress, setDestinationAddress] = useState('')
@@ -34,13 +33,10 @@ export default function LiveDataIntegration() {
   const [compilationSuccess, setCompilationSuccess] = useState(false)
   const [deploymentSuccess, setDeploymentSuccess] = useState(false)
   const [deployedAddress, setDeployedAddress] = useState('')
-    const [deploymentError, setDeploymentError] = useState('')
+  const [deploymentError, setDeploymentError] = useState('')
   const { account, web3 } = useWeb3();
 
-  const validateEventInput = useCallback((input: string): boolean => {
-    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$$(address|uint256|string|bool|bytes32|uint8)(,(address|uint256|string|bool|bytes32|uint8))*$$$/;
-    return eventRegex.test(input);
-  }, []);
+ 
 
   const validateContract = async () => {
     setIsValidating(true)
@@ -56,7 +52,7 @@ export default function LiveDataIntegration() {
       if (response.ok) {
         const eventsWithTopic0 = data.events.map((event: any) => ({
           ...event,
-          topic0: ethers.keccak256(ethers.toUtf8Bytes(event.name + '(' + event.inputs.map(input => input.type).join(',') + ')'))
+          topic0: ethers.keccak256(ethers.toUtf8Bytes(event.name + '(' + event.inputs.map((input:any) => input.type).join(',') + ')'))
         }))
         setEvents(eventsWithTopic0)
         setIsContractValid(true)
@@ -74,19 +70,19 @@ export default function LiveDataIntegration() {
   const handleEventSelection = (event: any) => {
     setSelectedEvents((prev: any) => 
       prev.includes(event) 
-        ? prev.filter(e => e !== event)
+        ? prev.filter((e:any) => e !== event)
         : [...prev, event]
     )
     if (!selectedInputs[event.name]) {
-      setSelectedInputs(prev => ({...prev, [event.name]: []}))
+      setSelectedInputs((prev:any) => ({...prev, [event.name]: []}))
     }
   }
 
   const handleInputSelection = (eventName: string, inputIndex: number) => {
-    setSelectedInputs(prev => ({
+    setSelectedInputs((prev:any) => ({
       ...prev,
       [eventName]: prev[eventName].includes(inputIndex)
-        ? prev[eventName].filter(i => i !== inputIndex)
+        ? prev[eventName].filter((i:any) => i !== inputIndex)
         : [...prev[eventName], inputIndex]
     }))
   }
@@ -95,7 +91,7 @@ export default function LiveDataIntegration() {
     const input = {
       events: selectedEvents.map((event: any) => ({
         topic0: event.topic0,
-        eventABI: `${event.name}(${event.inputs.map(input => input.type).join(',')})`,
+        eventABI: `${event.name}(${event.inputs.map((input:any) => input.type).join(',')})`,
         indexedParams: selectedInputs[event.name]
       })),
       originChainId: 11155111, // Assuming Ethereum sepolia, adjust as needed
@@ -134,6 +130,7 @@ export default function LiveDataIntegration() {
       "0x0000000000000000000000000000000000000000",
       destinationAddress
     )
+    setPreviewCode(updatedTemplate)
 
     try {
       const response = await fetch('http://localhost:5000/compile', {
@@ -171,7 +168,8 @@ export default function LiveDataIntegration() {
     }
 
     try {
-      const contract = new web3.eth.Contract(abi);
+      const parsedAbi = JSON.parse(abi);
+      const contract = new web3.eth.Contract(parsedAbi);
       const deployTransaction = contract.deploy({
         data: bytecode,
         arguments: []
@@ -272,7 +270,7 @@ export default function LiveDataIntegration() {
               <h2 className="text-2xl font-semibold mb-4">Contract Input</h2>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="contractAddress">Origin Contract Address</Label>
+                  <Label htmlFor="contractAddress">Origin DApp's Contract Address</Label>
                   <Input
                     id="contractAddress"
                     placeholder="0x..."
@@ -302,7 +300,7 @@ export default function LiveDataIntegration() {
             >
               <h2 className="text-2xl font-semibold mb-4">Event Selection</h2>
               <div className="space-y-4">
-                {events.map(event => (
+                {events.map((event:any) => (
                   <div key={event.name} className="flex items-center space-x-2">
                     <Checkbox
                       id={event.name}
@@ -310,7 +308,7 @@ export default function LiveDataIntegration() {
                       onCheckedChange={() => handleEventSelection(event)}
                     />
                     <Label htmlFor={event.name}>
-                      {event.name}({event.inputs.map(input => input.type).join(',')})
+                      {event.name}({event.inputs.map((input:any) => input.type).join(',')})
                     </Label>
                   </div>
                 ))}
@@ -385,8 +383,8 @@ export default function LiveDataIntegration() {
                         <p className='my-2 text-gray-400'>2. Configure your constructor as payable and pass the Callback_sender parameter to AbstractCallback.</p>
                         <p className='my-2 text-gray-400'>3. When deploying, include at least 0.1 native tokens (e.g., 0.1 sepETH) to ensure successful callback execution.</p>
 
-                    For comprehensive implementation details and best practices, please refer to our  
-                    <a href="https://dev.reactive.network/" target='_blank'>REACTIVE NETWORK documentation</a>.
+                    For comprehensive implementation details and best practices, please refer to our   
+                     <br /><a href="https://dev.reactive.network/" className='text-blue-400' target='_blank'>REACTIVE NETWORK documentation</a>
                   </p>
                   <Label htmlFor="destinationAddress">Destination Contract Address</Label>
 

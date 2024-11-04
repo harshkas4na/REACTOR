@@ -6,13 +6,16 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Moon, Sun, Menu } from 'lucide-react'
+import { Moon, Sun, Menu, UserCircle2, LogOut } from 'lucide-react'
 import { Logo } from './Logo'
 import { DesktopMenu } from './DesktopMenu'
 import { MobileMenu } from './MobileMenu'
 import { MenuToggle } from './MenuToggle'
 import { useWeb3 } from '@/app/_context/Web3Context'
+import { useAuth } from '@clerk/nextjs'
+// import { useUser } from '@clerk/clerk-react'
 import Web3 from 'web3'
+
 
 
 interface NetworkConfig {
@@ -43,6 +46,10 @@ export default function Navigation() {
   const { theme, setTheme } = useTheme()
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const { isSignedIn, signOut } = useAuth()
+  console.log('isSignedIn', isSignedIn)
+  // const { user } = useUser()
+
   
   const {
     selectedNetwork,
@@ -54,7 +61,7 @@ export default function Navigation() {
   } = useWeb3()
 
   const connectWallet = async (): Promise<void> => {
-    if (typeof window.ethereum === 'undefined') {
+    if (typeof window === 'undefined' || !window.ethereum) {
       setError('Please install MetaMask!')
       return
     }
@@ -74,15 +81,20 @@ export default function Navigation() {
         setSelectedNetwork(getCurrentNetworkKey(Number(chainId)))
         setWeb3(web3Instance)
       }
-    } catch (error: any) {
-      console.error('Error connecting wallet:', error)
-      setError(error.message)
+    } catch (err: any) {
+      console.error('Error connecting wallet:', err)
+      setError(err?.message || 'Failed to connect wallet')
     } finally {
       setIsLoading(false)
     }
   }
 
   const switchNetwork = async (networkName: string): Promise<void> => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      setError('Please install MetaMask!')
+      return
+    }
+
     try {
       setIsLoading(true)
       const network = SUPPORTED_NETWORKS[networkName.toUpperCase()]
@@ -96,6 +108,7 @@ export default function Navigation() {
           params: [{ chainId: chainIdHex }],
         })
       } catch (switchError: any) {
+        // This error code indicates that the chain has not been added to MetaMask
         if (switchError.code === 4902) {
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
@@ -113,9 +126,9 @@ export default function Navigation() {
       setSelectedNetwork(networkName)
       const web3Instance = new Web3(window.ethereum)
       setWeb3(web3Instance)
-    } catch (error) {
-      console.error('Error switching network:', error)
-      setError('Failed to switch network')
+    } catch (err: any) {
+      console.error('Error switching network:', err)
+      setError(err?.message || 'Failed to switch network')
     } finally {
       setIsLoading(false)
     }
@@ -132,7 +145,7 @@ export default function Navigation() {
   }
 
   useEffect(() => {
-    if (typeof window.ethereum !== 'undefined') {
+    if (typeof window !== 'undefined' && window.ethereum) {
       const web3Instance = new Web3(window.ethereum)
       setWeb3(web3Instance)
 
@@ -180,7 +193,7 @@ export default function Navigation() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Logo />
+          <h1>Reactor</h1>
           <DesktopMenu />
           <div className="flex items-center space-x-4">
             <Select 
@@ -210,6 +223,27 @@ export default function Navigation() {
                 "Connect Wallet"
               )}
             </Button>
+            {isSignedIn ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => signOut()}
+                className="relative"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+                
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => window.location.href = '/sign-in'}
+                aria-label="Sign in"
+              >
+                <UserCircle2 className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

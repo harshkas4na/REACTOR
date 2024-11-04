@@ -86,7 +86,8 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
     await addComment({ 
       useCaseId: useCase._id, 
       userId: convexUserId, 
-      text: newComment.trim() 
+      text: newComment.trim(),
+      timestamp: new Date().toISOString() 
     });
     setNewComment("");
   };
@@ -138,9 +139,7 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                 <CardTitle className="text-2xl font-bold text-gray-100">Implementation Details</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="text-gray-300 mb-4">
-                  This Reactive Smart Contract implementation leverages real-time data processing and autonomous decision-making to optimize the {useCase.title.toLowerCase()} process. It utilizes a combination of state management, actions, views, and reactions to create a responsive and efficient system.
-                </div>
+                
                 <div className="text-gray-300">
                   {useCase.implementation ? (
                     <BlockNoteView editor={implementationEditor} theme="dark" editable={false} />

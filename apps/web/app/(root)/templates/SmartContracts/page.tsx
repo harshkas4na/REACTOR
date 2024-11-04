@@ -12,13 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Grid, List } from 'lucide-react';
+import type { UseCase, Comment, Like, User } from '@/types/use-case';
 
 export default function UseCasesPage() {
   const { convexUserId, isAuthenticated } = useConvexUser();
-  const useCases = useQuery(api.useCases.listUseCases);
-  const comments = useQuery(api.useCases.listComments);
-  const likes = useQuery(api.useCases.listLikes);
-  const users = useQuery(api.users.listUsers);
+  const useCases = useQuery(api.useCases.listUseCases) as UseCase[] | undefined;
+  const comments = useQuery(api.useCases.listComments) as Comment[] | undefined;
+  const likes = useQuery(api.useCases.listLikes) as Like[] | undefined;
+  const users = useQuery(api.users.listUsers) as User[] | undefined;
   const likeUseCase = useMutation(api.useCases.likeUseCase);
   const addComment = useMutation(api.useCases.addComment);
 
@@ -31,16 +32,23 @@ export default function UseCasesPage() {
     if (!isAuthenticated || !convexUserId) return;
     await likeUseCase({ useCaseId, userId: convexUserId });
   };
+  const searchResults = useQuery(api.useCases.searchUseCases, {
+    searchTerm: searchTerm || undefined,
+    category: categoryFilter === 'all' ? undefined : categoryFilter
+  });
 
   const handleAddComment = async (text: string) => {
     if (!isAuthenticated || !convexUserId || !selectedUseCase) return;
-    await addComment({ useCaseId: selectedUseCase, userId: convexUserId, text });
+    await addComment({ 
+      useCaseId: selectedUseCase, 
+      userId: convexUserId, 
+      // user: convexUserId, // Temporary until the schema is updated
+      text,
+      timestamp: new Date().toISOString()
+    });
   };
 
-  const filteredUseCases = useCases?.filter(useCase => 
-    useCase.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (categoryFilter === 'all' || useCase.category === categoryFilter)
-  ) || [];
+  const filteredUseCases = searchResults || [];
 
   if (!useCases || !comments || !likes || !users) {
     return <LoadingSpinner />;

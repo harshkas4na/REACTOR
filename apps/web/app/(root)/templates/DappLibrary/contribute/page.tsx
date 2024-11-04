@@ -1,139 +1,131 @@
-'use client'
-
-import { useState } from 'react'
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-const CATEGORIES = ['Finance', 'Gaming', 'Social', 'Productivity', 'Marketplace', 'Governance', 'Other']
-
-export default function ContributeDAppPage() {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('')
-  const [url, setUrl] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [details, setDetails] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically send the data to your backend
-    console.log({ name, description, category, url, imageUrl, details })
-    setSubmitted(true)
-    // Reset form
-    setName('')
-    setDescription('')
-    setCategory('')
-    setUrl('')
-    setImageUrl('')
-    setDetails('')
-  }
-
+export default function ContributePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-12 text-gray-100">Contribute to DApp Library</h1>
-        
-        {submitted && (
-          <Alert className="mb-6 bg-green-800 border-green-600">
-            <CheckCircle2 className="h-4 w-4 text-green-400" />
-            <AlertTitle className="text-green-400">Success</AlertTitle>
-            <AlertDescription className="text-green-200">
-              Your DApp submission has been received successfully. Our team will review it shortly.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-100">Submit a New DApp</CardTitle>
-              <CardDescription className="text-gray-400">
-                Provide details about the DApp you'd like to add to our library.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-gray-200">DApp Name</Label>
-                <Input 
-                  id="name" 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  required 
-                  className="bg-gray-700 text-gray-100 border-gray-600"
-                />
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Contribute Template</CardTitle>
+            <CardDescription>
+              Share your DApp automation implementation with the community
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-8">
+              <BasicDetails />
+              <ImplementationDetails />
+              <CodeSubmission />
+              <SecurityConsiderations />
+              <PerformanceMetrics />
+              <AuthorInformation />
+              <div className="flex justify-end gap-4">
+                <Button variant="outline">Save Draft</Button>
+                <Button>Submit for Review</Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-gray-200">Short Description</Label>
-                <Textarea 
-                  id="description" 
-                  value={description} 
-                  onChange={(e) => setDescription(e.target.value)} 
-                  required 
-                  className="bg-gray-700 text-gray-100 border-gray-600"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-gray-200">Category</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger id="category" className="bg-gray-700 text-gray-100 border-gray-600">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-700 text-gray-100 border-gray-600">
-                    {CATEGORIES.map(cat => (
-                      <SelectItem key={cat} value={cat} className="hover:bg-gray-600">{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="url" className="text-gray-200">DApp URL</Label>
-                <Input 
-                  id="url" 
-                  type="url"
-                  value={url} 
-                  onChange={(e) => setUrl(e.target.value)} 
-                  required 
-                  className="bg-gray-700 text-gray-100 border-gray-600"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl" className="text-gray-200">Logo Image URL</Label>
-                <Input 
-                  id="imageUrl" 
-                  type="url"
-                  value={imageUrl} 
-                  onChange={(e) => setImageUrl(e.target.value)} 
-                  required 
-                  className="bg-gray-700 text-gray-100 border-gray-600"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="details" className="text-gray-200">Detailed Description</Label>
-                <Textarea 
-                  id="details" 
-                  value={details} 
-                  onChange={(e) => setDetails(e.target.value)} 
-                  required 
-                  className="bg-gray-700 text-gray-100 border-gray-600"
-                  rows={5}
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                Submit DApp
-              </Button>
-            </CardFooter>
-          </Card>
-        </form>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
 }
+
+const BasicDetails = () => (
+  <div className="space-y-4">
+    <h2 className="text-lg font-semibold">Basic Details</h2>
+    <div className="space-y-2">
+      <Label htmlFor="title">Template Title</Label>
+      <Input id="title" placeholder="Enter a descriptive title for your template" />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="description">Description</Label>
+      <Textarea id="description" placeholder="Provide a brief description of what your template does" />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="architecture-type">Architecture Type</Label>
+      <Select>
+        <SelectTrigger id="architecture-type">
+          <SelectValue placeholder="Select architecture type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem  value="liveData">Live Data</SelectItem>
+          <SelectItem value="crossDapp">Cross-DApp</SelectItem>
+          <SelectItem value="crossChain">Cross-Chain</SelectItem>
+          <SelectItem value="external">External Integration</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
+)
+
+const ImplementationDetails = () => (
+  <div className="space-y-4">
+    <h2 className="text-lg font-semibold">Implementation Details</h2>
+    <div className="space-y-2">
+      <Label htmlFor="target-dapps">Target DApps</Label>
+      <Input id="target-dapps" placeholder="e.g., Uniswap, Aave, Compound" />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="chains">Supported Chains</Label>
+      <Input id="chains" placeholder="e.g., Ethereum, Polygon, Arbitrum" />
+    </div>
+    {/* Add more implementation details fields as needed */}
+  </div>
+)
+
+const CodeSubmission = () => (
+  <div className="space-y-4">
+    <h2 className="text-lg font-semibold">Code Submission</h2>
+    <div className="space-y-2">
+      <Label htmlFor="code">Template Code</Label>
+      <Textarea id="code" placeholder="Paste your template code here" className="font-mono" rows={10} />
+    </div>
+    {/* Add options for file upload or GitHub repo link if needed */}
+  </div>
+)
+
+const SecurityConsiderations = () => (
+  <div className="space-y-4">
+    <h2 className="text-lg font-semibold">Security Considerations</h2>
+    <div className="space-y-2">
+      <Label htmlFor="security-measures">Security Measures</Label>
+      <Textarea id="security-measures" placeholder="Describe the security measures implemented in your template" />
+    </div>
+    {/* Add more security-related fields as needed */}
+  </div>
+)
+
+const PerformanceMetrics = () => (
+  <div className="space-y-4">
+    <h2 className="text-lg font-semibold">Performance Metrics</h2>
+    <div className="space-y-2">
+      <Label htmlFor="gas-cost">Estimated Gas Cost</Label>
+      <Input id="gas-cost" placeholder="e.g., 0.005 ETH" />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="success-rate">Expected Success Rate</Label>
+      <Input id="success-rate" placeholder="e.g., 98%" />
+    </div>
+    {/* Add more performance-related fields as needed */}
+  </div>
+)
+
+const AuthorInformation = () => (
+  <div className="space-y-4">
+    <h2 className="text-lg font-semibold">Author Information</h2>
+    <div className="space-y-2">
+      <Label htmlFor="author-name">Your Name</Label>
+      <Input id="author-name" placeholder="Enter your name or pseudonym" />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="author-contact">Contact Information (optional)</Label>
+      <Input id="author-contact" placeholder="Email or other contact method" />
+    </div>
+  </div>
+)

@@ -96,7 +96,7 @@ export default function CrossDAppAutomation() {
           return [...prev, { event: eventSignature, function: '', topic0 }];
         }
       })
-      setAvailableEvents(prev => prev.filter(e => e.name !== event.name))
+      setAvailableEvents(prev => prev.filter((e:any) => e.name !== event.name))
     } catch (error) {
       console.error('Error generating topic0:', error)
     }

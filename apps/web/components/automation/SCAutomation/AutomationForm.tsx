@@ -91,28 +91,29 @@ export default function AutomationForm({
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="space-y-4">
-        <Label className="text-gray-300">Automations</Label>
+        <Label className="dark:text-gray-300 light:text-gray-700">Automations</Label>
         {automations.map((automation, index) => (
           <AutomationCard
             key={index}
             automation={automation}
             index={index}
-            
           />
         ))}
         <Button 
           type="button" 
           variant="outline" 
           onClick={handleAddAutomation} 
-          className="text-gray-300 border-gray-600 hover:bg-gray-700"
+          className="transition-colors
+            dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-100
+            light:text-gray-700 light:border-gray-300 light:hover:bg-gray-100 light:hover:text-gray-900"
         >
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Automation
         </Button>
       </div>
 
-      <Alert>
-        <AlertDescription>
+      <Alert className="dark:bg-gray-800 light:bg-gray-100 border dark:border-gray-700 light:border-gray-200">
+        <AlertDescription className="dark:text-gray-300 light:text-gray-700">
           <strong>Input Rules:</strong>
           <ul className="list-disc pl-5 mt-2">
             <li>Event format: EventName(type1,type2,...)</li>
@@ -124,17 +125,19 @@ export default function AutomationForm({
         </AlertDescription>
       </Alert>
 
-      <div className="space-y-4 text-gray-200">
+      <div className="space-y-4">
         <div className="flex items-center space-x-2">
           <Checkbox 
             id="sameChain" 
             checked={sameChain}
-            className="bg-gray-700 text-gray-100 border-gray-600 focus:ring-primary"
+            className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600
+                     light:bg-gray-100 light:text-gray-900 light:border-gray-300 
+                     focus:ring-primary"
             onCheckedChange={handleSameChainToggle}
           />
           <Label 
             htmlFor="sameChain" 
-            className="text-gray-300"
+            className="dark:text-gray-300 light:text-gray-700"
           >
             Origin and destination chains are the same
           </Label>
@@ -142,7 +145,7 @@ export default function AutomationForm({
 
         {sameChain ? (
           <div className="space-y-2">
-            <Label className="text-gray-300">Chain ID</Label>
+            <Label className="dark:text-gray-300 light:text-gray-700">Chain ID</Label>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -154,12 +157,13 @@ export default function AutomationForm({
                       setDesChainId(e.target.value);
                     }}
                     placeholder="Enter Chain ID"
-                    className={`w-full p-2 bg-gray-800 border rounded-md text-gray-300 ${
-                      validations.OrgChainId ? 'border-green-500' : 'border-red-500'
-                    }`}
+                    className={`w-full p-2 transition-colors
+                      dark:bg-gray-800 dark:text-gray-300 
+                      light:bg-gray-50 light:text-gray-900 
+                      ${validations.OrgChainId ? 'border-green-500' : 'border-red-500'}`}
                   />
                 </TooltipTrigger>
-                <TooltipContent>
+                <TooltipContent className="dark:bg-gray-800 dark:text-gray-200 light:bg-white light:text-gray-800">
                   <p>Enter a valid positive number</p>
                 </TooltipContent>
               </Tooltip>
@@ -168,7 +172,7 @@ export default function AutomationForm({
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-gray-300">Origin Chain ID</Label>
+              <Label className="dark:text-gray-300 light:text-gray-700">Origin Chain ID</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -177,19 +181,20 @@ export default function AutomationForm({
                       value={OrgChainId}
                       onChange={(e) => setOrgChainId(e.target.value)}
                       placeholder="Enter Origin Chain ID"
-                      className={`w-full p-2 bg-gray-800 border rounded-md text-gray-300 ${
-                        validations.OrgChainId ? 'border-green-500' : 'border-red-500'
-                      }`}
+                      className={`w-full p-2 transition-colors
+                        dark:bg-gray-800 dark:text-gray-300 
+                        light:bg-gray-50 light:text-gray-900 
+                        ${validations.OrgChainId ? 'border-green-500' : 'border-red-500'}`}
                     />
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent className="dark:bg-gray-800 dark:text-gray-200 light:bg-white light:text-gray-800">
                     <p>Enter a valid positive number</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <div className="space-y-2">
-              <Label className="text-gray-300">Destination Chain ID</Label>
+              <Label className="dark:text-gray-300 light:text-gray-700">Destination Chain ID</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -198,12 +203,13 @@ export default function AutomationForm({
                       value={DesChainId}
                       onChange={(e) => setDesChainId(e.target.value)}
                       placeholder="Enter Destination Chain ID"
-                      className={`w-full p-2 bg-gray-800 border rounded-md text-gray-300 ${
-                        validations.DesChainId ? 'border-green-500' : 'border-red-500'
-                      }`}
+                      className={`w-full p-2 transition-colors
+                        dark:bg-gray-800 dark:text-gray-300 
+                        light:bg-gray-50 light:text-gray-900 
+                        ${validations.DesChainId ? 'border-green-500' : 'border-red-500'}`}
                     />
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent className="dark:bg-gray-800 dark:text-gray-200 light:bg-white light:text-gray-800">
                     <p>Enter a valid positive number</p>
                   </TooltipContent>
                 </Tooltip>
@@ -218,11 +224,15 @@ export default function AutomationForm({
         isDestinationAddressValid={validations.destinationAddress}
       />
 
-      {error && <p className="text-red-400">{error}</p>}
+      {error && (
+        <p className="dark:text-red-400 light:text-red-600">{error}</p>
+      )}
 
       <Button 
         type="submit" 
-        className="w-full bg-primary hover:bg-primary-foreground hover:text-gray-100" 
+        className="w-full transition-colors
+          dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-gray-100
+          light:bg-blue-500 light:hover:bg-blue-600 light:text-white" 
         disabled={isLoading || !isValidForm}
       >
         {isLoading ? 'Generating...' : 'Generate Contract'}

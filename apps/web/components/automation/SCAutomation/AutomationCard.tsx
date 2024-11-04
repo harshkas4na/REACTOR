@@ -78,50 +78,62 @@ export default function AutomationCard({
   }, [index, setAutomations]);
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
+    <Card className="transition-colors
+      dark:bg-gray-800 dark:border-gray-700
+      light:bg-white light:border-gray-200">
       <CardContent className="space-y-4 p-4">
         <div className="space-y-2">
-          <Label className="text-gray-300">Event</Label>
+          <Label className="dark:text-gray-300 light:text-gray-700">Event</Label>
           <Input
             value={automation.event}
             onChange={(e) => handleAutomationChange('event', e.target.value)}
             placeholder="Event(address,uint256)"
             required
-            className={`bg-gray-700 text-gray-100 border ${
-              validateEventInput(automation.event) ? 'border-green-500' : 'border-red-500'
-            }`}
+            className={`transition-colors
+              dark:bg-gray-700 dark:text-gray-100 
+              light:bg-gray-50 light:text-gray-900 
+              ${validateEventInput(automation.event) 
+                ? 'border-green-500' 
+                : 'border-red-500'
+              }`}
           />
           {!validateEventInput(automation.event) && (
-            <p className="text-red-400 text-sm">
+            <p className="dark:text-red-400 light:text-red-600 text-sm">
               Invalid event signature. Use format: EventName(type1,type2,...)
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label className="text-gray-300">Function</Label>
+          <Label className="dark:text-gray-300 light:text-gray-700">Function</Label>
           <Input
             value={automation.function}
             onChange={(e) => handleAutomationChange('function', e.target.value)}
             placeholder="FunctionName(address,uint256)"
             required
-            className={`bg-gray-700 text-gray-100 border ${
-              validateFunctionInput(automation.function) ? 'border-green-500' : 'border-red-500'
-            }`}
+            className={`transition-colors
+              dark:bg-gray-700 dark:text-gray-100 
+              light:bg-gray-50 light:text-gray-900 
+              ${validateFunctionInput(automation.function) 
+                ? 'border-green-500' 
+                : 'border-red-500'
+              }`}
           />
           {!validateFunctionInput(automation.function) && (
-            <p className="text-red-400 text-sm">
+            <p className="dark:text-red-400 light:text-red-600 text-sm">
               Invalid function signature. Use format: FunctionName(address,type1,type2,...)
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label className="text-gray-300">Topic0 (auto-generated)</Label>
+          <Label className="dark:text-gray-300 light:text-gray-700">Topic0 (auto-generated)</Label>
           <Input
             value={automation.topic0 || ''}
             readOnly
-            className="bg-gray-700 text-gray-100 border-gray-600"
+            className="transition-colors
+              dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600
+              light:bg-gray-50 light:text-gray-900 light:border-gray-300"
           />
         </div>
 
@@ -134,12 +146,14 @@ export default function AutomationCard({
                     variant="ghost"
                     size="icon"
                     onClick={handleRemoveAutomation}
-                    className="text-red-400 hover:text-red-300 hover:bg-gray-700"
+                    className="transition-colors
+                      dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-gray-700
+                      light:text-red-600 light:hover:text-red-500 light:hover:bg-gray-100"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
+                <TooltipContent className="dark:bg-gray-800 dark:text-gray-200 light:bg-white light:text-gray-800">
                   <p>Remove automation</p>
                 </TooltipContent>
               </Tooltip>

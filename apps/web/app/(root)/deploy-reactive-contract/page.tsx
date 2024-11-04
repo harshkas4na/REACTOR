@@ -164,15 +164,24 @@ export default function AutomationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen transition-colors duration-200 
+      dark:bg-gray-900 text-gray-100 
+      bg-gray-100
+      py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-4xl font-bold text-center text-gray-100">
+        <h1 className="text-4xl font-bold text-center 
+          dark:text-gray-100 
+          text-gray-900">
           Create Your Automation
         </h1>
         
-        <Card>
+        <Card className="border transition-colors
+          dark:bg-gray-800 dark:border-gray-700
+          light:bg-white light:border-gray-200">
           <CardHeader>
-            <CardTitle>Automation Configuration</CardTitle>
+            <CardTitle className="dark:text-gray-100 light:text-gray-900">
+              Automation Configuration
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <AutomationForm
@@ -185,9 +194,13 @@ export default function AutomationPage() {
         </Card>
 
         {reactiveContract && (
-          <Card>
+          <Card className="border transition-colors
+            dark:bg-gray-800 dark:border-gray-700
+            light:bg-white light:border-gray-200">
             <CardHeader>
-              <CardTitle>Smart Contract</CardTitle>
+              <CardTitle className="dark:text-gray-100 light:text-gray-900">
+                Smart Contract
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ContractDisplay
@@ -201,27 +214,41 @@ export default function AutomationPage() {
                 onCancelEdit={() => setEditingContract(false)}
                 onContractChange={handleContractChange}
               />
-              <div className="mt-4 ">
-                <div className='flex justify-between'>
-                <Button onClick={handleCompile} className="hover:bg-primary-foreground hover:text-gray-100" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2  h-4 w-4 animate-spin" /> : null}
-                  Compile Contract
-                </Button>
-                <Button 
-                  type="submit"
-                  onSubmit={handleSubmit} 
-                  className=" bg-primary hover:bg-primary-foreground hover:text-gray-100" 
-                  disabled={isLoading || !isValidForm}
-                >
-                  {isLoading ? 'Regenerating...' : 'ReGenerate Contract'}
-                </Button>
+              <div className="mt-4">
+                <div className="flex justify-between">
+                  <Button 
+                    onClick={handleCompile} 
+                    className="transition-colors
+                      dark:hover:bg-gray-700 dark:text-gray-100
+                      light:hover:bg-gray-100 light:text-gray-900" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Compile Contract
+                  </Button>
+                  <Button 
+                    type="submit"
+                    onSubmit={handleSubmit} 
+                    className="transition-colors
+                      dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-gray-100
+                      light:bg-blue-500 light:hover:bg-blue-600 light:text-white" 
+                    disabled={isLoading || !isValidForm}
+                  >
+                    {isLoading ? 'Regenerating...' : 'ReGenerate Contract'}
+                  </Button>
                 </div>
                 {abi && bytecode && (
-                  <div className='inline-block mt-8 '>
-                  <Button onClick={handleDeploy}  className='hover:bg-primary-foreground hover:text-gray-100' disabled={isLoading}>
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Deploy to KOPLI Network
-                  </Button>
+                  <div className="inline-block mt-8">
+                    <Button 
+                      onClick={handleDeploy}  
+                      className="transition-colors
+                        dark:hover:bg-gray-700 dark:text-gray-100
+                        light:hover:bg-gray-100 light:text-gray-900" 
+                      disabled={isLoading}
+                    >
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Deploy to KOPLI Network
+                    </Button>
                   </div>
                 )}
               </div>
@@ -230,30 +257,51 @@ export default function AutomationPage() {
         )}
 
         {compileError && (
-          <Alert variant="destructive">
-            <AlertTitle>Compilation Error</AlertTitle>
-            <AlertDescription>{compileError}</AlertDescription>
+          <Alert variant="destructive" className="dark:bg-red-900 light:bg-red-100">
+            <AlertTitle className="dark:text-red-100 light:text-red-900">
+              Compilation Error
+            </AlertTitle>
+            <AlertDescription className="dark:text-red-200 light:text-red-800">
+              {compileError}
+            </AlertDescription>
           </Alert>
         )}
 
         {deploymentError && (
-          <Alert variant="destructive">
-            <AlertTitle>Deployment Error</AlertTitle>
-            <AlertDescription>{deploymentError}</AlertDescription>
+          <Alert variant="destructive" className="dark:bg-red-900 light:bg-red-100">
+            <AlertTitle className="dark:text-red-100 light:text-red-900">
+              Deployment Error
+            </AlertTitle>
+            <AlertDescription className="dark:text-red-200 light:text-red-800">
+              {deploymentError}
+            </AlertDescription>
           </Alert>
         )}
 
         {deployedAddress && (
-          <Card>
+          <Card className="border transition-colors
+            dark:bg-gray-800 dark:border-gray-700
+            light:bg-white light:border-gray-200">
             <CardHeader>
-              <CardTitle>Deployment Successful</CardTitle>
+              <CardTitle className="dark:text-gray-100 light:text-gray-900">
+                Deployment Successful
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-2">Contract Address: {deployedAddress}</p>
+              <p className="mb-2 dark:text-gray-300 light:text-gray-700">
+                Contract Address: {deployedAddress}
+              </p>
               {deploymentTxHash && (
-                <p>
-                  Transaction: <a href={`https://kopli.reactscan.net/tx/${deploymentTxHash}`} target="_blank" rel="noopener noreferrer" 
-                  className="text-blue-400 hover:underline">View on Block Explorer</a>
+                <p className="dark:text-gray-300 light:text-gray-700">
+                  Transaction: 
+                  <a 
+                    href={`https://kopli.reactscan.net/tx/${deploymentTxHash}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="ml-1 dark:text-blue-400 dark:hover:text-blue-300 light:text-blue-600 light:hover:text-blue-700 hover:underline"
+                  >
+                    View on Block Explorer
+                  </a>
                 </p>
               )}
             </CardContent>
@@ -262,4 +310,4 @@ export default function AutomationPage() {
       </div>
     </div>
   );
-}
+};

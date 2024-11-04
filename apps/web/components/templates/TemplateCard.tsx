@@ -52,12 +52,12 @@ export default function TemplateCard({ data, index }: TemplateCardProps) {
         </CardContent>
         <CardFooter className="flex justify-between">
           <Link href={data.links.primary.href}>
-            <Button size="sm" className="bg-primary text-white hover:bg-primary-dark transition-colors duration-300">
+            <Button size="sm" className="bg-primary text-white hover:bg-primary-dark dark:text-gray-900 transition-colors duration-300">
               {data.links.primary.text}
             </Button>
           </Link>
           <Link href={data.links.secondary.href}>
-            <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white transition-colors duration-300">
+            <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary text-white dark:text-gray-900 dark:bg-primary hover:text-white transition-colors duration-300">
               {data.links.secondary.text}
             </Button>
           </Link>

@@ -17,7 +17,7 @@ export default function AutomationForm2({
 }: { 
   onSubmit: (e: React.FormEvent) => Promise<void>,
   isLoading: boolean,
-  error: string,
+  error: string | null,
   isValidForm: boolean
 }) {
   const {

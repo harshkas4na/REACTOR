@@ -20,9 +20,9 @@ export default function ConfigurationFields({isOriginAddressValid,isDestinationA
 
 
       <div>
-        <Label htmlFor="originAddress" className="text-gray-300">Origin Contract Address</Label>
+        <Label htmlFor="originAddress" className="text-gray-900 dark:text-gray-300">Origin Contract Address</Label>
         <Input
-          className={`bg-gray-700 text-gray-100 border-gray-600
+          className={`bg-gray-200 text-gray-100 dark:bg-gray-700 border-gray-600
             ${isOriginAddressValid ? 'border-green-500' : 'border-red-500'}
             `}
           id="originAddress"
@@ -34,9 +34,9 @@ export default function ConfigurationFields({isOriginAddressValid,isDestinationA
       </div>
 
       <div>
-        <Label htmlFor="destinationAddress" className="text-gray-300">Destination Contract Address</Label>
+        <Label htmlFor="destinationAddress" className="text-gray-900 dark:text-gray-300">Destination Contract Address</Label>
         <Input
-          className={`bg-gray-700 text-gray-100 border-gray-600
+          className={`bg-gray-200 text-gray-100 dark:bg-gray-700 border-gray-600
           ${isDestinationAddressValid ? 'border-green-500' : 'border-red-500'}
           `}
           id="destinationAddress"

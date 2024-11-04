@@ -8,10 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from 'next/link';
 
 const templates = [
-  { id: 1, title: 'Live Data Integration', description: 'Real-time data flow from smart contracts', complexity: 'Intermediate', icon: '📊',link:"/live-data-integration" },
-  { id: 2, title: 'Cross-DApp Automation', description: 'Automate interactions between multiple DApps', complexity: 'Advanced', icon: '🔗',link:"/cross-dapp-automation" },
-  { id: 3, title: 'Cross-Chain Bridge', description: 'Seamless asset transfer across blockchains', complexity: 'Advanced', icon: '🌉',link:"/cross-chain-bridge" },
-  { id: 4, title: 'External DApp Integration', description: 'Connect with popular DeFi protocols', complexity: 'Basic', icon: '🔌',link:"/external-dapp-integration" },
+  { id: 1, title: 'Live Data Integration', description: 'Real-time data flow from famous DApps on any chain', complexity: 'Intermediate', icon: '📊',link:"/live-data-integration" },
+  { id: 2, title: 'Cross-DApp Automation', description: 'Automate actions on your DApps on basis of other DApps reactions', complexity: 'Intermediate', icon: '🔗',link:"/cross-dapp-automation" },
+  { id: 3, title: 'Cross-Chain Bridge', description: 'Seamless data transfer across different blockchains DApps', complexity: 'Easy', icon: '🌉',link:"/cross-chain-bridge" },
+  { id: 4, title: 'External DApp Automation', description: 'Automate functions on one of your famous Dapps', complexity: 'Advanced', icon: '🔌',link:"/external-dapp-integration" },
   { id: 5, title: 'Coming Soon', description: 'New template under development', complexity: 'N/A', icon: '🚧', comingSoon: true },
 ]
 

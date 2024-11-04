@@ -7,7 +7,7 @@ import { Id } from '@/convex/_generated/dataModel';
 interface Comment {
   _id: Id<"comments">;
   useCaseId: Id<"useCases">;
-  userId: Id<"users">;  // Changed from 'user' to 'userId'
+  userId: Id<"users"> | null;  // Update to allow null
   text: string;
   timestamp: string;
 }
@@ -39,7 +39,8 @@ export function CommentsDialog({
   onCommentChange,
   onSubmitComment
 }: CommentsDialogProps) {
-  const getUserName = (userId: Id<"users">) => {
+  const getUserName = (userId: Id<"users"> | null) => {
+    if (!userId) return "Unknown User";
     const user = users.find(u => u._id === userId);
     return user ? user.name : "Unknown User";
   };
@@ -53,7 +54,9 @@ export function CommentsDialog({
         <ScrollArea className="h-[300px] w-full rounded-md border border-gray-700 p-4 bg-gray-900">
         {comments.map((comment) => (
       <div key={comment._id} className="mb-4">
-        <p className="font-bold">{getUserName(comment.userId)}</p>
+              <p className="font-bold">
+              {comment.userId ? getUserName(comment.userId) : "Unknown User"}
+              </p>
               <p>{comment.text}</p>
               <p className="text-xs text-gray-400">
                 {comment.timestamp.toLocaleString()}

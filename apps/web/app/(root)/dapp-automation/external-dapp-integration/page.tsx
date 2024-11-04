@@ -18,9 +18,9 @@ export default function ExternalDAppIntegration() {
   const [isContractValid, setIsContractValid] = useState(false)
   const [isValidating, setIsValidating] = useState(false)
   const [availableFunctions, setAvailableFunctions] = useState([])
-  const [selectedFunctions, setSelectedFunctions] = useState([])
+  const [selectedFunctions, setSelectedFunctions] = useState<any>([])
   const [availableEvents, setAvailableEvents] = useState([])
-  const [eventMappings, setEventMappings] = useState({})
+  const [eventMappings, setEventMappings] = useState<any>({})
   const [callbackContractCode, setCallbackContractCode] = useState('')
   const [reactiveContractCode, setReactiveContractCode] = useState('')
   const [deploymentStep, setDeploymentStep] = useState(1)
@@ -52,16 +52,16 @@ export default function ExternalDAppIntegration() {
     }
   }
 
-  const handleFunctionSelection = (functionName) => {
-    setSelectedFunctions(prev => 
+  const handleFunctionSelection = (functionName:any) => {
+    setSelectedFunctions((prev:any) => 
       prev.includes(functionName) 
-        ? prev.filter(f => f !== functionName)
+        ? prev.filter((f:any) => f !== functionName)
         : [...prev, functionName]
     )
   }
 
-  const handleEventMapping = (functionName, eventName) => {
-    setEventMappings(prev => ({
+  const handleEventMapping = (functionName:any, eventName:any) => {
+    setEventMappings((prev:any) => ({
       ...prev,
       [functionName]: eventName
     }))
@@ -188,7 +188,7 @@ export default function ExternalDAppIntegration() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {availableFunctions.map(func => (
+              {availableFunctions.map((func:any) => (
                 <div key={func.name} className="flex items-center space-x-2">
                   <Checkbox
                     id={func.name}
@@ -210,7 +210,7 @@ export default function ExternalDAppIntegration() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {selectedFunctions.map(func => (
+              {selectedFunctions.map((func:any) => (
                 <div key={func} className="space-y-2">
                   <Label className="text-gray-700 dark:text-gray-300">{func}</Label>
                   <Select value={eventMappings[func] || ''} onValueChange={(eventName) => handleEventMapping(func, eventName)}>
@@ -218,7 +218,7 @@ export default function ExternalDAppIntegration() {
                       <SelectValue placeholder="Select an event" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableEvents.map(event => (
+                      {availableEvents.map((event:any) => (
                         <SelectItem key={event.name} value={event.name}>{event.name}</SelectItem>
                       ))}
                     </SelectContent>
