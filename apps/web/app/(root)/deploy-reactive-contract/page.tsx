@@ -9,7 +9,13 @@ import { useWeb3 } from '@/app/_context/Web3Context';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const NETWORK_NAMES: { [key: number]: string } = {
+  5318008: 'Kopli', // Assuming this is the chain ID for Kopli
+  // Add other network names if needed
+};
 
 export default function AutomationPage() {
   const [showContract, setShowContract] = useState(false);
@@ -22,6 +28,9 @@ export default function AutomationPage() {
   const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [deploymentTxHash, setDeploymentTxHash] = useState<string | null>(null);
   const [isValidForm, setIsValidForm] = useState(false);
+  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle')
+
+  const { toast } = useToast()
 
   const {
     OrgChainId,
@@ -119,71 +128,124 @@ export default function AutomationPage() {
     }
   };
 
+  const getNetworkName = async (web3: any) => {
+    try {
+      const chainId = await web3.eth.getChainId()
+      return NETWORK_NAMES[chainId] || `Chain ID: ${chainId}`
+    } catch (error) {
+      console.error('Error getting network name:', error)
+      return 'Unknown Network'
+    }
+  }
+
   const handleDeploy = async () => {
-    if (!web3 || !account) {
-      console.error('Web3 or account not available');
-      return;
+    if (!web3 || !account || !abi || !bytecode) {
+      toast({
+        variant: "destructive",
+        title: "Deployment Error",
+        description: "Missing required deployment configuration",
+      })
+      return
     }
 
+    setDeploymentStatus('deploying')
+    setDeploymentError(null)
+
     try {
-      const contract = new web3.eth.Contract(abi);
-      const deployTransaction = contract.deploy({
-        data: bytecode,
-        arguments: []
-      });
-      console.log('Deploying contract:', deployTransaction);
-      const gasEstimate = await deployTransaction.estimateGas({ from: account });
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
-      const gasPrice = await web3.eth.getGasPrice();
-
-      const balance = await web3.eth.getBalance(account);
-      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice);
-
-      if (BigInt(balance) < requiredBalance) {
-        throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`);
+      // Create new contract instance
+      const contract = new web3.eth.Contract(abi)
+      
+      // Get network name before deployment
+      const networkName = await getNetworkName(web3)
+      
+      // Check if the network is Kopli
+      if (networkName !== 'Kopli') {
+        throw new Error('Deployment is only allowed on the Kopli network')
       }
 
-      const deployedContract = await deployTransaction.send({
-        from: account,
-        gas: String(gasLimit),
-        gasPrice: String(gasPrice),
-      });
-      // console.log('Contract deployed:', deployedContract);
-      setDeployedAddress(String(deployedContract.options.address));
-      // setDeploymentTxHash(deployTransaction);
+      // Prepare deployment transaction
+      const deploy = contract.deploy({
+        data: bytecode,
+        arguments: []
+      })
 
-      const code = await web3.eth.getCode(String(deployedContract.options.address));
-      if (code === '0x' || code === '0x0') {
-        throw new Error('Contract deployment failed - no code at contract address');
+      // Estimate gas
+      const gasEstimate = await deploy.estimateGas({ from: account })
+      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2)
+      const gasPrice = await web3.eth.getGasPrice()
+
+      // Check balance
+      const balance = await web3.eth.getBalance(account)
+      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice)
+
+      if (BigInt(balance) < requiredBalance) {
+        throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`)
+      }
+
+      let transactionHash = ''
+      
+      // Deploy with event tracking
+      const deployedContract = await new Promise((resolve, reject) => {
+        deploy.send({
+          from: account,
+          gas: String(gasLimit),
+          gasPrice: String(gasPrice),
+        })
+        .on('transactionHash', (hash: string) => {
+          console.log('Transaction Hash:', hash)
+          transactionHash = hash
+          setDeploymentTxHash(hash)
+        })
+        .on('error', (error: any) => {
+          reject(error)
+        })
+        .then(resolve)
+      })
+
+      // Update final deployment status
+      if (deployedContract) {
+        const contractAddress = (deployedContract as any).options.address
+        setDeployedAddress(contractAddress)
+        setDeploymentStatus('success')
+
+        toast({
+          title: "Deployment Successful",
+          description: `Contract deployed at ${contractAddress} on ${networkName}`,
+        })
+
+        return {
+          transactionHash,
+          contractAddress,
+          networkName
+        }
       }
 
     } catch (error: any) {
-      console.error('Deployment error details:', error);
-      setDeploymentError(`Failed to deploy contract: ${error.message}`);
+      console.error('Deployment error:', error)
+      setDeploymentStatus('error')
+      setDeploymentError(error.message)
+      toast({
+        variant: "destructive",
+        title: "Deployment Failed",
+        description: error.message,
+      })
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen transition-colors duration-200 
-      dark:bg-gray-900 text-gray-100 
-      bg-gray-100
-      py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
       <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-4xl font-bold text-center 
-          dark:text-gray-100 
-          text-gray-900">
+        <h1 className="text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-400 dark:from-blue-400 dark:to-teal-300">
           Create Your Automation
         </h1>
         
-        <Card className="border transition-colors
-          dark:bg-gray-800 dark:border-gray-700
-          light:bg-white light:border-gray-200">
-          <CardHeader>
-            <CardTitle className="dark:text-gray-100 light:text-gray-900">
+        <Card className="border-0 shadow-lg bg-white dark:bg-gray-800 transition-all duration-200 hover:shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-teal-400 text-white p-6 rounded-t-lg">
+            <CardTitle className="text-2xl font-bold">
               Automation Configuration
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <AutomationForm
               onSubmit={handleSubmit}
               isLoading={isLoading}
@@ -194,15 +256,13 @@ export default function AutomationPage() {
         </Card>
 
         {reactiveContract && (
-          <Card className="border transition-colors
-            dark:bg-gray-800 dark:border-gray-700
-            light:bg-white light:border-gray-200">
-            <CardHeader>
-              <CardTitle className="dark:text-gray-100 light:text-gray-900">
+          <Card className="border-0 shadow-lg bg-white dark:bg-gray-800 transition-all duration-200 hover:shadow-xl">
+            <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-400 text-white p-6 rounded-t-lg">
+              <CardTitle className="text-2xl font-bold">
                 Smart Contract
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <ContractDisplay
                 reactiveContract={reactiveContract}
                 editedContract={editedContract}
@@ -214,13 +274,11 @@ export default function AutomationPage() {
                 onCancelEdit={() => setEditingContract(false)}
                 onContractChange={handleContractChange}
               />
-              <div className="mt-4">
+              <div className="mt-6 space-y-4">
                 <div className="flex justify-between">
                   <Button 
                     onClick={handleCompile} 
-                    className="transition-colors
-                      dark:hover:bg-gray-700 dark:text-gray-100
-                      light:hover:bg-gray-100 light:text-gray-900" 
+                    className="bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200"
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -228,28 +286,22 @@ export default function AutomationPage() {
                   </Button>
                   <Button 
                     type="submit"
-                    onSubmit={handleSubmit} 
-                    className="transition-colors
-                      dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-gray-100
-                      light:bg-blue-500 light:hover:bg-blue-600 light:text-white" 
+                    onClick={handleSubmit} 
+                    className="bg-green-500 hover:bg-green-600 text-white transition-colors duration-200"
                     disabled={isLoading || !isValidForm}
                   >
                     {isLoading ? 'Regenerating...' : 'ReGenerate Contract'}
                   </Button>
                 </div>
                 {abi && bytecode && (
-                  <div className="inline-block mt-8">
-                    <Button 
-                      onClick={handleDeploy}  
-                      className="transition-colors
-                        dark:hover:bg-gray-700 dark:text-gray-100
-                        light:hover:bg-gray-100 light:text-gray-900" 
-                      disabled={isLoading}
-                    >
-                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Deploy to KOPLI Network
-                    </Button>
-                  </div>
+                  <Button 
+                    onClick={handleDeploy}  
+                    className="w-full bg-purple-500 hover:bg-purple-600 text-white transition-colors duration-200"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Deploy to KOPLI Network
+                  </Button>
                 )}
               </div>
             </CardContent>
@@ -257,57 +309,57 @@ export default function AutomationPage() {
         )}
 
         {compileError && (
-          <Alert variant="destructive" className="dark:bg-red-900 light:bg-red-100">
-            <AlertTitle className="dark:text-red-100 light:text-red-900">
+          <Alert variant="destructive" className="bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 rounded-lg">
+            <AlertTitle className="text-red-800 dark:text-red-200 font-semibold">
               Compilation Error
             </AlertTitle>
-            <AlertDescription className="dark:text-red-200 light:text-red-800">
+            <AlertDescription className="text-red-700 dark:text-red-300">
               {compileError}
             </AlertDescription>
           </Alert>
         )}
 
         {deploymentError && (
-          <Alert variant="destructive" className="dark:bg-red-900 light:bg-red-100">
-            <AlertTitle className="dark:text-red-100 light:text-red-900">
+          <Alert variant="destructive" className="bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 rounded-lg">
+            <AlertTitle className="text-red-800 dark:text-red-200 font-semibold">
               Deployment Error
             </AlertTitle>
-            <AlertDescription className="dark:text-red-200 light:text-red-800">
+            <AlertDescription className="text-red-700 dark:text-red-300">
               {deploymentError}
             </AlertDescription>
           </Alert>
         )}
 
-        {deployedAddress && (
-          <Card className="border transition-colors
-            dark:bg-gray-800 dark:border-gray-700
-            light:bg-white light:border-gray-200">
-            <CardHeader>
-              <CardTitle className="dark:text-gray-100 light:text-gray-900">
-                Deployment Successful
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-2 dark:text-gray-300 light:text-gray-700">
-                Contract Address: {deployedAddress}
-              </p>
-              {deploymentTxHash && (
-                <p className="dark:text-gray-300 light:text-gray-700">
-                  Transaction: 
-                  <a 
-                    href={`https://kopli.reactscan.net/tx/${deploymentTxHash}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="ml-1 dark:text-blue-400 dark:hover:text-blue-300 light:text-blue-600 light:hover:text-blue-700 hover:underline"
-                  >
-                    View on Block Explorer
-                  </a>
-                </p>
-              )}
-            </CardContent>
-          </Card>
+{deployedAddress && (
+    <Card className="border-0 shadow-lg bg-white dark:bg-gray-800 transition-all duration-200 hover:shadow-xl">
+      <CardHeader className="bg-gradient-to-r from-green-500 to-teal-400 text-white p-6 rounded-t-lg">
+        <CardTitle className="text-2xl font-bold">
+          Deployment Successful
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+          <span className="text-gray-700 dark:text-gray-300 font-semibold">Contract Address:</span>
+          <span className="font-mono text-blue-600 dark:text-blue-400">{deployedAddress}</span>
+        </div>
+        {deploymentTxHash && (
+          <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300 font-semibold">Transaction Hash:</span>
+            <span className="font-mono text-blue-600 dark:text-blue-400">{deploymentTxHash}</span>
+          </div>
         )}
+        <Button 
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200"
+          onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          View on Explorer
+        </Button>
+      </CardContent>
+    </Card>
+  )}
       </div>
     </div>
   );
+
 };

@@ -38,4 +38,8 @@ export default defineSchema({
     useCaseId: v.id("useCases"),
     userId: v.id("users"),
   }).index("by_useCase_and_user", ["useCaseId", "userId"]),
+  
+
+
+  
 });
