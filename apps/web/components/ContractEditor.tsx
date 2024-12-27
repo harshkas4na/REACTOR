@@ -13,6 +13,7 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false 
 interface ContractEditorProps {
   onCompile: (sourceCode: string) => void;
   compilationStatus: 'idle' | 'compiling' | 'success' | 'error';
+  contractType: 'origin' | 'destination';
 }
 
 const LOCAL_STORAGE_KEY = 'savedContract'

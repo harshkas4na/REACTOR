@@ -45,14 +45,26 @@ async function compileContract(sourceCode: string): Promise<{ abi: any, bytecode
                 console.error('Compilation errors:', errors);
                 throw new Error('Contract compilation failed: ' + errors[0].message);
             }
-        }
+        } 
 
         // Specifically target the ReactiveContract
-        if (!output.contracts['Contract.sol']['ReactiveContract']) {
-            throw new Error('ReactiveContract not found in compilation output');
+        if (!output.contracts['Contract.sol']['ReactiveContract'] && !output.contracts['Contract.sol']['OriginContract'] && !output.contracts['Contract.sol']['DestinationContract']) {
+            throw new Error('ReactiveContract,OriginContract,DestinationContract not found in compilation output');
+        }
+        
+
+        let contract;
+
+        if (output.contracts['Contract.sol']['ReactiveContract']) {
+             contract = output.contracts['Contract.sol']['ReactiveContract'];
+        }
+        if (output.contracts['Contract.sol']['OriginContract']) {
+             contract = output.contracts['Contract.sol']['OriginContract'];
+        }
+        if (output.contracts['Contract.sol']['DestinationContract']) {
+             contract = output.contracts['Contract.sol']['DestinationContract'];
         }
 
-        const contract = output.contracts['Contract.sol']['ReactiveContract'];
         
         return {
             abi: contract.abi,

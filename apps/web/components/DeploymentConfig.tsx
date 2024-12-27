@@ -15,6 +15,7 @@ interface DeploymentConfigProps {
   deploymentError: string | null
   abi: any
   bytecode: string
+  contractType: 'origin' | 'destination';
 }
 
 const SUPPORTED_NETWORKS = {
@@ -69,7 +70,8 @@ export default function DeploymentConfig({
   const getCurrentChainId = () => {
     return SUPPORTED_NETWORKS[selectedNetwork.toUpperCase()]?.chainId || ''
   }
-
+  console.log("abi2:",abi);
+  console.log("bytecode2:",bytecode);
   return (
     <div className="space-y-6">
       <div>

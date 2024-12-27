@@ -1,15 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useTheme } from 'next-themes'
-import { Toaster } from '@/components/ui/toaster'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { useToast } from '@/hooks/use-toast'
-import ContractEditor from './ContractEditor'
-import DeploymentConfig from './DeploymentConfig'
-import DeploymentHistory from './DeploymentHistory'
-import { useWeb3 } from '@/app/_context/Web3Context'
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import ContractEditor from './ContractEditor';
+import DeploymentConfig from './DeploymentConfig';
+import DeploymentHistory from './DeploymentHistory';
+import { preprocessOriginContract, preprocessDestinationContract } from '../lib/contractPreprocessor';
+import { useTheme } from 'next-themes';
+import { useToast } from '@/hooks/use-toast';
+import { useWeb3 } from '@/app/_context/Web3Context';
+import {useAutomationContext} from '@/app/_context/AutomationContext'
+import { useRouter } from 'next/navigation';
 
 export interface DeploymentRecord {
   id: number;
@@ -19,6 +24,7 @@ export interface DeploymentRecord {
   txHash: string;
   status: 'success' | 'pending' | 'error';
   timestamp: string;
+  contractType: 'origin' | 'destination';
 }
 const NETWORK_NAMES: { [key: number]: string } = {
   1: 'Ethereum Mainnet',
@@ -32,6 +38,12 @@ export default function SmartContractDeployer() {
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
   const { web3, account } = useWeb3()
+  const router = useRouter();
+  const [showInitialDialog, setShowInitialDialog] = useState(true);
+  const [useLibraries, setUseLibraries] = useState(false);
+  const [contractType, setContractType] = useState<'origin' | 'destination' | null>(null);
+  const [manualABI, setManualABI] = useState('');
+  const [manualBytecode, setManualBytecode] = useState('');
   
   const [compilationStatus, setCompilationStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle')
   const [compilationError, setCompilationError] = useState<string | null>(null)
@@ -41,18 +53,26 @@ export default function SmartContractDeployer() {
   const [deployedAddress, setDeployedAddress] = useState<string>('')
   const [deploymentError, setDeploymentError] = useState<string | null>(null)
 
+
+
+  const {setOriginAddress,setDestinationAddress}=useAutomationContext();
+
   const handleCompile = async (sourceCode: string) => {
     setCompilationStatus('compiling')
     setCompilationError(null)
     
     try {
+
+      // Preprocess contract based on type
+      const processedCode = contractType === 'origin' 
+        ? preprocessOriginContract(sourceCode)
+        : preprocessDestinationContract(sourceCode);
+
       const response = await fetch('http://localhost:5000/compile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sourceCode }),
-      })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceCode: processedCode }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -94,30 +114,40 @@ export default function SmartContractDeployer() {
   }
 
   const handleDeploy = async () => {
-    if (!web3 || !account || !abi || !bytecode) {
-      toast({
-        variant: "destructive",
-        title: "Deployment Error",
-        description: "Missing required deployment configuration",
-      })
-      return
-    }
-
-    setDeploymentStatus('deploying')
-    setDeploymentError(null)
-
-    try {
-      // Create new contract instance
-      const contract = new web3.eth.Contract(abi)
-      
-      // Get network name before deployment
-      const networkName = await getNetworkName(web3)
-      
-      // Prepare deployment transaction
-      const deploy = contract.deploy({
-        data: bytecode,
-        arguments: []
-      })
+      if(manualABI && manualBytecode){
+        setAbi(JSON.parse(manualABI));
+        setBytecode(manualBytecode);
+      }
+      if (!web3 || !account || !abi || !bytecode) {
+        toast({
+          variant: "destructive",
+          title: "Deployment Error",
+          description: "Missing required deployment configuration",
+        });
+        return;
+      }
+    
+      // Validate network based on contract type
+      const networkName = await getNetworkName(web3);      
+    
+      setDeploymentStatus('deploying');
+      setDeploymentError(null);
+    
+      try {
+        // Create new contract instance
+        const contract = new web3.eth.Contract(abi);
+        
+        // Prepare deployment transaction
+        let deployArgs:any[] = [];
+        if (contractType === 'destination') {
+          // Get callback sender address based on network
+          const callbackSender = "0x0000000000000000000000000000000000000000" // Add appropriate address for the network
+          deployArgs = [callbackSender];
+        }
+    
+        const deploy = contract.deploy({
+          data: bytecode
+        });
 
       // Estimate gas
       const gasEstimate = await deploy.estimateGas({ from: account })
@@ -148,13 +178,14 @@ export default function SmartContractDeployer() {
           // Save pending deployment as soon as we have the hash
           const pendingDeployment: DeploymentRecord = {
             id: Date.now(),
-            contractName: "Smart Contract",
+            contractName: contractType === 'origin' ? "Origin Contract" : "Destination Contract",
+            contractType: contractType,
             address: "Deploying...",
             network: networkName,
-            txHash: hash,
+            txHash: transactionHash,
             status: 'pending',
             timestamp: new Date().toISOString(),
-          }
+          };
           const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
           localStorage.setItem('deploymentHistory', JSON.stringify([...history, pendingDeployment]))
         })
@@ -175,35 +206,49 @@ export default function SmartContractDeployer() {
 
       // Update final deployment status
       if (deployedContract) {
-        const contractAddress = (deployedContract as any).options.address
-        setDeployedAddress(contractAddress)
-        setDeploymentStatus('success')
-
-        // Update the deployment record with success status and contract address
-        const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
+        const contractAddress = (deployedContract as any).options.address;
+        setDeployedAddress(contractAddress);
+        setDeploymentStatus('success');
+        
+        // Update contract address in context based on type
+        if(contractType === 'origin'){
+          setOriginAddress(contractAddress);
+        } else {
+          setDestinationAddress(contractAddress);
+        }
+      
+        // Update the deployment record
+        const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]');
         const updatedHistory = history.map((dep: DeploymentRecord) => {
           if (dep.txHash === transactionHash) {
             return {
               ...dep,
               status: 'success',
               address: contractAddress,
-            }
+            };
           }
-          return dep
-        })
-        localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory))
-
+          return dep;
+        });
+        localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory));
+      
         toast({
           title: "Deployment Successful",
           description: `Contract deployed at ${contractAddress} on ${networkName}`,
-        })
-
+        });
+      
+        // Add a small delay to allow the toast to be seen
+        setTimeout(() => {
+          router.push('/deploy-reactive-contract');
+        }, 1500);
+      
         return {
           transactionHash,
           contractAddress,
           networkName
-        }
+        };
       }
+
+      
 
     } catch (error: any) {
       console.error('Deployment error:', error)
@@ -216,6 +261,78 @@ export default function SmartContractDeployer() {
       })
     }
   }
+
+  if (showInitialDialog) {
+    return (
+      <Dialog open={showInitialDialog} onOpenChange={setShowInitialDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Contract Configuration</DialogTitle>
+            <DialogDescription>
+              Please provide some information about your smart contract.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Contract Type</label>
+              <Select onValueChange={(value: 'origin' | 'destination') => setContractType(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select contract type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="origin">Origin Contract</SelectItem>
+                  <SelectItem value="destination">Destination Contract</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Does your contract use external libraries?</label>
+              <Select onValueChange={(value) => setUseLibraries(value === 'true')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an option" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="false">No</SelectItem>
+                  <SelectItem value="true">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {useLibraries && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Contract ABI</label>
+                  <Textarea
+                    placeholder="Paste your contract ABI here"
+                    value={manualABI}
+                    onChange={(e) => setManualABI(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Contract Bytecode</label>
+                  <Textarea
+                    placeholder="Paste your contract bytecode here"
+                    value={manualBytecode}
+                    onChange={(e) => setManualBytecode(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Button
+            onClick={() => setShowInitialDialog(false)}
+            disabled={!contractType || (useLibraries && (!manualABI || !manualBytecode))}
+          >
+            Continue
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-50">
@@ -233,29 +350,53 @@ export default function SmartContractDeployer() {
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="p-6">
-            <ContractEditor 
-              onCompile={handleCompile}
-              compilationStatus={compilationStatus}
-            />
-          </Card>
-          <Card className="p-6">
-            <DeploymentConfig
-              compilationStatus={compilationStatus}
-              compilationError={compilationError}
-              onDeploy={handleDeploy}
-              deploymentStatus={deploymentStatus}
-              deploymentError={deploymentError}
-              abi={abi}
-              bytecode={bytecode}
-            />
-          </Card>
+          {!useLibraries ? (
+            <>
+              <Card className="p-6">
+                <ContractEditor 
+                  onCompile={handleCompile}
+                  compilationStatus={compilationStatus}
+                  contractType={contractType}
+                />
+              </Card>
+              <Card className="p-6">
+                <DeploymentConfig
+                  compilationStatus={compilationStatus}
+                  compilationError={compilationError}
+                  onDeploy={handleDeploy}
+                  deploymentStatus={deploymentStatus}
+                  deploymentError={deploymentError}
+                  contractType={contractType}
+                  abi={abi}
+                  bytecode={bytecode}
+                />
+              </Card>
+            </>
+          ) : (
+            <Card className="p-6 col-span-2">
+              <CardHeader>
+                <CardTitle>Manual ABI & Bytecode Deployment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DeploymentConfig
+                  compilationStatus={"success"}
+                  compilationError={compilationError}
+                  onDeploy={handleDeploy}
+                  deploymentStatus={deploymentStatus}
+                  deploymentError={deploymentError}
+                  abi={JSON.parse(manualABI)}
+                  bytecode={manualBytecode}
+                  contractType={contractType}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
         <Card className="mt-8 p-6">
           <DeploymentHistory/>
         </Card>
       </main>
-      <Toaster />
     </div>
-  )
+  );
 }
+
