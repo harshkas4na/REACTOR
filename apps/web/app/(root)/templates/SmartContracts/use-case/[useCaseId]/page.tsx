@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from "@blocknote/mantine";
 import { DeploymentTab } from '@/components/use-case/Deploymenttab';
+import Link from 'next/link';
 
 interface UseCaseDetailPageProps {
   params: {
@@ -162,9 +163,12 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                 </p>
                 <ul className="list-disc list-inside text-gray-300 mb-4">
                   <li>Include AbstractCallback interface on your Destination contract.</li>
-                  <li>Pass *Callback*_sender inside the AbstractCallback at the constructor, make constructor payable.</li>
+                  <li>Pass Callback_sender inside the AbstractCallback at the constructor, make constructor payable.</li>
                   <li>While deploying, ensure that you are sending at least 0.1 sepETH or the native currency of that chain (for callbacks to happen successfully).</li>
                 </ul>
+                <p className="text-gray-300 mb-4">
+                 FOR DEMO ORIGIN/DESTINATION CONTRACTS YOU CAN SEE OUR GITHUB REPOSITORY. <Link href="/smart-contract-deployer" className='text-blue-500 hover:text-blue-400'>Use This to deploy them</Link>
+                </p>
                 <p className="text-gray-300 mb-4">
                   Before deployment, please verify that your events' topic_0 match those in our template.
                 </p>

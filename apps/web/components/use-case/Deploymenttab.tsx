@@ -5,21 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, ChevronDown, ChevronUp, CheckCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, ChevronDown, ChevronUp, Copy, Check, ExternalLink, Download } from 'lucide-react';
 import { useWeb3 } from '@/app/_context/Web3Context';
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from 'react-hot-toast';
+import { useAutomationContext } from '@/app/_context/AutomationContext';
+import dynamic from 'next/dynamic';
+
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 interface DeploymentTabProps {
   reactiveTemplate: string;
 }
 
 export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
-  const [originAddress, setOriginAddress] = useState('');
-  const [destinationAddress, setDestinationAddress] = useState('');
   const [originChainId, setOriginChainId] = useState('');
   const [destinationChainId, setDestinationChainId] = useState('');
-  const [editedTemplate, setEditedTemplate] = useState(reactiveTemplate);
+  const [displayTemplate, setDisplayTemplate] = useState(reactiveTemplate);
+  const [compilationTemplate, setCompilationTemplate] = useState(reactiveTemplate);
   const [compiledContract, setCompiledContract] = useState<{ abi: any, bytecode: string } | null>(null);
   const [deployedAddress, setDeployedAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -28,21 +31,78 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
   const [isTemplateVisible, setIsTemplateVisible] = useState(false);
   const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false);
   const [isTemplateUpdated, setIsTemplateUpdated] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { account, web3 } = useWeb3();
+  const {originAddress, setOriginAddress, destinationAddress, setDestinationAddress} = useAutomationContext();
 
   const isFormFilled = originAddress && destinationAddress && originChainId && destinationChainId;
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(displayTemplate);
+      setCopied(true);
+      setCopyError(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      setCopyError('Failed to copy. Please try again.');
+    }
+  };
+
+  const openInRemix = () => {
+    setIsLoading(true);
+    const base64Template = btoa(displayTemplate);
+    const remixUrl = `https://remix.ethereum.org/?#code=${base64Template}`;
+    window.open(remixUrl, '_blank');
+    setIsLoading(false);
+  };
+
+  const downloadTemplate = () => {
+    setIsLoading(true);
+    const blob = new Blob([displayTemplate], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'ReactiveSmartContract.sol';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    setIsLoading(false);
+  };
+
+  const extractContractPart = (template: string) => {
+    const startMarker = "contract ReactiveContract is IReactive, AbstractReactive {";
+    const endMarker = "    function react(";
+    const startIndex = template.indexOf(startMarker);
+    const endIndex = template.indexOf(endMarker);
+    
+    if (startIndex === -1 || endIndex === -1) {
+      return "Contract part not found";
+    }
+    
+    return template.slice(startIndex, endIndex).trim();
+  };
 
   const updateTemplate = async () => {
     setIsUpdatingTemplate(true);
     setIsTemplateUpdated(false);
     try {
-      let updatedTemplate = editedTemplate;
-      updatedTemplate = updatedTemplate.replace(/ORIGIN_CHAIN_ID = \d+/, `ORIGIN_CHAIN_ID = ${originChainId}`);
-      updatedTemplate = updatedTemplate.replace(/DESTINATION_CHAIN_ID = \d+/, `DESTINATION_CHAIN_ID = ${destinationChainId}`);
-      updatedTemplate = updatedTemplate.replace(/ORIGIN_CONTRACT = 0x[a-fA-F0-9]{40}/, `ORIGIN_CONTRACT = ${originAddress}`);
-      updatedTemplate = updatedTemplate.replace(/DESTINATION_CONTRACT = 0x[a-fA-F0-9]{40}/, `DESTINATION_CONTRACT = ${destinationAddress}`);
-      setEditedTemplate(updatedTemplate);
+      // Update compilation template with actual values
+      let updatedCompilationTemplate = reactiveTemplate;
+      updatedCompilationTemplate = updatedCompilationTemplate.replace(/ORIGIN_CHAIN_ID = \d+/, `ORIGIN_CHAIN_ID = ${originChainId}`);
+      updatedCompilationTemplate = updatedCompilationTemplate.replace(/DESTINATION_CHAIN_ID = \d+/, `DESTINATION_CHAIN_ID = ${destinationChainId}`);
+      updatedCompilationTemplate = updatedCompilationTemplate.replace(/ORIGIN_CONTRACT = 0x[a-fA-F0-9]{40}/, `ORIGIN_CONTRACT = ${originAddress}`);
+      updatedCompilationTemplate = updatedCompilationTemplate.replace(/DESTINATION_CONTRACT = 0x[a-fA-F0-9]{40}/, `DESTINATION_CONTRACT = ${destinationAddress}`);
+      setCompilationTemplate(updatedCompilationTemplate);
+      
+      // Extract and set the display template
+      const extractedPart = extractContractPart(updatedCompilationTemplate);
+      setDisplayTemplate(extractedPart);
+      
       setIsTemplateUpdated(true);
       toast.success('Template updated successfully!');
     } catch (error) {
@@ -62,7 +122,7 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sourceCode: editedTemplate }),
+        body: JSON.stringify({ sourceCode: compilationTemplate }),
       });
 
       if (!response.ok) {
@@ -97,8 +157,7 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
     try {
       const contract = new web3.eth.Contract(compiledContract.abi);
       const deployTransaction = contract.deploy({
-        data: compiledContract.bytecode,
-        arguments: []
+        data: compiledContract.bytecode
       });
 
       const gasEstimate = await deployTransaction.estimateGas({ from: account });
@@ -115,7 +174,7 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
       const deployedContract = await deployTransaction.send({
         from: account,
         gas: String(gasLimit),
-        gasPrice: String(gasPrice),
+        gasPrice: String(gasPrice)
       });
 
       setDeployedAddress(String(deployedContract.options.address));
@@ -132,41 +191,6 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
     } finally {
       setIsDeploying(false);
     }
-  };
-
-  const renderTemplate = () => {
-    const lines = editedTemplate.split('\n');
-    const visibleLines = lines.slice(0, 5).join('\n');
-    const hiddenLines = lines.slice(5).join('\n');
-
-    return (
-      <>
-        <pre className="whitespace-pre-wrap">{visibleLines}</pre>
-        {isTemplateVisible && (
-          <>
-            <pre className="whitespace-pre-wrap mt-2">{hiddenLines}</pre>
-          </>
-        )}
-        <Button
-          onClick={() => setIsTemplateVisible(!isTemplateVisible)}
-          variant="outline"
-          size="sm"
-          className="mt-2"
-        >
-          {isTemplateVisible ? (
-            <>
-              <ChevronUp className="mr-2 h-4 w-4" />
-              Hide Full Template
-            </>
-          ) : (
-            <>
-              <ChevronDown className="mr-2 h-4 w-4" />
-              Show Full Template
-            </>
-          )}
-        </Button>
-      </>
-    );
   };
 
   return (
@@ -228,7 +252,7 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
               </>
             ) : isTemplateUpdated ? (
               <>
-                <CheckCircle className="mr-2 h-4 w-4" />
+                <Check className="mr-2 h-4 w-4" />
                 Template Updated
               </>
             ) : (
@@ -238,13 +262,66 @@ export function DeploymentTab({ reactiveTemplate }: DeploymentTabProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <h3 className="text-lg font-semibold mb-2">Contract Template</h3>
-          <div className="bg-gray-700 p-4 rounded-md">
-            {renderTemplate()}
-          </div>
-        </CardContent>
+      <Card className="bg-gray-800 border-gray-700 overflow-hidden">
+        <CardHeader className="bg-gray-900 py-4">
+          <CardTitle className="flex justify-between items-center text-gray-100">
+            <span className="text-xl font-bold">RSC Template</span>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={copyToClipboard}
+                className="text-gray-300 hover:text-gray-100 transition-colors"
+                aria-label={copied ? "Copied" : "Copy to clipboard"}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsTemplateVisible(!isTemplateVisible)}
+                className="text-gray-300 hover:text-gray-100 transition-colors"
+              >
+                {isTemplateVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        
+        {isTemplateVisible && (
+          <CardContent className="p-0">
+            {copyError && (
+              <Alert variant="destructive" className="m-4">
+                <AlertDescription>{copyError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="bg-gray-900 p-4 rounded-md overflow-auto max-h-[500px]">
+              <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
+                {displayTemplate}
+              </pre>
+            </div>
+            <div className="flex flex-wrap gap-2 m-4">
+              <Button 
+                onClick={openInRemix} 
+                variant="outline" 
+                className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors"
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                Open in Remix IDE
+              </Button>
+              <Button 
+                onClick={downloadTemplate} 
+                variant="outline" 
+                className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors"
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                Download .sol File
+              </Button>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">

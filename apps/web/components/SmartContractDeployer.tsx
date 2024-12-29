@@ -24,8 +24,9 @@ export interface DeploymentRecord {
   txHash: string;
   status: 'success' | 'pending' | 'error';
   timestamp: string;
-  contractType: 'origin' | 'destination';
+  contractType: 'origin' | 'destination' | 'both';
 }
+
 const NETWORK_NAMES: { [key: number]: string } = {
   1: 'Ethereum Mainnet',
   11155111: 'Sepolia',
@@ -34,6 +35,7 @@ const NETWORK_NAMES: { [key: number]: string } = {
   80001: 'Mumbai',
   // Add other networks as needed
 }
+
 export default function SmartContractDeployer() {
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
@@ -41,7 +43,7 @@ export default function SmartContractDeployer() {
   const router = useRouter();
   const [showInitialDialog, setShowInitialDialog] = useState(true);
   const [useLibraries, setUseLibraries] = useState(false);
-  const [contractType, setContractType] = useState<'origin' | 'destination' | null>(null);
+  const [contractType, setContractType] = useState<'origin' | 'destination' | 'both' | null>(null);
   const [manualABI, setManualABI] = useState('');
   const [manualBytecode, setManualBytecode] = useState('');
   
@@ -53,16 +55,13 @@ export default function SmartContractDeployer() {
   const [deployedAddress, setDeployedAddress] = useState<string>('')
   const [deploymentError, setDeploymentError] = useState<string | null>(null)
 
-
-
-  const {setOriginAddress,setDestinationAddress}=useAutomationContext();
+  const {setOriginAddress, setDestinationAddress} = useAutomationContext();
 
   const handleCompile = async (sourceCode: string) => {
     setCompilationStatus('compiling')
     setCompilationError(null)
     
     try {
-
       // Preprocess contract based on type
       const processedCode = contractType === 'origin' 
         ? preprocessOriginContract(sourceCode)
@@ -127,7 +126,6 @@ export default function SmartContractDeployer() {
         return;
       }
     
-      // Validate network based on contract type
       const networkName = await getNetworkName(web3);      
     
       setDeploymentStatus('deploying');
@@ -138,128 +136,134 @@ export default function SmartContractDeployer() {
         const contract = new web3.eth.Contract(abi);
         
         // Prepare deployment transaction
-        let deployArgs:any[] = [];
-        if (contractType === 'destination') {
-          // Get callback sender address based on network
-          const callbackSender = "0x0000000000000000000000000000000000000000" // Add appropriate address for the network
-          deployArgs = [callbackSender];
+        let value = '0';
+        let deployObj = {
+          data: bytecode
+        };
+        
+        if (contractType === 'destination' || contractType === 'both') {
+          // Add 0.1 native currency as value for destination contract deployment
+          value = web3.utils.toWei('0.1', 'ether');
         }
     
-        const deploy = contract.deploy({
-          data: bytecode
-        });
+        const deploy = contract.deploy(deployObj);
 
-      // Estimate gas
-      const gasEstimate = await deploy.estimateGas({ from: account })
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2)
-      const gasPrice = await web3.eth.getGasPrice()
-
-      // Check balance
-      const balance = await web3.eth.getBalance(account)
-      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice)
-
-      if (BigInt(balance) < requiredBalance) {
-        throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`)
-      }
-
-      let transactionHash = ''
-      
-      // Deploy with event tracking
-      const deployedContract = await new Promise((resolve, reject) => {
-        deploy.send({
+        // Estimate gas
+        const gasEstimate = await deploy.estimateGas({ 
           from: account,
-          gas: String(gasLimit),
-          gasPrice: String(gasPrice),
+          value: value
         })
-        .on('transactionHash', (hash: string) => {
-          console.log('Transaction Hash:', hash)
-          transactionHash = hash
+        const gasLimit = Math.ceil(Number(gasEstimate) * 1.2)
+        const gasPrice = await web3.eth.getGasPrice()
+
+        // Check balance including the deployment fee for destination contracts
+        const balance = await web3.eth.getBalance(account)
+        const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(value)
+
+        if (BigInt(balance) < requiredBalance) {
+          throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`)
+        }
+
+        let transactionHash = ''
+        
+        // Deploy with event tracking
+        const deployedContract = await new Promise((resolve, reject) => {
+          deploy.send({
+            from: account,
+            gas: String(gasLimit),
+            gasPrice: String(gasPrice),
+            value: value
+          })
+          .on('transactionHash', (hash: string) => {
+            console.log('Transaction Hash:', hash)
+            transactionHash = hash
+            
+            // Save pending deployment
+            const pendingDeployment: DeploymentRecord = {
+              id: Date.now(),
+              contractName: contractType === 'origin' ? "Origin Contract" : 
+                          contractType === 'both' ? "Destination Contract" :
+                          "Destination Contract",
+              contractType: contractType,
+              address: "Deploying...",
+              network: networkName,
+              txHash: transactionHash,
+              status: 'pending',
+              timestamp: new Date().toISOString(),
+            };
+            const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
+            localStorage.setItem('deploymentHistory', JSON.stringify([...history, pendingDeployment]))
+          })
+          .on('error', (error: any) => {
+            const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
+            const updatedHistory = history.map((dep: DeploymentRecord) => {
+              if (dep.txHash === transactionHash) {
+                return { ...dep, status: 'error' }
+              }
+              return dep
+            })
+            localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory))
+            reject(error)
+          })
+          .then(resolve)
+        })
+
+        // Update final deployment status
+        if (deployedContract) {
+          const contractAddress = (deployedContract as any).options.address;
+          setDeployedAddress(contractAddress);
+          setDeploymentStatus('success');
           
-          // Save pending deployment as soon as we have the hash
-          const pendingDeployment: DeploymentRecord = {
-            id: Date.now(),
-            contractName: contractType === 'origin' ? "Origin Contract" : "Destination Contract",
-            contractType: contractType,
-            address: "Deploying...",
-            network: networkName,
-            txHash: transactionHash,
-            status: 'pending',
-            timestamp: new Date().toISOString(),
-          };
-          const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
-          localStorage.setItem('deploymentHistory', JSON.stringify([...history, pendingDeployment]))
-        })
-        .on('error', (error: any) => {
-          // Update deployment status to error if it fails
-          const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
+          // Update contract addresses based on type
+          if (contractType === 'origin') {
+            setOriginAddress(contractAddress);
+          } else if (contractType === 'destination') {
+            setDestinationAddress(contractAddress);
+          } else if (contractType === 'both') {
+            setOriginAddress(contractAddress);
+            setDestinationAddress(contractAddress);
+          }
+        
+          // Update the deployment record
+          const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]');
           const updatedHistory = history.map((dep: DeploymentRecord) => {
             if (dep.txHash === transactionHash) {
-              return { ...dep, status: 'error' }
+              return {
+                ...dep,
+                status: 'success',
+                address: contractAddress,
+              };
             }
-            return dep
-          })
-          localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory))
-          reject(error)
-        })
-        .then(resolve)
-      })
-
-      // Update final deployment status
-      if (deployedContract) {
-        const contractAddress = (deployedContract as any).options.address;
-        setDeployedAddress(contractAddress);
-        setDeploymentStatus('success');
+            return dep;
+          });
+          localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory));
         
-        // Update contract address in context based on type
-        if(contractType === 'origin'){
-          setOriginAddress(contractAddress);
-        } else {
-          setDestinationAddress(contractAddress);
+          toast({
+            title: "Deployment Successful",
+            description: `Contract deployed at ${contractAddress} on ${networkName}`,
+          });
+        
+          setTimeout(() => {
+            router.back();
+          }, 1500);
+        
+          return {
+            transactionHash,
+            contractAddress,
+            networkName
+          };
         }
-      
-        // Update the deployment record
-        const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]');
-        const updatedHistory = history.map((dep: DeploymentRecord) => {
-          if (dep.txHash === transactionHash) {
-            return {
-              ...dep,
-              status: 'success',
-              address: contractAddress,
-            };
-          }
-          return dep;
-        });
-        localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory));
-      
+
+      } catch (error: any) {
+        console.error('Deployment error:', error)
+        setDeploymentStatus('error')
+        setDeploymentError(error.message)
         toast({
-          title: "Deployment Successful",
-          description: `Contract deployed at ${contractAddress} on ${networkName}`,
-        });
-      
-        // Add a small delay to allow the toast to be seen
-        setTimeout(() => {
-          router.push('/deploy-reactive-contract');
-        }, 1500);
-      
-        return {
-          transactionHash,
-          contractAddress,
-          networkName
-        };
+          variant: "destructive",
+          title: "Deployment Failed",
+          description: error.message,
+        })
       }
-
-      
-
-    } catch (error: any) {
-      console.error('Deployment error:', error)
-      setDeploymentStatus('error')
-      setDeploymentError(error.message)
-      toast({
-        variant: "destructive",
-        title: "Deployment Failed",
-        description: error.message,
-      })
-    }
   }
 
   if (showInitialDialog) {
@@ -276,13 +280,14 @@ export default function SmartContractDeployer() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Contract Type</label>
-              <Select onValueChange={(value: 'origin' | 'destination') => setContractType(value)}>
+              <Select onValueChange={(value: 'origin' | 'destination' | 'both') => setContractType(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select contract type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="origin">Origin Contract</SelectItem>
                   <SelectItem value="destination">Destination Contract</SelectItem>
+                  <SelectItem value="both">Combined Origin & Destination Contract</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -332,7 +337,6 @@ export default function SmartContractDeployer() {
       </Dialog>
     );
   }
-  
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-50">
