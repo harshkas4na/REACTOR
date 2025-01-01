@@ -8,6 +8,8 @@ export default defineSchema({
     overview: v.string(),
     implementation: v.string(),
     reactiveTemplate: v.string(),
+    originContract: v.string(),
+    destinationContract: v.string(),
     githubRepo: v.string(),
     category: v.string(),
     tags: v.array(v.string()),

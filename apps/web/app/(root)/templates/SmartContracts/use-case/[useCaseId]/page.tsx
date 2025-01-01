@@ -167,12 +167,16 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                   <li>While deploying, ensure that you are sending at least 0.1 sepETH or the native currency of that chain (for callbacks to happen successfully).</li>
                 </ul>
                 <p className="text-gray-300 mb-4">
-                 FOR DEMO ORIGIN/DESTINATION CONTRACTS YOU CAN SEE OUR GITHUB REPOSITORY. <Link href="/smart-contract-deployer" className='text-blue-500 hover:text-blue-400'>Use This to deploy them</Link>
+                Use <Link href="/smart-contract-deployer" className='text-blue-500 hover:text-blue-400'>This</Link> to deploy your own origin and destination contracts.
                 </p>
                 <p className="text-gray-300 mb-4">
                   Before deployment, please verify that your events' topic_0 match those in our template.
                 </p>
-                <DeploymentTab reactiveTemplate={useCase.reactiveTemplate} />
+                <DeploymentTab 
+                  reactiveTemplate={useCase.reactiveTemplate}
+                  originContract={useCase.originContract}
+                  destinationContract={useCase.destinationContract}
+                />
               </CardContent>
             </Card>
           </TabsContent>

@@ -102,6 +102,8 @@ export const createUseCase = mutation({
     overview: v.string(),
     implementation: v.string(),
     reactiveTemplate: v.string(),
+    originContract: v.string(),
+    destinationContract: v.string(),
     githubRepo: v.string(),
     category: v.string(),
     tags: v.array(v.string()),
@@ -114,6 +116,8 @@ export const createUseCase = mutation({
       overview: args.overview,
       implementation: args.implementation,
       reactiveTemplate: args.reactiveTemplate,
+      originContract: args.originContract,
+      destinationContract: args.destinationContract,
       githubRepo: args.githubRepo,
       category: args.category,
       tags: args.tags,
@@ -124,6 +128,7 @@ export const createUseCase = mutation({
     return newUseCaseId;
   },
 });
+
 
 export const searchUseCases = query({
   args: { 
