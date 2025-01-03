@@ -15,6 +15,7 @@ router.post('/generateSC',handleGenerateSC );
 //To generate template for Dapps Automation
 router.post('/DappAutomation', handleAutomation);
 router.post('/generateDA',handleGenerateDA );
-router.post('/live-data-automation',handleLiveDataAutomation)
+router.post('/live-data-automation',handleLiveDataAutomation);
+
 
 export default router;

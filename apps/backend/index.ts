@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import generateRouter from './routes/generate';
+import rscMonitorRouter from './routes/rsc-monitor'
 import dotenv from 'dotenv';
 
 const app = express();
@@ -13,6 +14,8 @@ dotenv.config();
 
 
 app.use('/', generateRouter);
+
+app.use('/rsc-monitor', rscMonitorRouter);
 
 
 app.listen(5000, () => {

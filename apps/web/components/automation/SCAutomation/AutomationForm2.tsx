@@ -74,7 +74,7 @@ export default function AutomationForm2({
           <strong>Input Rules:</strong>
           <ul className="list-disc pl-5 mt-2">
             <li>Event format: EventName(type1,type2,...)</li>
-            <li>Function format: functionName(address,type2,...)</li>
+            <li>Function format: functionName(address,type1,...) [Keep the first argument fix as address]</li>
             <li>Valid types: address, uint256, string, bool, bytes32, uint8</li>
             <li>Addresses must be valid Ethereum addresses (0x...)</li>
             <li>Chain IDs must be positive numbers</li>
