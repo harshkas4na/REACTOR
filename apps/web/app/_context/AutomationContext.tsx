@@ -9,6 +9,8 @@ interface Automation {
 
 interface AutomationContextType {
   automations: Automation[];
+  triggerType: string;
+  setTriggerType: React.Dispatch<React.SetStateAction<string>>;
   setAutomations: React.Dispatch<React.SetStateAction<Automation[]>>;
   reactiveContract: string;
   setReactiveContract: React.Dispatch<React.SetStateAction<string>>;
@@ -36,6 +38,7 @@ export const useAutomationContext = () => {
 
 export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [automations, setAutomations] = useState<Automation[]>([{ event: '', function: '', topic0: '' }]);
+  const [triggerType, setTriggerType] = useState('custom');
   const [reactiveContract, setReactiveContract] = useState('');
   const [isPausable, setIsPausable] = useState(true);
   const [OrgChainId, setOrgChainId] = useState('11155111');
@@ -48,6 +51,8 @@ export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children
       value={{
         automations,
         setAutomations,
+        triggerType,
+        setTriggerType,
         reactiveContract,
         setReactiveContract,
         isPausable,
