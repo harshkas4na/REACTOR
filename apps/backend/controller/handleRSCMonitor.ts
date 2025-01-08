@@ -6,6 +6,7 @@ interface ChainConfig {
     explorerUrl: string;
     explorerApiKey: string;
     explorerApiUrl: string;
+    callbackProxy?: string;  // Added this field
   }
   
   interface RSCFlowRequest {
@@ -33,31 +34,105 @@ interface ChainConfig {
   
   // Chain Configuration
   const CHAIN_CONFIGS: { [key: number]: ChainConfig } = {
+    11155111: {
+      id: 11155111,
+      name: 'Ethereum Sepolia',
+      rpcUrl: 'wss://ethereum-sepolia-rpc.publicnode.com',
+      explorerUrl: 'https://sepolia.etherscan.io',
+      explorerApiKey: `${process.env.ETHERSCAN_API_KEY}`,
+      explorerApiUrl: 'https://api-sepolia.etherscan.io/api',
+      callbackProxy: '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8'
+    },
     1: {
       id: 1,
       name: 'Ethereum Mainnet',
-      rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
+      rpcUrl: 'wss://ethereum-rpc.publicnode.com',
       explorerUrl: 'https://etherscan.io',
       explorerApiKey: `${process.env.ETHERSCAN_API_KEY}`,
-      explorerApiUrl: 'https://api.etherscan.io/api'
+      explorerApiUrl: 'https://api.etherscan.io/api',
+      callbackProxy: undefined
     },
-    11155111: {
-      id: 1,
-      name: 'Ethereum Sepolia',
-      rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
-      explorerUrl: 'https://etherscan.io',
-      explorerApiKey: `${process.env.ETHERSCAN_API_KEY}`,
-      explorerApiUrl: 'https://api.etherscan.io/api'
+    43114: {
+      id: 43114,
+      name: 'Avalanche C-Chain',
+      rpcUrl: 'wss://avalanche-c-chain-rpc.publicnode.com',
+      explorerUrl: 'https://snowtrace.io',
+      explorerApiKey: `${process.env.SNOWTRACE_API_KEY}`,
+      explorerApiUrl: 'https://api.snowtrace.io/api',
+      callbackProxy: '0x76DdEc79A96e5bf05565dA4016C6B027a87Dd8F0'
+    },
+    42161: {
+      id: 42161,
+      name: 'Arbitrum One',
+      rpcUrl: 'wss://arbitrum.callstaticrpc.com',
+      explorerUrl: 'https://arbiscan.io',
+      explorerApiKey: `${process.env.ARBISCAN_API_KEY}`,
+      explorerApiUrl: 'https://api.arbiscan.io/api',
+      callbackProxy: undefined
+    },
+    169: {
+      id: 169,
+      name: 'Manta Pacific',
+      rpcUrl: 'wss://manta-pacific.drpc.org',
+      explorerUrl: 'https://pacific-explorer.manta.network',
+      explorerApiKey: `${process.env.MANTA_API_KEY}`,
+      explorerApiUrl: 'https://pacific-explorer.manta.network/api',
+      callbackProxy: '0x9299472A6399Fd1027ebF067571Eb3e3D7837FC4'
+    },
+    8453: {
+      id: 8453,
+      name: 'Base Chain',
+      rpcUrl: 'wss://base.callstaticrpc.com',
+      explorerUrl: 'https://basescan.org',
+      explorerApiKey: `${process.env.BASESCAN_API_KEY}`,
+      explorerApiUrl: 'https://api.basescan.org/api',
+      callbackProxy: '0x4730c58FDA9d78f60c987039aEaB7d261aAd942E'
+    },
+    56: {
+      id: 56,
+      name: 'Binance Smart Chain',
+      rpcUrl: 'wss://bsc-rpc.publicnode.com',
+      explorerUrl: 'https://bscscan.com',
+      explorerApiKey: `${process.env.BSCSCAN_API_KEY}`,
+      explorerApiUrl: 'https://api.bscscan.com/api',
+      callbackProxy: undefined
     },
     137: {
       id: 137,
-      name: 'Polygon',
-      rpcUrl: 'https://polygon-rpc.com',
+      name: 'Polygon PoS',
+      rpcUrl: 'https://endpoints.omniatech.io/v1/matic/mainnet/public',
       explorerUrl: 'https://polygonscan.com',
-      explorerApiKey: 'YOUR_POLYGONSCAN_KEY',
-      explorerApiUrl: 'https://api.polygonscan.com/api'
+      explorerApiKey: `${process.env.POLYGONSCAN_API_KEY}`,
+      explorerApiUrl: 'https://api.polygonscan.com/api',
+      callbackProxy: undefined
     },
-    // Add more chains as needed
+    1101: {
+      id: 1101,
+      name: 'Polygon zkEVM',
+      rpcUrl: 'https://1rpc.io/polygon/zkevm',
+      explorerUrl: 'https://zkevm.polygonscan.com',
+      explorerApiKey: `${process.env.ZKEVM_API_KEY}`,
+      explorerApiUrl: 'https://api-zkevm.polygonscan.com/api',
+      callbackProxy: undefined
+    },
+    204: {
+      id: 204,
+      name: 'opBNB Mainnet',
+      rpcUrl: 'wss://opbnb-rpc.publicnode.com',
+      explorerUrl: 'https://opbnb.bscscan.com',
+      explorerApiKey: `${process.env.OPBNB_API_KEY}`,
+      explorerApiUrl: 'https://api-opbnb.bscscan.com/api',
+      callbackProxy: undefined
+    },
+    5318008: {
+      id: 5318008,
+      name: 'Kopli Testnet',
+      rpcUrl: 'https://kopli-rpc.rkt.ink',
+      explorerUrl: 'https://kopli-explorer.rkt.ink',
+      explorerApiKey: '',
+      explorerApiUrl: 'https://kopli-explorer.rkt.ink/api',
+      callbackProxy: '0x0000000000000000000000000000000000FFFFFF'
+    }
   };
   
   // RPC Configuration
@@ -77,6 +152,15 @@ interface ChainConfig {
       
       if (!this.originChainConfig || !this.destinationChainConfig) {
         throw new Error('Unsupported chain configuration');
+      }
+
+      // Add validation for callback support
+      if (request.originChainId !== 11155111 && !this.originChainConfig.callbackProxy) {
+        throw new Error('Origin chain does not support callbacks');
+      }
+  
+      if (!this.destinationChainConfig.callbackProxy) {
+        throw new Error('Destination chain does not support callbacks');
       }
   
       this.flowStatus = this.initializeFlowStatus();
