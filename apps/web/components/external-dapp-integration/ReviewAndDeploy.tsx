@@ -1,35 +1,75 @@
+// components/external-dapp-integration/ReviewAndDeploy.tsx
+
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, CheckCircle2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { useAutomationContext } from '@/app/_context/AutomationContext'
 import { useWeb3 } from '@/app/_context/Web3Context'
+import { api } from '@/services/api'
 
 export default function ReviewAndDeploy() {
+  const [isGenerating, setIsGenerating] = useState(false)
   const [isCompiling, setIsCompiling] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [deploymentStatus, setDeploymentStatus] = useState('')
   const [deployedAddress, setDeployedAddress] = useState('')
   const [isContractVisible, setIsContractVisible] = useState(false)
+  const [error, setError] = useState('')
+  const [compiledData, setCompiledData] = useState<{ abi: any; bytecode: string } | null>(null)
 
-  const { reactiveContract } = useAutomationContext()
+  const { 
+    automations,
+    OrgChainId,
+    DesChainId,
+    originAddress,
+    destinationAddress,
+    reactiveContract,
+    setReactiveContract,
+    triggerType,
+    isPausable
+  } = useAutomationContext()
+
   const { account, web3 } = useWeb3()
 
-  const handleCompile = async () => {
-    setIsCompiling(true)
+  const handleGenerateContract = async () => {
+    setIsGenerating(true)
+    setError('')
     try {
-      const response = await fetch('http://localhost:5000/compile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceCode: reactiveContract }),
+      const { data } = await api.generateContracts({
+        type: triggerType.toUpperCase(),
+        chainId: Number(OrgChainId),
+        originContract: originAddress,
+        destinationContract: destinationAddress,
+        pairs: automations,
+        isPausable
       })
-      const { abi, bytecode } = await response.json()
+      
+      setReactiveContract(data.rsc.code)
+      setDeploymentStatus('Contract generated successfully')
+    } catch (error: any) {
+      setError(error.message || 'Failed to generate contract')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleCompile = async () => {
+    if (!reactiveContract) {
+      setError('No contract to compile')
+      return
+    }
+
+    setIsCompiling(true)
+    setError('')
+    try {
+      const result = await api.compileContract(reactiveContract)
+      setCompiledData(result)
       setDeploymentStatus('Contract compiled successfully')
-      return { abi, bytecode }
-    } catch (error) {
-      console.error('Compilation error:', error)
-      setDeploymentStatus('Failed to compile contract')
+      return result
+    } catch (error: any) {
+      setError(error.message || 'Failed to compile contract')
     } finally {
       setIsCompiling(false)
     }
@@ -37,30 +77,34 @@ export default function ReviewAndDeploy() {
 
   const handleDeploy = async () => {
     if (!web3 || !account) {
-      console.error('Web3 or account not available')
+      setError('Web3 or account not available')
       return
     }
 
     setIsDeploying(true)
+    setError('')
     try {
-      const { abi, bytecode } = await handleCompile()
-      const contract = new web3.eth.Contract(abi)
-      const deployTransaction = contract.deploy({ data: bytecode, arguments: [] })
+      const compiledContract = compiledData || await handleCompile()
+      if (!compiledContract) {
+        throw new Error('Compilation failed')
+      }
+
+      const contract = new web3.eth.Contract(compiledContract.abi)
+      const deploy = contract.deploy({ data: compiledContract.bytecode })
       
-      const gasEstimate = await deployTransaction.estimateGas({ from: account })
+      const gas = await deploy.estimateGas({ from: account })
       const gasPrice = await web3.eth.getGasPrice()
 
-      const deployedContract = await deployTransaction.send({
+      const deployed = await deploy.send({
         from: account,
-        gas: gasEstimate,
-        gasPrice: gasPrice,
+        gas,
+        gasPrice
       })
-      
-      setDeployedAddress(deployedContract.options.address)
+
+      setDeployedAddress(deployed.options.address)
       setDeploymentStatus('Contract deployed successfully')
-    } catch (error) {
-      console.error('Deployment error:', error)
-      setDeploymentStatus('Failed to deploy contract')
+    } catch (error: any) {
+      setError(error.message || 'Failed to deploy contract')
     } finally {
       setIsDeploying(false)
     }
@@ -70,51 +114,87 @@ export default function ReviewAndDeploy() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Review Generated Contract</CardTitle>
+          <CardTitle>Review and Deploy</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Button
-            onClick={() => setIsContractVisible(!isContractVisible)}
-            className="w-full flex justify-between items-center"
-          >
-            <span>View Contract Code</span>
-            {isContractVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-          {isContractVisible && (
-            <pre className="mt-4 p-4 bg-gray-100 rounded-md overflow-x-auto">
-              {reactiveContract}
-            </pre>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <Button
+              onClick={handleGenerateContract}
+              disabled={isGenerating || automations.length === 0}
+              className="w-full"
+            >
+              {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate Contract
+            </Button>
+
+            {reactiveContract && (
+              <>
+                <Button
+                  onClick={() => setIsContractVisible(!isContractVisible)}
+                  className="w-full flex justify-between items-center"
+                  variant="outline"
+                >
+                  <span>View Contract Code</span>
+                  {isContractVisible ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+
+                {isContractVisible && (
+                  <pre className="mt-4 p-4 bg-gray-100 rounded-lg overflow-x-auto">
+                    <code>{reactiveContract}</code>
+                  </pre>
+                )}
+
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleCompile}
+                    disabled={isCompiling}
+                    className="w-full"
+                  >
+                    {isCompiling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Compile Contract
+                  </Button>
+
+                  <Button
+                    onClick={handleDeploy}
+                    disabled={isDeploying || !compiledData}
+                    className="w-full"
+                  >
+                    {isDeploying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Deploy Contract
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {deploymentStatus && !error && (
+            <Alert variant="success">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Status</AlertTitle>
+              <AlertDescription>{deploymentStatus}</AlertDescription>
+            </Alert>
+          )}
+
+          {deployedAddress && (
+            <Alert>
+              <AlertTitle>Deployed Contract Address</AlertTitle>
+              <AlertDescription className="font-mono">{deployedAddress}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
-
-      <div className="space-y-4">
-        <Button onClick={handleCompile} disabled={isCompiling} className="w-full">
-          {isCompiling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isCompiling ? 'Compiling...' : 'Compile Contract'}
-        </Button>
-
-        <Button onClick={handleDeploy} disabled={isDeploying} className="w-full">
-          {isDeploying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isDeploying ? 'Deploying...' : 'Deploy Contract'}
-        </Button>
-
-        {deploymentStatus && (
-          <Alert variant={deploymentStatus.includes('successfully') ? 'success' : 'destructive'}>
-            <AlertTitle>Deployment Status</AlertTitle>
-            <AlertDescription>{deploymentStatus}</AlertDescription>
-          </Alert>
-        )}
-
-        {deployedAddress && (
-          <Alert variant="success">
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle>Contract Deployed</AlertTitle>
-            <AlertDescription>Deployed at: {deployedAddress}</AlertDescription>
-          </Alert>
-        )}
-      </div>
     </div>
   )
 }
-

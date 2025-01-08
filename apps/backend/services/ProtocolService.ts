@@ -6,7 +6,7 @@ import {
     EventInfo,
     FunctionInfo 
 } from '../types/ExtDAppAutomationTypes';
-import { ProtocolVerificationError } from '../utils/errors';
+import { ProtocolVerificationError } from '../utils/error';
 
 export class ProtocolService {
     private etherscanApiKey: string;
@@ -21,7 +21,7 @@ export class ProtocolService {
                 addresses.map(addr => this.verifyContract(addr))
             );
             return verifications;
-        } catch (error) {
+        } catch (error:any) {
             throw new ProtocolVerificationError(
                 `Failed to verify protocols: ${error.message}`
             );

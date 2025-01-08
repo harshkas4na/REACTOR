@@ -1,6 +1,6 @@
 // src/controllers/BaseController.ts
 
-import { ValidationError } from '../utils/errors';
+import { ValidationError } from '../utils/error';
 import { ValidationUtils } from '../utils/ValidationUtils';
 import type { ExtendedError } from '../types/ErrorTypes';
 

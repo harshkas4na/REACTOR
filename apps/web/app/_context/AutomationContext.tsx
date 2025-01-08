@@ -1,29 +1,51 @@
+// app/_context/AutomationContext.tsx
+
 "use client";
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-interface Automation {
+export interface Automation {
   event: string;
   function: string;
   topic0: string;
+  mapping?: {
+    [key: string]: string;
+  };
 }
 
-interface AutomationContextType {
+export interface AutomationContextType {
+  // Automation Settings
   automations: Automation[];
-  triggerType: string;
-  setTriggerType: React.Dispatch<React.SetStateAction<string>>;
   setAutomations: React.Dispatch<React.SetStateAction<Automation[]>>;
+  
+  // Contract Types and Configuration
+  triggerType: 'custom' | 'protocol' | 'blockchain';
+  setTriggerType: React.Dispatch<React.SetStateAction<'custom' | 'protocol' | 'blockchain'>>;
+  
+  // Contract Details
   reactiveContract: string;
   setReactiveContract: React.Dispatch<React.SetStateAction<string>>;
+  
+  // Configuration Options
   isPausable: boolean;
   setIsPausable: React.Dispatch<React.SetStateAction<boolean>>;
+  
+  // Chain Settings
   OrgChainId: string;
   setOrgChainId: React.Dispatch<React.SetStateAction<string>>;
   DesChainId: string;
   setDesChainId: React.Dispatch<React.SetStateAction<string>>;
+  
+  // Contract Addresses
   originAddress: string;
   setOriginAddress: React.Dispatch<React.SetStateAction<string>>;
   destinationAddress: string;
   setDestinationAddress: React.Dispatch<React.SetStateAction<string>>;
+  
+  // Contract Verification Status
+  isOriginVerified: boolean;
+  setIsOriginVerified: React.Dispatch<React.SetStateAction<boolean>>;
+  isDestinationVerified: boolean;
+  setIsDestinationVerified: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const AutomationContext = createContext<AutomationContextType | undefined>(undefined);
@@ -37,14 +59,25 @@ export const useAutomationContext = () => {
 };
 
 export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [automations, setAutomations] = useState<Automation[]>([{ event: '', function: '', topic0: '' }]);
-  const [triggerType, setTriggerType] = useState('custom');
+  // Automation Management
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [triggerType, setTriggerType] = useState<'custom' | 'protocol' | 'blockchain'>('custom');
   const [reactiveContract, setReactiveContract] = useState('');
+  
+  // Configuration
   const [isPausable, setIsPausable] = useState(true);
-  const [OrgChainId, setOrgChainId] = useState('11155111');
-  const [DesChainId, setDesChainId] = useState('11155111');
+  
+  // Chain Settings
+  const [OrgChainId, setOrgChainId] = useState('1');  // Default to Ethereum mainnet
+  const [DesChainId, setDesChainId] = useState('1');
+  
+  // Contract Addresses
   const [originAddress, setOriginAddress] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
+  
+  // Verification Status
+  const [isOriginVerified, setIsOriginVerified] = useState(false);
+  const [isDestinationVerified, setIsDestinationVerified] = useState(false);
 
   return (
     <AutomationContext.Provider
@@ -65,6 +98,10 @@ export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children
         setOriginAddress,
         destinationAddress,
         setDestinationAddress,
+        isOriginVerified,
+        setIsOriginVerified,
+        isDestinationVerified,
+        setIsDestinationVerified,
       }}
     >
       {children}

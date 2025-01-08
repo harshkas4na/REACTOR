@@ -2,7 +2,7 @@
 
 import solc from 'solc';
 import { GeneratedContracts } from '../types/ExtDAppAutomationTypes';
-import { CompilationError } from '../utils/errors';
+import { CompilationError } from '../utils/error';
 
 export class CompilationService {
     async compileContracts(
@@ -56,7 +56,7 @@ export class CompilationService {
                     bytecode: destContract.evm.bytecode.object
                 }
             };
-        } catch (error) {
+        } catch (error:any) {
             throw new CompilationError(
                 `Compilation failed: ${error.message}`
             );
