@@ -8,14 +8,14 @@ import { TemplateManager } from '../../templates/TemplateManager';
 import { GeneratorError } from '../../utils/error';
 
 export class DestinationGenerator {
-    private p2pGenerator: P2PDestinationGenerator;
-    private customGenerator: CustomDestinationGenerator;
-    private blockchainWideGenerator: BlockchainWideDestinationGenerator;
+    private p2pDESTGenerator: P2PDestinationGenerator;
+    private customDESTGenerator: CustomDestinationGenerator;
+    private blockchainWideDESTGenerator: BlockchainWideDestinationGenerator;
 
     constructor(templateManager: TemplateManager) {
-        this.p2pGenerator = new P2PDestinationGenerator(templateManager);
-        this.customGenerator = new CustomDestinationGenerator(templateManager);
-        this.blockchainWideGenerator = new BlockchainWideDestinationGenerator(templateManager);
+        this.p2pDESTGenerator = new P2PDestinationGenerator(templateManager);
+        this.customDESTGenerator = new CustomDestinationGenerator(templateManager);
+        this.blockchainWideDESTGenerator = new BlockchainWideDestinationGenerator(templateManager);
     }
 
     async generateContract(
@@ -26,11 +26,11 @@ export class DestinationGenerator {
         try {
             switch (config.type) {
                 case RSCType.PROTOCOL_TO_PROTOCOL:
-                    return this.p2pGenerator.generate(config, template, replacements);
+                    return this.p2pDESTGenerator.generate(config, template, replacements);
                 case RSCType.ORIGIN_TO_PROTOCOL:
-                    return this.customGenerator.generate(config, template, replacements);
+                    return this.customDESTGenerator.generate(config, template, replacements);
                 case RSCType.BLOCKCHAIN_WIDE:
-                    return this.blockchainWideGenerator.generate(config, template, replacements);
+                    return this.blockchainWideDESTGenerator.generate(config, template, replacements);
                 default:
                     throw new GeneratorError(`Unknown RSC type: ${config.type}`);
             }

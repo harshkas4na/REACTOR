@@ -8,6 +8,27 @@ import { customOriginDestTemplate } from './destination/customOrigin.template';
 import { blockchainWideRSCTemplate } from './rsc/blockchainWide.template';
 import { blockchainWideDestTemplate } from './destination/blockchainWide.template';
 
+interface TopicFunctionPair {
+    function: string;
+    topic0: string;
+}
+
+interface ContractConfig {
+    originContracts: {
+        address: string;
+        events: {
+            topic0: string;
+            functionSignature?: string;
+        }[];
+    }[];
+    chainId: string;
+    isPausable?: boolean;
+    ownerAddress?: string;
+    destinationChainId?: string;
+    destinationContract?: string;
+    completionTopic?: string;
+}
+
 export class TemplateManager {
     private templates: {
         [key in RSCType]: {
@@ -93,12 +114,62 @@ export class TemplateManager {
 
     private generateCustomOriginReplacements(config: any) {
         // Similar to P2P but with single origin contract
-        return {};
+        let eventConstants = '';
+        let originConstants = '';
+        let subscriptions = '';
+
+        config.originContracts.forEach((origin: any, protocolIndex: number) => {
+            // Generate origin contract constant
+            originConstants = this.generateOriginContractConstant(1, origin.address);
+
+            // Generate event constants for this protocol
+            origin.events.forEach((event: any, eventIndex: number) => {
+                eventConstants += this.generateEventTopicConstant(protocolIndex, eventIndex, event.topic0);
+                
+                // Generate subscription for this event
+                subscriptions += this.generateSubscription(
+                    config.chainId,
+                    `ORIGIN_PROTOCOL_CONTRACT_${protocolIndex}`,
+                    `EVENT_TOPIC_0_${protocolIndex}_${eventIndex}`
+                );
+            });
+        });
+
+        return {
+            eventConstants,
+            originConstants,
+            subscriptions
+        };
     }
 
     private generateBlockchainWideReplacements(config: any) {
         // Implementation for blockchain-wide template
-        return {};
+        let eventConstants = '';
+        let originConstants = '';
+        let subscriptions = '';
+
+        config.originContracts.forEach((origin: any, protocolIndex: number) => {
+            // Generate origin contract constant
+            originConstants = this.generateOriginContractConstant(1, '0x0000000000000000000000000000000000000000');
+
+            // Generate event constants for this protocol
+            origin.events.forEach((event: any, eventIndex: number) => {
+                eventConstants += this.generateEventTopicConstant(protocolIndex, eventIndex, event.topic0);
+                
+                // Generate subscription for this event
+                subscriptions += this.generateSubscription(
+                    config.chainId,
+                    `ORIGIN_PROTOCOL_CONTRACT_${protocolIndex}`,
+                    `EVENT_TOPIC_0_${protocolIndex}_${eventIndex}`
+                );
+            });
+        });
+
+        return {
+            eventConstants,
+            originConstants,
+            subscriptions
+        };
     }
 
     private generateSubscription(chainId: string, contractVar: string, topicVar: string): string {
@@ -113,4 +184,7 @@ export class TemplateManager {
             );
         `;
     }
+
+    
+
 }

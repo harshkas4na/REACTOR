@@ -1,21 +1,20 @@
 // src/generators/RSCGenerator/index.ts
 
-import { P2PGenerator } from './P2PGenerator';
-import { CustomDestinationGenerator } from '../DestinationGenerator/CustomDestinationGenerator';
-import { BlockchainWideDestinationGenerator } from '../DestinationGenerator/BlockchainWideDestinationGenerator';
+import { P2PRSCGenerator } from './P2PGenerator';
+import { CustomOriginRSCGenerator } from './CustomOriginGenerator';
+import { BlockchainWideRSCGenerator } from './BlockchainWideGenerator';
 import { RSCConfig, RSCType } from '../../types/ExtDAppAutomationTypes';
 import { TemplateManager } from '../../templates/TemplateManager';
 import { GeneratorError } from '../../utils/error';
 
 export class RSCGenerator {
-    private p2pGenerator: P2PGenerator;
-    private customDestinationGenerator: CustomDestinationGenerator;
-    private blockchainWideDestinationGenerator: BlockchainWideDestinationGenerator;
-
+    private p2pRSCGenerator: P2PRSCGenerator;
+    private blockchainWideRSCGenerator: BlockchainWideRSCGenerator;
+    private customOriginRSCGenerator: CustomOriginRSCGenerator;   
     constructor(templateManager: TemplateManager) {
-        this.p2pGenerator = new P2PGenerator(templateManager);
-        this.customDestinationGenerator = new CustomDestinationGenerator(templateManager);
-        this.blockchainWideDestinationGenerator = new BlockchainWideDestinationGenerator(templateManager);
+        this.p2pRSCGenerator = new P2PRSCGenerator(templateManager);
+        this.blockchainWideRSCGenerator = new BlockchainWideRSCGenerator(templateManager);
+        this.customOriginRSCGenerator = new CustomOriginRSCGenerator(templateManager);
     }
 
     async generateContract(
@@ -26,17 +25,17 @@ export class RSCGenerator {
         try {
             switch (config.type) {
                 case RSCType.PROTOCOL_TO_PROTOCOL:
-                    return this.p2pGenerator.generate(config, template, replacements);
+                    return this.p2pRSCGenerator.generate(config, template, replacements);
                 
                 case RSCType.ORIGIN_TO_PROTOCOL:
-                    return this.customDestinationGenerator.generate(
+                    return this.customOriginRSCGenerator.generate(
                         config, 
                         template, 
                         replacements
                     );
                 
                 case RSCType.BLOCKCHAIN_WIDE:
-                    return this.blockchainWideDestinationGenerator.generate(
+                    return this.blockchainWideRSCGenerator.generate(
                         config, 
                         template, 
                         replacements
