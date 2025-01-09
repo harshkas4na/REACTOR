@@ -1,4 +1,5 @@
-/ src/generators/DestinationGenerator/P2PDestinationGenerator.ts
+import { RSCConfig } from "../../types/ExtDAppAutomationTypes";
+import { TemplateManager } from "../../templates/TemplateManager";
 
 export class P2PDestinationGenerator {
     private templateManager: TemplateManager;
@@ -17,7 +18,7 @@ export class P2PDestinationGenerator {
             .replace('{{PROTOCOL_INTERFACES}}', this.generateProtocolInterfaces(config))
             .replace('{{CONSTRUCTOR_LOGIC}}', this.generateConstructorLogic(config))
             .replace('{{PROTOCOL_FUNCTIONS}}', this.generateProtocolFunctions(config))
-            .replace('{{WRAPPER_FUNCTIONS}}', this.generateWrapperFunctions(config.pairs))
+            .replace('{{WRAPPER_FUNCTIONS}}', this.generateWrapperFunctions(config.pairs.map(pair => pair.function.signature)))
             .replace('{{HELPER_FUNCTIONS}}', this.generateHelperFunctions(config));
     }
 
@@ -32,5 +33,23 @@ export class P2PDestinationGenerator {
         return imports.join('\n');
     }
 
-    // Other private methods for generating specific parts
+    private generateProtocolInterfaces(config: RSCConfig): string {
+        return '';
+    }
+
+    private generateConstructorLogic(config: RSCConfig): string {
+        return '';
+    }
+
+    private generateProtocolFunctions(config: RSCConfig): string {
+        return '';
+    }
+
+    private generateWrapperFunctions(pairs: string[]): string {
+        return '';
+    }
+
+    private generateHelperFunctions(config: RSCConfig): string {
+        return '';
+    }
 }

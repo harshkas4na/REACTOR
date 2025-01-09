@@ -1,21 +1,21 @@
 // src/generators/RSCGenerator/index.ts
 
 import { P2PGenerator } from './P2PGenerator';
-import { CustomOriginGenerator } from './CustomOriginGenerator';
-import { BlockchainWideGenerator } from './BlockchainWideGenerator';
+import { CustomDestinationGenerator } from '../DestinationGenerator/CustomDestinationGenerator';
+import { BlockchainWideDestinationGenerator } from '../DestinationGenerator/BlockchainWideDestinationGenerator';
 import { RSCConfig, RSCType } from '../../types/ExtDAppAutomationTypes';
 import { TemplateManager } from '../../templates/TemplateManager';
-import { GeneratorError } from '../../utils/errors';
+import { GeneratorError } from '../../utils/error';
 
 export class RSCGenerator {
     private p2pGenerator: P2PGenerator;
-    private customOriginGenerator: CustomOriginGenerator;
-    private blockchainWideGenerator: BlockchainWideGenerator;
+    private customDestinationGenerator: CustomDestinationGenerator;
+    private blockchainWideDestinationGenerator: BlockchainWideDestinationGenerator;
 
     constructor(templateManager: TemplateManager) {
         this.p2pGenerator = new P2PGenerator(templateManager);
-        this.customOriginGenerator = new CustomOriginGenerator(templateManager);
-        this.blockchainWideGenerator = new BlockchainWideGenerator(templateManager);
+        this.customDestinationGenerator = new CustomDestinationGenerator(templateManager);
+        this.blockchainWideDestinationGenerator = new BlockchainWideDestinationGenerator(templateManager);
     }
 
     async generateContract(
@@ -29,14 +29,14 @@ export class RSCGenerator {
                     return this.p2pGenerator.generate(config, template, replacements);
                 
                 case RSCType.ORIGIN_TO_PROTOCOL:
-                    return this.customOriginGenerator.generate(
+                    return this.customDestinationGenerator.generate(
                         config, 
                         template, 
                         replacements
                     );
                 
                 case RSCType.BLOCKCHAIN_WIDE:
-                    return this.blockchainWideGenerator.generate(
+                    return this.blockchainWideDestinationGenerator.generate(
                         config, 
                         template, 
                         replacements
@@ -45,7 +45,7 @@ export class RSCGenerator {
                 default:
                     throw new GeneratorError(`Unknown RSC type: ${config.type}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             throw new GeneratorError(
                 `Failed to generate RSC contract: ${error.message}`
             );

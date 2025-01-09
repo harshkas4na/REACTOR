@@ -1,4 +1,6 @@
 // src/generators/DestinationGenerator/BlockchainWideDestinationGenerator.ts
+import { TemplateManager } from '../../templates/TemplateManager';
+import { RSCConfig } from '../../types/ExtDAppAutomationTypes';
 
 export class BlockchainWideDestinationGenerator {
     private templateManager: TemplateManager;

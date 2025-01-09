@@ -1,3 +1,5 @@
+import { RSCConfig } from "../../types/ExtDAppAutomationTypes";
+import { TemplateManager } from "../../templates/TemplateManager";
 // src/generators/RSCGenerator/P2PGenerator.ts
 export class P2PGenerator {
     private templateManager: TemplateManager;
@@ -23,5 +25,11 @@ export class P2PGenerator {
             .replace('{{STATE_VARIABLES}}', this.generateStateVariables(config));
     }
 
-    // Implementation of helper methods...
+    private generateReactLogic(config: RSCConfig): string {
+        return '';
+    }
+
+    private generateStateVariables(config: RSCConfig): string {
+        return '';
+    }
 }

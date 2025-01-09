@@ -1,4 +1,5 @@
 // src/types/TemplateTypes.ts
+import { RSCType } from "./ExtDAppAutomationTypes";
 
 export interface BaseTemplate {
     type: RSCType;

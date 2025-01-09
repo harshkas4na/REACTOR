@@ -1,7 +1,7 @@
 // src/utils/ValidationUtils.ts
 
 import { RSCConfig } from '../types/ExtDAppAutomationTypes';
-import { ValidationError } from './errors';
+import { ValidationError } from './error';
 
 export class ValidationUtils {
     static validateRSCConfig(config: RSCConfig): void {

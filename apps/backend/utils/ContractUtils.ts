@@ -1,4 +1,5 @@
 // src/utils/ContractUtils.ts
+import { ethers } from 'ethers';
 
 export class ContractUtils {
     static generateEventTopic(signature: string): string {

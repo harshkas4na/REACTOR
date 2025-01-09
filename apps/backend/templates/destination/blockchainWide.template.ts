@@ -1,6 +1,6 @@
 // templates/p2p/destination.template.ts
 
-export default `
+export const blockchainWideDestTemplate = `
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.0;
 

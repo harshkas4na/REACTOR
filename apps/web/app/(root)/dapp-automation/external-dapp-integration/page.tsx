@@ -1,5 +1,3 @@
-// app/(routes)/external-dapp-automation/page.tsx
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -16,12 +14,19 @@ import ReviewAndDeploy from '@/components/external-dapp-integration/ReviewAndDep
 import { useAutomationContext } from '@/app/_context/AutomationContext'
 import { useWeb3 } from '@/app/_context/Web3Context'
 
-const steps = [
-  'Trigger Selection',
-  'Target Configuration',
-  'Logic Configuration',
-  'Review & Deploy'
-]
+const getSteps = (triggerType: string) => {
+  const commonSteps = ['Target Configuration', 'Logic Configuration', 'Review & Deploy']
+  switch (triggerType) {
+    case 'custom':
+      return ['Custom Contract Setup', ...commonSteps]
+    case 'protocol':
+      return ['Protocol Setup', ...commonSteps]
+    case 'blockchain':
+      return ['Blockchain Event Setup', ...commonSteps]
+    default:
+      return ['Trigger Selection', ...commonSteps]
+  }
+}
 
 const pageTransition = {
   initial: { opacity: 0, y: 20 },
@@ -38,12 +43,12 @@ export default function ExternalDAppAutomation() {
     automations,
     originAddress,
     destinationAddress,
-    isOriginVerified,
-    isDestinationVerified,
     setTriggerType
   } = useAutomationContext()
   
   const { account } = useWeb3()
+
+  const steps = getSteps(triggerType)
 
   useEffect(() => {
     setError(null)
@@ -52,20 +57,20 @@ export default function ExternalDAppAutomation() {
   const canProceedToNext = () => {
     switch (currentStep) {
       case 0: // Trigger Selection
-        return triggerType && originAddress && isOriginVerified;
+        return triggerType as ("custom" | "protocol" | "blockchain"|'') !== ''
       case 1: // Target Configuration
-        return destinationAddress && isDestinationVerified;
+        return destinationAddress !== ''
       case 2: // Logic Configuration
-        return automations.length > 0;
+        return automations.length > 0
       case 3: // Review & Deploy
-        return true;
+        return true
       default:
-        return false;
+        return false
     }
   }
 
   const handleNext = () => {
-    if (currentStep === 3 && !account) {
+    if (currentStep === steps.length - 1 && !account) {
       setError('Please connect your wallet to deploy')
       return
     }
@@ -84,17 +89,11 @@ export default function ExternalDAppAutomation() {
   const getErrorMessage = (): string => {
     switch (currentStep) {
       case 0:
-        if (!triggerType) return 'Please select a trigger type'
-        if (!originAddress) return 'Please enter origin contract address'
-        if (!isOriginVerified) return 'Please verify the origin contract'
-        return ''
+        return 'Please complete the trigger selection'
       case 1:
-        if (!destinationAddress) return 'Please enter destination contract address'
-        if (!isDestinationVerified) return 'Please verify the destination contract'
-        return ''
+        return 'Please enter destination contract address'
       case 2:
-        if (automations.length === 0) return 'Please add at least one automation'
-        return ''
+        return 'Please add at least one automation'
       default:
         return ''
     }
@@ -112,7 +111,7 @@ export default function ExternalDAppAutomation() {
           transition={{ duration: 0.3 }}
         >
           {currentStep === 0 && (
-            <TriggerSelection onSelect={setTriggerType} />
+            <TriggerSelection onSelect={(type: string) => setTriggerType(type as "custom" | "protocol" | "blockchain")} />
           )}
           {currentStep === 1 && (
             <TargetConfiguration />
@@ -186,3 +185,4 @@ export default function ExternalDAppAutomation() {
     </div>
   )
 }
+

@@ -1,6 +1,6 @@
 // templates/p2p/rsc.template.ts
 
-export default `
+export const p2pRSCTemplate = `
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity >=0.8.0;
@@ -221,7 +221,7 @@ abstract contract AbstractPausableReactive is IReactive, AbstractReactive {
     }
 }
 
-contract ReactiveSmartContract is ${baseContract} {
+contract ReactiveSmartContract is {{baseContract}} {
 		event Subscribed(
         address indexed service_address,
         address indexed _contract,
@@ -231,8 +231,8 @@ contract ReactiveSmartContract is ${baseContract} {
     event CallbackSent();
     event Done();
     // Chain and protocol constants
-    uint256 private constant ORIGIN_CHAIN_ID = ${originChainId};
-    uint256 private constant DESTINATION_CHAIN_ID = ${destinationChainId};
+    uint256 private constant ORIGIN_CHAIN_ID = {{originChainId}};
+    uint256 private constant DESTINATION_CHAIN_ID = {{destinationChainId}};
     address private constant ORIGIN_PROTOCOL_CONTRACT_{count_of_protocol} = {{ORIGIN_CONTRACT}};
     address private constant DESTINATION_CONTRACT = {{DESTINATION_CONTRACT}};
     uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
@@ -257,7 +257,7 @@ contract ReactiveSmartContract is ${baseContract} {
     
     receive() external payable {}
 
-    ${getPausableSubscriptionsFunction}
+    {{getPausableSubscriptionsFunction}}
     
       function react(
         uint256 chain_id,

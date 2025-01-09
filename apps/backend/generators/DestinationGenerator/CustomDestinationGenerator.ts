@@ -1,4 +1,6 @@
 // src/generators/DestinationGenerator/CustomDestinationGenerator.ts
+import { TemplateManager } from '../../templates/TemplateManager';
+import { RSCConfig } from '../../types/ExtDAppAutomationTypes';
 
 export class CustomDestinationGenerator {
     private templateManager: TemplateManager;

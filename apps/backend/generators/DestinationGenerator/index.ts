@@ -5,7 +5,7 @@ import { CustomDestinationGenerator } from './CustomDestinationGenerator';
 import { BlockchainWideDestinationGenerator } from './BlockchainWideDestinationGenerator';
 import { RSCConfig, RSCType } from '../../types/ExtDAppAutomationTypes';
 import { TemplateManager } from '../../templates/TemplateManager';
-import { GeneratorError } from '../../utils/errors';
+import { GeneratorError } from '../../utils/error';
 
 export class DestinationGenerator {
     private p2pGenerator: P2PDestinationGenerator;
@@ -34,7 +34,7 @@ export class DestinationGenerator {
                 default:
                     throw new GeneratorError(`Unknown RSC type: ${config.type}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             throw new GeneratorError(`Failed to generate destination contract: ${error.message}`);
         }
     }

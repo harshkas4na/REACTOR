@@ -28,7 +28,7 @@ router.post('/ext-dapp/generate', async (req, res) => {
             success: true,
             data: contracts
         });
-    } catch (error) {
+    } catch (error:any) {
         res.status(400).json({
             success: false,
             error: error.message
@@ -44,7 +44,7 @@ router.post('/ext-dapp/verify-protocol', async (req, res) => {
             success: true,
             data: verification[0] // Return first verification result
         });
-    } catch (error) {
+    } catch (error:any) {
         res.status(400).json({
             success: false,
             error: error.message
@@ -60,7 +60,7 @@ router.post('/ext-dapp/verify-protocols', async (req, res) => {
             success: true,
             data: verifications
         });
-    } catch (error) {
+    } catch (error: any) {
         res.status(400).json({
             success: false,
             error: error.message
@@ -80,7 +80,7 @@ router.get('/ext-dapp/protocol/:address', async (req, res) => {
                 functions: verification[0].functions
             }
         });
-    } catch (error) {
+    } catch (error: any) {
         res.status(400).json({
             success: false,
             error: error.message

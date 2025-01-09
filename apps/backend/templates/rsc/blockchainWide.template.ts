@@ -221,7 +221,7 @@ abstract contract AbstractPausableReactive is IReactive, AbstractReactive {
     }
 }
 
-contract ReactiveSmartContract is ${baseContract} {
+contract ReactiveSmartContract is {{baseContract}} {
 
 		event Subscribed(
         address indexed service_address,
@@ -232,8 +232,8 @@ contract ReactiveSmartContract is ${baseContract} {
     event CallbackSent();
     event Done();
     // Chain and protocol constants
-    uint256 private constant ORIGIN_CHAIN_ID = ${originChainId};
-    uint256 private constant DESTINATION_CHAIN_ID = ${destinationChainId};
+    uint256 private constant ORIGIN_CHAIN_ID = {{originChainId}};
+    uint256 private constant DESTINATION_CHAIN_ID = {{destinationChainId}};
     address private constant ORIGIN_CONTRACT = 0x0000000000000000000000000000000000000000;
     address private constant DESTINATION_CONTRACT = {{DESTINATION_CONTRACT}};
     uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
@@ -258,7 +258,7 @@ contract ReactiveSmartContract is ${baseContract} {
     
     receive() external payable {}
 
-    ${getPausableSubscriptionsFunction}
+    {{getPausableSubscriptionsFunction}}
 
 
     function react(

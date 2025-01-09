@@ -1,12 +1,12 @@
 // templates/TemplateManager.ts
 
 import { RSCType } from '../types/ExtDAppAutomationTypes';
-import p2pRSCTemplate from './p2p/rsc.template';
-import p2pDestTemplate from './p2p/destination.template';
-import customOriginRSCTemplate from './customOrigin/rsc.template';
-import customOriginDestTemplate from './customOrigin/destination.template';
-import blockchainWideRSCTemplate from './blockchainWide/rsc.template';
-import blockchainWideDestTemplate from './blockchainWide/destination.template';
+import { p2pRSCTemplate } from './rsc/p2p.template';
+import { p2pDestTemplate } from './destination/p2p.template';
+import { customOriginRSCTemplate } from './rsc/customOrigin.template';
+import { customOriginDestTemplate } from './destination/customOrigin.template';
+import { blockchainWideRSCTemplate } from './rsc/blockchainWide.template';
+import { blockchainWideDestTemplate } from './destination/blockchainWide.template';
 
 export class TemplateManager {
     private templates: {

@@ -1,5 +1,6 @@
 // src/types/ProtocolTypes.ts
 
+import { FunctionParam, EventParam } from "./ExtDAppAutomationTypes";
 export interface ProtocolFunction {
     name: string;
     type: 'supply' | 'borrow' | 'repay' | 'swap' | 'mint' | 'redeem';

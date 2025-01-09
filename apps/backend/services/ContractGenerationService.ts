@@ -53,8 +53,8 @@ export class ContractGenerationService {
 
     private createError(code: string, originalError: any): Error {
         const error = new Error(originalError.message);
-        error.code = code;
-        error.originalError = originalError;
+        // error.code = code;
+        // error.originalError = originalError;
         return error;
     }
 }

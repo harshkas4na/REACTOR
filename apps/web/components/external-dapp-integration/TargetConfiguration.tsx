@@ -1,124 +1,136 @@
-// components/external-dapp-integration/TargetConfiguration.tsx
+'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from 'lucide-react'
+import { CheckCircle, Loader2 } from 'lucide-react'
 import { useAutomationContext } from '@/app/_context/AutomationContext'
-import { api } from '@/services/api'
+import { ethers } from 'ethers'
+
+const destinationSupportedChains = [
+  { id: '11155111', name: 'Ethereum Sepolia' },
+  { id: '43114', name: 'Avalanche C-Chain' },
+  { id: '169', name: 'Manta Pacific' },
+  { id: '8453', name: 'Base Chain' },
+  { id: '5318008', name: 'Kopli Testnet' }
+]
 
 export default function TargetConfiguration() {
   const { 
     destinationAddress, 
     setDestinationAddress, 
     DesChainId, 
-    setDesChainId,
-    setAutomations 
+    setDesChainId
   } = useAutomationContext()
 
   const [isVerifying, setIsVerifying] = useState(false)
-  const [selectedProtocol, setSelectedProtocol] = useState('')
   const [verificationError, setVerificationError] = useState('')
+  const [destinationFunctions, setDestinationFunctions] = useState([])
+  const [successMessage, setSuccessMessage] = useState('')
 
-  const protocols = [
-    { id: 'uniswap', name: 'Uniswap', address: '0x...' },
-    { id: 'aave', name: 'Aave', address: '0x...' },
-    { id: 'compound', name: 'Compound', address: '0x...' },
-    { id: 'custom', name: 'Custom', address: '' }
-  ]
 
-  const chains = [
-    { name: 'Ethereum', id: '1' },
-    { name: 'Polygon', id: '137' },
-    { name: 'Arbitrum', id: '42161' },
-    { name: 'Optimism', id: '10' }
-  ]
-
-  const handleProtocolSelect = (protocolId: string) => {
-    setSelectedProtocol(protocolId)
-    const protocol = protocols.find(p => p.id === protocolId)
-    if (protocol && protocol.address) {
-      setDestinationAddress(protocol.address)
-      handleVerifyContract(protocol.address)
-    }
-  }
-
-  const handleVerifyContract = async (address: string) => {
+  const validateContract = async (address: string) => {
     setIsVerifying(true)
     setVerificationError('')
     try {
-      const { data } = await api.verifyContract(address)
-      if (data.functions) {
-        setDestinationAddress(address)
-        // Reset any existing automation configurations
-        setAutomations([])
+      const response = await fetch('http://localhost:5000/DappAutomation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ originAddress: address }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setDestinationFunctions(data.functions)
+        return true
+      } else {
+        throw new Error(data.message || 'Failed to validate contract')
       }
     } catch (error: any) {
-      setVerificationError(error.message || 'Failed to verify contract')
+      console.error('Error validating contract:', error)
+      setVerificationError(error.message || 'Failed to validate contract')
+      return false
     } finally {
       setIsVerifying(false)
+    }
+  }
+
+  const handleVerifyContract = async () => {
+    if (!destinationAddress) return
+
+    const isValid = await validateContract(destinationAddress)
+    if (isValid) {
+      setDestinationAddress(destinationAddress)
+      // Set Success Message
+      setSuccessMessage('Contract verified successfully')
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <Label htmlFor="protocol">Target Protocol</Label>
-        <Select value={selectedProtocol} onValueChange={handleProtocolSelect}>
-          <SelectTrigger id="protocol">
-            <SelectValue placeholder="Select a protocol" />
-          </SelectTrigger>
-          <SelectContent>
-            {protocols.map(protocol => (
-              <SelectItem key={protocol.id} value={protocol.id}>
-                {protocol.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="destinationAddress">Target Contract Address</Label>
+        <Input
+          id="destinationAddress"
+          value={destinationAddress}
+          onChange={(e) => setDestinationAddress(e.target.value)}
+          placeholder="0x..."
+        />
       </div>
 
-      {selectedProtocol === 'custom' && (
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="destinationAddress">Custom Contract Address</Label>
-            <Input
-              id="destinationAddress"
-              value={destinationAddress}
-              onChange={(e) => setDestinationAddress(e.target.value)}
-              placeholder="0x..."
-            />
-          </div>
-          <Button 
-            onClick={() => handleVerifyContract(destinationAddress)}
-            disabled={isVerifying || !destinationAddress}
-          >
-            {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Verify Contract
-          </Button>
-          {verificationError && (
-            <div className="text-red-500 text-sm">{verificationError}</div>
-          )}
+      <Button 
+        onClick={handleVerifyContract}
+        disabled={isVerifying || !destinationAddress}
+      >
+        {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Verify Contract
+      </Button>
+
+      {successMessage && (
+        <div className="text-green-500 text-sm mt-2 px-6 pb-4 flex items-center">
+          <CheckCircle className="mr-2 h-4 w-4" />
+          {successMessage}
         </div>
       )}
 
-      <div>
-        <Label htmlFor="destinationChain">Destination Chain</Label>
-        <Select value={DesChainId} onValueChange={setDesChainId}>
-          <SelectTrigger id="destinationChain">
-            <SelectValue placeholder="Select a chain" />
-          </SelectTrigger>
-          <SelectContent>
-            {chains.map(chain => (
-              <SelectItem key={chain.id} value={chain.id}>
-                {chain.name}
-              </SelectItem>
+      {verificationError && (
+        <div className="text-red-500 text-sm">{verificationError}</div>
+      )}
+
+      
+        <div>
+          <Label htmlFor="destinationChain">Destination Chain</Label>
+          <Select value={DesChainId} onValueChange={setDesChainId}>
+            <SelectTrigger id="destinationChain">
+              <SelectValue placeholder="Select a chain" />
+            </SelectTrigger>
+            <SelectContent>
+              {destinationSupportedChains.map(chain => (
+                <SelectItem key={chain.id} value={chain.id}>
+                  {chain.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      
+
+      
+
+      {destinationFunctions.length > 0 && (
+        <div>
+          <Label>Available Functions</Label>
+          <ul className="list-disc pl-5 mt-2">
+            {destinationFunctions.map((func: any, index: any) => (
+              <li key={index} className="text-sm text-gray-600">{func.name}</li>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
+
