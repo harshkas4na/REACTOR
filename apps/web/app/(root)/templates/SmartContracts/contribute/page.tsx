@@ -15,32 +15,26 @@ import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { api } from '@/convex/_generated/api';
 import EditorPage from './EditorPage';
-import "@blocknote/core/fonts/inter.css";
-import { BlockNoteView } from "@blocknote/mantine";
-import { useCreateBlockNote } from "@blocknote/react";
-import "@blocknote/mantine/style.css";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CodeEditor from '@/components/code-editor';
 import { Id } from '@/convex/_generated/dataModel';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 import dynamic from 'next/dynamic';
+import { MDEditorProps } from '@uiw/react-md-editor';
 
-const formatReactiveContract = (contract: string): string => {
-  const lines = contract.split('\n');
-  const reactiveContractStart = lines.findIndex(line => line.includes('contract ReactiveContract'));
-  if (reactiveContractStart === -1) return contract;
+// Dynamically import MDEditor to avoid SSR issues
+const MDEditor = dynamic<MDEditorProps>(() => import('@uiw/react-md-editor'), { ssr: false });
+const MDMarkdown = dynamic(() => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown), { ssr: false });
 
-  const formattedLines = lines.slice(reactiveContractStart);
-  return formattedLines.join('\n');
-};
-
-const BlockNoteViewClient = dynamic(() => import('@/components/BlockNoteViewClient'), {
-  ssr: false
-});
+type EditorType = 'overview' | 'implementation' | null;
 
 const steps = ['Basic Info', 'Long Description', 'Contracts', 'GitHub & Finalize'];
 
-type EditorType = 'overview' | 'implementation' | null;
+const tagSuggestions = [
+  "ERC20", "ERC721", "ERC1155", "Uniswap", "Aave", "Compound",
+  "Yield Farming", "Staking", "Governance", "Multi-sig", "Flash Loans",
+  "Oracles", "Cross-chain", "Layer 2", "Gas Optimization"
+];
 
 export default function AddUseCasePage() {
   const router = useRouter();
@@ -48,16 +42,23 @@ export default function AddUseCasePage() {
   const { isAuthenticated } = useConvexAuth();
   const createUseCase = useMutation(api.useCases.createUseCase);
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
-  const {reactiveContract} = useAutomationContext();
+  const { reactiveContract } = useAutomationContext();
+  
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
     title: "",
     shortDescription: "",
     overview: "",
     implementation: "",
-    reactiveTemplate: reactiveContract,
+    reactiveTemplate: reactiveContract || "",
+    reactiveABI: "",
+    reactiveBytecode: "",
     originContract: "",
+    originABI: "",
+    originBytecode: "",
     destinationContract: "",
+    destinationABI: "",
+    destinationBytecode: "",
     githubRepo: "",
     category: "",
     tags: [] as string[],
@@ -66,36 +67,6 @@ export default function AddUseCasePage() {
   const [convexUserId, setConvexUserId] = useState<Id<"users"> | null>(null);
   const [activeEditor, setActiveEditor] = useState<EditorType>(null);
   const [tagsInput, setTagsInput] = useState("");
-  const [tagSuggestions, setTagSuggestions] = useState([
-    "ERC20", "ERC721", "ERC1155", "Uniswap", "Aave", "Compound",
-    "Yield Farming", "Staking", "Governance", "Multi-sig", "Flash Loans",
-    "Oracles", "Cross-chain", "Layer 2", "Gas Optimization"
-  ]);
-
-  const overviewEditor = useCreateBlockNote();
-  const implementationEditor = useCreateBlockNote();
-
-  useEffect(() => {
-    if (formData.overview) {
-      try {
-        const parsedContent = JSON.parse(formData.overview);
-        overviewEditor.replaceBlocks(overviewEditor.document, parsedContent);
-      } catch (error) {
-        console.error("Error parsing overview content:", error);
-      }
-    }
-  }, [formData.overview, overviewEditor]);
-
-  useEffect(() => {
-    if (formData.implementation) {
-      try {
-        const parsedContent = JSON.parse(formData.implementation);
-        implementationEditor.replaceBlocks(implementationEditor.document, parsedContent);
-      } catch (error) {
-        console.error("Error parsing implementation content:", error);
-      }
-    }
-  }, [formData.implementation, implementationEditor]);
 
   useEffect(() => {
     const setupUser = async () => {
@@ -144,7 +115,6 @@ export default function AddUseCasePage() {
 
   const handleEditorSave = (content: string) => {
     if (!activeEditor) return;
-    
     setFormData(prev => ({
       ...prev,
       [activeEditor]: content
@@ -166,17 +136,21 @@ export default function AddUseCasePage() {
         overview: formData.overview,
         implementation: formData.implementation,
         reactiveTemplate: formData.reactiveTemplate,
+        reactiveABI: formData.reactiveABI,
+        reactiveBytecode: formData.reactiveBytecode,
         originContract: formData.originContract,
+        originABI: formData.originABI,
+        originBytecode: formData.originBytecode,
         destinationContract: formData.destinationContract,
+        destinationABI: formData.destinationABI,
+        destinationBytecode: formData.destinationBytecode,
         githubRepo: formData.githubRepo,
         category: formData.category,
         tags: formData.tags,
         userId: convexUserId,
-        
       };
 
       const result = await createUseCase(useCaseData);
-      console.log(  "result", result);
       if (result) {
         toast.success("Use case created successfully!");
         router.push('/templates/SmartContracts');
@@ -299,7 +273,7 @@ export default function AddUseCasePage() {
                           .map((tag, index) => (
                             <div
                               key={index}
-                              className="px-4 py-2 cursor-pointer hover:bg-gray-700 transition-colors duration-150"
+                              className="px-4 py-2 cursor-pointer hover:bg-gray-700 text-gray-200 transition-colors duration-150"
                               onClick={() => addTag(tag)}
                             >
                               {tag}
@@ -341,8 +315,14 @@ export default function AddUseCasePage() {
                     </Button>
                   </div>
                   {formData.overview && (
-                    <div className="mt-4 p-4 bg-gray-700 rounded-lg">
-                      <BlockNoteViewClient editor={overviewEditor} theme="dark" />
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg" data-color-mode="dark">
+                      <MDMarkdown
+                        source={formData.overview}
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: 'rgb(209 213 219)'
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -360,141 +340,208 @@ export default function AddUseCasePage() {
                     </Button>
                   </div>
                   {formData.implementation && (
-                    <div className="mt-4 p-4 bg-gray-700 rounded-lg">
-                      <BlockNoteViewClient editor={implementationEditor} theme="dark" />
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg" data-color-mode="dark">
+                      <MDMarkdown
+                        source={formData.implementation}
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: 'rgb(209 213 219)'
+                        }}
+                      />
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div className="space-y-8">
-                <div>
-                  <Label htmlFor="reactiveTemplate" className="text-gray-200 text-lg">Reactive Template</Label>
-                  <Tabs defaultValue="code" className="w-full mt-2">
-                    <div className='flex justify-between items-center mb-4'>
-                      <TabsList className="bg-gray-700">
-                        <TabsTrigger value="code" className="data-[state=active]:bg-blue-500">Code</TabsTrigger>
-                        <TabsTrigger value="preview" className="data-[state=active]:bg-blue-500">Preview</TabsTrigger>
-                      </TabsList>
-                      <Button variant="outline" className="bg-blue-500 hover:bg-blue-600 text-white">
-                        <Link href="/deploy-reactive-contract">
-                          Generate Template
-                        </Link>
-                      </Button>
-                    </div>
-                    <TabsContent value="code">
-                      <CodeEditor
-                        value={formatReactiveContract(formData.reactiveTemplate)}
-                        onChange={(value) => setFormData((prev:any) => ({ ...prev, reactiveTemplate: value }))}
-                        language="solidity"
-                        height="300px"
-                      />
-                    </TabsContent>
-                    <TabsContent value="preview">
-                      <div className="border rounded p-4 overflow-auto bg-gray-700 text-gray-200 h-[300px]">
-                        <pre>{formatReactiveContract(formData.reactiveTemplate).replace(/interface\s+\w+\s*{[\s\S]*?}/g, '')}</pre>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </div>
-                <div>
-                  <Label htmlFor="originContract" className="text-gray-200 text-lg">Origin Contract</Label>
-                  <CodeEditor
-                    value={formData.originContract}
-                    onChange={(value) => setFormData((prev:any)  => ({ ...prev, originContract: value }))}
-                    language="solidity"
-                    height="200px"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="destinationContract" className="text-gray-200 text-lg">Destination Contract</Label>
-                  <CodeEditor
-                    value={formData.destinationContract}
-                    onChange={(value) => setFormData((prev:any)  => ({ ...prev, destinationContract: value }))}
-                    language="solidity"
-                    height="200px"
-                  />
-                </div>
-              </div>
-            )}
-
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-300 leading-6">
-                        Submit your Foundry repository here. For guidance on the required structure, check out our official demo repository:
-                      </p>
-                      <a 
-                        href="https://github.com/Reactive-Network/reactive-smart-contract-demos" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center mt-2 text-blue-400 hover:text-blue-300 transition-colors"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-5 w-5 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-                        </svg>
-                        View Reactive Demo Repository
-                      </a>
-                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="githubRepo" className="text-gray-200 text-lg">
-                    GitHub Repository URL
-                  </Label>
-                  <Input
-                    id="githubRepo"
-                    type="url"
-                    value={formData.githubRepo}
-                    onChange={handleInputChange('githubRepo')}
-                    required
-                    className="bg-gray-700 text-gray-200 border-gray-600"
-                    placeholder="https://github.com/yourusername/your-repo"
-                  />
+              )}
+  
+              {currentStep === 2 && (
+                <div className="space-y-8">
+                  <div>
+                    <Label htmlFor="reactiveTemplate" className="text-gray-200 text-lg">Reactive Template</Label>
+                    <Tabs defaultValue="code" className="w-full mt-2">
+                      <div className='flex justify-between items-center mb-4'>
+                        <TabsList className="bg-gray-700">
+                          <TabsTrigger value="code" className="data-[state=active]:bg-blue-500">Code</TabsTrigger>
+                          <TabsTrigger value="abi" className="data-[state=active]:bg-blue-500">ABI</TabsTrigger>
+                          <TabsTrigger value="bytecode" className="data-[state=active]:bg-blue-500">Bytecode</TabsTrigger>
+                        </TabsList>
+                        <Button variant="outline" className="bg-blue-500 hover:bg-blue-600 text-white">
+                          <Link href="/deploy-reactive-contract">Generate Template</Link>
+                        </Button>
+                      </div>
+                      <TabsContent value="code">
+                        <CodeEditor
+                          value={formData.reactiveTemplate}
+                          onChange={(value) => setFormData(prev => ({ ...prev, reactiveTemplate: value as string }))}
+                          language="solidity"
+                          height="300px"
+                        />
+                      </TabsContent>
+                      <TabsContent value="abi">
+                        <CodeEditor
+                          value={formData.reactiveABI}
+                          onChange={(value) => setFormData(prev => ({ ...prev, reactiveABI: value as string }))}
+                          language="json"
+                          height="300px"
+                        />
+                      </TabsContent>
+                      <TabsContent value="bytecode">
+                        <CodeEditor
+                          value={formData.reactiveBytecode}
+                          onChange={(value) => setFormData(prev => ({ ...prev, reactiveBytecode: value as string }))}
+                          language="text"
+                          height="300px"
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+  
+                  <div>
+                    <Label htmlFor="originContract" className="text-gray-200 text-lg">Origin Contract</Label>
+                    <Tabs defaultValue="code" className="w-full mt-2">
+                      <TabsList className="bg-gray-700">
+                        <TabsTrigger value="code" className="data-[state=active]:bg-blue-500">Code</TabsTrigger>
+                        <TabsTrigger value="abi" className="data-[state=active]:bg-blue-500">ABI</TabsTrigger>
+                        <TabsTrigger value="bytecode" className="data-[state=active]:bg-blue-500">Bytecode</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="code">
+                        <CodeEditor
+                          value={formData.originContract}
+                          onChange={(value) => setFormData(prev => ({ ...prev, originContract: value as string }))}
+                          language="solidity"
+                          height="200px"
+                        />
+                      </TabsContent>
+                      <TabsContent value="abi">
+                        <CodeEditor
+                          value={formData.originABI}
+                          onChange={(value) => setFormData(prev => ({ ...prev, originABI: value as string }))}
+                          language="json"
+                          height="200px"
+                        />
+                      </TabsContent>
+                      <TabsContent value="bytecode">
+                        <CodeEditor
+                          value={formData.originBytecode}
+                          onChange={(value) => setFormData(prev => ({ ...prev, originBytecode: value as string }))}
+                          language="text"
+                          height="200px"
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+  
+                  <div>
+                    <Label htmlFor="destinationContract" className="text-gray-200 text-lg">Destination Contract</Label>
+                    <Tabs defaultValue="code" className="w-full mt-2">
+                      <TabsList className="bg-gray-700">
+                        <TabsTrigger value="code" className="data-[state=active]:bg-blue-500">Code</TabsTrigger>
+                        <TabsTrigger value="abi" className="data-[state=active]:bg-blue-500">ABI</TabsTrigger>
+                        <TabsTrigger value="bytecode" className="data-[state=active]:bg-blue-500">Bytecode</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="code">
+                        <CodeEditor
+                          value={formData.destinationContract}
+                          onChange={(value) => setFormData(prev => ({ ...prev, destinationContract: value as string }))}
+                          language="solidity"
+                          height="200px"
+                        />
+                      </TabsContent>
+                      <TabsContent value="abi">
+                        <CodeEditor
+                          value={formData.destinationABI}
+                          onChange={(value) => setFormData(prev => ({ ...prev, destinationABI: value as string }))}
+                          language="json"
+                          height="200px"
+                        />
+                      </TabsContent>
+                      <TabsContent value="bytecode">
+                        <CodeEditor
+                          value={formData.destinationBytecode}
+                          onChange={(value) => setFormData(prev => ({ ...prev, destinationBytecode: value as string }))}
+                          language="text"
+                          height="200px"
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button 
-              variant="outline" 
-              onClick={prevStep} 
-              disabled={currentStep === 0}
-              className="hover:bg-gray-700 transition-colors duration-200"
-            >
-              Previous
-            </Button>
-            {currentStep === steps.length - 1 ? (
+              )}
+  
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-6">
+                    <div className="flex items-start space-x-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-gray-300 leading-6">
+                          Submit your Foundry repository here. For guidance on the required structure, check out our official demo repository:
+                        </p>
+                        <a 
+                          href="https://github.com/Reactive-Network/reactive-smart-contract-demos" 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center mt-2 text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-5 w-5 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                          </svg>
+                          View Reactive Demo Repository
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="githubRepo" className="text-gray-200 text-lg">
+                      GitHub Repository URL
+                    </Label>
+                    <Input
+                      id="githubRepo"
+                      type="url"
+                      value={formData.githubRepo}
+                      onChange={handleInputChange('githubRepo')}
+                      required
+                      className="bg-gray-700 text-gray-200 border-gray-600"
+                      placeholder="https://github.com/yourusername/your-repo"
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between">
               <Button 
-                onClick={handleSubmit}
-                className="bg-blue-500 hover:bg-blue-600 transition-colors duration-200"
+                variant="outline" 
+                onClick={prevStep} 
+                disabled={currentStep === 0}
+                className="hover:bg-gray-700 transition-colors duration-200"
               >
-                Create Use Case
+                Previous
               </Button>
-            ) : (
-              <Button 
-                onClick={nextStep}
-                className="bg-blue-500 hover:bg-blue-600 transition-colors duration-200"
-              >
-                Next
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+              {currentStep === steps.length - 1 ? (
+                <Button 
+                  onClick={handleSubmit}
+                  className="bg-blue-500 hover:bg-blue-600 transition-colors duration-200"
+                >
+                  Create Use Case
+                </Button>
+              ) : (
+                <Button 
+                  onClick={nextStep}
+                  className="bg-blue-500 hover:bg-blue-600 transition-colors duration-200"
+                >
+                  Next
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
       </div>
-    </div>
-  );
-}
-
+    );
+  }

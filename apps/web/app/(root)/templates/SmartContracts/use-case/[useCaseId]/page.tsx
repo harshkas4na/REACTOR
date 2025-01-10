@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
@@ -11,10 +11,21 @@ import { useUserSetup } from "@/hooks/templates/useUserSetup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useCreateBlockNote } from '@blocknote/react';
-import { BlockNoteView } from "@blocknote/mantine";
-import { DeploymentTab } from '@/components/use-case/Deploymenttab';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { MDEditorProps } from '@uiw/react-md-editor';
+import { DeploymentTab } from '@/components/use-case/Deploymenttab';
+
+// Dynamically import MDEditor to avoid SSR issues
+const MDEditor = dynamic<MDEditorProps>(
+  () => import('@uiw/react-md-editor').then((mod) => mod.default),
+  { ssr: false }
+);
+
+const MDMarkdown = dynamic(
+  () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
+  { ssr: false }
+);
 
 interface UseCaseDetailPageProps {
   params: {
@@ -23,17 +34,11 @@ interface UseCaseDetailPageProps {
 }
 
 export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
-  // State hooks
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [activeTab, setActiveTab] = useState("implementation");
 
-  // User setup hook
   const { convexUserId, isAuthenticated } = useUserSetup();
-
-  // Create editors - these must be called in the same order every render
-  const overviewEditor = useCreateBlockNote();
-  const implementationEditor = useCreateBlockNote();
 
   // Query hooks
   const useCase = useQuery(api.useCases.getUseCase, { 
@@ -46,35 +51,6 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
   // Mutation hooks
   const likeUseCase = useMutation(api.useCases.likeUseCase);
   const addComment = useMutation(api.useCases.addComment);
-
-  // Effect hooks
-  useEffect(() => {
-    if (useCase?.overview) {
-      try {
-        const parsedContent = JSON.parse(useCase.overview);
-        overviewEditor.replaceBlocks(overviewEditor.document, parsedContent);
-      } catch (error) {
-        console.error("Error parsing overview content:", error);
-        overviewEditor.replaceBlocks(overviewEditor.document, [
-          { type: "paragraph", content: useCase.overview }
-        ]);
-      }
-    }
-  }, [useCase?.overview, overviewEditor]);
-
-  useEffect(() => {
-    if (useCase?.implementation) {
-      try {
-        const parsedContent = JSON.parse(useCase.implementation);
-        implementationEditor.replaceBlocks(implementationEditor.document, parsedContent);
-      } catch (error) {
-        console.error("Error parsing implementation content:", error);
-        implementationEditor.replaceBlocks(implementationEditor.document, [
-          { type: "paragraph", content: useCase.implementation }
-        ]);
-      }
-    }
-  }, [useCase?.implementation, implementationEditor]);
 
   // Event handlers
   const handleLike = async () => {
@@ -140,10 +116,16 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                 <CardTitle className="text-2xl font-bold text-gray-100">Implementation Details</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                
-                <div className="text-gray-300">
+                <div className="text-gray-300" data-color-mode="dark">
                   {useCase.implementation ? (
-                    <BlockNoteView editor={implementationEditor} theme="dark" editable={false} />
+                    <MDMarkdown
+                      source={useCase.implementation} 
+                      style={{ 
+                        backgroundColor: 'transparent',
+                        color: 'rgb(209 213 219)',
+                        padding: '1rem'
+                      }}
+                    />
                   ) : (
                     <p>No implementation details available.</p>
                   )}
@@ -155,28 +137,44 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           <TabsContent value="deployment">
             <Card className="bg-gray-800 border-gray-700 mb-8">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold text-gray-100">Template Deployment</CardTitle>
+                <CardTitle className="text-2xl font-bold text-gray-100">Contract Deployment</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <p className="text-gray-300 mb-4">
-                  To deploy this Reactive Smart Contract template, please ensure you have followed these guidelines:
-                </p>
-                <ul className="list-disc list-inside text-gray-300 mb-4">
-                  <li>Include AbstractCallback interface on your Destination contract.</li>
-                  <li>Pass Callback_sender inside the AbstractCallback at the constructor, make constructor payable.</li>
-                  <li>While deploying, ensure that you are sending at least 0.1 sepETH or the native currency of that chain (for callbacks to happen successfully).</li>
-                </ul>
-                <p className="text-gray-300 mb-4">
-                Use <Link href="/smart-contract-deployer" className='text-blue-500 hover:text-blue-400'>This</Link> to deploy your own origin and destination contracts.
-                </p>
-                <p className="text-gray-300 mb-4">
-                  Before deployment, please verify that your events' topic_0 match those in our template.
-                </p>
-                <DeploymentTab 
-                  reactiveTemplate={useCase.reactiveTemplate}
-                  originContract={useCase.originContract}
-                  destinationContract={useCase.destinationContract}
-                />
+                <div className="space-y-4">
+                  <div className="bg-gray-700/30 border border-gray-600 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Important Notes:</h3>
+                    <ul className="list-disc list-inside text-gray-300 space-y-2">
+                      <li>Ensure your Destination contract includes the AbstractCallback interface</li>
+                      <li>Constructor must be payable and include Callback_sender parameter</li>
+                      <li>Minimum 0.1 native tokens required for successful callbacks</li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-6" data-color-mode="dark">
+                    {useCase.overview && (
+                      <MDMarkdown
+                        source={useCase.overview} 
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: 'rgb(209 213 219)',
+                          padding: '1rem'
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <DeploymentTab 
+                    reactiveTemplate={useCase.reactiveTemplate}
+                    originContract={useCase.originContract}
+                    originABI={useCase.originABI}
+                    originBytecode={useCase.originBytecode}
+                    destinationContract={useCase.destinationContract}
+                    destinationABI={useCase.destinationABI}
+                    destinationBytecode={useCase.destinationBytecode}
+                    reactiveABI={useCase.reactiveABI}
+                    reactiveBytecode={useCase.reactiveBytecode}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -184,26 +182,30 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
 
         <Card className="bg-gray-800 border-gray-700 mt-8">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-100">Benefits and Use Case Scenarios</CardTitle>
+            <CardTitle className="text-2xl font-bold text-gray-100">Benefits and Use Cases</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-gray-100 mb-2">Benefits</h3>
-            <ul className="list-disc list-inside text-gray-300 mb-4">
-              <li>Improved efficiency and automation</li>
-              <li>Enhanced transparency and accountability</li>
-              <li>Real-time adaptability to changing conditions</li>
-              <li>Reduced operational costs</li>
-            </ul>
-            <h3 className="text-xl font-semibold text-gray-100 mt-4 mb-2">Use Case Scenarios</h3>
-            <p className="text-gray-300">
-              This Reactive Smart Contract solution can be applied in various scenarios, 
-              including:
-            </p>
-            <ul className="list-disc list-inside text-gray-300 mt-2">
-              <li>Large-scale enterprise operations</li>
-              <li>Startup ecosystems looking for innovative solutions</li>
-              <li>Government and public sector initiatives</li>
-            </ul>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-100 mb-3">Key Benefits</h3>
+                <ul className="list-disc list-inside text-gray-300 space-y-2">
+                  <li>Automated cross-chain operations</li>
+                  <li>Enhanced security and reliability</li>
+                  <li>Reduced operational complexity</li>
+                  <li>Cost-effective deployment</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="text-xl font-semibold text-gray-100 mb-3">Ideal Use Cases</h3>
+                <ul className="list-disc list-inside text-gray-300 space-y-2">
+                  <li>Cross-chain token bridges</li>
+                  <li>Multi-chain DeFi applications</li>
+                  <li>Decentralized exchange integrations</li>
+                  <li>Cross-chain governance systems</li>
+                </ul>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

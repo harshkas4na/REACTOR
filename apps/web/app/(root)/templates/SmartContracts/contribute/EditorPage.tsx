@@ -1,10 +1,15 @@
-import React, { useEffect } from 'react';
-import "@blocknote/core/fonts/inter.css";
-import { BlockNoteView } from "@blocknote/mantine";
-import "@blocknote/mantine/style.css";
-import { useCreateBlockNote } from "@blocknote/react";
+import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { MDEditorProps } from '@uiw/react-md-editor';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save } from 'lucide-react';
+import rehypeSanitize from "rehype-sanitize";
+
+// Dynamically import MDEditor to avoid SSR issues
+const MDEditor = dynamic<MDEditorProps>(
+  () => import('@uiw/react-md-editor').then((mod) => mod.default),
+  { ssr: false }
+);
 
 interface EditorPageProps {
   initialContent?: string;
@@ -12,47 +17,43 @@ interface EditorPageProps {
   onCancel: () => void;
 }
 
-const EditorPage = ({ initialContent, onSave, onCancel }: EditorPageProps) => {
-  const editor = useCreateBlockNote();
+const EditorPage = ({ initialContent = '', onSave, onCancel }: EditorPageProps) => {
+  const [content, setContent] = useState<string>(initialContent);
 
-  // Load initial content when component mounts
   useEffect(() => {
     if (initialContent) {
-      try {
-        const parsedContent = JSON.parse(initialContent);
-        editor.replaceBlocks(editor.document, parsedContent);
-      } catch (error) {
-        console.error("Error parsing initial content:", error);
-      }
+      setContent(initialContent);
     }
   }, [initialContent]);
 
-  // Handle save
   const handleSave = () => {
-    const blocks = editor.document;
-    const content = JSON.stringify(blocks);
     onSave(content);
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4">
+    <div className="min-h-screen bg-gray-900 p-4" data-color-mode="dark">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} className="text-gray-200 hover:bg-gray-800">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} className="bg-blue-500 hover:bg-blue-600 text-white">
             <Save className="mr-2 h-4 w-4" />
             Save Changes
           </Button>
         </div>
         
-        <div className="bg-gray-900 rounded-lg p-4">
-          <BlockNoteView
-            editor={editor}
-            theme="dark"
-            className="min-h-[calc(100vh-200px)]"
+        <div className="min-h-[calc(100vh-200px)]">
+          <MDEditor
+            value={content}
+            onChange={(val) => setContent(val || '')}
+            height={800}
+            previewOptions={{
+              rehypePlugins: [[rehypeSanitize]],
+            }}
+            preview="live"
+            className="!bg-gray-800"
           />
         </div>
       </div>

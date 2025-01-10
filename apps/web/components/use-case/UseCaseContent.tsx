@@ -1,12 +1,21 @@
-// UseCaseContent.tsx
 "use client";
 
-import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UseCaseActions } from "./UseCaseActions";
-import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteView } from "@blocknote/mantine";
 import { Id } from '@/convex/_generated/dataModel';
+import dynamic from 'next/dynamic';
+import { MDEditorProps } from '@uiw/react-md-editor';
+
+// Dynamically import MDEditor to avoid SSR issues
+const MDEditor = dynamic<MDEditorProps>(
+  () => import('@uiw/react-md-editor').then((mod) => mod.default),
+  { ssr: false }
+);
+
+const MDMarkdown = dynamic(
+  () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
+  { ssr: false }
+);
 
 interface UseCase {
   _id: Id<"useCases">;
@@ -33,24 +42,6 @@ export function UseCaseContent({
   onLike,
   onShowComments
 }: UseCaseContentProps) {
-  const editor = useCreateBlockNote();
-
-  useEffect(() => {
-    if (useCase.overview) {
-      try {
-        // Try to parse as JSON first
-        const parsedContent = JSON.parse(useCase.overview);
-        editor.replaceBlocks(editor.document, parsedContent);
-      } catch (error) {
-        // If JSON parsing fails, create a simple text block
-        editor.replaceBlocks(editor.document, [
-          { type: "paragraph", content: useCase.overview }
-
-        ]);
-      }
-    }
-  }, [useCase.overview, editor]);
-
   return (
     <Card className="bg-gray-800 border-gray-700">
       <CardHeader>
@@ -59,12 +50,15 @@ export function UseCaseContent({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">
-        <div className=" text-gray-100 mb-8 max-w-none">
+        <div className="text-gray-100 mb-8 max-w-none" data-color-mode="dark">
           {useCase.overview ? (
-            <BlockNoteView 
-              editor={editor} 
-              theme="dark"
-              editable={false}
+            <MDMarkdown
+              source={useCase.overview}
+              style={{ 
+                backgroundColor: 'transparent',
+                color: 'rgb(209 213 219)',
+                padding: '1rem'
+              }}
             />
           ) : (
             <p className="text-gray-300">No description available.</p>
