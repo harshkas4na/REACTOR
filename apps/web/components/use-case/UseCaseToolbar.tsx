@@ -63,7 +63,7 @@ export function UseCaseToolbar({ useCase }: UseCaseToolbarProps) {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Link href={`/templates/SmartContracts/use-case/${useCase._id}`}>
+            <Link href={useCase.type ?`/templates/DappLibrary/use-case/${useCase._id}`:`/templates/SmartContracts/use-case/${useCase._id}`}>
               <Button
                 variant="outline"
                 size="icon"

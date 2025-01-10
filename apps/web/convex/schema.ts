@@ -7,6 +7,12 @@ export default defineSchema({
     shortDescription: v.string(),
     overview: v.string(),
     implementation: v.string(),
+    type: v.optional(v.union(
+      v.literal("live-data"),
+      v.literal("cross-bridge"),
+      v.literal("cross-chain"),
+      v.literal("external")
+    )),
     reactiveTemplate: v.string(),
     reactiveABI: v.string(),
     reactiveBytecode: v.string(),
@@ -16,6 +22,14 @@ export default defineSchema({
     destinationContract: v.string(),
     destinationABI: v.string(),
     destinationBytecode: v.string(),
+
+    // Optional helper contracts as arrays
+    helperContracts: v.optional(v.array(v.object({
+      name: v.string(),
+      contract: v.string(),
+      abi: v.optional(v.string()),
+      bytecode: v.optional(v.string()),
+    }))),
     githubRepo: v.string(),
     category: v.string(),
     tags: v.array(v.string()),
@@ -47,7 +61,6 @@ export default defineSchema({
     userId: v.id("users"),
   }).index("by_useCase_and_user", ["useCaseId", "userId"]),
   
-
 
   
 });

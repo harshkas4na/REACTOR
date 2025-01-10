@@ -110,6 +110,18 @@ export const createUseCase = mutation({
     destinationContract: v.string(),
     destinationABI: v.string(),
     destinationBytecode: v.string(),
+    helperContracts: v.optional(v.array(v.object({
+      name: v.string(),
+      contract: v.string(),
+      abi: v.optional(v.string()),
+      bytecode: v.optional(v.string()),
+    }))),
+    type: v.optional(v.union(
+      v.literal("live-data"),
+      v.literal("cross-bridge"),
+      v.literal("cross-chain"),
+      v.literal("external")
+    )),
     githubRepo: v.string(),
     category: v.string(),
     tags: v.array(v.string()),
@@ -130,6 +142,8 @@ export const createUseCase = mutation({
       destinationContract: args.destinationContract,
       destinationABI: args.destinationABI,
       destinationBytecode: args.destinationBytecode,
+      helperContracts: args.helperContracts,
+      type: args.type,
       githubRepo: args.githubRepo,
       category: args.category,
       tags: args.tags,

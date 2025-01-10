@@ -34,13 +34,13 @@ interface UseCaseDetailPageProps {
   };
 }
 
-export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
+export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
+  
   const [showComments, setShowComments] = useState(false);
   const [showImplementation, setShowImplementation] = useState(false);
-  const [showBenefits, setShowBenefits] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [activeTab, setActiveTab] = useState("implementation");
-
+  const [showBenefits, setShowBenefits] = useState(false);
   const { convexUserId, isAuthenticated } = useUserSetup();
 
   // Query hooks
@@ -192,7 +192,6 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
             </Card>
           </TabsContent>
         </Tabs>
-
         <Card className="bg-gray-800 border-gray-700 mt-8">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-gray-100">Benefits and Use Cases</CardTitle>
@@ -216,8 +215,7 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                   </>
                 )}
               </Button>
-
-              {showBenefits && (
+        {showBenefits && (
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-100 mb-3">Key Benefits</h3>

@@ -32,6 +32,7 @@ export default function UseCasesPage() {
     if (!isAuthenticated || !convexUserId) return;
     await likeUseCase({ useCaseId, userId: convexUserId });
   };
+
   const searchResults = useQuery(api.useCases.searchUseCases, {
     searchTerm: searchTerm || undefined,
     category: categoryFilter === 'all' ? undefined : categoryFilter
@@ -41,14 +42,14 @@ export default function UseCasesPage() {
     if (!isAuthenticated || !convexUserId || !selectedUseCase) return;
     await addComment({ 
       useCaseId: selectedUseCase, 
-      userId: convexUserId, 
-      // user: convexUserId, // Temporary until the schema is updated
+      userId: convexUserId,
       text,
       timestamp: new Date().toISOString()
     });
   };
 
-  const filteredUseCases = searchResults || [];
+  // Filter out use cases that have a non-empty type field
+  const filteredUseCases = (searchResults || []).filter(useCase => !useCase.type);
 
   if (!useCases || !comments || !likes || !users) {
     return <LoadingSpinner />;
@@ -97,7 +98,7 @@ export default function UseCasesPage() {
           {filteredUseCases.map((useCase) => (
             <UseCaseCard
               key={useCase._id}
-              useCase={useCase}
+              useCase={useCase as UseCase}
               comments={comments}
               likes={likes}
               onLike={handleLike}
