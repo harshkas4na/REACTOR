@@ -7,9 +7,10 @@ interface CodeEditorProps {
   onChange: (value: string | undefined) => void;
   language: string;
   height: string;
+  readOnly?: boolean;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language, height }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language, height, readOnly = false }) => {
   return (
     <div className="border border-gray-600 rounded-md overflow-hidden">
       <Editor

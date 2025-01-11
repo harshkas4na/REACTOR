@@ -1,10 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from "@blocknote/mantine";
 
-export const OverviewTab = ({ useCase, overviewEditor }) => {
+export const OverviewTab = ({ useCase, overviewEditor }: { useCase: any, overviewEditor: any }) => {
   return (
     <div className="space-y-6">
       <Card className="bg-gray-800 border-gray-700">

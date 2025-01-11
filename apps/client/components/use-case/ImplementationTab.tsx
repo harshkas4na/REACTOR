@@ -6,14 +6,14 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { Copy, Check } from 'lucide-react';
 import CodeEditor from '@/components/code-editor';
 
-export const ImplementationTab = ({ useCase, implementationEditor }) => {
+export const ImplementationTab = ({ useCase, implementationEditor }: { useCase: any, implementationEditor: any }) => {
   const [copiedStates, setCopiedStates] = useState({
     reactive: false,
     origin: false,
     destination: false
   });
 
-  const handleCopy = (type) => {
+  const handleCopy = (type: string) => {
     navigator.clipboard.writeText(useCase[`${type}Contract`]);
     setCopiedStates(prev => ({ ...prev, [type]: true }));
     setTimeout(() => setCopiedStates(prev => ({ ...prev, [type]: false })), 2000);
@@ -56,14 +56,15 @@ export const ImplementationTab = ({ useCase, implementationEditor }) => {
                     onClick={() => handleCopy(type)}
                     className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
                   >
-                    {copiedStates[type] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    <span className="ml-2">{copiedStates[type] ? 'Copied!' : 'Copy Code'}</span>
+                    {copiedStates[type as keyof typeof copiedStates] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    <span className="ml-2">{copiedStates[type as keyof typeof copiedStates] ? 'Copied!' : 'Copy Code'}</span>
                   </Button>
                 </div>
                 <CodeEditor
                   value={useCase[`${type}Contract`]}
                   language="solidity"
                   height="300px"
+                  onChange={() => {}}
                   readOnly={true}
                 />
               </TabsContent>

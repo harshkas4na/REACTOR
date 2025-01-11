@@ -1,15 +1,15 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-export const getRSCsForUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query('rscs')
-      .filter((q) => q.eq(q.field('userId'), args.userId))
-      .collect()
-  },
-})
+// export const getRSCsForUser = query({
+//   args: { userId: v.string() },
+//   handler: async (ctx, args) => {
+//     return await ctx.db
+//       .query('rscs')
+//       .filter((q) => q.eq(q.field('userId'), args.userId))
+//       .collect()
+//   },
+// })
 
 export const startRSCMonitoring = mutation({
   args: {

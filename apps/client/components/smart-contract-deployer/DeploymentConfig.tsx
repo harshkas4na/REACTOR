@@ -68,16 +68,14 @@ export default function DeploymentConfig({
   }, [web3, account, selectedNetwork])
 
   const getCurrentChainId = () => {
-    return SUPPORTED_NETWORKS[selectedNetwork.toUpperCase()]?.chainId || ''
+    return SUPPORTED_NETWORKS[selectedNetwork as keyof typeof SUPPORTED_NETWORKS]?.chainId || ''
   }
-  console.log("abi2:",abi);
-  console.log("bytecode2:",bytecode);
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-4">Compilation & Deployment</h2>
         <div className="flex items-center space-x-4 mb-4">
-          <Badge variant={compilationStatus === 'success' ? 'success' : 'destructive'}>
+          <Badge variant={compilationStatus === 'success' ? 'default' : 'destructive'}>
             {compilationStatus === 'success' ? 'Compilation Successful' : 'Compilation Failed'}
           </Badge>
         </div>

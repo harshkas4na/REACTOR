@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DeploymentRecord } from './smart-contract-deployer/SmartContractDeployer'
+import { DeploymentRecord } from './SmartContractDeployer'
 
 export default function DeploymentHistory() {
   const [deployments, setDeployments] = useState<DeploymentRecord[]>([])
@@ -72,8 +72,8 @@ export default function DeploymentHistory() {
                 <TableCell>
                   <Badge 
                     variant={
-                      deployment.status === 'success' ? 'success' : 
-                      deployment.status === 'pending' ? 'warning' : 'destructive'
+                      deployment.status === 'success' ? 'default' : 
+                      deployment.status === 'pending' ? 'secondary' : 'destructive'
                     }
                   >
                     {deployment.status}

@@ -14,4 +14,15 @@ export const api = {
         return response.json();
     },
 
+    compileContract: async (contract: string) => {
+        const response = await fetch(`${BASE_URL}/ext-dapp/compile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contract })
+        });
+        return response.json();
+    },
+
+    
+
 };

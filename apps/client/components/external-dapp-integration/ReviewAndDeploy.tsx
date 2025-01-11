@@ -48,7 +48,7 @@ export default function ReviewAndDeploy() {
     const initialMappings: Record<number, AutomationMappings> = {}
     automations.forEach((automation, index) => {
       initialMappings[index] = {
-        functionInputs: automation.functionInputs?.reduce((acc, input) => ({
+        functionInputs: (automation.function as any)?.reduce((acc: any, input: any ) => ({
           ...acc,
           [input.name]: { type: 'direct', value: '' }
         }), {}) || {}
@@ -123,7 +123,7 @@ export default function ReviewAndDeploy() {
     setIsCompiling(true)
     setError('')
     try {
-      const result = await api.compileContract(contract)
+      const result = await api.compileContract(contract) 
       setCompiledData(result)
       setDeploymentStatus('Contract compiled successfully')
       return result
@@ -156,17 +156,17 @@ export default function ReviewAndDeploy() {
 
       const deployed = await deploy.send({
         from: account,
-        gas,
-        gasPrice
+        gas: gas.toString(),
+        gasPrice: gasPrice.toString()
       })
 
       if (isDestination) {
-        setDeployedDestinationAddress(deployed.options.address)
+        setDeployedDestinationAddress(deployed.options.address || ''  )
         // Update RSC with deployed destination address
-        const updatedRSC = rscContract.replace('DESTINATION_ADDRESS_PLACEHOLDER', deployed.options.address)
+        const updatedRSC = rscContract.replace('DESTINATION_ADDRESS_PLACEHOLDER', deployed.options.address || '')
         setRscContract(updatedRSC)
       } else {
-        setDeployedRSCAddress(deployed.options.address)
+        setDeployedRSCAddress(deployed.options.address || '')
       }
       setDeploymentStatus(`${isDestination ? 'Destination' : 'RSC'} contract deployed successfully`)
     } catch (error: any) {
@@ -225,7 +225,7 @@ export default function ReviewAndDeploy() {
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Function: {automation.function}</Label>
                     <div className="space-y-4">
-                      {automation.functionInputs?.map((input) => (
+                      {(automation.function as any)?.map((input: any) => (
                         <div key={input.name} className="pl-4 space-y-2">
                           <Label className="text-sm">
                             Parameter: {input.name} ({input.type})
