@@ -1,6 +1,5 @@
-// app/_context/AutomationContext.tsx
-
 "use client";
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface Automation {
@@ -13,35 +12,22 @@ export interface Automation {
 }
 
 export interface AutomationContextType {
-  // Automation Settings
   automations: Automation[];
   setAutomations: React.Dispatch<React.SetStateAction<Automation[]>>;
-  
-  // Contract Types and Configuration
   triggerType: 'custom' | 'protocol' | 'blockchain';
   setTriggerType: React.Dispatch<React.SetStateAction<'custom' | 'protocol' | 'blockchain'>>;
-  
-  // Contract Details
   reactiveContract: string;
   setReactiveContract: React.Dispatch<React.SetStateAction<string>>;
-  
-  // Configuration Options
   isPausable: boolean;
   setIsPausable: React.Dispatch<React.SetStateAction<boolean>>;
-  
-  // Chain Settings
   OrgChainId: string;
   setOrgChainId: React.Dispatch<React.SetStateAction<string>>;
   DesChainId: string;
   setDesChainId: React.Dispatch<React.SetStateAction<string>>;
-  
-  // Contract Addresses
   originAddress: string;
   setOriginAddress: React.Dispatch<React.SetStateAction<string>>;
   destinationAddress: string;
   setDestinationAddress: React.Dispatch<React.SetStateAction<string>>;
-  
-  // Contract Verification Status
   isOriginVerified: boolean;
   setIsOriginVerified: React.Dispatch<React.SetStateAction<boolean>>;
   isDestinationVerified: boolean;
@@ -59,51 +45,51 @@ export const useAutomationContext = () => {
 };
 
 export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Automation Management
-  const [automations, setAutomations] = useState<Automation[]>([]);
+  // Initialize with one empty automation
+  const [automations, setAutomations] = useState<Automation[]>([{
+    event: '',
+    function: '',
+    topic0: ''
+  }]);
+  
   const [triggerType, setTriggerType] = useState<'custom' | 'protocol' | 'blockchain'>('custom');
   const [reactiveContract, setReactiveContract] = useState('');
-  
-  // Configuration
   const [isPausable, setIsPausable] = useState(true);
-  
-  // Chain Settings
-  const [OrgChainId, setOrgChainId] = useState('1');  // Default to Ethereum mainnet
-  const [DesChainId, setDesChainId] = useState('1');
-  
-  // Contract Addresses
+  const [OrgChainId, setOrgChainId] = useState('5318008'); // Set to Kopli chain ID
+  const [DesChainId, setDesChainId] = useState('5318008');
   const [originAddress, setOriginAddress] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
-  
-  // Verification Status
   const [isOriginVerified, setIsOriginVerified] = useState(false);
   const [isDestinationVerified, setIsDestinationVerified] = useState(false);
 
+  // Add context value console log for debugging
+  const contextValue = {
+    automations,
+    setAutomations,
+    triggerType,
+    setTriggerType,
+    reactiveContract,
+    setReactiveContract,
+    isPausable,
+    setIsPausable,
+    OrgChainId,
+    setOrgChainId,
+    DesChainId,
+    setDesChainId,
+    originAddress,
+    setOriginAddress,
+    destinationAddress,
+    setDestinationAddress,
+    isOriginVerified,
+    setIsOriginVerified,
+    isDestinationVerified,
+    setIsDestinationVerified,
+  };
+
+  console.log('AutomationProvider state:', contextValue);
+
   return (
-    <AutomationContext.Provider
-      value={{
-        automations,
-        setAutomations,
-        triggerType,
-        setTriggerType,
-        reactiveContract,
-        setReactiveContract,
-        isPausable,
-        setIsPausable,
-        OrgChainId,
-        setOrgChainId,
-        DesChainId,
-        setDesChainId,
-        originAddress,
-        setOriginAddress,
-        destinationAddress,
-        setDestinationAddress,
-        isOriginVerified,
-        setIsOriginVerified,
-        isDestinationVerified,
-        setIsDestinationVerified,
-      }}
-    >
+    <AutomationContext.Provider value={contextValue}>
       {children}
     </AutomationContext.Provider>
   );

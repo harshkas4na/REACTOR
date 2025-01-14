@@ -179,34 +179,38 @@ export default function CrossDAppAutomation() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-50 dark:bg-slate-900">
-      <h1 className="text-3xl font-bold mb-6 text-center text-gray-900 dark:text-white">Cross-DApp Automation Template</h1>
+    <div className="px-64 py-8 min-h-screen ">
+      <h1 className="text-3xl font-bold mb-6 text-center text-zinc-100">
+        Cross-DApp Automation Template
+      </h1>
       
-      <Card className="bg-white dark:bg-slate-800 shadow-md mb-6">
+      <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl mb-6">
         <CardHeader>
-          <CardTitle className="text-gray-900 dark:text-white">Origin Contract Configuration</CardTitle>
+          <CardTitle className="text-zinc-100">Origin Contract Configuration</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="originAddress" className="text-gray-700 dark:text-gray-300">Origin DApp Address</Label>
+              <Label htmlFor="originAddress" className="text-zinc-200">
+                Origin DApp Address
+              </Label>
               <Input
                 id="originAddress"
                 placeholder="0x..."
                 value={originAddress}
                 onChange={(e) => setOriginAddress(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
               />
             </div>
             <Button 
               onClick={validateContract} 
               disabled={isValidating || !originAddress}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full bg-primary hover:bg-primary-foreground hover:text-gray-100 text-white"
             >
               {isValidating ? 'Validating...' : 'Validate Contract'}
             </Button>
             {isContractValid && (
-              <div className="flex items-center text-green-500">
+              <div className="flex items-center text-green-400">
                 <CheckCircle2 className="mr-2" />
                 Contract validated successfully
               </div>
@@ -215,11 +219,10 @@ export default function CrossDAppAutomation() {
         </CardContent>
       </Card>
 
-
       {isContractValid && (
-        <Card className="bg-white dark:bg-slate-800 shadow-md mb-6">
+        <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl mb-6">
           <CardHeader>
-            <CardTitle className="text-gray-900 dark:text-white">Event Selection</CardTitle>
+            <CardTitle className="text-zinc-100">Event Selection</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -234,9 +237,15 @@ export default function CrossDAppAutomation() {
                   >
                     <Button 
                       onClick={() => handleAddAutomation(event)}
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white flex justify-between items-center"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white flex justify-between items-center"
                     >
-                      <span>{event.name}{event.inputs.length > 0 ? `(${event.inputs.map((input: any) => input.type).join(',')})` : ''}</span>
+                      <span>
+                        {event.name}
+                        {event.inputs.length > 0 
+                          ? `(${event.inputs.map((input: any) => input.type).join(',')})` 
+                          : ''
+                        }
+                      </span>
                       <PlusCircle className="h-4 w-4 ml-2" />
                     </Button>
                   </motion.div>
@@ -246,40 +255,47 @@ export default function CrossDAppAutomation() {
           </CardContent>
         </Card>
       )}
-      <Card className="bg-white dark:bg-slate-800 shadow-md mb-6">
+
+      <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl mb-6">
         <CardHeader>
-          <CardTitle className="text-gray-900 dark:text-white">Destination Configuration</CardTitle>
+          <CardTitle className="text-zinc-100">Destination Configuration</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="destinationAddress" className="text-gray-700 dark:text-gray-300">Destination Contract Address</Label>
+              <Label htmlFor="destinationAddress" className="text-zinc-200">
+                Destination Contract Address
+              </Label>
               <Input
                 id="destinationAddress"
                 placeholder="0x..."
                 value={destinationAddress}
                 onChange={(e) => setDestinationAddress(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
               />
             </div>
             <div>
-              <Label htmlFor="orgChainId" className="text-gray-700 dark:text-gray-300">Origin Chain ID</Label>
+              <Label htmlFor="orgChainId" className="text-zinc-200">
+                Origin Chain ID
+              </Label>
               <Input
                 id="orgChainId"
                 type="number"
                 value={OrgChainId}
                 onChange={(e) => setOrgChainId(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-zinc-800/50 border-zinc-700 text-zinc-200"
               />
             </div>
             <div>
-              <Label htmlFor="desChainId" className="text-gray-700 dark:text-gray-300">Destination Chain ID</Label>
+              <Label htmlFor="desChainId" className="text-zinc-200">
+                Destination Chain ID
+              </Label>
               <Input
                 id="desChainId"
                 type="number"
                 value={DesChainId}
                 onChange={(e) => setDesChainId(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-zinc-800/50 border-zinc-700 text-zinc-200"
               />
             </div>
           </div>
@@ -287,25 +303,20 @@ export default function CrossDAppAutomation() {
       </Card>
       
       {automations.length > 0 && (
-        <Card className="bg-white dark:bg-slate-800 shadow-md mb-6">
+        <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl mb-6">
           <CardHeader>
-            <CardTitle className="text-gray-900 dark:text-white">Automations</CardTitle>
+            <CardTitle className="text-zinc-100">Automations</CardTitle>
           </CardHeader>
           <CardContent>
-            
             <AutomationForm2
               onSubmit={handleSubmit}
               isLoading={isLoading}
-              error=""
+              error={null}
               isValidForm={automations.length > 0}
             />
           </CardContent>
         </Card>
       )}
-
-      
-
-      
 
       <div className="space-y-4">
         {reactiveContract && (
@@ -318,15 +329,17 @@ export default function CrossDAppAutomation() {
             </Button>
             <Button
               onClick={() => setIsTemplateVisible(!isTemplateVisible)}
-              className="w-full bg-gray-600 hover:bg-gray-700 text-white flex justify-between items-center"
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex justify-between items-center border border-zinc-700"
             >
               <span>{isTemplateVisible ? 'Hide' : 'Show'} Generated Template</span>
               {isTemplateVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
             {isTemplateVisible && (
-              <Card className="bg-white dark:bg-slate-800 shadow-md">
+              <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl">
                 <CardContent>
-                  <pre className="whitespace-pre-wrap text-sm">{reactiveContract}</pre>
+                  <pre className="whitespace-pre-wrap text-sm text-zinc-300 overflow-x-auto p-4">
+                    {reactiveContract}
+                  </pre>
                 </CardContent>
               </Card>
             )}
@@ -336,28 +349,55 @@ export default function CrossDAppAutomation() {
         {abi && bytecode && (
           <Button 
             onClick={handleDeploy}
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           >
             Deploy Contract
           </Button>
         )}
 
         {deploymentStatus && (
-          <Alert variant={deploymentStatus.includes('successfully') ? 'success' : 'destructive'}>
-            <AlertCircle className="h-4  w-4" />
-            <AlertTitle>Deployment Status</AlertTitle>
-            <AlertDescription>{deploymentStatus}</AlertDescription>
+          <Alert 
+            variant={deploymentStatus.includes('successfully') ? 'success' : 'destructive'}
+            className={
+              deploymentStatus.includes('successfully') 
+                ? 'border-green-800 bg-green-900/20' 
+                : 'border-red-800 bg-red-900/20'
+            }
+          >
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle className={
+              deploymentStatus.includes('successfully') 
+                ? 'text-green-300' 
+                : 'text-red-300'
+            }>
+              Deployment Status
+            </AlertTitle>
+            <AlertDescription className={
+              deploymentStatus.includes('successfully') 
+                ? 'text-green-200' 
+                : 'text-red-200'
+            }>
+              {deploymentStatus}
+            </AlertDescription>
           </Alert>
         )}
 
         {deployedAddress && (
-          <Alert variant="success">
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle>Contract Deployed</AlertTitle>
-            <AlertDescription>Deployed at: {deployedAddress}</AlertDescription>
+          <Alert 
+            variant="success"
+            className="border-green-800 bg-green-900/20"
+          >
+            <CheckCircle2 className="h-4 w-4 text-green-300" />
+            <AlertTitle className="text-green-300">
+              Contract Deployed
+            </AlertTitle>
+            <AlertDescription className="text-green-200">
+              Deployed at: {deployedAddress}
+            </AlertDescription>
           </Alert>
         )}
       </div>
     </div>
   )
+
 }

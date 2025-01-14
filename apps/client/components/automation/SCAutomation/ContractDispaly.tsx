@@ -106,17 +106,16 @@ export default function ContractDisplay({
   };
 
   return (
-    <Card className="mt-8 bg-gray-800 border-gray-700 overflow-hidden">
-      <CardHeader className="bg-gray-900 py-4">
-        <CardTitle className="flex justify-between items-center text-gray-100">
+    <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+      <CardHeader className="bg-gray-900/50 py-4">
+        <CardTitle className="flex justify-between items-center text-zinc-100">
           <span className="text-xl font-bold">Reactive Contract</span>
           <div className="flex gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={copyToClipboard}
-              className="text-gray-300 hover:text-gray-100 transition-colors"
-              aria-label={copied ? "Copied" : "Copy to clipboard"}
+              className="text-zinc-400 hover:text-zinc-100"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </Button>
@@ -124,14 +123,14 @@ export default function ContractDisplay({
               variant="ghost"
               size="sm"
               onClick={onToggleShow}
-              className="text-gray-300 hover:text-gray-100 transition-colors"
-              aria-label={showContract ? "Hide contract" : "Show contract"}
+              className="text-zinc-400 hover:text-zinc-100"
             >
               {showContract ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
         </CardTitle>
       </CardHeader>
+
       {showContract && (
         <CardContent className="p-0">
           {copyError && (
@@ -142,10 +141,10 @@ export default function ContractDisplay({
           <div className="relative">
             {!editingContract ? (
               <div className="bg-gray-900 p-4 rounded-md overflow-auto max-h-[500px]">
-                <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{displayedContract}</pre>
+                <pre className="text-zinc-300 font-mono whitespace-pre-wrap">{displayedContract}</pre>
               </div>
             ) : (
-              <div className="h-[500px] border border-gray-700 rounded-md overflow-hidden">
+              <div className="h-[500px] border border-zinc-800 rounded-md overflow-hidden">
                 <MonacoEditor
                   height="100%"
                   language="solidity"
@@ -166,17 +165,18 @@ export default function ContractDisplay({
               </div>
             )}
           </div>
+
           <div className="flex flex-wrap gap-2 m-4">
             {!editingContract ? (
               <>
-                <Button onClick={onEdit} className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                <Button onClick={onEdit} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Contract
                 </Button>
                 <Button 
                   onClick={openInRemix} 
                   variant="outline" 
-                  className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors"
+                  className="text-zinc-300 border-zinc-600 hover:bg-zinc-800"
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-2" />}
@@ -185,7 +185,7 @@ export default function ContractDisplay({
                 <Button 
                   onClick={downloadContract} 
                   variant="outline" 
-                  className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors"
+                  className="text-zinc-300 border-zinc-600 hover:bg-zinc-800"
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
@@ -194,18 +194,18 @@ export default function ContractDisplay({
               </>
             ) : (
               <>
-                <Button onClick={onCancelEdit} variant="outline" className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors">
+                <Button onClick={onCancelEdit} variant="outline" className="text-zinc-300 border-zinc-600 hover:bg-zinc-800">
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button onClick={onSave} className="bg-green-600 hover:bg-green-700 text-white transition-colors">
+                <Button onClick={onSave} className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:bg-green-700 text-white">
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
                 </Button>
                 <Button 
                   onClick={openInRemix} 
                   variant="outline" 
-                  className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors"
+                  className="text-zinc-300 border-zinc-600 hover:bg-zinc-800"
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-2" />}
@@ -214,7 +214,7 @@ export default function ContractDisplay({
                 <Button 
                   onClick={downloadContract} 
                   variant="outline" 
-                  className="text-gray-300 border-gray-600 hover:bg-gray-700 transition-colors"
+                  className="text-zinc-300 border-zinc-600 hover:bg-zinc-800"
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}

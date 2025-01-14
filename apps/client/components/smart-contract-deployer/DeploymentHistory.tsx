@@ -43,7 +43,7 @@ export default function DeploymentHistory() {
   }
 
   return (
-    <div>
+    <div className='bg-transparent'>
       <h2 className="text-2xl font-bold mb-4">Deployment History</h2>
       {deployments.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">

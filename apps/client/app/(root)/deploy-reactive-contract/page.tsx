@@ -233,15 +233,15 @@ export default function AutomationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-400 dark:from-blue-400 dark:to-teal-300">
+    <div className="min-h-screen py-12 bg-transparent px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-8 bg-transparent">
+        <h1 className="text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
           Create Your Automation
         </h1>
         
-        <Card className="border-0 shadow-lg bg-white dark:bg-gray-800 transition-all duration-200 hover:shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-blue-500 to-teal-400 text-white p-6 rounded-t-lg">
-            <CardTitle className="text-2xl font-bold">
+        <Card className="bg-gradient-to-br bg-transparent from-blue-900/50 to-purple-900/50 border-zinc-800">
+          <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
+            <CardTitle className="text-2xl font-bold text-zinc-100">
               Automation Configuration
             </CardTitle>
           </CardHeader>
@@ -256,9 +256,9 @@ export default function AutomationPage() {
         </Card>
 
         {reactiveContract && (
-          <Card className="border-0 shadow-lg bg-white dark:bg-gray-800 transition-all duration-200 hover:shadow-xl">
-            <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-400 text-white p-6 rounded-t-lg">
-              <CardTitle className="text-2xl font-bold">
+          <Card className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
+            <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
+              <CardTitle className="text-2xl font-bold text-zinc-100">
                 Smart Contract
               </CardTitle>
             </CardHeader>
@@ -277,26 +277,28 @@ export default function AutomationPage() {
               <div className="mt-6 space-y-4">
                 <div className="flex justify-between">
                   <Button 
-                    onClick={handleCompile} 
-                    className="bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200"
+                    onClick={handleCompile}
+                    variant="default"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Compile Contract
                   </Button>
-                  <Button 
-                    type="submit"
-                    onClick={handleSubmit} 
-                    className="bg-green-500 hover:bg-green-600 text-white transition-colors duration-200"
+                  {/* <Button 
+                    onClick={handleSubmit}
+                    variant="default"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                     disabled={isLoading || !isValidForm}
                   >
                     {isLoading ? 'Regenerating...' : 'ReGenerate Contract'}
-                  </Button>
+                  </Button> */}
                 </div>
                 {abi && bytecode && (
                   <Button 
-                    onClick={handleDeploy}  
-                    className="w-full bg-purple-500 hover:bg-purple-600 text-white transition-colors duration-200"
+                    onClick={handleDeploy}
+                    variant="default"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -309,57 +311,56 @@ export default function AutomationPage() {
         )}
 
         {compileError && (
-          <Alert variant="destructive" className="bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 rounded-lg">
-            <AlertTitle className="text-red-800 dark:text-red-200 font-semibold">
+          <Alert variant="destructive" className="bg-red-900/20 border-red-800">
+            <AlertTitle className="text-red-200 font-semibold">
               Compilation Error
             </AlertTitle>
-            <AlertDescription className="text-red-700 dark:text-red-300">
+            <AlertDescription className="text-red-300">
               {compileError}
             </AlertDescription>
           </Alert>
         )}
 
         {deploymentError && (
-          <Alert variant="destructive" className="bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 rounded-lg">
-            <AlertTitle className="text-red-800 dark:text-red-200 font-semibold">
+          <Alert variant="destructive" className="bg-red-900/20 border-red-800">
+            <AlertTitle className="text-red-200 font-semibold">
               Deployment Error
             </AlertTitle>
-            <AlertDescription className="text-red-700 dark:text-red-300">
+            <AlertDescription className="text-red-300">
               {deploymentError}
             </AlertDescription>
           </Alert>
         )}
 
-{deployedAddress && (
-    <Card className="border-0 shadow-lg bg-white dark:bg-gray-800 transition-all duration-200 hover:shadow-xl">
-      <CardHeader className="bg-gradient-to-r from-green-500 to-teal-400 text-white p-6 rounded-t-lg">
-        <CardTitle className="text-2xl font-bold">
-          Deployment Successful
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-6 space-y-4">
-        <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-          <span className="text-gray-700 dark:text-gray-300 font-semibold">Contract Address:</span>
-          <span className="font-mono text-blue-600 dark:text-blue-400">{deployedAddress}</span>
-        </div>
-        {deploymentTxHash && (
-          <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300 font-semibold">Transaction Hash:</span>
-            <span className="font-mono text-blue-600 dark:text-blue-400">{deploymentTxHash}</span>
-          </div>
+        {deployedAddress && (
+          <Card className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
+            <CardHeader className="bg-gradient-to-r from-green-600/10 to-teal-600/10 p-6 rounded-t-lg">
+              <CardTitle className="text-2xl font-bold text-zinc-100">
+                Deployment Successful
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between bg-gray-900/50 p-3 rounded-lg">
+                <span className="text-zinc-300 font-semibold">Contract Address:</span>
+                <span className="font-mono text-blue-400">{deployedAddress}</span>
+              </div>
+              {deploymentTxHash && (
+                <div className="flex items-center justify-between bg-gray-900/50 p-3 rounded-lg">
+                  <span className="text-zinc-300 font-semibold">Transaction Hash:</span>
+                  <span className="font-mono text-blue-400">{deploymentTxHash}</span>
+                </div>
+              )}
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                View on Explorer
+              </Button>
+            </CardContent>
+          </Card>
         )}
-        <Button 
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200"
-          onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          View on Explorer
-        </Button>
-      </CardContent>
-    </Card>
-  )}
       </div>
     </div>
   );
-
 };

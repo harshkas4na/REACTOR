@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save } from 'lucide-react';
 import rehypeSanitize from "rehype-sanitize";
 
-// Dynamically import MDEditor to avoid SSR issues
 const MDEditor = dynamic<MDEditorProps>(
   () => import('@uiw/react-md-editor').then((mod) => mod.default),
   { ssr: false }
@@ -31,20 +30,30 @@ const EditorPage = ({ initialContent = '', onSave, onCancel }: EditorPageProps) 
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4" data-color-mode="dark">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-blue-900/30 to-purple-900/30 p-4" 
+      data-color-mode="dark"
+    >
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <Button variant="outline" onClick={onCancel} className="text-gray-200 hover:bg-gray-800">
+          <Button 
+            variant="outline" 
+            onClick={onCancel} 
+            className="text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <Button onClick={handleSave} className="bg-blue-500 hover:bg-blue-600 text-white">
+          <Button 
+            onClick={handleSave} 
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          >
             <Save className="mr-2 h-4 w-4" />
             Save Changes
           </Button>
         </div>
         
-        <div className="min-h-[calc(100vh-200px)]">
+        <div className="min-h-[calc(100vh-200px)] rounded-lg overflow-hidden">
           <MDEditor
             value={content}
             onChange={(val) => setContent(val || '')}
@@ -53,7 +62,17 @@ const EditorPage = ({ initialContent = '', onSave, onCancel }: EditorPageProps) 
               rehypePlugins: [[rehypeSanitize]],
             }}
             preview="live"
-            className="!bg-gray-800"
+            className="!bg-zinc-900 border border-zinc-700"
+            style={{
+              backgroundColor: '#18181B', // Solid zinc-900 color
+            }}
+            data-color-mode="dark"
+            textareaProps={{
+              style: {
+                backgroundColor: '#18181B',
+                color: '#e4e4e7',
+              }
+            }}
           />
         </div>
       </div>

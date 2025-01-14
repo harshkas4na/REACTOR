@@ -11,6 +11,8 @@ import { MobileMenu } from './MobileMenu'
 import { MenuToggle } from './MenuToggle'
 import { useWeb3 } from '@/app/_context/Web3Context'
 import { useAuth } from '@clerk/nextjs'
+import Image from 'next/image'
+import Link from 'next/link'
 
 
 
@@ -42,14 +44,17 @@ export default function Navigation() {
 
   return (
     <motion.nav 
-      className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b border-border"
+      className="sticky top-0 z-50 w-full border-b border-border"
       initial={{ opacity: 0, y: -50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <h1 className='text-4xl font-bold'>Reactor</h1>
+          {/* Making the logo more extended horizontally */}
+          <Link href="/">
+            <Image src="/logo6-2.png" alt="Reactor Logo" width={200}  height={50} /> 
+          </Link>
           <DesktopMenu />
           <div className="flex items-center space-x-4">
             <Select 
@@ -67,6 +72,8 @@ export default function Navigation() {
             <Button
               onClick={connectWallet}
               disabled={isLoading}
+              color='primary'
+              // className='bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
               variant={error ? "destructive" : "default"}
             >
               {isLoading ? (

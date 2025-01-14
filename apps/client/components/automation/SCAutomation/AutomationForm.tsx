@@ -89,7 +89,7 @@ export default function AutomationForm({
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       <div className="space-y-6">
-        <Label className="text-lg font-semibold text-gray-700 dark:text-gray-300">Automations</Label>
+        <Label className="text-lg font-semibold text-gray-300">Automations</Label>
         {automations.map((automation, index) => (
           <AutomationCard
             key={index}
@@ -145,6 +145,7 @@ export default function AutomationForm({
                 <TooltipTrigger asChild>
                   <Input
                     type="number"
+                    contentEditable={true}
                     value={OrgChainId}
                     onChange={(e) => {
                       setOrgChainId(e.target.value);

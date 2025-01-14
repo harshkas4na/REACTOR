@@ -142,9 +142,9 @@ export default function CrossChainBridge() {
   const toggleContractVisibility = () => setIsContractVisible(!isContractVisible)
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
+    <div className=" mx-auto px-64 py-8 min-h-screen bg-gradient-to-br from-blue-900/30 to-purple-900/30">
       <motion.h1 
-        className="text-4xl font-bold mb-8 text-center text-gray-900 dark:text-white"
+        className="text-4xl font-bold mb-8 text-center text-zinc-100"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -152,74 +152,109 @@ export default function CrossChainBridge() {
         Cross-Chain Bridge Template
       </motion.h1>
       
+      {/* Progress Steps */}
       <div className="mb-8">
         <div className="flex justify-between items-center">
           {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                s <= step ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-600'
+                s <= step 
+                  ? 'bg-primary text-zinc-100' 
+                  : 'bg-zinc-800 text-zinc-400'
               }`}>
                 {s}
               </div>
               {s < 4 && (
                 <div className={`h-1 w-full ${
-                  s < step ? 'bg-purple-600' : 'bg-gray-300'
+                  s < step ? 'bg-primary' : 'bg-zinc-800'
                 }`} />
               )}
             </div>
           ))}
         </div>
         <div className="flex justify-between mt-2">
-          <span className={`text-sm ${step >= 1 ? 'text-purple-600 font-medium' : 'text-gray-500'}`}>Chain Selection</span>
-          <span className={`text-sm ${step >= 2 ? 'text-purple-600 font-medium' : 'text-gray-500'}`}>Contract Configuration</span>
-          <span className={`text-sm ${step >= 3 ? 'text-purple-600 font-medium' : 'text-gray-500'}`}>Mapping</span>
-          <span className={`text-sm ${step >= 4 ? 'text-purple-600 font-medium' : 'text-gray-500'}`}>Deployment</span>
+          <span className={`text-sm ${step >= 1 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
+            Chain Selection
+          </span>
+          <span className={`text-sm ${step >= 2 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
+            Contract Configuration
+          </span>
+          <span className={`text-sm ${step >= 3 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
+            Mapping
+          </span>
+          <span className={`text-sm ${step >= 4 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
+            Deployment
+          </span>
         </div>
       </div>
 
-      <Card className="bg-white dark:bg-slate-800 shadow-md">
+      <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl">
         <CardContent className="p-6">
           <Tabs value={`step${step}`} className="space-y-6">
             <TabsContent value="step1">
-              <CardTitle className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Chain Selection</CardTitle>
+              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                Chain Selection
+              </CardTitle>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="originChain" className="text-gray-700 dark:text-gray-300">Origin Chain</Label>
-                  <Select value={originChain} onValueChange={(value) => {
-                    setOriginChain(value)
-                    setOrgChainId(chains.find(chain => chain.name === value)?.id || '')
-                  }}>
-                    <SelectTrigger id="originChain">
+                  <Label htmlFor="originChain" className="text-zinc-200">Origin Chain</Label>
+                  <Select 
+                    value={originChain} 
+                    onValueChange={(value) => {
+                      setOriginChain(value)
+                      setOrgChainId(chains.find(chain => chain.name === value)?.id || '')
+                    }}
+                  >
+                    <SelectTrigger id="originChain" className="bg-zinc-800/50 border-zinc-700 text-zinc-200">
                       <SelectValue placeholder="Select origin chain" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
                       {chains.map(chain => (
-                        <SelectItem key={chain.name} value={chain.name}>{chain.name}</SelectItem>
+                        <SelectItem 
+                          key={chain.name} 
+                          value={chain.name}
+                          className="text-zinc-200 focus:bg-blue-900/20"
+                        >
+                          {chain.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div>
-                  <Label htmlFor="destinationChain" className="text-gray-700 dark:text-gray-300">Destination Chain</Label>
-                  <Select value={destinationChain} onValueChange={(value) => {
-                    setDestinationChain(value)
-                    setDesChainId(chains.find(chain => chain.name === value)?.id || '')
-                  }}>
-                    <SelectTrigger id="destinationChain">
+                  <Label htmlFor="destinationChain" className="text-zinc-200">
+                    Destination Chain
+                  </Label>
+                  <Select 
+                    value={destinationChain} 
+                    onValueChange={(value) => {
+                      setDestinationChain(value)
+                      setDesChainId(chains.find(chain => chain.name === value)?.id || '')
+                    }}
+                  >
+                    <SelectTrigger id="destinationChain" className="bg-zinc-800/50 border-zinc-700 text-zinc-200">
                       <SelectValue placeholder="Select destination chain" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
                       {chains.map(chain => (
-                        <SelectItem key={chain.name} value={chain.name}>{chain.name}</SelectItem>
+                        <SelectItem 
+                          key={chain.name} 
+                          value={chain.name}
+                          className="text-zinc-200 focus:bg-blue-900/20"
+                        >
+                          {chain.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 {originChain && destinationChain && (
-                  <Alert>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertTitle>Success</AlertTitle>
-                    <AlertDescription>
+                  <Alert className="bg-green-900/20 border-green-800">
+                    <CheckCircle2 className="h-4 w-4 text-green-400" />
+                    <AlertTitle className="text-green-300">Success</AlertTitle>
+                    <AlertDescription className="text-green-200">
                       {originChain} to {destinationChain} bridge is supported
                     </AlertDescription>
                   </Alert>
@@ -228,32 +263,42 @@ export default function CrossChainBridge() {
             </TabsContent>
 
             <TabsContent value="step2">
-              <CardTitle className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Contract Configuration</CardTitle>
+              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                Contract Configuration
+              </CardTitle>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="originContract" className="text-gray-700 dark:text-gray-300">Origin Contract Address</Label>
+                  <Label htmlFor="originContract" className="text-zinc-200">
+                    Origin Contract Address
+                  </Label>
                   <Input
                     id="originContract"
                     placeholder="0x..."
                     value={originAddress}
                     onChange={(e) => setOriginAddress(e.target.value)}
+                    className="bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="destinationContract" className="text-gray-700 dark:text-gray-300">Destination Contract Address</Label>
+                  <Label htmlFor="destinationContract" className="text-zinc-200">
+                    Destination Contract Address
+                  </Label>
                   <Input
                     id="destinationContract"
                     placeholder="0x..."
                     value={destinationAddress}
                     onChange={(e) => setDestinationAddress(e.target.value)}
+                    className="bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                   />
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="step3">
-              <CardTitle className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Mapping Configuration</CardTitle>
+              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                Mapping Configuration
+              </CardTitle>
               <div className="space-y-4">
                 <AutomationForm2
                   onSubmit={handleSubmit}
@@ -265,20 +310,22 @@ export default function CrossChainBridge() {
             </TabsContent>
 
             <TabsContent value="step4">
-              <CardTitle className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Deployment</CardTitle>
+              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                Deployment
+              </CardTitle>
               <div className="space-y-4">
                 {reactiveContract && (
                   <div className="mb-6">
                     <Button
                       onClick={toggleContractVisibility}
-                      className="w-full flex justify-between items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"
+                      className="w-full flex justify-between items-center p-4 bg-zinc-800/50 text-zinc-200 border border-zinc-700 hover:bg-zinc-700/50"
                     >
                       <span>View Generated Contract</span>
                       {isContractVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </Button>
                     {isContractVisible && (
-                      <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <pre className="whitespace-pre-wrap overflow-x-auto">
+                      <div className="mt-2 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
+                        <pre className="whitespace-pre-wrap overflow-x-auto text-zinc-300">
                           {reactiveContract}
                         </pre>
                       </div>
@@ -287,13 +334,17 @@ export default function CrossChainBridge() {
                 )}
                 
                 <div className="space-y-4">
-                  <Button onClick={handleCompile} className="w-full bg-purple-600 hover:bg-purple-700 text-white" disabled={isLoading || !reactiveContract}>
+                  <Button 
+                    onClick={handleCompile} 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
+                    disabled={isLoading || !reactiveContract}
+                  >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Compile Contract
                   </Button>
                   
                   <Button 
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={handleDeploy}
                     disabled={isLoading || !originChain || !destinationChain || !abi || !bytecode}
                   >
@@ -308,18 +359,22 @@ export default function CrossChainBridge() {
                   </Button>
 
                   {deploymentStatus && (
-                    <Alert>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertTitle>Status</AlertTitle>
-                      <AlertDescription>{deploymentStatus}</AlertDescription>
+                    <Alert className="bg-blue-900/20 border-blue-800">
+                      <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                      <AlertTitle className="text-blue-300">Status</AlertTitle>
+                      <AlertDescription className="text-blue-200">
+                        {deploymentStatus}
+                      </AlertDescription>
                     </Alert>
                   )}
 
                   {deployedAddress && (
-                    <Alert>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertTitle>Deployed Address</AlertTitle>
-                      <AlertDescription>{deployedAddress}</AlertDescription>
+                    <Alert className="bg-green-900/20 border-green-800">
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      <AlertTitle className="text-green-300">Deployed Address</AlertTitle>
+                      <AlertDescription className="text-green-200">
+                        {deployedAddress}
+                      </AlertDescription>
                     </Alert>
                   )}
                 </div>
@@ -328,10 +383,19 @@ export default function CrossChainBridge() {
           </Tabs>
 
           <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} disabled={step === 1} variant="outline">
+            <Button 
+              onClick={prevStep} 
+              disabled={step === 1} 
+              variant="outline"
+              className="text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100"
+            >
               Previous
             </Button>
-            <Button onClick={nextStep} disabled={step === 4}>
+            <Button 
+              onClick={nextStep} 
+              disabled={step === 4}
+              className="bg-primary hover:bg-primary-foreground hover:text-gray-100 text-white"
+            >
               {step === 4 ? 'Finish' : 'Next'}
             </Button>
           </div>

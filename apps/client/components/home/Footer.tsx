@@ -1,22 +1,24 @@
 "use client";
-import { Button } from "@/components/ui/button"
+import { Button } from "@nextui-org/react"
 import Link from "next/link"
+import { Input } from "@nextui-org/react"
+import { FaTwitter, FaDiscord, FaGithub } from 'react-icons/fa'
 
 const Footer = () => {
   return (
-    <footer className="bg-gray-900 text-gray-300 dark:bg-black dark:text-gray-400 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="mt-32 bg-gray-900/80 backdrop-blur-xl text-gray-300 py-16 border-t border-gray-800">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white dark:text-gray-200">About RSC Platform</h3>
-            <p className="text-sm">We empower developers to create, deploy, and manage reactive smart contracts across multiple blockchain networks.</p>
+            <h3 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">REACTOR</h3>
+            <p className="text-sm">Empowering DeFi users with automated portfolio management</p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white dark:text-gray-200">Quick Links</h3>
+            <h4 className="text-lg font-semibold mb-4 text-white">Quick Links</h4>
             <ul className="space-y-2">
-              {['Home', 'Templates', 'Documentation', 'Community'].map((item) => (
+              {['Home', 'Automations', 'Documentation', 'Community'].map((item) => (
                 <li key={item}>
-                  <Link href="#" className="text-sm hover:text-white dark:hover:text-gray-200 transition-colors duration-300">
+                  <Link href="#" className="text-sm hover:text-primary transition-colors duration-300">
                     {item}
                   </Link>
                 </li>
@@ -24,30 +26,39 @@ const Footer = () => {
             </ul>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white dark:text-gray-200">Connect</h3>
-            <ul className="space-y-2">
-              {['Twitter', 'Discord', 'GitHub', 'LinkedIn'].map((item) => (
-                <li key={item}>
-                  <Link href="#" className="text-sm hover:text-white dark:hover:text-gray-200 transition-colors duration-300">
-                    {item}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <h4 className="text-lg font-semibold mb-4 text-white">Connect</h4>
+            <div className="flex space-x-4">
+              <Link href="#" className="text-gray-400 hover:text-primary transition-colors duration-300">
+                <FaTwitter size={24} />
+              </Link>
+              <Link href="#" className="text-gray-400 hover:text-primary transition-colors duration-300">
+                <FaDiscord size={24} />
+              </Link>
+              <Link href="#" className="text-gray-400 hover:text-primary transition-colors duration-300">
+                <FaGithub size={24} />
+              </Link>
+            </div>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white dark:text-gray-200">Newsletter</h3>
+            <h4 className="text-lg font-semibold mb-4 text-white">Newsletter</h4>
             <p className="text-sm mb-4">Stay updated with our latest features and releases.</p>
             <div className="flex">
-              <input type="email" placeholder="Enter your email" className="flex-grow px-3 py-2 text-gray-900 bg-gray-700 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-600 dark:text-white" />
-              <Button className="rounded-l-none bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Input 
+                type="email" 
+                placeholder="Enter your email" 
+                className="rounded-r-none bg-gray-800" 
+              />
+              <Button 
+                color="primary"
+                className="rounded-l-none"
+              >
                 Subscribe
               </Button>
             </div>
           </div>
         </div>
-        <div className="mt-8 pt-8 border-t border-gray-700 dark:border-gray-600 text-center">
-          <p className="text-sm">&copy; 2023 RSC Platform. All rights reserved.</p>
+        <div className="mt-12 pt-8 border-t border-gray-800 text-center">
+          <p className="text-sm">&copy; 2023 REACTOR. All rights reserved.</p>
         </div>
       </div>
     </footer>
@@ -55,3 +66,4 @@ const Footer = () => {
 }
 
 export default Footer
+

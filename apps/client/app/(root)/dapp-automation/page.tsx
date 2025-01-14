@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from 'react'
 import { Search, Filter, Wallet, ChevronDown } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -16,15 +17,8 @@ const templates = [
 ]
 
 export default function Component() {
-  // const [isDarkMode, setIsDarkMode] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [complexity, setComplexity] = useState('All')
-
-
-  // const toggleTheme = () => {
-  //   setIsDarkMode(!isDarkMode)
-  //   document.documentElement.classList.toggle('dark')
-  // }
 
   const filteredTemplates = templates.filter(template => 
     template.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -32,71 +26,87 @@ export default function Component() {
   )
 
   return (
-    <div className={`min-h-screen  dark:bg-slate-900 dark:text-white bg-white text-slate-900`}>
-      {/* <header className="flex justify-between items-end p-4 bg-slate-800 text-white">        
-          <Button variant="ghost" className="items-end space-x-4" onClick={toggleTheme}>
-            {isDarkMode ? '☀️' : '🌙'}
-          </Button>
-      </header> */}
-
+    <div className="min-h-screen bg-gradient-to-br from-blue-900/30 to-purple-900/30">
       <main className="container mx-auto px-4 py-8">
         <section className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">DApp Automation Templates</h1>
-          <p className="text-xl text-muted-foreground">Streamline your blockchain development with our pre-built templates</p>
+          <h1 className="text-4xl font-bold mb-4 text-zinc-100">
+            DApp Automation Templates
+          </h1>
+          <p className="text-xl text-zinc-400">
+            Streamline your blockchain development with our pre-built templates
+          </p>
         </section>
 
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-          <div className="relative w-full md:w-64 mb-4 md:mb-0">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+          <div className="relative w-full md:w-64">
             <Input
               type="text"
               placeholder="Search templates"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
             />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" />
           </div>
           <Select value={complexity} onValueChange={setComplexity}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] bg-zinc-800/50 border-zinc-700 text-zinc-200">
               <SelectValue placeholder="Filter by complexity" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Complexities</SelectItem>
-              <SelectItem value="Basic">Basic</SelectItem>
-              <SelectItem value="Intermediate">Intermediate</SelectItem>
-              <SelectItem value="Advanced">Advanced</SelectItem>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              <SelectItem value="All" className="text-zinc-200 focus:bg-blue-600/20">
+                All Complexities
+              </SelectItem>
+              <SelectItem value="Basic" className="text-zinc-200 focus:bg-blue-600/20">
+                Basic
+              </SelectItem>
+              <SelectItem value="Intermediate" className="text-zinc-200 focus:bg-blue-600/20">
+                Intermediate
+              </SelectItem>
+              <SelectItem value="Advanced" className="text-zinc-200 focus:bg-blue-600/20">
+                Advanced
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filteredTemplates.map((template) => (
-            <Card key={template.id} className={`relative overflow-hidden transition-all duration-200 dark:bg-slate-800 bg-gray-50 hover:shadow-lg`}>
+            <Card 
+              key={template.id} 
+              className="relative overflow-hidden transition-all duration-200 bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 hover:shadow-lg hover:shadow-blue-900/20"
+            >
               <CardHeader>
                 <div className="text-4xl mb-2">{template.icon}</div>
-                <CardTitle>{template.title}</CardTitle>
+                <CardTitle className="text-zinc-100">
+                  {template.title}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">{template.description}</p>
-                <div className={`mt-2 inline-block px-2 py-1 rounded-full text-xs ${
-                  template.complexity === 'Basic' ? 'bg-green-100 text-green-800' :
-                  template.complexity === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                  template.complexity === 'Advanced' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
+                <p className="text-zinc-400 mb-3">
+                  {template.description}
+                </p>
+                <div className={`inline-block px-2 py-1 rounded-full text-xs ${
+                  template.complexity === 'Basic' ? 'bg-green-900/50 text-green-300 border border-green-800' :
+                  template.complexity === 'Intermediate' ? 'bg-yellow-900/50 text-yellow-300 border border-yellow-800' :
+                  template.complexity === 'Advanced' ? 'bg-red-900/50 text-red-300 border border-red-800' :
+                  'bg-zinc-800 text-zinc-300 border border-zinc-700'
                 }`}>
                   {template.complexity}
                 </div>
               </CardContent>
               <CardFooter>
-                <Link href={`/dapp-automation${template.link}`}>
-                <Button className="w-full" disabled={template.comingSoon}>
-                  {template.comingSoon ? 'Coming Soon' : 'Get Started'}
-                </Button>
+                <Link href={`/dapp-automation${template.link}`} className="w-full">
+                  <Button 
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" 
+                    disabled={template.comingSoon}
+                  >
+                    {template.comingSoon ? 'Coming Soon' : 'Get Started'}
+                  </Button>
                 </Link>
               </CardFooter>
               {template.comingSoon && (
-                <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center">
-                  <span className="text-white text-lg font-bold">Coming Soon</span>
+                <div className="absolute inset-0 bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center">
+                  <span className="text-zinc-200 text-lg font-bold">Coming Soon</span>
                 </div>
               )}
             </Card>
@@ -104,8 +114,8 @@ export default function Component() {
         </div>
       </main>
 
-      <footer className={`mt-12 py-6  dark:bg-slate-800 bg-gray-100`}>
-        <div className="container mx-auto px-4 text-center">
+      <footer className="mt-12 py-6 border-t border-zinc-800 bg-gradient-to-br from-blue-900/10 to-purple-900/10">
+        <div className="container mx-auto px-4 text-center text-zinc-400">
           <p>&copy; 2023 DApp Automation System. All rights reserved.</p>
         </div>
       </footer>

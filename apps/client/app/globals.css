@@ -4,48 +4,26 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 263.4 70% 50.4%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --radius: 0.5rem;
   }
 }
 
@@ -62,3 +40,89 @@
   padding-top: 10px;
 }
 
+@layer utilities {
+  /* Enhanced cloud animations */
+  @keyframes clouds {
+    0%, 100% { transform: translate(0, 0) scale(1); filter: blur(8px); }
+    50% { transform: translate(7%, 7%) scale(1.2); filter: blur(10px); }
+  }
+
+  @keyframes clouds-slow {
+    0%, 100% { transform: translate(0, 0) scale(1.2); filter: blur(10px); }
+    50% { transform: translate(-10%, -5%) scale(1.1); filter: blur(12px); }
+  }
+
+  @keyframes clouds-reverse {
+    0%, 100% { transform: translate(0, 0) scale(1.1); filter: blur(9px); }
+    50% { transform: translate(-7%, 7%) scale(1); filter: blur(11px); }
+  }
+
+  /* Enhanced rotation animations */
+  @keyframes rotate-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes rotate-reverse {
+    from { transform: rotate(360deg); }
+    to { transform: rotate(0deg); }
+  }
+
+  /* Dramatic lightning animations */
+  @keyframes lightning-flash {
+    0%, 100% { opacity: 0; stroke-width: 4; }
+    48%, 52% { opacity: 0; stroke-width: 4; }
+    49%, 51% { opacity: 1; stroke-width: 6; }
+    50% { opacity: 1; stroke-width: 8; }
+  }
+
+  @keyframes lightning-branch {
+    0%, 100% { opacity: 0; stroke-width: 3; }
+    48%, 52% { opacity: 0; stroke-width: 3; }
+    49%, 51% { opacity: 0.8; stroke-width: 4; }
+    50% { opacity: 1; stroke-width: 5; }
+  }
+
+  /* Thunder pulse animations */
+  @keyframes thunder-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.15; }
+    50% { transform: scale(1.3); opacity: 0.25; }
+  }
+
+  /* Particle animations */
+  @keyframes particle-float {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+    50% { transform: translate(var(--tx), var(--ty)) scale(1.2); opacity: 0.6; }
+  }
+
+  /* Apply animations */
+  .animate-clouds { animation: clouds 20s ease-in-out infinite; }
+  .animate-clouds-slow { animation: clouds-slow 25s ease-in-out infinite; }
+  .animate-clouds-reverse { animation: clouds-reverse 30s ease-in-out infinite; }
+  .animate-rotate-slow { animation: rotate-slow 40s linear infinite; }
+  .animate-rotate-reverse { animation: rotate-reverse 40s linear infinite; }
+
+  .animate-lightning-0 { animation: lightning-flash 8.5s ease-in-out infinite; }
+  .animate-lightning-1 { animation: lightning-flash 10.5s ease-in-out infinite 0.5s; }
+  .animate-lightning-2 { animation: lightning-flash 9.5s ease-in-out infinite 1s; }
+  .animate-lightning-3 { animation: lightning-flash 11.5s ease-in-out infinite 1.5s; }
+  .animate-lightning-4 { animation: lightning-flash 7.5s ease-in-out infinite 2s; }
+
+  .animate-lightning-branch-0 { animation: lightning-branch 8.5s ease-in-out infinite 0.1s; }
+  .animate-lightning-branch-1 { animation: lightning-branch 10.5s ease-in-out infinite 0.6s; }
+  .animate-lightning-branch-2 { animation: lightning-branch 9.5s ease-in-out infinite 1.1s; }
+  .animate-lightning-branch-3 { animation: lightning-branch 11.5s ease-in-out infinite 1.6s; }
+  .animate-lightning-branch-4 { animation: lightning-branch 7.5s ease-in-out infinite 2.1s; }
+
+  .animate-thunder-0 { animation: thunder-pulse 8.5s ease-in-out infinite; }
+  .animate-thunder-1 { animation: thunder-pulse 10.5s ease-in-out infinite 0.5s; }
+  .animate-thunder-2 { animation: thunder-pulse 9.5s ease-in-out infinite 1s; }
+  .animate-thunder-3 { animation: thunder-pulse 11.5s ease-in-out infinite 1.5s; }
+  .animate-thunder-4 { animation: thunder-pulse 7.5s ease-in-out infinite 2s; }
+
+  .animate-particle-0 { --tx: 20px; --ty: -20px; animation: particle-float 8s ease-in-out infinite; }
+  .animate-particle-1 { --tx: -25px; --ty: -15px; animation: particle-float 9s ease-in-out infinite; }
+  .animate-particle-2 { --tx: 15px; --ty: -25px; animation: particle-float 10s ease-in-out infinite; }
+  .animate-particle-3 { --tx: -20px; --ty: -30px; animation: particle-float 11s ease-in-out infinite; }
+  .animate-particle-4 { --tx: 25px; --ty: -20px; animation: particle-float 12s ease-in-out infinite; }
+}

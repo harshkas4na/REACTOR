@@ -19,7 +19,7 @@ export function ActionButtons({ useCaseId, likes, comments, onLike, onComment }:
       <Button
         variant="outline"
         size="sm"
-        className="flex items-center space-x-1 bg-gray-600 border-gray-500 text-gray-200"
+        className="flex items-center space-x-1 hover:bg-primary-50 bg-primary text-gray-200"
         onClick={() => onLike(useCaseId)}
       >
         <ThumbsUp className="w-4 h-4" />
@@ -28,7 +28,7 @@ export function ActionButtons({ useCaseId, likes, comments, onLike, onComment }:
       <Button
         variant="outline"
         size="sm"
-        className="flex items-center space-x-1 bg-gray-600 border-gray-500 text-gray-200"
+        className="flex items-center space-x-1 bg-primary hover:bg-primary-50 text-gray-200"
         onClick={() => onComment(useCaseId)}
       >
         <MessageSquare className="w-4 h-4" />

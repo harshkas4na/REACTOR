@@ -13,7 +13,7 @@ export default function ProgressNavigation({ steps, currentStep }: ProgressNavig
           <div key={step} className="flex items-center">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
               index < currentStep ? 'bg-green-500 text-white' :
-              index === currentStep ? 'bg-blue-500 text-white' :
+              index === currentStep ? 'bg-primary text-white' :
               'bg-gray-200 text-gray-500'
             }`}>
               {index < currentStep ? (
@@ -25,7 +25,7 @@ export default function ProgressNavigation({ steps, currentStep }: ProgressNavig
             {index < steps.length - 1 && (
               <div className={`h-1 w-full ${
                 index < currentStep ? 'bg-green-500' :
-                index === currentStep ? 'bg-blue-500' :
+                index === currentStep ? 'bg-primary' :
                 'bg-gray-200'
               }`} />
             )}
@@ -35,7 +35,7 @@ export default function ProgressNavigation({ steps, currentStep }: ProgressNavig
       <div className="flex justify-between mt-2">
         {steps.map((step, index) => (
           <span key={step} className={`text-sm ${
-            index <= currentStep ? 'text-blue-500 font-medium' : 'text-gray-500'
+            index <= currentStep ? 'text-primary font-medium' : 'text-gray-500'
           }`}>
             {step}
           </span>
