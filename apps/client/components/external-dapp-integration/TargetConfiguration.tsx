@@ -70,7 +70,7 @@ export default function TargetConfiguration() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-black p-4 rounded-lg">
       <div>
         <Label htmlFor="destinationAddress">Target Contract Address</Label>
         <Input

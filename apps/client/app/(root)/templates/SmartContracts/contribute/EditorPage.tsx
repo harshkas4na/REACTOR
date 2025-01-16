@@ -31,7 +31,7 @@ const EditorPage = ({ initialContent = '', onSave, onCancel }: EditorPageProps) 
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-blue-900/30 to-purple-900/30 p-4" 
+      className="min-h-screen  p-4" 
       data-color-mode="dark"
     >
       <div className="max-w-5xl mx-auto">
@@ -46,7 +46,7 @@ const EditorPage = ({ initialContent = '', onSave, onCancel }: EditorPageProps) 
           </Button>
           <Button 
             onClick={handleSave} 
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            className="bg-primary hover:bg-primary/90 z-10 text-white"
           >
             <Save className="mr-2 h-4 w-4" />
             Save Changes

@@ -39,9 +39,9 @@ export default function RootLayout({
           <AutomationProvider >
             <ConvexClerkProvider>
             <div className="relative min-h-screen bg-[#1a0b2e] overflow-hidden">
-              <ReactorBackground/>
                 <Navigation />
-                <main className="flex-grow">
+                <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <ReactorBackground/>
                   {children}
                 </main>
               </div>

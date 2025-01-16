@@ -38,7 +38,7 @@ export function UseCaseActions({
       <div className="flex space-x-4 mb-6">
         <Button
           variant="outline"
-          className="flex items-center space-x-2 bg-gray-700 text-gray-200"
+          className="flex items-center space-x-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-gray-200"
           onClick={onLike}
         >
           <ThumbsUp className="h-4 w-4" />
@@ -46,7 +46,7 @@ export function UseCaseActions({
         </Button>
         <Button
           variant="outline"
-          className="flex items-center space-x-2 bg-gray-700 text-gray-200"
+          className="flex items-center space-x-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-gray-200"
           onClick={onShowComments}
         >
           <MessageSquare className="h-4 w-4" />
@@ -57,7 +57,7 @@ export function UseCaseActions({
         <CodeViewDialog useCase={useCase} />
         <Button
           variant="outline"
-          className="flex items-center space-x-2 bg-gray-700 text-gray-200"
+          className="flex items-center space-x-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-gray-200"
           onClick={() => window.open(useCase.githubRepo, '_blank')}
         >
           <BookOpen className="h-4 w-4" />

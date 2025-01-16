@@ -23,16 +23,16 @@ export function UseCaseToolbar({ useCase }: UseCaseToolbarProps) {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-primary hover:bg-primary-50 text-gray-200"
+                  className="w-10 h-10 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-primary hover:bg-primary/80 text-gray-200"
                 >
                   <Code className="w-5 h-5" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl bg-gray-800 text-gray-100">
+              <DialogContent className="max-w-3xl bg-black text-gray-100">
                 <DialogHeader>
                   <DialogTitle>{useCase.title} - Reactive Template</DialogTitle>
                 </DialogHeader>
-                <ScrollArea className="h-[400px] w-full rounded-md border  p-4 bg-gray-900">
+                <ScrollArea className="h-[400px] w-full rounded-md border  p-4 bg-black">
                   <pre className="text-sm text-gray-300">
                     <code>{useCase.reactiveTemplate}</code>
                   </pre>
@@ -50,14 +50,14 @@ export function UseCaseToolbar({ useCase }: UseCaseToolbarProps) {
             <Button
               variant="outline"
               size="icon"
-              className="w-10 h-10 rounded-full transition-all duration-300 hover:bg-primary-50 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-primary text-gray-200"
+              className="w-10 h-10 rounded-full transition-all duration-300 hover:bg-primary/80 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-primary text-gray-200"
               onClick={() => window.open(useCase.githubRepo, '_blank')}
             >
               <BookOpen className="w-5 h-5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>View GitHub Guidelines</p>
+            <p>View GitHub</p>
           </TooltipContent>
         </Tooltip>
 
@@ -67,7 +67,7 @@ export function UseCaseToolbar({ useCase }: UseCaseToolbarProps) {
               <Button
                 variant="outline"
                 size="icon"
-                className="w-10 h-10 rounded-full transition-all hover:bg-primary-50 duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-primary text-gray-200"
+                className="w-10 h-10 rounded-full transition-all hover:bg-primary/80 duration-300 hover:shadow-lg hover:scale-110 hover:rotate-12 bg-primary text-gray-200"
               >
                 <ArrowRight className="w-5 h-5" />
               </Button>

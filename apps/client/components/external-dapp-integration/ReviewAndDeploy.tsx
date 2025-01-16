@@ -225,6 +225,7 @@ export default function ReviewAndDeploy() {
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Function: {automation.function}</Label>
                     <div className="space-y-4">
+                      
                       {(automation.function as any)?.map((input: any) => (
                         <div key={input.name} className="pl-4 space-y-2">
                           <Label className="text-sm">

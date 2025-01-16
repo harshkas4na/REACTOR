@@ -233,13 +233,15 @@ export default function AutomationPage() {
   }
 
   return (
-    <div className="min-h-screen py-12 bg-transparent px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8 bg-transparent">
-        <h1 className="text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      {/* Main content wrapper with explicit z-index */}
+      <div className="relative z-20 max-w-4xl mx-auto space-y-8">
+        <h1 className="relative text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
           Create Your Automation
         </h1>
         
-        <Card className="bg-gradient-to-br bg-transparent from-blue-900/50 to-purple-900/50 border-zinc-800">
+        {/* Cards with explicit z-index and pointer-events-auto */}
+        <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
           <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
             <CardTitle className="text-2xl font-bold text-zinc-100">
               Automation Configuration
@@ -256,7 +258,7 @@ export default function AutomationPage() {
         </Card>
 
         {reactiveContract && (
-          <Card className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
+          <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
             <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
               <CardTitle className="text-2xl font-bold text-zinc-100">
                 Smart Contract
@@ -279,26 +281,18 @@ export default function AutomationPage() {
                   <Button 
                     onClick={handleCompile}
                     variant="default"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    className="relative z-20 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Compile Contract
                   </Button>
-                  {/* <Button 
-                    onClick={handleSubmit}
-                    variant="default"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                    disabled={isLoading || !isValidForm}
-                  >
-                    {isLoading ? 'Regenerating...' : 'ReGenerate Contract'}
-                  </Button> */}
                 </div>
                 {abi && bytecode && (
                   <Button 
                     onClick={handleDeploy}
                     variant="default"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    className="relative z-20 w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -310,8 +304,9 @@ export default function AutomationPage() {
           </Card>
         )}
 
+        {/* Alerts and status cards with proper z-index */}
         {compileError && (
-          <Alert variant="destructive" className="bg-red-900/20 border-red-800">
+          <Alert variant="destructive" className="relative z-20 pointer-events-auto bg-red-900/20 border-red-800">
             <AlertTitle className="text-red-200 font-semibold">
               Compilation Error
             </AlertTitle>
@@ -322,7 +317,7 @@ export default function AutomationPage() {
         )}
 
         {deploymentError && (
-          <Alert variant="destructive" className="bg-red-900/20 border-red-800">
+          <Alert variant="destructive" className="relative z-20 pointer-events-auto bg-red-900/20 border-red-800">
             <AlertTitle className="text-red-200 font-semibold">
               Deployment Error
             </AlertTitle>
@@ -333,7 +328,7 @@ export default function AutomationPage() {
         )}
 
         {deployedAddress && (
-          <Card className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
+          <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
             <CardHeader className="bg-gradient-to-r from-green-600/10 to-teal-600/10 p-6 rounded-t-lg">
               <CardTitle className="text-2xl font-bold text-zinc-100">
                 Deployment Successful
@@ -351,7 +346,7 @@ export default function AutomationPage() {
                 </div>
               )}
               <Button 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="relative z-20 w-full bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
               >
                 <ExternalLink className="w-4 h-4 mr-2" />

@@ -128,61 +128,69 @@ export default function ExternalDAppAutomation() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-center mb-2">
-          External DApp Automation
-        </h1>
-        <p className="text-gray-600 text-center">
-          Create automated interactions between smart contracts and DApps.
-        </p>
-      </div>
-
-      <ProgressNavigation steps={steps} currentStep={currentStep} />
-
-      <Card className="mt-8">
-        <CardContent className="pt-6">
-          {renderStepContent()}
-        </CardContent>
-        
-        <CardFooter className="flex justify-between mt-6">
-          <Button
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            variant="outline"
-            className="flex items-center"
+    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+            External DApp Automation
+          </h1>
+          <p className="text-zinc-400 text-center text-lg">
+            Create automated interactions between smart contracts and DApps.
+          </p>
+        </div>
+  
+        <ProgressNavigation steps={steps} currentStep={currentStep} />
+  
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm mt-8">
+          <CardContent className="p-6">
+            {renderStepContent()}
+          </CardContent>
+          
+          <CardFooter className="flex justify-between p-6 border-t border-zinc-800">
+            <Button
+              onClick={handlePrevious}
+              disabled={currentStep === 0}
+              variant="outline"
+              className="flex items-center border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Previous
+            </Button>
+  
+            <Button
+              onClick={handleNext}
+              disabled={currentStep === steps.length - 1}
+              className="flex items-center bg-primary hover:bg-primary/90 text-white"
+            >
+              {currentStep === steps.length - 1 ? 'Deploy' : 'Next'}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardFooter>
+        </Card>
+  
+        {error && (
+          <Alert 
+            variant="destructive" 
+            className="mt-4 bg-red-900/20 border-red-500/50"
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Previous
-          </Button>
-
-          <Button
-            onClick={handleNext}
-            disabled={currentStep === steps.length - 1}
-            className="flex items-center"
-          >
-            {currentStep === steps.length - 1 ? 'Deploy' : 'Next'}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </CardFooter>
-      </Card>
-
-      {error && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+            <AlertCircle className="h-4 w-4 text-red-400" />
+            <AlertTitle className="text-red-300">Error</AlertTitle>
+            <AlertDescription className="text-red-200">{error}</AlertDescription>
+          </Alert>
+        )}
+  
+        <Alert 
+          variant="warning" 
+          className="mt-8 bg-yellow-900/20 border-yellow-500/50"
+        >
+          <AlertTitle className="text-yellow-300">Caution</AlertTitle>
+          <AlertDescription className="text-yellow-200">
+            Please ensure you thoroughly test your automation in a test environment before deploying to mainnet.
+            Make sure you understand the risks and implications of automated smart contract interactions.
+          </AlertDescription>
         </Alert>
-      )}
-
-      <Alert variant="warning" className="mt-8">
-        <AlertTitle>Caution</AlertTitle>
-        <AlertDescription>
-          Please ensure you thoroughly test your automation in a test environment before deploying to mainnet.
-          Make sure you understand the risks and implications of automated smart contract interactions.
-        </AlertDescription>
-      </Alert>
+      </div>
     </div>
-  )
+  );
 }
 

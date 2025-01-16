@@ -216,7 +216,7 @@ export default function AutomationForm({
 
       <Button 
         type="submit" 
-        className="w-full bg-gradient-to-r from-blue-500 to-teal-400 hover:from-blue-600 hover:to-teal-500 text-white font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" 
+        className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" 
         disabled={isLoading || !isValidForm}
       >
         {isLoading ? 'Generating...' : 'Generate Contract'}

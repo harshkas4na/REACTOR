@@ -81,20 +81,29 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
   ) || [];
 
   if (!useCase || !comments || !likes || !users) {
-    return <div className="text-center text-gray-100 mt-10">Loading...</div>;
+    return (
+      <div className="relative z-20 flex min-h-screen items-center justify-center">
+        <div className="text-center text-zinc-100 mt-10">Loading...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen  py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-8xl mx-auto">
-        <UseCaseHeader />
-        <UseCaseContent
-          useCase={useCase}
-          likes={filteredLikes.length}
-          comments={filteredComments.length}
-          onLike={handleLike}
-          onShowComments={() => setShowComments(true)}
-        />
+    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-8xl mx-auto pointer-events-auto">
+        <div className="relative mb-8">
+          <UseCaseHeader />
+        </div>
+
+        <div className="relative mb-8">
+          <UseCaseContent
+            useCase={useCase}
+            likes={filteredLikes.length}
+            comments={filteredComments.length}
+            onLike={handleLike}
+            onShowComments={() => setShowComments(true)}
+          />
+        </div>
         
         <CommentsDialog
           isOpen={showComments}
@@ -107,22 +116,34 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           onSubmitComment={handleComment}
         />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-          <TabsList>
-            <TabsTrigger value="implementation">Implementation</TabsTrigger>
-            <TabsTrigger value="deployment">Deployment</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="relative z-20 mt-8">
+          <TabsList className="bg-blue-900/20 border border-zinc-800">
+            <TabsTrigger 
+              value="implementation" 
+              className="data-[state=active]:bg-primary text-zinc-300"
+            >
+              Implementation
+            </TabsTrigger>
+            <TabsTrigger 
+              value="deployment"
+              className="data-[state=active]:bg-primary text-zinc-300"
+            >
+              Deployment
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="implementation">
-            <Card className="bg-gray-800 border-gray-700 mb-8">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold text-gray-100">Implementation Details</CardTitle>
+            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+              <CardHeader className="border-b border-zinc-800">
+                <CardTitle className="text-2xl font-bold text-zinc-100">
+                  Implementation Details
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
                   <Button
                     variant="outline"
-                    className="w-full flex items-center justify-center gap-2"
+                    className="relative w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
                     onClick={() => setShowImplementation(!showImplementation)}
                   >
                     {showImplementation ? (
@@ -139,13 +160,16 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                   </Button>
 
                   {showImplementation && (
-                    <div className="text-gray-300" data-color-mode="dark">
+                    <div 
+                      className="relative text-zinc-300 bg-blue-900/20 rounded-lg p-4 border border-zinc-800" 
+                      data-color-mode="dark"
+                    >
                       {useCase.implementation ? (
                         <MDMarkdown
                           source={useCase.implementation} 
                           style={{ 
                             backgroundColor: 'transparent',
-                            color: 'rgb(209 213 219)',
+                            color: 'rgb(228 228 231)',
                             padding: '1rem'
                           }}
                         />
@@ -160,15 +184,17 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsContent>
 
           <TabsContent value="deployment">
-            <Card className="bg-gray-800 border-gray-700 mb-8">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold text-gray-100">Contract Deployment</CardTitle>
+            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+              <CardHeader className="border-b border-zinc-800">
+                <CardTitle className="text-2xl font-bold text-zinc-100">
+                  Contract Deployment
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  <div className="bg-gray-700/30 border border-gray-600 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Important Notes:</h3>
-                    <ul className="list-disc list-inside text-gray-300 space-y-2">
+                  <div className="bg-blue-900/20 border border-zinc-800 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-zinc-200 mb-2">Important Notes:</h3>
+                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
                       <li>Ensure your Destination contract includes the AbstractCallback interface</li>
                       <li>Constructor must be payable and include Callback_sender parameter</li>
                       <li>Minimum 0.1 native tokens required for successful callbacks</li>
@@ -193,15 +219,17 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsContent>
         </Tabs>
 
-        <Card className="bg-gray-800 border-gray-700 mt-8">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-100">Benefits and Use Cases</CardTitle>
+        <Card className="relative z-20 bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-8 backdrop-blur-sm">
+          <CardHeader className="border-b border-zinc-800">
+            <CardTitle className="text-2xl font-bold text-zinc-100">
+              Benefits and Use Cases
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <div className="space-y-4">
               <Button
                 variant="outline"
-                className="w-full flex items-center justify-center gap-2"
+                className="relative w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
                 onClick={() => setShowBenefits(!showBenefits)}
               >
                 {showBenefits ? (
@@ -219,9 +247,9 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
 
               {showBenefits && (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-100 mb-3">Key Benefits</h3>
-                    <ul className="list-disc list-inside text-gray-300 space-y-2">
+                  <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
+                    <h3 className="text-xl font-semibold text-zinc-100 mb-3">Key Benefits</h3>
+                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
                       <li>Automated cross-chain operations</li>
                       <li>Enhanced security and reliability</li>
                       <li>Reduced operational complexity</li>
@@ -229,9 +257,9 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                     </ul>
                   </div>
                   
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-100 mb-3">Ideal Use Cases</h3>
-                    <ul className="list-disc list-inside text-gray-300 space-y-2">
+                  <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
+                    <h3 className="text-xl font-semibold text-zinc-100 mb-3">Ideal Use Cases</h3>
+                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
                       <li>Cross-chain token bridges</li>
                       <li>Multi-chain DeFi applications</li>
                       <li>Decentralized exchange integrations</li>

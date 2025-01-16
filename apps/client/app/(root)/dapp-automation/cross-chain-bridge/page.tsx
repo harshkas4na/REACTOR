@@ -142,265 +142,262 @@ export default function CrossChainBridge() {
   const toggleContractVisibility = () => setIsContractVisible(!isContractVisible)
 
   return (
-    <div className=" mx-auto px-64 py-8 min-h-screen bg-gradient-to-br from-blue-900/30 to-purple-900/30">
-      <motion.h1 
-        className="text-4xl font-bold mb-8 text-center text-zinc-100"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        Cross-Chain Bridge Template
-      </motion.h1>
-      
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center">
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                s <= step 
-                  ? 'bg-primary text-zinc-100' 
-                  : 'bg-zinc-800 text-zinc-400'
-              }`}>
-                {s}
-              </div>
-              {s < 4 && (
-                <div className={`h-1 w-full ${
-                  s < step ? 'bg-primary' : 'bg-zinc-800'
-                }`} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between mt-2">
-          <span className={`text-sm ${step >= 1 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
-            Chain Selection
-          </span>
-          <span className={`text-sm ${step >= 2 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
-            Contract Configuration
-          </span>
-          <span className={`text-sm ${step >= 3 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
-            Mapping
-          </span>
-          <span className={`text-sm ${step >= 4 ? 'text-primary font-medium' : 'text-zinc-500'}`}>
-            Deployment
-          </span>
-        </div>
-      </div>
-
-      <Card className="bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl">
-        <CardContent className="p-6">
-          <Tabs value={`step${step}`} className="space-y-6">
-            <TabsContent value="step1">
-              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
-                Chain Selection
-              </CardTitle>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="originChain" className="text-zinc-200">Origin Chain</Label>
-                  <Select 
-                    value={originChain} 
-                    onValueChange={(value) => {
-                      setOriginChain(value)
-                      setOrgChainId(chains.find(chain => chain.name === value)?.id || '')
-                    }}
-                  >
-                    <SelectTrigger id="originChain" className="bg-zinc-800/50 border-zinc-700 text-zinc-200">
-                      <SelectValue placeholder="Select origin chain" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
-                      {chains.map(chain => (
-                        <SelectItem 
-                          key={chain.name} 
-                          value={chain.name}
-                          className="text-zinc-200 focus:bg-blue-900/20"
-                        >
-                          {chain.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-64">
+      <div className="relative z-20 max-w-8xl mx-auto">
+        <motion.h1 
+          className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          Cross-Chain Bridge Template
+        </motion.h1>
+        
+        {/* Progress Steps */}
+        <div className="relative z-20 mb-8">
+          <div className="flex justify-between items-center">
+            {[1, 2, 3, 4].map((s) => (
+              <div key={s} className="flex items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                  s <= step 
+                    ? 'bg-primary text-white scale-110' 
+                    : 'bg-blue-900/50 text-zinc-400'
+                }`}>
+                  {s}
                 </div>
-
-                <div>
-                  <Label htmlFor="destinationChain" className="text-zinc-200">
-                    Destination Chain
-                  </Label>
-                  <Select 
-                    value={destinationChain} 
-                    onValueChange={(value) => {
-                      setDestinationChain(value)
-                      setDesChainId(chains.find(chain => chain.name === value)?.id || '')
-                    }}
-                  >
-                    <SelectTrigger id="destinationChain" className="bg-zinc-800/50 border-zinc-700 text-zinc-200">
-                      <SelectValue placeholder="Select destination chain" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
-                      {chains.map(chain => (
-                        <SelectItem 
-                          key={chain.name} 
-                          value={chain.name}
-                          className="text-zinc-200 focus:bg-blue-900/20"
-                        >
-                          {chain.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {originChain && destinationChain && (
-                  <Alert className="bg-green-900/20 border-green-800">
-                    <CheckCircle2 className="h-4 w-4 text-green-400" />
-                    <AlertTitle className="text-green-300">Success</AlertTitle>
-                    <AlertDescription className="text-green-200">
-                      {originChain} to {destinationChain} bridge is supported
-                    </AlertDescription>
-                  </Alert>
+                {s < 4 && (
+                  <div className={`h-1 w-full sm:w-24 transition-all duration-200 ${
+                    s < step ? 'bg-primary' : 'bg-blue-900/50'
+                  }`} />
                 )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="step2">
-              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
-                Contract Configuration
-              </CardTitle>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="originContract" className="text-zinc-200">
-                    Origin Contract Address
-                  </Label>
-                  <Input
-                    id="originContract"
-                    placeholder="0x..."
-                    value={originAddress}
-                    onChange={(e) => setOriginAddress(e.target.value)}
-                    className="bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="destinationContract" className="text-zinc-200">
-                    Destination Contract Address
-                  </Label>
-                  <Input
-                    id="destinationContract"
-                    placeholder="0x..."
-                    value={destinationAddress}
-                    onChange={(e) => setDestinationAddress(e.target.value)}
-                    className="bg-zinc-800/50 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
-                  />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="step3">
-              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
-                Mapping Configuration
-              </CardTitle>
-              <div className="space-y-4">
-                <AutomationForm2
-                  onSubmit={handleSubmit}
-                  isLoading={isLoading}
-                  error={null}
-                  isValidForm={true}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="step4">
-              <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
-                Deployment
-              </CardTitle>
-              <div className="space-y-4">
-                {reactiveContract && (
-                  <div className="mb-6">
-                    <Button
-                      onClick={toggleContractVisibility}
-                      className="w-full flex justify-between items-center p-4 bg-zinc-800/50 text-zinc-200 border border-zinc-700 hover:bg-zinc-700/50"
+            ))}
+          </div>
+          <div className="flex justify-between mt-2">
+            {["Chain Selection", "Contract Configuration", "Mapping", "Deployment"].map((label, idx) => (
+              <span key={label} className={`text-sm ${
+                step >= idx + 1 ? 'text-primary font-medium' : 'text-zinc-500'
+              }`}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+  
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <Tabs value={`step${step}`} className="space-y-6">
+              <TabsContent value="step1">
+                <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                  Chain Selection
+                </CardTitle>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="originChain" className="text-zinc-200">Origin Chain</Label>
+                    <Select 
+                      value={originChain} 
+                      onValueChange={(value) => {
+                        setOriginChain(value)
+                        setOrgChainId(chains.find(chain => chain.name === value)?.id || '')
+                      }}
                     >
-                      <span>View Generated Contract</span>
-                      {isContractVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      <SelectTrigger id="originChain" className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200">
+                        <SelectValue placeholder="Select origin chain" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-800 border-zinc-700">
+                        {chains.map(chain => (
+                          <SelectItem 
+                            key={chain.name} 
+                            value={chain.name}
+                            className="text-zinc-200 focus:bg-blue-600/20 cursor-pointer hover:bg-blue-600/20"
+                          >
+                            {chain.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+  
+                  <div>
+                    <Label htmlFor="destinationChain" className="text-zinc-200">
+                      Destination Chain
+                    </Label>
+                    <Select 
+                      value={destinationChain} 
+                      onValueChange={(value) => {
+                        setDestinationChain(value)
+                        setDesChainId(chains.find(chain => chain.name === value)?.id || '')
+                      }}
+                    >
+                      <SelectTrigger id="destinationChain" className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200">
+                        <SelectValue placeholder="Select destination chain" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-800 border-zinc-700">
+                        {chains.map(chain => (
+                          <SelectItem 
+                            key={chain.name} 
+                            value={chain.name}
+                            className="text-zinc-200 focus:bg-blue-600/20 cursor-pointer hover:bg-blue-600/20"
+                          >
+                            {chain.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+  
+                  {originChain && destinationChain && (
+                    <Alert className="bg-green-900/20 border-green-500/50">
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      <AlertTitle className="text-green-300">Success</AlertTitle>
+                      <AlertDescription className="text-green-200">
+                        {originChain} to {destinationChain} bridge is supported
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              </TabsContent>
+  
+              <TabsContent value="step2">
+                <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                  Contract Configuration
+                </CardTitle>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="originContract" className="text-zinc-200">
+                      Origin Contract Address
+                    </Label>
+                    <Input
+                      id="originContract"
+                      placeholder="0x..."
+                      value={originAddress}
+                      onChange={(e) => setOriginAddress(e.target.value)}
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="destinationContract" className="text-zinc-200">
+                      Destination Contract Address
+                    </Label>
+                    <Input
+                      id="destinationContract"
+                      placeholder="0x..."
+                      value={destinationAddress}
+                      onChange={(e) => setDestinationAddress(e.target.value)}
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+  
+              <TabsContent value="step3">
+                <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                  Mapping Configuration
+                </CardTitle>
+                <div className="space-y-4">
+                  <AutomationForm2
+                    onSubmit={handleSubmit}
+                    isLoading={isLoading}
+                    error={null}
+                    isValidForm={true}
+                  />
+                </div>
+              </TabsContent>
+  
+              <TabsContent value="step4">
+                <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
+                  Deployment
+                </CardTitle>
+                <div className="space-y-4">
+                  {reactiveContract && (
+                    <div className="mb-6">
+                      <Button
+                        onClick={toggleContractVisibility}
+                        className="w-full flex justify-between items-center p-4 bg-blue-900/20 text-zinc-200 border border-blue-500/20 hover:bg-blue-900/30"
+                      >
+                        <span>View Generated Contract</span>
+                        {isContractVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                      {isContractVisible && (
+                        <div className="mt-2 p-4 bg-blue-900/20 rounded-lg border border-zinc-800">
+                          <pre className="whitespace-pre-wrap overflow-x-auto text-zinc-300">
+                            {reactiveContract}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="space-y-4">
+                    <Button 
+                      onClick={handleCompile} 
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" 
+                      disabled={isLoading || !reactiveContract}
+                    >
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Compile Contract
                     </Button>
-                    {isContractVisible && (
-                      <div className="mt-2 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
-                        <pre className="whitespace-pre-wrap overflow-x-auto text-zinc-300">
-                          {reactiveContract}
-                        </pre>
-                      </div>
+                    
+                    <Button 
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                      onClick={handleDeploy}
+                      disabled={isLoading || !originChain || !destinationChain || !abi || !bytecode}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Deploying...
+                        </>
+                      ) : (
+                        'Deploy Bridge'
+                      )}
+                    </Button>
+  
+                    {deploymentStatus && (
+                      <Alert className="bg-blue-900/20 border-blue-500/50">
+                        <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                        <AlertTitle className="text-blue-300">Status</AlertTitle>
+                        <AlertDescription className="text-blue-200">
+                          {deploymentStatus}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+  
+                    {deployedAddress && (
+                      <Alert className="bg-green-900/20 border-green-500/50">
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                        <AlertTitle className="text-green-300">Deployed Address</AlertTitle>
+                        <AlertDescription className="text-green-200">
+                          {deployedAddress}
+                        </AlertDescription>
+                      </Alert>
                     )}
                   </div>
-                )}
-                
-                <div className="space-y-4">
-                  <Button 
-                    onClick={handleCompile} 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
-                    disabled={isLoading || !reactiveContract}
-                  >
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Compile Contract
-                  </Button>
-                  
-                  <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={handleDeploy}
-                    disabled={isLoading || !originChain || !destinationChain || !abi || !bytecode}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Deploying...
-                      </>
-                    ) : (
-                      'Deploy Bridge'
-                    )}
-                  </Button>
-
-                  {deploymentStatus && (
-                    <Alert className="bg-blue-900/20 border-blue-800">
-                      <CheckCircle2 className="h-4 w-4 text-blue-400" />
-                      <AlertTitle className="text-blue-300">Status</AlertTitle>
-                      <AlertDescription className="text-blue-200">
-                        {deploymentStatus}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {deployedAddress && (
-                    <Alert className="bg-green-900/20 border-green-800">
-                      <CheckCircle2 className="h-4 w-4 text-green-400" />
-                      <AlertTitle className="text-green-300">Deployed Address</AlertTitle>
-                      <AlertDescription className="text-green-200">
-                        {deployedAddress}
-                      </AlertDescription>
-                    </Alert>
-                  )}
                 </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-between mt-6">
-            <Button 
-              onClick={prevStep} 
-              disabled={step === 1} 
-              variant="outline"
-              className="text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100"
-            >
-              Previous
-            </Button>
-            <Button 
-              onClick={nextStep} 
-              disabled={step === 4}
-              className="bg-primary hover:bg-primary-foreground hover:text-gray-100 text-white"
-            >
-              {step === 4 ? 'Finish' : 'Next'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              </TabsContent>
+            </Tabs>
+  
+            <div className="flex justify-between mt-6">
+              <Button 
+                onClick={prevStep} 
+                disabled={step === 1} 
+                variant="outline"
+                className="border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
+              >
+                Previous
+              </Button>
+              <Button 
+                onClick={nextStep} 
+                disabled={step === 4}
+                className="bg-primary hover:bg-primary/90 text-white"
+              >
+                {step === 4 ? 'Finish' : 'Next'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  )
+  );
 }

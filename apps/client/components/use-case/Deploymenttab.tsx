@@ -381,6 +381,7 @@ export default function DeploymentTab({
       }));
     }
   };
+  console.log(constructorArgs)
 
   const renderDeploymentInfo = (type: string) => {
     const info = type.startsWith('helper_') 
@@ -438,36 +439,36 @@ export default function DeploymentTab({
     const type = `helper_${helper.name}`;
     const isNew = deploymentMode[helper.name] === 'new';
     const address = isNew ? deployedAddresses.helpers[type] : existingAddresses.helpers[type];
-
+  
     return (
-      <Card key={helper.name} className="bg-gray-800 border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-100">
+      <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+        <CardHeader className="border-b border-zinc-800">
+          <CardTitle className="text-xl font-bold text-zinc-100">
             {helper.name} Helper Contract
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="space-y-4">
             <div className="flex gap-4">
               <Button
                 variant={isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [helper.name]: 'new' }))}
-                className="w-1/2"
+                className={`w-1/2 ${isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [helper.name]: 'existing' }))}
-                className="w-1/2"
+                className={`w-1/2 ${!isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
             </div>
-
+  
             {!isNew && (
               <div>
-                <Label htmlFor={`${type}-address`} className="text-gray-300">
+                <Label htmlFor={`${type}-address`} className="text-zinc-300">
                   Contract Address
                 </Label>
                 <Input
@@ -475,12 +476,12 @@ export default function DeploymentTab({
                   name={`${type}-address`}
                   value={existingAddresses.helpers[type] || ''}
                   onChange={(e) => handleExistingAddressChange(type, e.target.value)}
-                  className="mt-1 bg-gray-700 text-gray-200"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
                   placeholder="Enter deployed contract address"
                 />
               </div>
             )}
-
+  
             {address && renderDeploymentInfo(type)}
             {address && helper.abi && (
               <ContractInteraction
@@ -490,7 +491,7 @@ export default function DeploymentTab({
                 account={account}
               />
             )}
-
+  
             {isNew && !address && (
               <>
                 <div className="flex justify-between">
@@ -500,30 +501,35 @@ export default function DeploymentTab({
                       ...prev,
                       helpers: { ...prev.helpers, [type]: !prev.helpers[type] }
                     }))}
-                    className="text-gray-300"
+                    className="text-zinc-300 border-blue-500/20 hover:bg-blue-900/20"
                   >
                     {showCode.helpers[type] ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
-
+  
                 {showCode.helpers[type] && (
-                  <MonacoEditor
-                    height="300px"
-                    language="solidity"
-                    theme="vs-dark"
-                    value={helper.contract}
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false }
-                    }}
-                  />
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                    <MonacoEditor
+                      height="300px"
+                      language="solidity"
+                      theme="vs-dark"
+                      value={helper.contract}
+                      options={{
+                        readOnly: true,
+                        minimap: { enabled: false }
+                      }}
+                    />
+                  </div>
                 )}
-
+  
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-gray-200">Constructor Arguments</h3>
-                  {Object.entries(constructorArgs.helpers[helper.name] || {}).map(([argName, value]) => (
+                  <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
+                  {/* //Check is there something inside constructorArgs.helpers[helper.name] */}
+                  {Object.entries(constructorArgs.helpers[helper.name] || {}).length >= 0 && (
+                    <>
+                    {Object.entries(constructorArgs.helpers[helper.name] || {}).map(([argName, value]) => (
                     <div key={argName}>
-                      <Label htmlFor={`${type}-${argName}`} className="text-gray-300">
+                      <Label htmlFor={`${type}-${argName}`} className="text-zinc-300">
                         {argName}
                       </Label>
                       <Input
@@ -531,17 +537,19 @@ export default function DeploymentTab({
                         name={`${type}-${argName}`}
                         value={value}
                         onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
-                        className="mt-1 bg-gray-700 text-gray-200"
+                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
                         placeholder={`Enter ${argName}`}
                       />
                     </div>
                   ))}
+                  </>
+                  )}
                 </div>
-
+  
                 <Button
                   onClick={() => handleDeploy(type)}
                   disabled={isDeploying.helpers[type]}
-                  className="mt-4 bg-blue-500 hover:bg-blue-600 w-full"
+                  className="mt-4 w-40 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
                   {isDeploying.helpers[type] ? (
                     <>
@@ -569,11 +577,11 @@ export default function DeploymentTab({
     const contract = type === 'reactive' ? reactiveTemplate :
                     type === 'origin' ? originContract :
                     destinationContract;
-
+  
     return (
-      <Card className="bg-gray-800 border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-100">
+      <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+        <CardHeader className="border-b border-zinc-800">
+          <CardTitle className="text-xl font-bold text-zinc-100">
             {type.charAt(0).toUpperCase() + type.slice(1)} Contract
           </CardTitle>
         </CardHeader>
@@ -583,22 +591,22 @@ export default function DeploymentTab({
               <Button
                 variant={isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [type]: 'new' }))}
-                className="w-1/2"
+                className={`w-1/2 ${isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [type]: 'existing' }))}
-                className="w-1/2"
+                className={`w-1/2 ${!isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
             </div>
-
+  
             {!isNew && (
               <div>
-                <Label htmlFor={`${type}-address`} className="text-gray-300">
+                <Label htmlFor={`${type}-address`} className="text-zinc-300">
                   Contract Address
                 </Label>
                 <Input
@@ -606,12 +614,12 @@ export default function DeploymentTab({
                   name={`${type}-address`}
                   value={existingAddresses[type]}
                   onChange={(e) => handleExistingAddressChange(type, e.target.value)}
-                  className="mt-1 bg-gray-700 text-gray-200"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
                   placeholder="Enter deployed contract address"
                 />
               </div>
             )}
-
+  
             {address && renderDeploymentInfo(type)}
             {address && (
               <ContractInteraction
@@ -621,37 +629,39 @@ export default function DeploymentTab({
                 account={account}
               />
             )}
-
+  
             {isNew && !address && (
               <>
                 <div className="flex justify-between">
                   <Button
                     variant="outline"
                     onClick={() => setShowCode(prev => ({ ...prev, [type]: !prev[type] }))}
-                    className="text-gray-300"
+                    className="text-zinc-300 border-blue-500/20 hover:bg-blue-900/20"
                   >
                     {showCode[type] ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
-
+  
                 {showCode[type] && (
-                  <MonacoEditor
-                    height="300px"
-                    language="solidity"
-                    theme="vs-dark"
-                    value={contract}
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false }
-                    }}
-                  />
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                    <MonacoEditor
+                      height="300px"
+                      language="solidity"
+                      theme="vs-dark"
+                      value={contract}
+                      options={{
+                        readOnly: true,
+                        minimap: { enabled: false }
+                      }}
+                    />
+                  </div>
                 )}
-
+  
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-gray-200">Constructor Arguments</h3>
+                  <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
                   {Object.entries(constructorArgs[type]).map(([argName, value]) => (
                     <div key={argName}>
-                      <Label htmlFor={`${type}-${argName}`} className="text-gray-300">
+                      <Label htmlFor={`${type}-${argName}`} className="text-zinc-300">
                         {argName}
                       </Label>
                       <Input
@@ -659,33 +669,33 @@ export default function DeploymentTab({
                         name={`${type}-${argName}`}
                         value={value}
                         onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
-                        className="mt-1 bg-gray-700 text-gray-200"
+                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
                         placeholder={`Enter ${argName}`}
                       />
                     </div>
                   ))}
                 </div>
-
+  
                 {(type === 'destination' || (type === 'origin' && areContractsIdentical)) && (
                   <div>
-                    <Label htmlFor={`${type}-token-amount`} className="text-gray-300">
-                      Native Token Amount <span className="text-yellow-500">(min 0.1)</span>
+                    <Label htmlFor={`${type}-token-amount`} className="text-zinc-300">
+                      Native Token Amount <span className="text-yellow-400">(min 0.1)</span>
                     </Label>
                     <Input
                       id={`${type}-token-amount`}
                       name={`${type}-token-amount`}
                       value={nativeTokenAmount[type]}
                       onChange={(e) => handleNativeTokenAmountChange(type, e.target.value)}
-                      className="mt-1 bg-gray-700 text-gray-200"
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
                       placeholder="Enter amount in ETH"
                     />
                   </div>
                 )}
-
+  
                 <Button
                   onClick={() => handleDeploy(type)}
                   disabled={isDeploying[type]}
-                  className="mt-4 bg-blue-500 hover:bg-blue-600 w-full"
+                  className="mt-4 w-36 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
                   {isDeploying[type] ? (
                     <>

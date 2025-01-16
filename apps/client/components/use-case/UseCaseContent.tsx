@@ -48,7 +48,7 @@ export function UseCaseContent({
   const [showOverview, setShowOverview] = useState(false);
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
+    <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-gray-100">
           {useCase.title}
@@ -58,7 +58,7 @@ export function UseCaseContent({
         <div className="space-y-4">
           <Button
             variant="outline"
-            className="w-full flex items-center justify-center gap-2"
+            className="w-full flex items-center justify-center bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 gap-2"
             onClick={() => setShowOverview(!showOverview)}
           >
             {showOverview ? (

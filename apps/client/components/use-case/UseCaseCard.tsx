@@ -17,28 +17,41 @@ interface UseCaseCardProps {
 export function UseCaseCard({ useCase, comments, likes, onLike, onComment }: UseCaseCardProps) {
   const useCaseComments = comments.filter(comment => comment.useCaseId === useCase._id);
   const useCaseLikes = likes.filter(like => like.useCaseId === useCase._id);
+  
   const formatTags = (tags: string[] | string): string => {
     if (Array.isArray(tags)) {
       return tags.map(tag => `#${tag.trim()}`).join(', ');
     }
-    // If tags is a string, split it into array and format
     return tags
-      .split(/[,\s]+/) // Split by commas or whitespace
+      .split(/[,\s]+/)
       .filter(tag => tag.length > 0)
       .map(tag => `#${tag.trim()}`)
       .join(', ');
   };
+
   return (
-    <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300 bg-primary-50">
-      <CardHeader className="bg-gradient-to-r from-primary  text-white rounded-t-lg">
-        <CardTitle className="text-xl font-bold">{useCase.title}</CardTitle>
+    <Card className="relative h-full flex flex-col hover:shadow-lg transition-all duration-300 bg-none border-zinc-800 hover:shadow-blue-900/20">
+      <CardHeader className="bg-gradient-to-r from-primary rounded-t-lg border-b border-zinc-800">
+        <CardTitle className="text-xl font-bold text-zinc-100">
+          {useCase.title}
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow p-6 ">
-        <p className="text-gray-300">{useCase.shortDescription}</p>
+      
+      <CardContent className="flex-grow p-6">
+        <p className="text-zinc-300">
+          {useCase.shortDescription}
+        </p>
       </CardContent>
-      <CardContent className="p-6 bg-transparent text-gray-300">{useCase.tags && formatTags(useCase.tags)}</CardContent>
-      <CardFooter className="flex justify-between items-center p-6 bg-transparent rounded-b-lg">
-        
+      
+      {useCase.tags && (
+        <CardContent className="p-6 pt-0">
+          <p className="text-blue-400 text-sm break-words">
+            {formatTags(useCase.tags)}
+          </p>
+        </CardContent>
+      )}
+      
+      <CardFooter className="mt-auto flex justify-between items-center p-6 border-t border-zinc-800 bg-zinc-900/20">
         <ActionButtons
           useCaseId={useCase._id}
           likes={useCaseLikes}

@@ -48,7 +48,6 @@ export default function UseCasesPage() {
     });
   };
 
-  // Filter out use cases that have a non-empty type field
   const filteredUseCases = (searchResults || []).filter(useCase => !useCase.type);
 
   if (!useCases || !comments || !likes || !users) {
@@ -56,58 +55,74 @@ export default function UseCasesPage() {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-12 text-gray-100">
+    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-7xl mx-auto pointer-events-auto">
+        <h1 className="relative text-4xl font-bold text-center mb-12 text-gray-100">
           Reactive Smart Contracts Library
         </h1>
         
-        <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 w-full sm:w-auto">
+        <div className="relative z-20 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="relative flex-1 w-full sm:w-auto">
             <Input 
               type="search" 
               placeholder="Search use cases..." 
-              className="w-full" 
+              className="relative z-20 w-full bg-zinc-800/50 border-zinc-700 focus:border-blue-500 text-zinc-100"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative z-20 flex gap-2 w-full sm:w-auto">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="relative z-20 w-full sm:w-[180px] bg-zinc-800/50 border-zinc-700 text-zinc-100">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="defi">DeFi</SelectItem>
-                <SelectItem value="nft">NFT</SelectItem>
-                <SelectItem value="dao">DAO</SelectItem>
+              <SelectContent className="relative z-30 bg-zinc-800 border-zinc-700">
+                <SelectItem value="all" className="text-zinc-100 focus:bg-blue-600/20">All Categories</SelectItem>
+                <SelectItem value="defi" className="text-zinc-100 focus:bg-blue-600/20">DeFi</SelectItem>
+                <SelectItem value="nft" className="text-zinc-100 focus:bg-blue-600/20">NFT</SelectItem>
+                <SelectItem value="dao" className="text-zinc-100 focus:bg-blue-600/20">DAO</SelectItem>
               </SelectContent>
             </Select>
             
-            <Button variant="outline" size="icon" onClick={() => setViewMode('grid')}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => setViewMode('grid')}
+              className="relative z-20 border-zinc-700 text-zinc-100 hover:bg-blue-600/20 hover:text-zinc-50"
+            >
               <Grid className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => setViewMode('list')}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => setViewMode('list')}
+              className="relative z-20 border-zinc-700 text-zinc-100 hover:bg-blue-600/20 hover:text-zinc-50"
+            >
               <List className="h-4 w-4" />
             </Button>
           </div>
         </div>
         
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8' : 'space-y-8'}>
+        <div className={
+          `relative z-20 ${viewMode === 'grid' 
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8' 
+            : 'space-y-8'}`
+        }>
           {filteredUseCases.map((useCase) => (
-            <UseCaseCard
-              key={useCase._id}
-              useCase={useCase as UseCase}
-              comments={comments}
-              likes={likes}
-              onLike={handleLike}
-              onComment={(useCaseId) => setSelectedUseCase(useCaseId)}
-            />
+            <div key={useCase._id} className="relative z-20 pointer-events-auto">
+              <UseCaseCard
+                useCase={useCase as UseCase}
+                comments={comments}
+                likes={likes}
+                onLike={handleLike}
+                onComment={(useCaseId) => setSelectedUseCase(useCaseId)}
+              />
+            </div>
           ))}
         </div>
       </div>
 
+      {/* Dialog with higher z-index */}
       <CommentDialog
         useCase={useCases.find(uc => uc._id === selectedUseCase)}
         comments={comments.filter(comment => comment.useCaseId === selectedUseCase)}

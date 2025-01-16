@@ -169,7 +169,7 @@ export default function ContractDisplay({
           <div className="flex flex-wrap gap-2 m-4">
             {!editingContract ? (
               <>
-                <Button onClick={onEdit} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                <Button onClick={onEdit} className="bg-primary hover:bg-primary/90 text-white">
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Contract
                 </Button>

@@ -245,7 +245,7 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
                             <div className="pt-4">
                                 <Button 
                                     onClick={handleCustomContractSubmit}
-                                    className="w-full"
+                                    className="w-40"
                                     disabled={isLoading}
                                 >
                                     {isLoading ? (
@@ -310,6 +310,7 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
                                 </Button>
                                 <Button 
                                     onClick={handleProtocolSubmit}
+                                    className="w-40"
                                     disabled={isVerifying}
                                 >
                                     {isVerifying ? (
@@ -360,7 +361,7 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
                             <div className="pt-4">
                                 <Button 
                                     onClick={handleBlockchainSubmit}
-                                    className="w-full"
+                                    className="w-40"
                                 >
                                     Submit
                                 </Button>

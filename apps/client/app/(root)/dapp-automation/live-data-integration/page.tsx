@@ -221,223 +221,290 @@ export default function LiveDataIntegration() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">Live Data Integration Template</h1>
-      
-      <Alert className="mb-8">
-        <Info className="h-4 w-4" />
-        <AlertTitle>Important Information</AlertTitle>
-        <AlertDescription>
-          To use this template, you must know which events of your contract provide the data you need. We can only list all event ABIs and cannot explain the logic behind their workings or how they are released.
-        </AlertDescription>
-      </Alert>
+    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-4xl mx-auto">
+        <h1 className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+          Live Data Integration Template
+        </h1>
+        
+        <Alert className="mb-8 bg-blue-900/20 border-blue-500/50">
+          <Info className="h-4 w-4 text-blue-400" />
+          <AlertTitle className="text-blue-300">Important Information</AlertTitle>
+          <AlertDescription className="text-blue-200">
+            To use this template, you must know which events of your contract provide the data you need. 
+            We can only list all event ABIs and cannot explain the logic behind their workings or how they are released.
+          </AlertDescription>
+        </Alert>
 
-      <div className="mb-8">
-        <div className="flex justify-between items-center">
-          {steps.map((step, index) => (
-            <div key={step} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                index <= currentStep ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+        <div className="relative z-20 mb-8">
+          <div className="flex justify-between items-center">
+            {steps.map((step, index) => (
+              <div key={step} className="flex items-center">
+                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                  index <= currentStep 
+                    ? 'bg-primary text-white scale-110' 
+                    : 'bg-blue-900/20 text-zinc-400'
+                }`}>
+                  {index + 1}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`h-1 w-full sm:w-24 transition-all duration-200 ${
+                    index < currentStep ? 'bg-primary' : 'bg-blue-900/20'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-2">
+            {steps.map((step, index) => (
+              <span key={step} className={`text-sm ${
+                index <= currentStep ? 'text-primary font-medium' : 'text-zinc-500'
               }`}>
-                {index + 1}
-              </div>
-              {index < steps.length - 1 && (
-                <div className={`h-1 w-full ${
-                  index < currentStep ? 'bg-primary' : 'bg-muted'
-                }`} />
-              )}
-            </div>
-          ))}
+                {step}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="flex justify-between mt-2">
-          {steps.map((step, index) => (
-            <span key={step} className={`text-sm ${
-              index <= currentStep ? 'text-primary font-medium' : 'text-muted-foreground'
-            }`}>
-              {step}
-            </span>
-          ))}
-        </div>
-      </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          {currentStep === 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <h2 className="text-2xl font-semibold mb-4">Contract Input</h2>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="contractAddress">Origin DApp's Contract Address</Label>
-                  <Input
-                    id="contractAddress"
-                    placeholder="0x..."
-                    value={contractAddress}
-                    onChange={(e) => setContractAddress(e.target.value)}
-                  />
-                </div>
-                <Button onClick={validateContract} disabled={!contractAddress || isValidating}>
-                  {isValidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {isValidating ? 'Validating...' : 'Validate Contract'}
-                </Button>
-                {isContractValid && (
-                  <div className="flex items-center text-green-500">
-                    <CheckCircle2 className="mr-2" />
-                    Contract validated successfully
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {currentStep === 1 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <h2 className="text-2xl font-semibold mb-4">Event Selection</h2>
-              <div className="space-y-4">
-                {events.map((event:any) => (
-                  <div key={event.name} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={event.name}
-                      checked={selectedEvents.includes(event)}
-                      onCheckedChange={() => handleEventSelection(event)}
-                    />
-                    <Label htmlFor={event.name}>
-                      {event.name}({event.inputs.map((input:any) => input.type).join(',')})
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+          <CardContent className="pt-6">
+            {currentStep === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Contract Input</h2>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="contractAddress" className="text-zinc-200">
+                      Origin DApp's Contract Address
                     </Label>
+                    <Input
+                      id="contractAddress"
+                      placeholder="0x..."
+                      value={contractAddress}
+                      onChange={(e) => setContractAddress(e.target.value)}
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                    />
                   </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {currentStep === 2 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <h2 className="text-2xl font-semibold mb-4">Input Selection</h2>
-              <div className="space-y-6">
-                {selectedEvents.map((event: any) => (
-                  <div key={event.name} className="border p-4 rounded-lg">
-                    <h3 className="text-xl font-medium mb-2">{event.name}</h3>
-                    <p className="text-sm text-gray-500 mb-2">Topic0: {event.topic0}</p>
-                    {event.inputs.map((input: any, index: number) => (
-                      <div key={input.name} className="flex items-center space-x-2 mb-2">
-                        <Checkbox
-                          id={`${event.name}-${input.name}`}
-                          checked={selectedInputs[event.name]?.includes(index)}
-                          onCheckedChange={() => handleInputSelection(event.name, index)}
-                        />
-                        <Label htmlFor={`${event.name}-${input.name}`}>{input.name} ({input.type})</Label>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {currentStep === 3 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <h2 className="text-2xl font-semibold mb-4">Template Preview</h2>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Reactive Contract Template</h3>
-                  <Textarea
-                    value={previewCode}
-                    readOnly
-                    className="h-64 font-mono"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Destination Contract Functions</h3>
-                  <Textarea
-                    value={destinationFunctions}
-                    readOnly
-                    className="h-64 font-mono"
-                  />
-                </div>
-                <Alert variant="warning">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Warning</AlertTitle>
-                  <AlertDescription>
-                    Ensure you have deployed your destination contract with the provided functions before proceeding.
-                  </AlertDescription>
-                </Alert>
-                <div>
-                  <p className='text-gray-200 text-sm my-4'>Implement the above generated function(s) in your destination contract to store the datas in some state with help of these functions, deploy it, and paste the address here.</p>
-                  <p className='text-gray-200 text-sm my-4'>
-                        Important: Before deploying your destination contract, please ensure the following requirements are met:
-                        <p className='my-2 text-gray-400'>1. Implement the AbstractCallback interface in your destination contract.</p>
-                        <p className='my-2 text-gray-400'>2. Configure your constructor as payable and pass the Callback_sender parameter to AbstractCallback.</p>
-                        <p className='my-2 text-gray-400'>3. When deploying, include at least 0.1 native tokens (e.g., 0.1 sepETH) to ensure successful callback execution.</p>
-
-                    For comprehensive implementation details and best practices, please refer to our   
-                     <br /><a href="https://dev.reactive.network/" className='text-blue-400' target='_blank'>REACTIVE NETWORK documentation</a>
-                  </p>
-                  <Label htmlFor="destinationAddress">Destination Contract Address</Label>
-
-                  <Input
-                    id="destinationAddress"
-                    placeholder="0x..."
-                    value={destinationAddress}
-                    onChange={(e) => setDestinationAddress(e.target.value)}
-                  />
-                </div>
-                <Button onClick={updateAndCompileContract} disabled={!destinationAddress || isCompiling} className="w-full">
-                  
-                  {isCompiling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {isCompiling ? 'Compiling...' : 'Update and Compile Contract'}
-                </Button>
-                {compilationSuccess && (
-                  <Alert variant="success">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertTitle>Success</AlertTitle>
-                    <AlertDescription>
-                      Reactive contract has been successfully compiled.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {abi && bytecode && (
-                  <Button onClick={handleDeploy} disabled={isDeploying} className="w-full mt-4">
-                    {isDeploying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isDeploying ? 'Deploying...' : 'Deploy on Reactive Network'}
+                  <Button 
+                    onClick={validateContract} 
+                    disabled={!contractAddress || isValidating}
+                    className="w-40 bg-primary hover:bg-primary/90 text-white"
+                  >
+                    {isValidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isValidating ? 'Validating...' : 'Validate Contract'}
                   </Button>
-                )}
-                {deploymentSuccess && (
-                  <Alert variant="success">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertTitle>Success</AlertTitle>
-                    <AlertDescription>
-                      Contract successfully deployed at address: {deployedAddress}
+                  {isContractValid && (
+                    <div className="flex items-center text-green-400">
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Contract validated successfully
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {currentStep === 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Event Selection</h2>
+                <div className="space-y-4">
+                  {events.map((event:any) => (
+                    <div key={event.name} 
+                      className="flex items-center space-x-3 p-3 rounded-lg bg-blue-900/20 border border-zinc-800"
+                    >
+                      <Checkbox
+                        id={event.name}
+                        checked={selectedEvents.includes(event)}
+                        onCheckedChange={() => handleEventSelection(event)}
+                        className="border-blue-500/50"
+                      />
+                      <Label htmlFor={event.name} className="text-zinc-300">
+                        {event.name}({event.inputs.map((input:any) => input.type).join(',')})
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {currentStep === 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Input Selection</h2>
+                <div className="space-y-6">
+                  {selectedEvents.map((event: any) => (
+                    <div key={event.name} 
+                      className="border border-zinc-800 bg-blue-900/20 p-4 rounded-lg"
+                    >
+                      <h3 className="text-xl font-medium mb-2 text-zinc-100">{event.name}</h3>
+                      <p className="text-sm text-blue-400 mb-4 font-mono">Topic0: {event.topic0}</p>
+                      {event.inputs.map((input: any, index: number) => (
+                        <div key={input.name} 
+                          className="flex items-center space-x-3 p-2 rounded-md hover:bg-blue-900/30"
+                        >
+                          <Checkbox
+                            id={`${event.name}-${input.name}`}
+                            checked={selectedInputs[event.name]?.includes(index)}
+                            onCheckedChange={() => handleInputSelection(event.name, index)}
+                            className="border-blue-500/50"
+                          />
+                          <Label htmlFor={`${event.name}-${input.name}`} className="text-zinc-300">
+                            {input.name} ({input.type})
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {currentStep === 3 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Template Preview</h2>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2 text-zinc-200">Reactive Contract Template</h3>
+                    <Textarea
+                      value={previewCode}
+                      readOnly
+                      className="h-64 font-mono bg-blue-900/20 border-zinc-700 text-zinc-200"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium mb-2 text-zinc-200">Destination Contract Functions</h3>
+                    <Textarea
+                      value={destinationFunctions}
+                      readOnly
+                      className="h-64 font-mono bg-blue-900/20 border-zinc-700 text-zinc-200"
+                    />
+                  </div>
+
+                  <Alert className="bg-yellow-900/20 border-yellow-500/50">
+                    <AlertCircle className="h-4 w-4 text-yellow-400" />
+                    <AlertTitle className="text-yellow-300">Warning</AlertTitle>
+                    <AlertDescription className="text-yellow-200">
+                      Ensure you have deployed your destination contract with the provided functions before proceeding.
                     </AlertDescription>
                   </Alert>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button onClick={prevStep} disabled={currentStep === 0} variant="outline">
-            Previous
-          </Button>
-          <Button onClick={nextStep} disabled={currentStep === steps.length - 1}>
-            {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
-          </Button>
-        </CardFooter>
-      </Card>
+
+                  <div className="space-y-4">
+                    <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
+                      <p className='text-zinc-200 mb-4'>
+                        Implement the above generated function(s) in your destination contract to store the datas in some state with help of these functions, deploy it, and paste the address here.
+                      </p>
+                      <p className='text-zinc-200'>
+                        Important: Before deploying your destination contract, please ensure the following requirements are met:
+                      </p>
+                      <ul className="list-disc list-inside space-y-2 mt-2 text-zinc-300">
+                        <li>Implement the AbstractCallback interface in your destination contract.</li>
+                        <li>Configure your constructor as payable and pass the Callback_sender parameter to AbstractCallback.</li>
+                        <li>Include minimum 0.1 native tokens for successful callbacks.</li>
+                      </ul>
+                      <p className='mt-4 text-zinc-200'>
+                        For comprehensive implementation details, check our{' '}
+                        <a href="https://dev.reactive.network/" 
+                          className='text-blue-400 hover:text-blue-300 transition-colors' 
+                          target='_blank'>
+                          REACTIVE NETWORK documentation
+                        </a>
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="destinationAddress" className="text-zinc-200">
+                        Destination Contract Address
+                      </Label>
+                      <Input
+                        id="destinationAddress"
+                        placeholder="0x..."
+                        value={destinationAddress}
+                        onChange={(e) => setDestinationAddress(e.target.value)}
+                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                      />
+                    </div>
+
+                    <Button 
+                      onClick={updateAndCompileContract} 
+                      disabled={!destinationAddress || isCompiling}
+                      className="w-60 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
+                      {isCompiling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {isCompiling ? 'Compiling...' : 'Update and Compile Contract'}
+                    </Button>
+
+                    {compilationSuccess && (
+                      <Alert className="bg-green-900/20 border-green-500/50">
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                        <AlertTitle className="text-green-300">Success</AlertTitle>
+                        <AlertDescription className="text-green-200">
+                          Reactive contract has been successfully compiled.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {abi && bytecode && (
+                      <Button 
+                        onClick={handleDeploy} 
+                        disabled={isDeploying}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      >
+                        {isDeploying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {isDeploying ? 'Deploying...' : 'Deploy on Reactive Network'}
+                      </Button>
+                    )}
+
+                    {deploymentSuccess && (
+                      <Alert className="bg-green-900/20 border-green-500/50">
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                        <AlertTitle className="text-green-300">Success</AlertTitle>
+                        <AlertDescription className="text-green-200">
+                          Contract successfully deployed at address: {deployedAddress}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </CardContent>
+
+          <CardFooter className="flex justify-between p-6 border-t border-zinc-800">
+            <Button 
+              onClick={prevStep} 
+              disabled={currentStep === 0} 
+              variant="outline"
+              className="border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
+            >
+              Previous
+            </Button>
+            <Button 
+              onClick={nextStep} 
+              disabled={currentStep === steps.length - 1}
+              className="bg-primary hover:bg-primary/90 text-white"
+            >
+              {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }

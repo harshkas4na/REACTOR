@@ -8,22 +8,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import AutomationCard from './AutomationCard';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 
+interface AutomationForm2Props {
+  onSubmit: (e: React.FormEvent) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+  isValidForm: boolean;
+}
 
 export default function AutomationForm2({ 
   onSubmit, 
   isLoading, 
   error,
   isValidForm
-}: { 
-  onSubmit: (e: React.FormEvent) => Promise<void>,
-  isLoading: boolean,
-  error: string | null,
-  isValidForm: boolean
-}) {
-  const {
-    automations,
-    setAutomations
-  } = useAutomationContext();
+}: AutomationForm2Props) {
+  const { automations, setAutomations } = useAutomationContext();
 
   const [sameChain, setSameChain] = useState(false);
   const [validations, setValidations] = useState({
@@ -44,35 +42,36 @@ export default function AutomationForm2({
     }));
   };
 
-  
-
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="space-y-4">
-        <Label className="text-gray-300">Automations</Label>
-        {automations.map((automation, index) => (
-          <AutomationCard
-            key={index}
-            automation={automation}
-            index={index}
-            
-          />
-        ))}
+        <Label className="text-zinc-300 text-lg font-medium">Automations</Label>
+        
+        <div className="space-y-4">
+          {automations.map((automation, index) => (
+            <AutomationCard
+              key={index}
+              automation={automation}
+              index={index}
+            />
+          ))}
+        </div>
+
         <Button 
           type="button" 
           variant="outline" 
           onClick={handleAddAutomation} 
-          className="text-gray-300 border-gray-600 hover:bg-gray-700"
+          className="w-full bg-blue-600/20 hover:bg-blue-600/30 text-zinc-200 border-blue-500/20 flex items-center justify-center transition-colors"
         >
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Automation
         </Button>
       </div>
 
-      <Alert>
-        <AlertDescription>
-          <strong>Input Rules:</strong>
-          <ul className="list-disc pl-5 mt-2">
+      <Alert className="bg-blue-900/20 border-blue-500/50">
+        <AlertDescription className="text-zinc-200">
+          <strong className="text-blue-400 font-medium">Input Rules:</strong>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
             <li>Event format: EventName(type1,type2,...)</li>
             <li>Function format: functionName(address,type1,...) [Keep the first argument fix as address]</li>
             <li>Valid types: address, uint256, string, bool, bytes32, uint8</li>
@@ -82,13 +81,15 @@ export default function AutomationForm2({
         </AlertDescription>
       </Alert>
 
-     
-
-      {error && <p className="text-red-400">{error}</p>}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-900/20 border border-red-500/50 text-red-400">
+          {error}
+        </div>
+      )}
 
       <Button 
         type="submit" 
-        className="w-full bg-primary hover:bg-primary-foreground hover:text-gray-100" 
+        className="w-full bg-primary hover:bg-primary/90 text-white transition-colors" 
         disabled={isLoading || !isValidForm}
       >
         {isLoading ? 'Generating...' : 'Generate Contract'}

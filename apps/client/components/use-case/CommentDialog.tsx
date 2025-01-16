@@ -34,11 +34,11 @@ export function CommentDialog({ useCase, comments, users, isOpen, onClose, onAdd
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-800 text-gray-100">
+      <DialogContent className="bg-black text-gray-100">
         <DialogHeader>
           <DialogTitle>{useCase?.title} - Comments</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="h-[300px] w-full rounded-md border border-gray-700 p-4 bg-gray-900">
+        <ScrollArea className="h-[300px] w-full rounded-md border border-gray-700 p-4 bg-black">
           {comments.map((comment) => (
             <div key={comment._id} className="mb-4">
               <p className="font-bold">{getUserName(comment.user)}</p>
