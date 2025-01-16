@@ -179,21 +179,21 @@ export default function CrossDAppAutomation() {
   };
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen py-8 sm:py-12 px-2 sm:px-4 md:px-6 lg:px-8">
       <div className="relative z-20 max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
           Cross-DApp Automation Template
         </h1>
-        
+          
         {/* Origin Contract Configuration */}
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm mb-6">
-          <CardHeader className="border-b border-zinc-800">
-            <CardTitle className="text-zinc-100">Origin Contract Configuration</CardTitle>
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-4 sm:mb-6">
+          <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl text-zinc-100">Origin Contract Configuration</CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <Label htmlFor="originAddress" className="text-zinc-200">
+                <Label htmlFor="originAddress" className="text-sm sm:text-base text-zinc-200">
                   Origin DApp Address
                 </Label>
                 <Input
@@ -201,34 +201,36 @@ export default function CrossDAppAutomation() {
                   placeholder="0x..."
                   value={originAddress}
                   onChange={(e) => setOriginAddress(e.target.value)}
-                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-400"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-400 text-sm sm:text-base"
                 />
               </div>
-              <Button 
-                onClick={validateContract} 
-                disabled={isValidating || !originAddress}
-                className="w-40 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-              >
-                {isValidating ? 'Validating...' : 'Validate Contract'}
-              </Button>
+              <div className="flex justify-start">
+                <Button 
+                  onClick={validateContract} 
+                  disabled={isValidating || !originAddress}
+                  className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                >
+                  {isValidating ? 'Validating...' : 'Validate Contract'}
+                </Button>
+              </div>
               {isContractValid && (
-                <div className="flex items-center text-green-400">
-                  <CheckCircle2 className="mr-2" />
+                <div className="flex items-center text-green-400 text-sm sm:text-base">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
                   Contract validated successfully
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
-
+  
         {/* Event Selection */}
         {isContractValid && (
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm mb-6">
-            <CardHeader className="border-b border-zinc-800">
-              <CardTitle className="text-zinc-100">Event Selection</CardTitle>
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-4 sm:mb-6">
+            <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl text-zinc-100">Event Selection</CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="space-y-2 sm:space-y-3">
                 <AnimatePresence>
                   {availableEvents.map((event: any) => (
                     <motion.div
@@ -240,16 +242,16 @@ export default function CrossDAppAutomation() {
                     >
                       <Button 
                         onClick={() => handleAddAutomation(event)}
-                        className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/20 text-zinc-200 flex justify-between items-center"
+                        className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/20 text-zinc-200 flex justify-between items-center p-3 sm:p-4 text-sm sm:text-base"
                       >
-                        <span>
+                        <span className="truncate mr-2">
                           {event.name}
                           {event.inputs.length > 0 
                             ? `(${event.inputs.map((input: any) => input.type).join(',')})` 
                             : ''
                           }
                         </span>
-                        <PlusCircle className="h-4 w-4 ml-2" />
+                        <PlusCircle className="h-4 w-4 flex-shrink-0" />
                       </Button>
                     </motion.div>
                   ))}
@@ -258,16 +260,16 @@ export default function CrossDAppAutomation() {
             </CardContent>
           </Card>
         )}
-
+  
         {/* Destination Configuration */}
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm mb-6">
-          <CardHeader className="border-b border-zinc-800">
-            <CardTitle className="text-zinc-100">Destination Configuration</CardTitle>
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-4 sm:mb-6">
+          <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl text-zinc-100">Destination Configuration</CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="destinationAddress" className="text-zinc-200">
+                <Label htmlFor="destinationAddress" className="text-sm sm:text-base text-zinc-200">
                   Destination Contract Address
                 </Label>
                 <Input
@@ -275,11 +277,11 @@ export default function CrossDAppAutomation() {
                   placeholder="0x..."
                   value={destinationAddress}
                   onChange={(e) => setDestinationAddress(e.target.value)}
-                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-400"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-400 text-sm sm:text-base"
                 />
               </div>
               <div>
-                <Label htmlFor="orgChainId" className="text-zinc-200">
+                <Label htmlFor="orgChainId" className="text-sm sm:text-base text-zinc-200">
                   Origin Chain ID
                 </Label>
                 <Input
@@ -287,11 +289,11 @@ export default function CrossDAppAutomation() {
                   type="number"
                   value={OrgChainId}
                   onChange={(e) => setOrgChainId(e.target.value)}
-                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 text-sm sm:text-base"
                 />
               </div>
               <div>
-                <Label htmlFor="desChainId" className="text-zinc-200">
+                <Label htmlFor="desChainId" className="text-sm sm:text-base text-zinc-200">
                   Destination Chain ID
                 </Label>
                 <Input
@@ -299,20 +301,20 @@ export default function CrossDAppAutomation() {
                   type="number"
                   value={DesChainId}
                   onChange={(e) => setDesChainId(e.target.value)}
-                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 text-sm sm:text-base"
                 />
               </div>
             </div>
           </CardContent>
         </Card>
-        
+          
         {/* Automations */}
         {automations.length > 0 && (
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm mb-6">
-            <CardHeader className="border-b border-zinc-800">
-              <CardTitle className="text-zinc-100">Automations</CardTitle>
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-4 sm:mb-6">
+            <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl text-zinc-100">Automations</CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <AutomationForm2
                 onSubmit={handleSubmit}
                 isLoading={isLoading}
@@ -322,28 +324,29 @@ export default function CrossDAppAutomation() {
             </CardContent>
           </Card>
         )}
-
+  
         {/* Contract Actions */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {reactiveContract && (
             <>
               <Button 
                 onClick={handleCompile}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm sm:text-base py-2 sm:py-3"
               >
                 Compile Contract
               </Button>
               <Button
                 onClick={() => setIsTemplateVisible(!isTemplateVisible)}
-                className="w-full bg-blue-900/20 hover:bg-blue-900/30 text-zinc-200 flex justify-between items-center border border-blue-500/20"
+                className="w-full bg-blue-900/20 hover:bg-blue-900/30 text-zinc-200 flex justify-between items-center border border-blue-500/20 text-sm sm:text-base py-2 sm:py-3"
               >
                 <span>{isTemplateVisible ? 'Hide' : 'Show'} Generated Template</span>
                 {isTemplateVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
+  
               {isTemplateVisible && (
-                <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
-                  <CardContent className="p-6">
-                    <pre className="whitespace-pre-wrap text-sm text-zinc-300 overflow-x-auto p-4 bg-blue-900/20 rounded-lg border border-zinc-800">
+                <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+                  <CardContent className="p-3 sm:p-6">
+                    <pre className="whitespace-pre-wrap text-xs sm:text-sm text-zinc-300 overflow-x-auto p-3 sm:p-4 bg-blue-900/20 rounded-lg border border-zinc-800 max-h-[400px]">
                       {reactiveContract}
                     </pre>
                   </CardContent>
@@ -351,58 +354,50 @@ export default function CrossDAppAutomation() {
               )}
             </>
           )}
-
+  
           {abi && bytecode && (
             <Button 
               onClick={handleDeploy}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm sm:text-base py-2 sm:py-3"
             >
               Deploy Contract
             </Button>
           )}
-
+  
           {/* Status Alerts */}
           {deploymentStatus && (
             <Alert 
-              variant={deploymentStatus.includes('successfully') ? 'success' : 'destructive'}
-              className={
+              className={`${
                 deploymentStatus.includes('successfully') 
                   ? 'bg-green-900/20 border-green-500/50' 
                   : 'bg-red-900/20 border-red-500/50'
-              }
+              } p-3 sm:p-4`}
             >
-              <AlertCircle className={
-                deploymentStatus.includes('successfully') 
-                  ? 'h-4 w-4 text-green-400' 
-                  : 'h-4 w-4 text-red-400'
-              } />
-              <AlertTitle className={
-                deploymentStatus.includes('successfully') 
-                  ? 'text-green-300' 
-                  : 'text-red-300'
-              }>
+              {deploymentStatus.includes('successfully') ? (
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-red-400" />
+              )}
+              <AlertTitle className={`text-sm sm:text-base ${
+                deploymentStatus.includes('successfully') ? 'text-green-300' : 'text-red-300'
+              }`}>
                 Deployment Status
               </AlertTitle>
-              <AlertDescription className={
-                deploymentStatus.includes('successfully') 
-                  ? 'text-green-200' 
-                  : 'text-red-200'
-              }>
+              <AlertDescription className={`text-xs sm:text-sm mt-1 ${
+                deploymentStatus.includes('successfully') ? 'text-green-200' : 'text-red-200'
+              }`}>
                 {deploymentStatus}
               </AlertDescription>
             </Alert>
           )}
-
+  
           {deployedAddress && (
-            <Alert 
-              variant="success"
-              className="bg-green-900/20 border-green-500/50"
-            >
+            <Alert className="bg-green-900/20 border-green-500/50 p-3 sm:p-4">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <AlertTitle className="text-green-300">
+              <AlertTitle className="text-sm sm:text-base text-green-300">
                 Contract Deployed
               </AlertTitle>
-              <AlertDescription className="text-green-200">
+              <AlertDescription className="text-xs sm:text-sm mt-1 text-green-200 break-all">
                 Deployed at: {deployedAddress}
               </AlertDescription>
             </Alert>

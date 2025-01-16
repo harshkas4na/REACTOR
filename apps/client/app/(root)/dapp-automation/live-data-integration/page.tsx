@@ -221,52 +221,52 @@ export default function LiveDataIntegration() {
   }
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen py-8 sm:py-12 px-2 sm:px-4 md:px-6 lg:px-8">
       <div className="relative z-20 max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
           Live Data Integration Template
         </h1>
         
-        <Alert className="mb-8 bg-blue-900/20 border-blue-500/50">
+        <Alert className="mb-4 sm:mb-8 bg-blue-900/20 border-blue-500/50">
           <Info className="h-4 w-4 text-blue-400" />
-          <AlertTitle className="text-blue-300">Important Information</AlertTitle>
-          <AlertDescription className="text-blue-200">
+          <AlertTitle className="text-blue-300 text-sm sm:text-base">Important Information</AlertTitle>
+          <AlertDescription className="text-blue-200 text-xs sm:text-sm">
             To use this template, you must know which events of your contract provide the data you need. 
             We can only list all event ABIs and cannot explain the logic behind their workings or how they are released.
           </AlertDescription>
         </Alert>
 
-        <div className="relative z-20 mb-8">
-          <div className="flex justify-between items-center">
-            {steps.map((step, index) => (
-              <div key={step} className="flex items-center">
-                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
-                  index <= currentStep 
-                    ? 'bg-primary text-white scale-110' 
-                    : 'bg-blue-900/20 text-zinc-400'
-                }`}>
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`h-1 w-full sm:w-24 transition-all duration-200 ${
-                    index < currentStep ? 'bg-primary' : 'bg-blue-900/20'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2">
-            {steps.map((step, index) => (
-              <span key={step} className={`text-sm ${
-                index <= currentStep ? 'text-primary font-medium' : 'text-zinc-500'
-              }`}>
-                {step}
-              </span>
-            ))}
-          </div>
+        <div className="relative z-20 mb-6 sm:mb-8 overflow-x-auto">
+  <div className="flex justify-between items-center min-w-[600px] sm:min-w-0">
+    {steps.map((step, index) => (
+      <div key={step} className="flex items-center">
+        <div className={`relative w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
+          index <= currentStep 
+            ? 'bg-primary text-white scale-110' 
+            : 'bg-blue-900/20 text-zinc-400'
+        }`}>
+          {index + 1}
         </div>
+        {index < steps.length - 1 && (
+          <div className={`h-1 w-12 sm:w-24 transition-all duration-200 ${
+            index < currentStep ? 'bg-primary' : 'bg-blue-900/20'
+          }`} />
+        )}
+      </div>
+    ))}
+  </div>
+  <div className="flex justify-between mt-2 text-xs sm:text-sm min-w-[600px] sm:min-w-0">
+    {steps.map((step, index) => (
+      <span key={step} className={`${
+        index <= currentStep ? 'text-primary font-medium' : 'text-zinc-500'
+      }`}>
+        {step}
+      </span>
+    ))}
+  </div>
+</div>
 
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardContent className="pt-6">
             {currentStep === 0 && (
               <motion.div
@@ -335,41 +335,51 @@ export default function LiveDataIntegration() {
               </motion.div>
             )}
 
-            {currentStep === 2 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="space-y-6"
+{currentStep === 2 && (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5 }}
+    className="space-y-6"
+  >
+    <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Input Selection</h2>
+    <div className="space-y-6">
+      {selectedEvents.map((event: any) => (
+        <div key={event.name} 
+          className="border border-zinc-800 bg-blue-900/20 p-3 sm:p-4 rounded-lg"
+        >
+          <h3 className="text-lg sm:text-xl font-medium mb-2 text-zinc-100">{event.name}</h3>
+          <div className="mb-4 overflow-hidden">
+            <p className="text-xs sm:text-sm text-blue-400 font-mono break-all">
+              <span className="font-semibold mr-1">Topic0:</span> 
+              {event.topic0}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {event.inputs.map((input: any, index: number) => (
+              <div key={input.name} 
+                className="flex items-center space-x-2 sm:space-x-3 p-2 rounded-md hover:bg-blue-900/30"
               >
-                <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Input Selection</h2>
-                <div className="space-y-6">
-                  {selectedEvents.map((event: any) => (
-                    <div key={event.name} 
-                      className="border border-zinc-800 bg-blue-900/20 p-4 rounded-lg"
-                    >
-                      <h3 className="text-xl font-medium mb-2 text-zinc-100">{event.name}</h3>
-                      <p className="text-sm text-blue-400 mb-4 font-mono">Topic0: {event.topic0}</p>
-                      {event.inputs.map((input: any, index: number) => (
-                        <div key={input.name} 
-                          className="flex items-center space-x-3 p-2 rounded-md hover:bg-blue-900/30"
-                        >
-                          <Checkbox
-                            id={`${event.name}-${input.name}`}
-                            checked={selectedInputs[event.name]?.includes(index)}
-                            onCheckedChange={() => handleInputSelection(event.name, index)}
-                            className="border-blue-500/50"
-                          />
-                          <Label htmlFor={`${event.name}-${input.name}`} className="text-zinc-300">
-                            {input.name} ({input.type})
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+                <Checkbox
+                  id={`${event.name}-${input.name}`}
+                  checked={selectedInputs[event.name]?.includes(index)}
+                  onCheckedChange={() => handleInputSelection(event.name, index)}
+                  className="border-blue-500/50 flex-shrink-0"
+                />
+                <Label 
+                  htmlFor={`${event.name}-${input.name}`} 
+                  className="text-zinc-300 text-sm sm:text-base"
+                >
+                  {input.name} ({input.type})
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </motion.div>
+)}
 
             {currentStep === 3 && (
               <motion.div
@@ -486,23 +496,23 @@ export default function LiveDataIntegration() {
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-between p-6 border-t border-zinc-800">
-            <Button 
-              onClick={prevStep} 
-              disabled={currentStep === 0} 
-              variant="outline"
-              className="border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
-            >
-              Previous
-            </Button>
-            <Button 
-              onClick={nextStep} 
-              disabled={currentStep === steps.length - 1}
-              className="bg-primary hover:bg-primary/90 text-white"
-            >
-              {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
-            </Button>
-          </CardFooter>
+  <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 p-4 sm:p-6 border-t border-zinc-800">
+    <Button 
+      onClick={prevStep} 
+      disabled={currentStep === 0} 
+      variant="outline"
+      className="w-full sm:w-auto border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
+    >
+      Previous
+    </Button>
+    <Button 
+      onClick={nextStep} 
+      disabled={currentStep === steps.length - 1}
+      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white"
+    >
+      {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+    </Button>
+  </CardFooter>
         </Card>
       </div>
     </div>

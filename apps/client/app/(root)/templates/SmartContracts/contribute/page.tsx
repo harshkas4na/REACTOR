@@ -176,338 +176,335 @@
     }
 
     // Return statement part - replace the existing return in your component
-return (
-  <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-    <div className="relative z-20 max-w-4xl mx-auto pointer-events-auto">
-      <Link href="/templates/SmartContracts">
-        <Button 
-          variant="outline" 
-          className="relative mb-6 text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100 pointer-events-auto"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Use Cases
-        </Button>
-      </Link>
-
-      <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-t-lg border-b border-zinc-800">
-          <CardTitle className="text-3xl font-bold text-zinc-100">
-            Add New Use Case
-          </CardTitle>
-          <CardDescription className="text-zinc-300">
-            {steps[currentStep]}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="relative p-6">
-          <div className="relative z-20 flex justify-between items-center mb-8">
-            {steps.map((step, index) => (
-              <div key={step} className="flex items-center">
-                <div
-                  className={`relative z-20 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
-                    index <= currentStep 
-                      ? 'bg-primary text-white scale-110' 
-                      : 'bg-zinc-800 text-zinc-400'
-                  }`}
-                >
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
-                  <div
-                    className={`relative z-10 h-1 w-full sm:w-24 transition-all duration-200 ${
-                      index < currentStep ? 'bg-primary' : 'bg-zinc-800'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="relative z-20">
-            {currentStep === 0 && (
-              <div className="space-y-6">
-                <div>
-                  <Label htmlFor="title" className="text-zinc-200 text-lg">Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={handleInputChange('title')}
-                    required
-                    className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="shortDescription" className="text-zinc-200 text-lg">
-                    Short Description
-                  </Label>
-                  <Textarea
-                    id="shortDescription"
-                    value={formData.shortDescription}
-                    onChange={handleInputChange('shortDescription')}
-                    required
-                    className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="category" className="text-zinc-200 text-lg">Category</Label>
-                  <Select 
-                    value={formData.category} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                  >
-                    <SelectTrigger 
-                      id="category" 
-                      className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1"
+    return (
+      <div className="relative min-h-screen py-8 sm:py-12 px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="relative z-20 max-w-4xl mx-auto pointer-events-auto">
+          <Link href="/templates/SmartContracts">
+            <Button 
+              variant="outline" 
+              className="relative mb-4 sm:mb-6 text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100 pointer-events-auto"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Use Cases
+            </Button>
+          </Link>
+    
+          <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-zinc-900/50 to-zinc-900/80 border-zinc-800 shadow-xl ">
+            <CardHeader className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-t-lg border-b border-zinc-800 p-4 sm:p-6">
+              <CardTitle className="text-2xl sm:text-3xl font-bold text-zinc-100">
+                Add New Use Case
+              </CardTitle>
+              <CardDescription className="text-zinc-300">
+                {steps[currentStep]}
+              </CardDescription>
+            </CardHeader>
+    
+            <CardContent className="relative p-4 sm:p-6">
+              <div className="relative z-20 flex justify-between items-center mb-6 sm:mb-8 overflow-x-auto">
+                {steps.map((step, index) => (
+                  <div key={step} className="flex items-center min-w-[100px]">
+                    <div
+                      className={`relative z-20 w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
+                        index <= currentStep 
+                          ? 'bg-primary text-white scale-110' 
+                          : 'bg-zinc-800 text-zinc-400'
+                      }`}
                     >
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent className="relative z-30 bg-zinc-800 border-zinc-700">
-                      <SelectItem value="token" className="text-zinc-200 focus:bg-primary/20">Token</SelectItem>
-                      <SelectItem value="defi" className="text-zinc-200 focus:bg-primary/20">DeFi</SelectItem>
-                      <SelectItem value="nft" className="text-zinc-200 focus:bg-primary/20">NFT</SelectItem>
-                      <SelectItem value="dao" className="text-zinc-200 focus:bg-primary/20">DAO</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="tags" className="text-zinc-200 text-lg">Tags</Label>
-                  <div className="relative">
-                    <Input
-                      id="tags"
-                      value={tagsInput}
-                      onChange={handleTagsChange}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && tagsInput.trim()) {
-                          e.preventDefault();
-                          addTag(tagsInput.trim());
-                        }
-                      }}
-                      placeholder="Type a tag and press Enter"
-                      className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                    />
-                    {tagsInput && (
-                      <div className="absolute z-30 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {tagSuggestions
-                          .filter(tag => 
-                            tag.toLowerCase().includes(tagsInput.toLowerCase()) && 
-                            !formData.tags.includes(tag)
-                          )
-                          .map((tag, index) => (
-                            <div
-                              key={index}
-                              className="px-4 py-2 cursor-pointer hover:bg-primary/20 text-zinc-200"
-                              onClick={() => addTag(tag)}
-                            >
-                              {tag}
-                            </div>
-                          ))
-                        }
-                      </div>
+                      {index + 1}
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div
+                        className={`relative z-10 h-1 w-16 sm:w-24 transition-all duration-200 ${
+                          index < currentStep ? 'bg-primary' : 'bg-zinc-800'
+                        }`}
+                      />
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.tags.map((tag, index) => (
-                      <span 
-                        key={index} 
-                        className="relative z-20 bg-primary/20 text-blue-300 px-2 py-1 rounded-full text-sm flex items-center border border-blue-500/20"
+                ))}
+              </div>
+    
+              <div className="relative z-20">
+                {currentStep === 0 && (
+                  <div className="space-y-4 sm:space-y-6">
+                    <div>
+                      <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
+                      <Input
+                        id="title"
+                        value={formData.title}
+                        onChange={handleInputChange('title')}
+                        required
+                        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+                      />
+                    </div>
+    
+                    <div>
+                      <Label htmlFor="shortDescription" className="text-zinc-200 text-base sm:text-lg">
+                        Short Description
+                      </Label>
+                      <Textarea
+                        id="shortDescription"
+                        value={formData.shortDescription}
+                        onChange={handleInputChange('shortDescription')}
+                        required
+                        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+                      />
+                    </div>
+    
+                    <div>
+                      <Label htmlFor="category" className="text-zinc-200 text-base sm:text-lg">Category</Label>
+                      <Select 
+                        value={formData.category} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                       >
-                        {tag}
-                        <button
-                          onClick={() => removeTag(tag)}
-                          className="ml-2 focus:outline-none hover:text-blue-200"
+                        <SelectTrigger 
+                          id="category" 
+                          className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1"
                         >
-                          <X size={14} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 1 && (
-              <div className="space-y-8">
-                <div>
-                  <Label htmlFor="overview" className="text-zinc-200 text-lg">Overview</Label>
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      onClick={() => setActiveEditor('overview')}
-                      className="relative z-20 w-full bg-primary text-white flex items-center justify-center gap-2 py-3"
-                    >
-                      <PenSquare className="h-5 w-5" />
-                      {formData.overview ? 'Edit Overview' : 'Add Overview'}
-                    </Button>
-                  </div>
-                  {formData.overview && (
-                    <div 
-                      className="relative z-20 mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700" 
-                      data-color-mode="dark"
-                    >
-                      <MDMarkdown
-                        source={formData.overview}
-                        style={{ 
-                          backgroundColor: 'transparent',
-                          color: 'rgb(228 228 231)'
-                        }}
-                      />
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent className="relative z-30 bg-zinc-800 border-zinc-700">
+                          <SelectItem value="token" className="text-zinc-200 focus:bg-primary/20">Token</SelectItem>
+                          <SelectItem value="defi" className="text-zinc-200 focus:bg-primary/20">DeFi</SelectItem>
+                          <SelectItem value="nft" className="text-zinc-200 focus:bg-primary/20">NFT</SelectItem>
+                          <SelectItem value="dao" className="text-zinc-200 focus:bg-primary/20">DAO</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="implementation" className="text-zinc-200 text-lg">
-                    Implementation Details
-                  </Label>
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      onClick={() => setActiveEditor('implementation')}
-                      className="relative z-20 w-full bg-primary text-white flex items-center justify-center gap-2 py-3"
-                    >
-                      <PenSquare className="h-5 w-5" />
-                      {formData.implementation ? 'Edit Implementation Details' : 'Add Implementation Details'}
-                    </Button>
+    
+                    <div>
+                      <Label htmlFor="tags" className="text-zinc-200 text-base sm:text-lg">Tags</Label>
+                      <div className="relative">
+                        <Input
+                          id="tags"
+                          value={tagsInput}
+                          onChange={handleTagsChange}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && tagsInput.trim()) {
+                              e.preventDefault();
+                              addTag(tagsInput.trim());
+                            }
+                          }}
+                          placeholder="Type a tag and press Enter"
+                          className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+                        />
+                        {tagsInput && (
+                          <div className="absolute z-30 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                            {tagSuggestions
+                              .filter(tag => 
+                                tag.toLowerCase().includes(tagsInput.toLowerCase()) && 
+                                !formData.tags.includes(tag)
+                              )
+                              .map((tag, index) => (
+                                <div
+                                  key={index}
+                                  className="px-4 py-2 cursor-pointer hover:bg-primary/20 text-zinc-200"
+                                  onClick={() => addTag(tag)}
+                                >
+                                  {tag}
+                                </div>
+                              ))
+                            }
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {formData.tags.map((tag, index) => (
+                          <span 
+                            key={index} 
+                            className="relative z-20 bg-primary/20 text-blue-300 px-2 py-1 rounded-full text-sm flex items-center border border-blue-500/20"
+                          >
+                            {tag}
+                            <button
+                              onClick={() => removeTag(tag)}
+                              className="ml-2 focus:outline-none hover:text-blue-200"
+                            >
+                              <X size={14} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  {formData.implementation && (
-                    <div 
-                      className="relative z-20 mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700" 
-                      data-color-mode="dark"
-                    >
-                      <MDMarkdown
-                        source={formData.implementation}
-                        style={{ 
-                          backgroundColor: 'transparent',
-                          color: 'rgb(228 228 231)'
-                        }}
-                      />
+                )}
+    
+                {currentStep === 1 && (
+                  <div className="space-y-6 sm:space-y-8">
+                    <div>
+                      <Label htmlFor="overview" className="text-zinc-200 text-base sm:text-lg">Overview</Label>
+                      <div className="mt-2">
+                        <Button
+                          type="button"
+                          onClick={() => setActiveEditor('overview')}
+                          className="relative z-20 w-full bg-primary text-white flex items-center justify-center gap-2 py-3"
+                        >
+                          <PenSquare className="h-5 w-5" />
+                          {formData.overview ? 'Edit Overview' : 'Add Overview'}
+                        </Button>
+                      </div>
+                      {formData.overview && (
+                        <div 
+                          className="relative z-20 mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700" 
+                          data-color-mode="dark"
+                        >
+                          <MDMarkdown
+                            source={formData.overview}
+                            style={{ 
+                              backgroundColor: 'transparent',
+                              color: 'rgb(228 228 231)'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div className="relative z-20 space-y-8">
-                {/* Reactive Template Section */}
-                <div>
-                  <Label htmlFor="reactiveTemplate" className="text-zinc-200 text-lg">
-                    Reactive Template
-                  </Label>
-                  <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
-                    <div className='flex justify-between items-center mb-4'>
-                      <TabsList className="bg-zinc-800">
-                        <TabsTrigger value="code" className="data-[state=active]:bg-primary text-zinc-300">
-                          Code
-                        </TabsTrigger>
-                        <TabsTrigger value="abi" className="data-[state=active]:bg-primary text-zinc-300">
-                          ABI
-                        </TabsTrigger>
-                        <TabsTrigger value="bytecode" className="data-[state=active]:bg-primary text-zinc-300">
-                          Bytecode
-                        </TabsTrigger>
-                      </TabsList>
-                      <Button variant="outline" className="bg-primary text-white border-none">
-                        <Link href="/deploy-reactive-contract">Generate Template</Link>
-                      </Button>
+    
+                    <div>
+                      <Label htmlFor="implementation" className="text-zinc-200 text-base sm:text-lg">
+                        Implementation Details
+                      </Label>
+                      <div className="mt-2">
+                        <Button
+                          type="button"
+                          onClick={() => setActiveEditor('implementation')}
+                          className="relative z-20 w-full bg-primary text-white flex items-center justify-center gap-2 py-3"
+                        >
+                          <PenSquare className="h-5 w-5" />
+                          {formData.implementation ? 'Edit Implementation Details' : 'Add Implementation Details'}
+                        </Button>
+                      </div>
+                      {formData.implementation && (
+                        <div 
+                          className="relative z-20 mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700" 
+                          data-color-mode="dark"
+                        >
+                          <MDMarkdown
+                            source={formData.implementation}
+                            style={{ 
+                              backgroundColor: 'transparent',
+                              color: 'rgb(228 228 231)'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <TabsContent value="code">
-                      <CodeEditor
-                        value={formData.reactiveTemplate}
-                        onChange={(value) => setFormData(prev => ({ ...prev, reactiveTemplate: value as string }))}
-                        language="solidity"
-                        height="300px"
-                      />
-                    </TabsContent>
-                    <TabsContent value="abi">
-                      <CodeEditor
-                        value={formData.reactiveABI}
-                        onChange={(value) => setFormData(prev => ({ ...prev, reactiveABI: value as string }))}
-                        language="json"
-                        height="300px"
-                      />
-                    </TabsContent>
-                    <TabsContent value="bytecode">
-                      <CodeEditor
-                        value={formData.reactiveBytecode}
-                        onChange={(value) => setFormData(prev => ({ ...prev, reactiveBytecode: value as string }))}
-                        language="text"
-                        height="300px"
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </div>
-
-                {/* Origin Contract Section */}
-                <div>
-                  <Label htmlFor="originContract" className="text-zinc-200 text-lg">
-                    Origin Contract
-                  </Label>
-                  <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
-                    <TabsList className="bg-zinc-800">
-                      <TabsTrigger value="code" className="data-[state=active]:bg-primary text-zinc-300">
-                        Code
-                      </TabsTrigger>
-                      <TabsTrigger value="abi" className="data-[state=active]:bg-primary text-zinc-300">
-                        ABI
-                      </TabsTrigger>
-                      <TabsTrigger value="bytecode" className="data-[state=active]:bg-primary text-zinc-300">
-                        Bytecode
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="code">
-                      <CodeEditor
-                        value={formData.originContract}
-                        onChange={(value) => setFormData(prev => ({ ...prev, originContract: value as string }))}
-                        language="solidity"
-                        height="200px"
-                      />
-                    </TabsContent>
-                    <TabsContent value="abi">
-                      <CodeEditor
-                        value={formData.originABI}
-                        onChange={(value) => setFormData(prev => ({ ...prev, originABI: value as string }))}
-                        language="json"
-                        height="200px"
-                      />
-                    </TabsContent>
-                    <TabsContent value="bytecode">
-                      <CodeEditor
-                        value={formData.originBytecode}
-                        onChange={(value) => setFormData(prev => ({ ...prev, originBytecode: value as string }))}
-                        language="text"
-                        height="200px"
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </div>
-
-                {/* Destination Contract Section */}
-                <div>
-                  <Label htmlFor="destinationContract" className="text-zinc-200 text-lg">
-                    Destination Contract
-                  </Label>
-                  <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
-                    <TabsList className="bg-zinc-800">
-                      <TabsTrigger value="code" className="data-[state=active]:bg-primary text-zinc-300">
-                        Code
-                      </TabsTrigger>
-                      <TabsTrigger value="abi" className="data-[state=active]:bg-primary text-zinc-300">
-                        ABI
-                      </TabsTrigger>
-                      <TabsTrigger value="bytecode" className="data-[state=active]:bg-primary text-zinc-300">
-                        Bytecode
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="code">
-                      <CodeEditor
-                        value={formData.destinationContract}
-                        onChange={(value) => setFormData(prev => ({ ...prev, destinationContract: value as string }))}
-                        language="solidity"
-                        height="200px"
-                      />
-                    </TabsContent>
+                  </div>
+                )}
+    
+                {currentStep === 2 && (
+                  <div className="relative z-20 space-y-6 sm:space-y-8">
+                    <div>
+                      <Label htmlFor="reactiveTemplate" className="text-zinc-200 text-base sm:text-lg">
+                        Reactive Template
+                      </Label>
+                      <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
+                        <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-4'>
+                          <TabsList className="bg-zinc-800">
+                            <TabsTrigger value="code" className="data-[state=active]:bg-primary text-zinc-300">
+                              Code
+                            </TabsTrigger>
+                            <TabsTrigger value="abi" className="data-[state=active]:bg-primary text-zinc-300">
+                              ABI
+                            </TabsTrigger>
+                            <TabsTrigger value="bytecode" className="data-[state=active]:bg-primary text-zinc-300">
+                              Bytecode
+                            </TabsTrigger>
+                          </TabsList>
+                          <Button variant="outline" className="w-full sm:w-auto bg-primary text-white border-none">
+                            <Link href="/deploy-reactive-contract">Generate Template</Link>
+                          </Button>
+                        </div>
+                        <TabsContent value="code">
+                          <CodeEditor
+                            value={formData.reactiveTemplate}
+                            onChange={(value) => setFormData(prev => ({ ...prev, reactiveTemplate: value as string }))}
+                            language="solidity"
+                            height="300px"
+                          />
+                        </TabsContent>
+                        <TabsContent value="abi">
+                          <CodeEditor
+                            value={formData.reactiveABI}
+                            onChange={(value) => setFormData(prev => ({ ...prev, reactiveABI: value as string }))}
+                            language="json"
+                            height="300px"
+                          />
+                        </TabsContent>
+                        <TabsContent value="bytecode">
+                          <CodeEditor
+                            value={formData.reactiveBytecode}
+                            onChange={(value) => setFormData(prev => ({ ...prev, reactiveBytecode: value as string }))}
+                            language="text"
+                            height="300px"
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+    
+                    <div>
+                      <Label htmlFor="originContract" className="text-zinc-200 text-base sm:text-lg">
+                        Origin Contract
+                      </Label>
+                      <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
+                        <TabsList className="bg-zinc-800">
+                          <TabsTrigger value="code" className="data-[state=active]:bg-primary text-zinc-300">
+                            Code
+                          </TabsTrigger>
+                          <TabsTrigger value="abi" className="data-[state=active]:bg-primary text-zinc-300">
+                            ABI
+                          </TabsTrigger>
+                          <TabsTrigger value="bytecode" className="data-[state=active]:bg-primary text-zinc-300">
+                            Bytecode
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="code">
+                          <CodeEditor
+                            value={formData.originContract}
+                            onChange={(value) => setFormData(prev => ({ ...prev, originContract: value as string }))}
+                            language="solidity"
+                            height="200px"
+                          />
+                        </TabsContent>
+                        <TabsContent value="abi">
+                          <CodeEditor
+                            value={formData.originABI}
+                            onChange={(value) => setFormData(prev => ({ ...prev, originABI: value as string }))}
+                            language="json"
+                            height="200px"
+                          />
+                        </TabsContent>
+                        <TabsContent value="bytecode">
+                          <CodeEditor
+                            value={formData.originBytecode}
+                            onChange={(value) => setFormData(prev => ({ ...prev, originBytecode: value as string }))}
+                            language="text"
+                            height="200px"
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+    
+                    <div>
+                      <Label htmlFor="destinationContract" className="text-zinc-200 text-base sm:text-lg">
+                        Destination Contract
+                      </Label>
+                      <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
+                        <TabsList className="bg-zinc-800">
+                          <TabsTrigger value="code" className="data-[state=active]:bg-primary text-zinc-300">
+                            Code
+                          </TabsTrigger>
+                          <TabsTrigger value="abi" className="data-[state=active]:bg-primary text-zinc-300">
+                            ABI
+                          </TabsTrigger>
+                          <TabsTrigger value="bytecode" className="data-[state=active]:bg-primary text-zinc-300">
+                            Bytecode
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="code">
+                          <CodeEditor
+                            value={formData.destinationContract}
+                            onChange={(value) => setFormData(prev => ({ ...prev, destinationContract: value as string }))}
+                            language="solidity"
+                            height="200px"
+                          />
+                        </TabsContent>
                     <TabsContent value="abi">
                       <CodeEditor
                         value={formData.destinationABI}
@@ -530,11 +527,11 @@ return (
             )}
 
             {currentStep === 3 && (
-              <div className="relative z-20 space-y-6">
-                <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-6">
+              <div className="relative z-20 space-y-4 sm:space-y-6">
+                <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 sm:p-6">
                   <div className="flex items-start space-x-4">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-zinc-300 leading-6">
+                      <p className="text-sm sm:text-base text-zinc-300 leading-6">
                         Submit your Foundry repository here. For guidance on the required structure, 
                         check out our official demo repository:
                       </p>
@@ -562,7 +559,7 @@ return (
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="githubRepo" className="text-zinc-200 text-lg">
+                  <Label htmlFor="githubRepo" className="text-zinc-200 text-base sm:text-lg">
                     GitHub Repository URL
                   </Label>
                   <Input
@@ -580,26 +577,26 @@ return (
           </div>
         </CardContent>
 
-        <CardFooter className="relative z-20 flex justify-between p-6 border-t border-zinc-800">
+        <CardFooter className="relative z-20 flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 p-4 sm:p-6 border-t border-zinc-800">
           <Button 
             variant="outline" 
             onClick={prevStep} 
             disabled={currentStep === 0}
-            className="text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100"
+            className="w-full sm:w-auto text-zinc-300 border-zinc-700 hover:bg-blue-900/20 hover:text-zinc-100"
           >
             Previous
           </Button>
           {currentStep === steps.length - 1 ? (
             <Button 
               onClick={handleSubmit}
-              className="bg-primary text-white"
+              className="w-full sm:w-auto bg-primary text-white"
             >
               Create Use Case
             </Button>
           ) : (
             <Button 
               onClick={nextStep}
-              className="bg-primary text-white"
+              className="w-full sm:w-auto bg-primary text-white"
             >
               Next
             </Button>
@@ -607,7 +604,6 @@ return (
         </CardFooter>
       </Card>
 
-      {/* Editor page wrapper with proper z-index when active */}
       {activeEditor && (
         <div className="fixed inset-0 z-50">
           <EditorPage

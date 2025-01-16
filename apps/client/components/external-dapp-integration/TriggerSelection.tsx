@@ -11,6 +11,7 @@ import { CheckCircle, Loader2, Plus, Trash2 } from 'lucide-react'
 import { api } from '@/services/api'
 import { useAutomationContext } from '@/app/_context/AutomationContext'
 import { ethers } from 'ethers'
+import { BASE_URL } from '@/data/constants'
 
 interface TriggerSelectionProps {
     onSelect: (type: string) => void
@@ -57,7 +58,7 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
     const validateContract = async (address: string) => {
       setIsVerifying(true)
       try {
-        const response = await fetch('http://localhost:5000/DappAutomation', {
+        const response = await fetch(`${BASE_URL}/DappAutomation`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -195,108 +196,113 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Select Trigger Type</CardTitle>
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+            <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl text-zinc-100">Select Trigger Type</CardTitle>
             </CardHeader>
-            <CardContent>
-                <Tabs value={selectedTab} onValueChange={handleTabChange}>
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="custom">Custom Origin Contract</TabsTrigger>
-                        <TabsTrigger value="protocol">Protocol</TabsTrigger>
-                        <TabsTrigger value="blockchain">Blockchain-wide</TabsTrigger>
+            <CardContent className="p-4 sm:p-6">
+                <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
+                    <TabsList className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-0 mb-6">
+                        <TabsTrigger 
+                            value="custom"
+                            className="w-full data-[state=active]:bg-primary data-[state=active]:text-white"
+                        >
+                            Custom Origin Contract
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="protocol"
+                            className="w-full data-[state=active]:bg-primary data-[state=active]:text-white"
+                        >
+                            Protocol
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="blockchain"
+                            className="w-full data-[state=active]:bg-primary data-[state=active]:text-white"
+                        >
+                            Blockchain-wide
+                        </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="custom">
-                        <div className="space-y-6">
+                    <div className="space-y-6">
+                        <div>
+                            <Label htmlFor="chainSelect" className="text-sm sm:text-base text-zinc-200">
+                                Select Chain
+                            </Label>
+                            <Select onValueChange={handleChainSelect}>
+                                <SelectTrigger className="bg-zinc-800/50 border-zinc-700">
+                                    <SelectValue placeholder="Select chain" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-800 border-zinc-700">
+                                    {originSupportedChains.map(chain => (
+                                        <SelectItem 
+                                            key={chain.id} 
+                                            value={chain.id}
+                                            className="text-zinc-200 focus:bg-primary/20"
+                                        >
+                                            {chain.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <TabsContent value="custom" className="space-y-4">
                             <div>
-                                <Label htmlFor="chainSelect">Select Chain</Label>
-                                <Select onValueChange={handleChainSelect}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select chain" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {originSupportedChains.map(chain => (
-                                            <SelectItem key={chain.id} value={chain.id}>
-                                                {chain.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label htmlFor="contractAddress">Contract Address</Label>
+                                <Label htmlFor="contractAddress" className="text-sm sm:text-base text-zinc-200">
+                                    Contract Address
+                                </Label>
                                 <Input
                                     id="contractAddress"
                                     placeholder="0x..."
                                     value={contractAddress}
                                     onChange={(e) => setContractAddress(e.target.value)}
+                                    className="mt-1.5 bg-zinc-800/50 border-zinc-700 text-zinc-200"
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="eventSignature">Event Signature</Label>
+                                <Label htmlFor="eventSignature" className="text-sm sm:text-base text-zinc-200">
+                                    Event Signature
+                                </Label>
                                 <Input
                                     id="eventSignature"
                                     placeholder="Event(address,uint256)"
                                     value={eventABI}
                                     onChange={(e) => setEventABI(e.target.value)}
+                                    className="mt-1.5 bg-zinc-800/50 border-zinc-700 text-zinc-200"
                                 />
                             </div>
-                            <div className="pt-4">
-                                <Button 
-                                    onClick={handleCustomContractSubmit}
-                                    className="w-40"
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Submitting...
-                                        </>
-                                    ) : (
-                                        'Submit'
-                                    )}
-                                </Button>
-                                {successMessage && (
-                                    <div className="text-green-500 text-sm mt-2 px-6 pb-4 flex items-center">
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        {successMessage}
-                                    </div>
+                            <Button 
+                                onClick={handleCustomContractSubmit}
+                                className="w-full sm:w-auto"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Submitting...
+                                    </>
+                                ) : (
+                                    'Submit'
                                 )}
-                            </div>
-                        </div>
-                    </TabsContent>
+                            </Button>
+                        </TabsContent>
 
-                    <TabsContent value="protocol">
-                        <div className="space-y-6">
-                            <div>
-                                <Label htmlFor="chainSelect">Select Chain</Label>
-                                <Select onValueChange={handleChainSelect}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select chain" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {originSupportedChains.map(chain => (
-                                            <SelectItem key={chain.id} value={chain.id}>
-                                                {chain.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <TabsContent value="protocol" className="space-y-4">
                             <div className="space-y-4">
                                 {protocolAddresses.map((address, index) => (
-                                    <div key={index} className="flex items-center gap-2">
+                                    <div key={index} className="flex flex-col sm:flex-row gap-2">
                                         <Input
                                             placeholder="Protocol Address"
                                             value={address}
                                             onChange={(e) => handleProtocolAddressChange(index, e.target.value)}
+                                            className="flex-1 bg-zinc-800/50 border-zinc-700 text-zinc-200"
                                         />
                                         {index > 0 && (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => handleRemoveProtocolAddress(index)}
+                                                className="shrink-0"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -304,13 +310,17 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
                                     </div>
                                 ))}
                             </div>
-                            <div className="flex flex-col gap-4 pt-4">
-                                <Button onClick={handleAddProtocolAddress} variant="outline">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button 
+                                    onClick={handleAddProtocolAddress} 
+                                    variant="outline"
+                                    className="w-full sm:w-auto"
+                                >
                                     <Plus className="mr-2 h-4 w-4" /> Add Protocol Address
                                 </Button>
                                 <Button 
                                     onClick={handleProtocolSubmit}
-                                    className="w-40"
+                                    className="w-full sm:w-auto"
                                     disabled={isVerifying}
                                 >
                                     {isVerifying ? (
@@ -322,63 +332,45 @@ export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {
                                         'Verify and Submit'
                                     )}
                                 </Button>
-                                {successMessage && (
-                                    <div className="text-green-500 text-sm mt-2 px-6 pb-4 flex items-center">
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        {successMessage}
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    </TabsContent>
+                        </TabsContent>
 
-                    <TabsContent value="blockchain">
-                        <div className="space-y-6">
+                        <TabsContent value="blockchain" className="space-y-4">
                             <div>
-                                <Label htmlFor="chainSelect">Select Chain</Label>
-                                <Select onValueChange={handleChainSelect}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select chain" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {originSupportedChains.map(chain => (
-                                            <SelectItem key={chain.id} value={chain.id}>
-                                                {chain.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label htmlFor="eventSignature">Event Signature</Label>
+                                <Label htmlFor="eventSignature" className="text-sm sm:text-base text-zinc-200">
+                                    Event Signature
+                                </Label>
                                 <Input
                                     id="eventSignature"
                                     placeholder="Event(address,uint256)"
                                     value={blockchainEvent}
                                     onChange={(e) => setBlockchainEvent(e.target.value)}
+                                    className="mt-1.5 bg-zinc-800/50 border-zinc-700 text-zinc-200"
                                 />
                             </div>
-                            <div className="pt-4">
-                                <Button 
-                                    onClick={handleBlockchainSubmit}
-                                    className="w-40"
-                                >
-                                    Submit
-                                </Button>
-                                {successMessage && (
-                                    <div className="text-green-500 text-sm mt-2 px-6 pb-4 flex items-center">
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        {successMessage}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </TabsContent>
+                            <Button 
+                                onClick={handleBlockchainSubmit}
+                                className="w-full sm:w-auto"
+                            >
+                                Submit
+                            </Button>
+                        </TabsContent>
+                    </div>
                 </Tabs>
+                
+                {/* Status Messages */}
+                {verificationError && (
+                    <div className="mt-4 text-sm text-red-500 p-3 rounded-md bg-red-500/10">
+                        {verificationError}
+                    </div>
+                )}
+                {successMessage && (
+                    <div className="mt-4 text-sm text-green-500 p-3 rounded-md bg-green-500/10 flex items-center">
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        {successMessage}
+                    </div>
+                )}
             </CardContent>
-            {verificationError && (
-                <div className="text-red-500 text-sm mt-2 px-6 pb-4">{verificationError}</div>
-            )}
         </Card>
-    )
+    );
 }

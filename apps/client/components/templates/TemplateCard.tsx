@@ -1,12 +1,11 @@
 "use client";
-
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import Image from "next/image";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import type { TemplateCard as TemplateCardType } from '@/types/templates';
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import Image from "next/image"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import type { TemplateCard as TemplateCardType } from '@/types/templates'
 
 interface TemplateCardProps {
   data: TemplateCardType;
@@ -48,20 +47,21 @@ export default function TemplateCard({ data, index }: TemplateCardProps) {
             />
           </div>
           
-          <CardHeader className="relative z-10">
-            <CardTitle className="text-xl font-bold text-zinc-100">
+          {/* Content Section */}
+          <CardHeader className="relative z-10 p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl font-bold text-zinc-100">
               {data.title}
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="relative z-10 flex-grow">
-            <p className="mb-4 text-zinc-300">
+          <CardContent className="relative z-10 flex-grow p-4 sm:p-6 pt-0 sm:pt-0">
+            <p className="mb-4 text-sm sm:text-base text-zinc-300">
               {data.description}
             </p>
-            <p className="font-semibold text-zinc-200">
+            <p className="font-semibold text-sm sm:text-base text-zinc-200">
               {data.features.title}
             </p>
-            <ul className="list-disc list-inside mb-4 space-y-1 ml-2">
+            <ul className="list-disc list-inside mb-4 space-y-1 ml-2 text-sm sm:text-base">
               {data.features.items.map((item, i) => (
                 <li key={i} className="text-zinc-300">
                   {item}
@@ -69,16 +69,17 @@ export default function TemplateCard({ data, index }: TemplateCardProps) {
               ))}
             </ul>
             {data.additionalInfo && (
-              <p className="text-zinc-300">
+              <p className="text-sm sm:text-base text-zinc-300">
                 {data.additionalInfo}
               </p>
             )}
           </CardContent>
           
-          <CardFooter className="relative z-10 flex justify-between gap-40 mt-auto">
+          {/* Footer Section */}
+          <CardFooter className="relative z-10 flex flex-col sm:flex-row gap-2 sm:gap-4 p-4 sm:p-6 mt-auto">
             <Link 
               href={data.links.primary.href}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               <Button 
                 size="sm"
@@ -89,7 +90,7 @@ export default function TemplateCard({ data, index }: TemplateCardProps) {
             </Link>
             <Link 
               href={data.links.secondary.href}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               <Button 
                 size="sm" 

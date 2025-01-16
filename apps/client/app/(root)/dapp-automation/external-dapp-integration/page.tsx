@@ -128,30 +128,53 @@ export default function ExternalDAppAutomation() {
   }
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen py-8 sm:py-12 px-2 sm:px-4 md:px-6 lg:px-8">
       <div className="relative z-20 max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
             External DApp Automation
           </h1>
-          <p className="text-zinc-400 text-center text-lg">
+          <p className="text-sm sm:text-base text-zinc-400 text-center mt-2">
             Create automated interactions between smart contracts and DApps.
           </p>
         </div>
   
-        <ProgressNavigation steps={steps} currentStep={currentStep} />
+        {/* Progress navigation with better mobile display */}
+        <div className="overflow-x-auto">
+          <ProgressNavigation steps={steps} currentStep={currentStep} />
+        </div>
   
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm mt-8">
-          <CardContent className="p-6">
-            {renderStepContent()}
+        {/* Main content card */}
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6 sm:mt-8">
+          <CardContent className="p-3 sm:p-6">
+            <motion.div
+              key={currentStep}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              variants={pageTransition}
+              transition={{ duration: 0.3 }}
+              className="min-h-[400px]"
+            >
+              {currentStep === 0 && (
+                <TriggerSelection 
+                  onSelect={(type: string) => 
+                    setTriggerType(type as "custom" | "protocol" | "blockchain")} 
+                />
+              )}
+              {currentStep === 1 && <TargetConfiguration />}
+              {currentStep === 2 && <LogicConfiguration />}
+              {currentStep === 3 && <ReviewAndDeploy />}
+            </motion.div>
           </CardContent>
           
-          <CardFooter className="flex justify-between p-6 border-t border-zinc-800">
+          {/* Navigation footer */}
+          <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 p-4 sm:p-6 border-t border-zinc-800">
             <Button
               onClick={handlePrevious}
               disabled={currentStep === 0}
               variant="outline"
-              className="flex items-center border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
+              className="w-full sm:w-auto border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Previous
@@ -160,7 +183,7 @@ export default function ExternalDAppAutomation() {
             <Button
               onClick={handleNext}
               disabled={currentStep === steps.length - 1}
-              className="flex items-center bg-primary hover:bg-primary/90 text-white"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white"
             >
               {currentStep === steps.length - 1 ? 'Deploy' : 'Next'}
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -168,23 +191,29 @@ export default function ExternalDAppAutomation() {
           </CardFooter>
         </Card>
   
+        {/* Error display */}
         {error && (
           <Alert 
             variant="destructive" 
             className="mt-4 bg-red-900/20 border-red-500/50"
           >
             <AlertCircle className="h-4 w-4 text-red-400" />
-            <AlertTitle className="text-red-300">Error</AlertTitle>
-            <AlertDescription className="text-red-200">{error}</AlertDescription>
+            <AlertTitle className="text-sm sm:text-base text-red-300">Error</AlertTitle>
+            <AlertDescription className="text-xs sm:text-sm text-red-200">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
   
+        {/* Warning message */}
         <Alert 
           variant="warning" 
-          className="mt-8 bg-yellow-900/20 border-yellow-500/50"
+          className="mt-6 sm:mt-8 bg-yellow-900/20 border-yellow-500/50"
         >
-          <AlertTitle className="text-yellow-300">Caution</AlertTitle>
-          <AlertDescription className="text-yellow-200">
+          <AlertTitle className="text-sm sm:text-base text-yellow-300">
+            Caution
+          </AlertTitle>
+          <AlertDescription className="text-xs sm:text-sm text-yellow-200">
             Please ensure you thoroughly test your automation in a test environment before deploying to mainnet.
             Make sure you understand the risks and implications of automated smart contract interactions.
           </AlertDescription>

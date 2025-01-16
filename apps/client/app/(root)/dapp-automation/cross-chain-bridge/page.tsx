@@ -184,7 +184,7 @@ export default function CrossChainBridge() {
           </div>
         </div>
   
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ">
           <CardContent className="p-6">
             <Tabs value={`step${step}`} className="space-y-6">
               <TabsContent value="step1">

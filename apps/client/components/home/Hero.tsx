@@ -25,7 +25,7 @@ const Hero = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
                 as={Link}
-                href="/automations"
+                href="/dapp-automation"
                 color="primary"
                 variant="shadow"
                 size="lg"
@@ -36,7 +36,7 @@ const Hero = () => {
               </Button>
               <Button
                 as={Link}
-                href="/generate"
+                href="/generate-reactive-contract"
                className="w-full sm:w-auto  hover:bg-blue-950/50"
                 variant="bordered"
                 size="lg"

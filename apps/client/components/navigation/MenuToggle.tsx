@@ -13,8 +13,8 @@ export function MenuToggle({ isOpen, onToggle }: MenuToggleProps) {
     <div className="sm:hidden flex items-center">
       <Button variant="ghost" size="icon" onClick={onToggle}>
         {isOpen ? 
-          <X className="h-6 w-6 text-gray-300" /> : 
-          <Menu className="h-6 w-6 text-gray-300" />
+          <X className="h-6 w-6 text-primary" /> : 
+          <Menu className="h-6 w-6 text-primary" />
         }
       </Button>
     </div>
