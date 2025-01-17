@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import DeployButton from '@/components/DeployButton';
 
 const NETWORK_NAMES: { [key: number]: string } = {
   5318008: 'Kopli', // Assuming this is the chain ID for Kopli
@@ -277,28 +278,20 @@ export default function AutomationPage() {
                 onContractChange={handleContractChange}
               />
               <div className="mt-6 space-y-4">
-                <div className="flex justify-between">
-                  <Button 
-                    onClick={handleCompile}
-                    variant="default"
-                    className="relative z-20 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Compile Contract
-                  </Button>
-                </div>
-                {abi && bytecode && (
-                  <Button 
-                    onClick={handleDeploy}
-                    variant="default"
-                    className="relative z-20 w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Deploy to KOPLI Network
-                  </Button>
-                )}
+                
+                <DeployButton
+                    editedContract={editedContract}
+                    onCompileSuccess={(abi, bytecode) => {
+                      setAbi(abi);
+                      setBytecode(bytecode);
+                    }}
+                    onDeploySuccess={(address, transactionHash) => {
+                      setDeployedAddress(address);
+                      setDeploymentTxHash(transactionHash);
+                    }}
+                    web3={web3}
+                    account={account}
+                  />
               </div>
             </CardContent>
           </Card>

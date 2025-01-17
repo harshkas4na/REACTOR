@@ -12,6 +12,7 @@ import { toast } from 'react-hot-toast';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 import dynamic from 'next/dynamic';
 import ContractInteraction from './ContractInteraction';
+import DeployButton from '../DeployButton';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -453,14 +454,14 @@ export default function DeploymentTab({
               <Button
                 variant={isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [helper.name]: 'new' }))}
-                className={`w-1/2 ${isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                className={`w-1/2 ${isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [helper.name]: 'existing' }))}
-                className={`w-1/2 ${!isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                className={`w-1/2 ${!isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
@@ -546,20 +547,23 @@ export default function DeploymentTab({
                   )}
                 </div>
   
-                <Button
-                  onClick={() => handleDeploy(type)}
-                  disabled={isDeploying.helpers[type]}
-                  className="mt-4 w-40 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  {isDeploying.helpers[type] ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying...
-                    </>
-                  ) : (
-                    'Deploy Contract'
-                  )}
-                </Button>
+                <DeployButton
+                  editedContract={helper.contract}
+                  onCompileSuccess={(abi, bytecode) => {
+                    //do nothing
+                  }}
+                  onDeploySuccess={(address, transactionHash) => {
+                    setDeploymentInfo((prev:any) => ({
+                      ...prev,
+                      helpers: {
+                        ...prev.helpers,
+                        [type]: { address, transactionHash }
+                      }
+                    }));
+                  }}
+                  web3={web3}
+                  account={account}
+                />
               </>
             )}
           </div>
@@ -591,14 +595,14 @@ export default function DeploymentTab({
               <Button
                 variant={isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [type]: 'new' }))}
-                className={`w-1/2 ${isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                className={`w-1/2 ${isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
                 onClick={() => setDeploymentMode(prev => ({ ...prev, [type]: 'existing' }))}
-                className={`w-1/2 ${!isNew ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                className={`w-1/2 ${!isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
@@ -692,20 +696,20 @@ export default function DeploymentTab({
                   </div>
                 )}
   
-                <Button
-                  onClick={() => handleDeploy(type)}
-                  disabled={isDeploying[type]}
-                  className="mt-4 w-36 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  {isDeploying[type] ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying...
-                    </>
-                  ) : (
-                    'Deploy Contract'
-                  )}
-                </Button>
+                <DeployButton
+                  editedContract={contract}
+                  onCompileSuccess={(abi, bytecode) => {
+                    //do nothing
+                  }}
+                  onDeploySuccess={(address, transactionHash) => {
+                    setDeploymentInfo((prev:any) => ({
+                      ...prev,
+                      [type]: { address, transactionHash }
+                    }));
+                  }}
+                  web3={web3}
+                  account={account}
+                />
               </>
             )}
           </div>

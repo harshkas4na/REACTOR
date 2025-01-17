@@ -46,128 +46,90 @@ export default function DeploymentConfig({
     web3,
     connectWallet,
     switchNetwork
-  } = useWeb3()
+  } = useWeb3();
 
-  const [customRpcUrl, setCustomRpcUrl] = useState('')
-  const [gasLimit, setGasLimit] = useState('3000000')
-  const [gasPrice, setGasPrice] = useState('20')
-  const [value, setValue] = useState('0')
+  const [customRpcUrl, setCustomRpcUrl] = useState('');
+  const [gasLimit, setGasLimit] = useState('3000000');
+  const [gasPrice, setGasPrice] = useState('20');
+  const [value, setValue] = useState('0');
 
   useEffect(() => {
     const updateGasPrice = async () => {
       if (web3 && account) {
         try {
-          const currentGasPrice = await web3.eth.getGasPrice()
-          setGasPrice(web3.utils.fromWei(currentGasPrice, 'gwei'))
+          const currentGasPrice = await web3.eth.getGasPrice();
+          setGasPrice(web3.utils.fromWei(currentGasPrice, 'gwei'));
         } catch (error) {
-          console.error('Error fetching gas price:', error)
+          console.error('Error fetching gas price:', error);
         }
       }
-    }
-    updateGasPrice()
-  }, [web3, account, selectedNetwork])
+    };
+    updateGasPrice();
+  }, [web3, account, selectedNetwork]);
 
   const getCurrentChainId = () => {
-    return SUPPORTED_NETWORKS[selectedNetwork as keyof typeof SUPPORTED_NETWORKS]?.chainId || ''
-  }
+    return SUPPORTED_NETWORKS[selectedNetwork as keyof typeof SUPPORTED_NETWORKS]?.chainId || '';
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Compilation & Deployment</h2>
-        <div className="flex items-center space-x-4 mb-4">
-          <Badge variant={compilationStatus === 'success' ? 'default' : 'destructive'}>
+    <div className="relative space-y-6">
+      {/* Compilation Status */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-zinc-100">Compilation & Deployment</h2>
+        <div className="flex items-center space-x-4">
+          <Badge 
+            variant={compilationStatus === 'success' ? 'default' : 'destructive'}
+            className={compilationStatus === 'success' 
+              ? 'bg-green-900/20 text-white border-primary/50'
+              : 'bg-red-900/20 text-red-300 border-red-500/50'
+            }
+          >
             {compilationStatus === 'success' ? 'Compilation Successful' : 'Compilation Failed'}
           </Badge>
         </div>
         {compilationError && (
-          <Alert variant="destructive">
-            <AlertTitle>Compilation Error</AlertTitle>
-            <AlertDescription>{compilationError}</AlertDescription>
+          <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
+            <AlertTitle className="text-red-300">Compilation Error</AlertTitle>
+            <AlertDescription className="text-red-200">{compilationError}</AlertDescription>
           </Alert>
         )}
       </div>
 
-      <div>
-        <h3 className="text-xl font-semibold mb-2">Network Configuration</h3>
-        <div className="space-y-4 ">
-          <Select value={selectedNetwork} onValueChange={switchNetwork}>
-            <SelectTrigger className="w-full text-white">
-              <SelectValue placeholder="Select network" />
-            </SelectTrigger>
-            <SelectContent className='text-white'>
-              <SelectItem value="sepolia">Ethereum Sepolia</SelectItem>
-              <SelectItem value="kopli">Kopli Testnet</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            placeholder="Custom RPC URL (optional)"
-            value={customRpcUrl}
-            onChange={(e) => setCustomRpcUrl(e.target.value)}
-          />
-          <div>Chain ID: {getCurrentChainId()}</div>
-        </div>
-      </div>
+     
 
-      <div>
-        <h3 className="text-xl font-semibold mb-2">Deployment Settings</h3>
-        <div className="space-y-4">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Input
-                  placeholder="Gas Limit"
-                  value={gasLimit}
-                  onChange={(e) => setGasLimit(e.target.value)}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Maximum amount of gas you're willing to spend</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Input
-                  placeholder="Gas Price (Gwei)"
-                  value={gasPrice}
-                  onChange={(e) => setGasPrice(e.target.value)}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Current network average: {gasPrice} Gwei</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <Input
-            placeholder="Value (ETH)"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-xl font-semibold mb-2">Wallet Connection</h3>
+      {/* Wallet Connection */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold text-zinc-100">Wallet Connection</h3>
         {account ? (
-          <div className="space-y-2">
-            <div>Connected Account: {`${account.slice(0, 6)}...${account.slice(-4)}`}</div>
-            <div>Network: {selectedNetwork}</div>
+          <div className="space-y-2 p-4 bg-blue-900/20 rounded-lg border border-zinc-800">
+            <div className="text-zinc-300">
+              Connected Account: <span className="text-blue-400 font-mono">{`${account.slice(0, 6)}...${account.slice(-4)}`}</span>
+            </div>
+            <div className="text-zinc-300">
+              Network: <span className="text-blue-400">{selectedNetwork}</span>
+            </div>
           </div>
         ) : (
-          <Button onClick={connectWallet}>Connect Wallet</Button>
+          <Button 
+            onClick={connectWallet}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          >
+            Connect Wallet
+          </Button>
         )}
       </div>
 
+      {/* Deployment Error */}
       {deploymentError && (
-        <Alert variant="destructive">
-          <AlertTitle>Deployment Error</AlertTitle>
-          <AlertDescription>{deploymentError}</AlertDescription>
+        <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
+          <AlertTitle className="text-red-300">Deployment Error</AlertTitle>
+          <AlertDescription className="text-red-200">{deploymentError}</AlertDescription>
         </Alert>
       )}
 
+      {/* Deploy Button */}
       <Button
-        className="w-full"
+        className="w-60 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
         size="lg"
         onClick={onDeploy}
         disabled={
@@ -181,5 +143,5 @@ export default function DeploymentConfig({
         {deploymentStatus === 'deploying' ? 'Deploying...' : 'Deploy Contract'}
       </Button>
     </div>
-  )
+  );
 }

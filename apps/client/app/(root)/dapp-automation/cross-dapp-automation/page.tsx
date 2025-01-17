@@ -1,29 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ethers } from 'ethers'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2, PlusCircle, MinusCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertCircle, CheckCircle2, PlusCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useWeb3 } from '@/app/_context/Web3Context'
 import { useAutomationContext } from '@/app/_context/AutomationContext'
 import { useContractGeneration } from '@/hooks/automation/useContractGeneration'
 import AutomationForm2 from '@/components/automation/SCAutomation/AutomationForm2'
+import DeployButton from '@/components/DeployButton'
 import { BASE_URL } from '@/data/constants'
 
 export default function CrossDAppAutomation() {
   const [availableEvents, setAvailableEvents] = useState([])
   const [isValidating, setIsValidating] = useState(false)
   const [isContractValid, setIsContractValid] = useState(false)
-  const [deployedAddress, setDeployedAddress] = useState<string | null>(null)
+  const [isTemplateVisible, setIsTemplateVisible] = useState(false)
+  const [deployedAddress, setDeployedAddress] = useState<string>('')
+  const [deploymentTxHash, setDeploymentTxHash] = useState<string>('')
   const [abi, setAbi] = useState<any>(null)
   const [bytecode, setBytecode] = useState('')
-  const [deploymentStatus, setDeploymentStatus] = useState('')
-  const [isTemplateVisible, setIsTemplateVisible] = useState(false)
   
   const {
     OrgChainId,
@@ -39,6 +40,7 @@ export default function CrossDAppAutomation() {
     reactiveContract,
     setReactiveContract
   } = useAutomationContext();
+
   const { account, web3 } = useWeb3();
 
   const { generateContractTemplate, isLoading } = useContractGeneration({
@@ -84,16 +86,15 @@ export default function CrossDAppAutomation() {
       isPausable: false,
     });
   };
+
   const handleAddAutomation = (event: any) => {
     const eventSignature = `${event.name}(${event.inputs.map((input: any) => input.type).join(',')})`
     try {
       const topic0 = ethers.keccak256(ethers.toUtf8Bytes(eventSignature))
       setAutomations(prev => {
         if (prev.length === 1 && prev[0].event === '') {
-          // If it's the first event, replace the previous state
           return [{ event: eventSignature, function: '', topic0 }];
         } else {
-          // For subsequent events, add to the existing state
           return [...prev, { event: eventSignature, function: '', topic0 }];
         }
       })
@@ -102,81 +103,6 @@ export default function CrossDAppAutomation() {
       console.error('Error generating topic0:', error)
     }
   }
-
-
-  
-
-  const handleCompile = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/compile`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sourceCode: reactiveContract }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to compile contract');
-      }
-
-      const { abi, bytecode } = await response.json();
-      if (!abi || !bytecode) {
-        throw new Error('Compilation successful, but ABI or bytecode is missing');
-      }
-      setAbi(abi);
-      setBytecode(bytecode);
-      setDeploymentStatus('Contract compiled successfully');
-    } catch (error: any) {
-      console.error('Error in compile:', error);
-      setDeploymentStatus('Failed to compile contract');
-    }
-  };
-
-  const handleDeploy = async () => {
-    if (!web3 || !account) {
-      console.error('Web3 or account not available');
-      return;
-    }
-
-    try {
-      const contract = new web3.eth.Contract(abi);
-      const deployTransaction = contract.deploy({
-        data: bytecode,
-        arguments: []
-      });
-      
-      const gasEstimate = await deployTransaction.estimateGas({ from: account });
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
-      const gasPrice = await web3.eth.getGasPrice();
-
-      const balance = await web3.eth.getBalance(account);
-      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice);
-
-      if (BigInt(balance) < requiredBalance) {
-        setDeploymentStatus('Insufficient balance for deployment');
-        return;
-      }
-
-      const deployedContract = await deployTransaction.send({
-        from: account,
-        gas: String(gasLimit),
-        gasPrice: String(gasPrice),
-      });
-      
-      setDeployedAddress(String(deployedContract.options.address));
-      setDeploymentStatus('Contract deployed successfully');
-
-      const code = await web3.eth.getCode(String(deployedContract.options.address));
-      if (code === '0x' || code === '0x0') {
-        setDeploymentStatus('Contract deployment failed - no code at contract address');
-      }
-
-    } catch (error: any) {
-      console.error('Deployment error:', error);
-      setDeploymentStatus('Failed to deploy contract');
-    }
-  };
 
   return (
     <div className="relative min-h-screen py-8 sm:py-12 px-2 sm:px-4 md:px-6 lg:px-8">
@@ -329,12 +255,6 @@ export default function CrossDAppAutomation() {
         <div className="space-y-3 sm:space-y-4">
           {reactiveContract && (
             <>
-              <Button 
-                onClick={handleCompile}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm sm:text-base py-2 sm:py-3"
-              >
-                Compile Contract
-              </Button>
               <Button
                 onClick={() => setIsTemplateVisible(!isTemplateVisible)}
                 className="w-full bg-blue-900/20 hover:bg-blue-900/30 text-zinc-200 flex justify-between items-center border border-blue-500/20 text-sm sm:text-base py-2 sm:py-3"
@@ -342,7 +262,7 @@ export default function CrossDAppAutomation() {
                 <span>{isTemplateVisible ? 'Hide' : 'Show'} Generated Template</span>
                 {isTemplateVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
-  
+
               {isTemplateVisible && (
                 <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
                   <CardContent className="p-3 sm:p-6">
@@ -352,55 +272,46 @@ export default function CrossDAppAutomation() {
                   </CardContent>
                 </Card>
               )}
-            </>
-          )}
-  
-          {abi && bytecode && (
-            <Button 
-              onClick={handleDeploy}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm sm:text-base py-2 sm:py-3"
-            >
-              Deploy Contract
-            </Button>
-          )}
-  
-          {/* Status Alerts */}
-          {deploymentStatus && (
-            <Alert 
-              className={`${
-                deploymentStatus.includes('successfully') 
-                  ? 'bg-green-900/20 border-green-500/50' 
-                  : 'bg-red-900/20 border-red-500/50'
-              } p-3 sm:p-4`}
-            >
-              {deploymentStatus.includes('successfully') ? (
-                <CheckCircle2 className="h-4 w-4 text-green-400" />
-              ) : (
-                <AlertCircle className="h-4 w-4 text-red-400" />
+
+              <DeployButton
+                editedContract={reactiveContract}
+                onCompileSuccess={(abi:any, bytecode:any) => {
+                  setAbi(abi);
+                  setBytecode(bytecode);
+                }}
+                onDeploySuccess={(address:any, txHash:any) => {
+                  setDeployedAddress(address);
+                  setDeploymentTxHash(txHash);
+                }}
+                web3={web3}
+                account={account}
+              />
+
+              {deployedAddress && (
+                <Alert className="bg-green-900/20 border-green-500/50 p-3 sm:p-4">
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                  <AlertTitle className="text-sm sm:text-base text-green-300">
+                    Contract Deployed Successfully
+                  </AlertTitle>
+                  <AlertDescription className="text-xs sm:text-sm mt-1 text-green-200">
+                    <div className="space-y-2">
+                      <p className="break-all">Contract Address: {deployedAddress}</p>
+                      {deploymentTxHash && (
+                        <>
+                          <p className="break-all">Transaction Hash: {deploymentTxHash}</p>
+                          <Button 
+                            onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
+                            className="mt-2 bg-blue-600 hover:bg-blue-700 text-sm"
+                          >
+                            View on Explorer
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
               )}
-              <AlertTitle className={`text-sm sm:text-base ${
-                deploymentStatus.includes('successfully') ? 'text-green-300' : 'text-red-300'
-              }`}>
-                Deployment Status
-              </AlertTitle>
-              <AlertDescription className={`text-xs sm:text-sm mt-1 ${
-                deploymentStatus.includes('successfully') ? 'text-green-200' : 'text-red-200'
-              }`}>
-                {deploymentStatus}
-              </AlertDescription>
-            </Alert>
-          )}
-  
-          {deployedAddress && (
-            <Alert className="bg-green-900/20 border-green-500/50 p-3 sm:p-4">
-              <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <AlertTitle className="text-sm sm:text-base text-green-300">
-                Contract Deployed
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm mt-1 text-green-200 break-all">
-                Deployed at: {deployedAddress}
-              </AlertDescription>
-            </Alert>
+            </>
           )}
         </div>
       </div>

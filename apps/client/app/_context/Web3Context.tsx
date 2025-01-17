@@ -3,10 +3,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import Web3 from 'web3';
 import { useEffect } from 'react';
-import { Contract, ContractAbi } from 'web3';
-
-// Define a base contract interface that extends the Contract type
-
 
 interface Web3ContextType {
   selectedNetwork: string;

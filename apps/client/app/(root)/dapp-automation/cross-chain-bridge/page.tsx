@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle2, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useContractGeneration } from '@/hooks/automation/useContractGeneration'
 import { useAutomationContext } from '@/app/_context/AutomationContext'
 import AutomationForm2 from '@/components/automation/SCAutomation/AutomationForm2'
+import DeployButton from '@/components/DeployButton'
 import { useWeb3 } from '@/app/_context/Web3Context'
 import { BASE_URL } from '@/data/constants'
 
@@ -20,11 +21,11 @@ export default function CrossChainBridge() {
   const [step, setStep] = useState(1)
   const [originChain, setOriginChain] = useState('')
   const [destinationChain, setDestinationChain] = useState('')
-  const [deploymentStatus, setDeploymentStatus] = useState<string | null>(null)
-  const [deployedAddress, setDeployedAddress] = useState<string | null>(null)
+  const [isContractVisible, setIsContractVisible] = useState(false)
+  const [deployedAddress, setDeployedAddress] = useState('')
+  const [deploymentTxHash, setDeploymentTxHash] = useState('')
   const [abi, setAbi] = useState<any>(null)
   const [bytecode, setBytecode] = useState('')
-  const [isContractVisible, setIsContractVisible] = useState(false)
   
   const {
     OrgChainId,
@@ -39,7 +40,9 @@ export default function CrossChainBridge() {
     reactiveContract,
     setReactiveContract
   } = useAutomationContext();
+
   const { account, web3 } = useWeb3();
+
   const chains = [
     { name: 'Ethereum', id: '1' },
     { name: 'Sepolia', id: '11155111' },
@@ -47,99 +50,55 @@ export default function CrossChainBridge() {
     { name: 'Avalanche', id: '43114' }
   ]
 
-  const handleCompile = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/compile`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sourceCode: reactiveContract }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to compile contract');
-      }
-
-      const { abi, bytecode } = await response.json();
-      if (!abi || !bytecode) {
-        throw new Error('Compilation successful, but ABI or bytecode is missing');
-      }
-      setAbi(abi);
-      setBytecode(bytecode);
-      setDeploymentStatus('Contract compiled successfully');
-    } catch (error: any) {
-      console.error('Error in compile:', error);
-    }
-  };
-
-  const handleDeploy = async () => {
-    if (!web3 || !account) {
-      console.error('Web3 or account not available');
-      return;
-    }
-
-    try {
-      const contract = new web3.eth.Contract(abi);
-      const deployTransaction = contract.deploy({
-        data: bytecode,
-        arguments: []
-      });
-      
-      const gasEstimate = await deployTransaction.estimateGas({ from: account });
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
-      const gasPrice = await web3.eth.getGasPrice();
-
-      const balance = await web3.eth.getBalance(account);
-      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice);
-
-      if (BigInt(balance) < requiredBalance) {
-        setDeploymentStatus('Insufficient balance for deployment');
-        return;
-      }
-
-      const deployedContract = await deployTransaction.send({
-        from: account,
-        gas: String(gasLimit),
-        gasPrice: String(gasPrice),
-      });
-      
-      setDeployedAddress(String(deployedContract.options.address));
-      setDeploymentStatus('Contract deployed successfully');
-
-      const code = await web3.eth.getCode(String(deployedContract.options.address));
-      if (code === '0x' || code === '0x0') {
-        setDeploymentStatus('Contract deployment failed - no code at contract address');
-      }
-
-    } catch (error: any) {
-      console.error('Deployment error:', error);
-      setDeploymentStatus('Failed to deploy contract');
-    }
-  };
-
   const { generateContractTemplate, isLoading } = useContractGeneration({
     onSuccess: (contract) => {
       setReactiveContract(contract);
+      // After successful generation, move to the next step
+      if (step === 3) nextStep();
     },
   });
   
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await generateContractTemplate({
-      automations,
-      OrgChainId: Number(OrgChainId),
-      DesChainId: Number(DesChainId),
-      originAddress,
-      destinationAddress,
-      isPausable: false,
-    });
+    e.preventDefault(); // Prevent form submission from refreshing the page
+    
+    // Validate required fields
+    if (!originAddress || !destinationAddress || !OrgChainId || !DesChainId || automations.length === 0) {
+      console.error('Missing required fields');
+      return;
+    }
+
+    try {
+      await generateContractTemplate({
+        automations,
+        OrgChainId: Number(OrgChainId),
+        DesChainId: Number(DesChainId),
+        originAddress,
+        destinationAddress,
+        isPausable: false,
+      });
+    } catch (error) {
+      console.error('Error generating contract:', error);
+    }
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 4))
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1))
+  const nextStep = () => setStep(prev => Math.min(prev + 1, 4));
+  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
-  const toggleContractVisibility = () => setIsContractVisible(!isContractVisible)
+  const toggleContractVisibility = () => setIsContractVisible(!isContractVisible);
+
+  // Validate step completion before allowing next
+  const canProceedToNext = () => {
+    switch (step) {
+      case 1:
+        return originChain && destinationChain;
+      case 2:
+        return originAddress && destinationAddress;
+      case 3:
+        return automations.length > 0 && automations.every(a => a.event && a.function);
+      default:
+        return true;
+    }
+  };
 
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-64">
@@ -183,8 +142,8 @@ export default function CrossChainBridge() {
             ))}
           </div>
         </div>
-  
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ">
+
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardContent className="p-6">
             <Tabs value={`step${step}`} className="space-y-6">
               <TabsContent value="step1">
@@ -204,7 +163,7 @@ export default function CrossChainBridge() {
                       <SelectTrigger id="originChain" className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200">
                         <SelectValue placeholder="Select origin chain" />
                       </SelectTrigger>
-                      <SelectContent className="bg-zinc-800 border-zinc-700">
+                      <SelectContent className="bg-black border-zinc-700">
                         {chains.map(chain => (
                           <SelectItem 
                             key={chain.name} 
@@ -232,7 +191,7 @@ export default function CrossChainBridge() {
                       <SelectTrigger id="destinationChain" className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200">
                         <SelectValue placeholder="Select destination chain" />
                       </SelectTrigger>
-                      <SelectContent className="bg-zinc-800 border-zinc-700">
+                      <SelectContent className="bg-black border-zinc-700">
                         {chains.map(chain => (
                           <SelectItem 
                             key={chain.name} 
@@ -300,11 +259,10 @@ export default function CrossChainBridge() {
                     onSubmit={handleSubmit}
                     isLoading={isLoading}
                     error={null}
-                    isValidForm={true}
+                    isValidForm={canProceedToNext() as boolean}
                   />
                 </div>
               </TabsContent>
-  
               <TabsContent value="step4">
                 <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
                   Deployment
@@ -330,46 +288,41 @@ export default function CrossChainBridge() {
                   )}
                   
                   <div className="space-y-4">
-                    <Button 
-                      onClick={handleCompile} 
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" 
-                      disabled={isLoading || !reactiveContract}
-                    >
-                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Compile Contract
-                    </Button>
-                    
-                    <Button 
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                      onClick={handleDeploy}
-                      disabled={isLoading || !originChain || !destinationChain || !abi || !bytecode}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Deploying...
-                        </>
-                      ) : (
-                        'Deploy Bridge'
-                      )}
-                    </Button>
-  
-                    {deploymentStatus && (
-                      <Alert className="bg-blue-900/20 border-blue-500/50">
-                        <CheckCircle2 className="h-4 w-4 text-blue-400" />
-                        <AlertTitle className="text-blue-300">Status</AlertTitle>
-                        <AlertDescription className="text-blue-200">
-                          {deploymentStatus}
-                        </AlertDescription>
-                      </Alert>
+                    {reactiveContract && (
+                      <DeployButton
+                        editedContract={reactiveContract}
+                        onCompileSuccess={(abi, bytecode) => {
+                          setAbi(abi);
+                          setBytecode(bytecode);
+                        }}
+                        onDeploySuccess={(address, txHash) => {
+                          setDeployedAddress(address);
+                          setDeploymentTxHash(txHash);
+                        }}
+                        web3={web3}
+                        account={account}
+                      />
                     )}
-  
+
                     {deployedAddress && (
                       <Alert className="bg-green-900/20 border-green-500/50">
                         <CheckCircle2 className="h-4 w-4 text-green-400" />
-                        <AlertTitle className="text-green-300">Deployed Address</AlertTitle>
+                        <AlertTitle className="text-green-300">Contract Deployed Successfully</AlertTitle>
                         <AlertDescription className="text-green-200">
-                          {deployedAddress}
+                          <div className="space-y-2">
+                            <p className="break-all">Contract Address: {deployedAddress}</p>
+                            {deploymentTxHash && (
+                              <>
+                                <p className="break-all">Transaction Hash: {deploymentTxHash}</p>
+                                <Button 
+                                  onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
+                                  className="mt-2 bg-blue-600 hover:bg-blue-700 text-sm"
+                                >
+                                  View on Explorer
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </AlertDescription>
                       </Alert>
                     )}
@@ -389,7 +342,7 @@ export default function CrossChainBridge() {
               </Button>
               <Button 
                 onClick={nextStep} 
-                disabled={step === 4}
+                disabled={step === 4 || !canProceedToNext()}
                 className="bg-primary hover:bg-primary/90 text-white"
               >
                 {step === 4 ? 'Finish' : 'Next'}

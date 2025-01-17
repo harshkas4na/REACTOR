@@ -111,7 +111,7 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
         className="hidden"
       />
       
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between z-10 items-center mb-4">
         <div className="flex space-x-2">
           <TooltipProvider>
             <Tooltip>
@@ -146,6 +146,7 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
           <Button 
             variant="default"
             onClick={handleCompile}
+            className=" z-10"
             disabled={compilationStatus === 'compiling'}
           >
             {compilationStatus === 'compiling' ? 'Compiling...' : 'Compile'}

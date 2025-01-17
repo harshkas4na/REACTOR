@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DeploymentRecord } from './SmartContractDeployer'
+import { DeploymentRecord } from '@/app/(root)/smart-contract-deployer/page'
 
 export default function DeploymentHistory() {
   const [deployments, setDeployments] = useState<DeploymentRecord[]>([])
