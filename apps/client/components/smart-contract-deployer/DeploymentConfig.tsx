@@ -112,7 +112,7 @@ export default function DeploymentConfig({
         ) : (
           <Button 
             onClick={connectWallet}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            className="bg-primary hover:bg-primary/90 text-white"
           >
             Connect Wallet
           </Button>
@@ -129,7 +129,7 @@ export default function DeploymentConfig({
 
       {/* Deploy Button */}
       <Button
-        className="w-60 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+        className="w-60 z-20 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
         size="lg"
         onClick={onDeploy}
         disabled={

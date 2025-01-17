@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useToast } from '@/hooks/use-toast'
+import { SaveIcon, ImportIcon, RefreshCcw, Code2 } from 'lucide-react'
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
@@ -21,6 +22,7 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
   const { toast } = useToast()
   const [language, setLanguage] = useState('solidity')
   const [editorContent, setEditorContent] = useState('')
+  const [editorHeight, setEditorHeight] = useState('500px')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Load saved contract on mount
@@ -29,6 +31,17 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
     if (savedContract) {
       setEditorContent(savedContract)
     }
+
+    // Set editor height based on viewport
+    const updateEditorHeight = () => {
+      const vh = window.innerHeight;
+      const newHeight = vh <= 640 ? '300px' : vh <= 768 ? '400px' : '500px';
+      setEditorHeight(newHeight);
+    }
+
+    updateEditorHeight();
+    window.addEventListener('resize', updateEditorHeight);
+    return () => window.removeEventListener('resize', updateEditorHeight);
   }, [])
 
   const handleImport = () => {
@@ -111,49 +124,85 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
         className="hidden"
       />
       
-      <div className="flex justify-between z-10 items-center mb-4">
-        <div className="flex space-x-2">
+      {/* Editor Controls */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4 sm:gap-6 mb-4 z-20">
+        {/* Action Buttons Group */}
+        <div className="flex flex-wrap gap-2 items-center">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" onClick={handleImport}>Import</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleImport}
+                  className="flex items-center gap-2"
+                >
+                  <ImportIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Import</span>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Import a .sol file</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" onClick={handleSave}>Save</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleSave}
+                  className="flex items-center gap-2"
+                >
+                  <SaveIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Save</span>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Save to local storage</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" onClick={handleReset}>Reset</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleReset}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Reset</span>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Clear the editor</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
           <Button 
             variant="default"
+            size="sm"
             onClick={handleCompile}
-            className=" z-10"
             disabled={compilationStatus === 'compiling'}
+            className="flex items-center gap-2"
           >
-            {compilationStatus === 'compiling' ? 'Compiling...' : 'Compile'}
+            <Code2 className="h-4 w-4" />
+            <span>{compilationStatus === 'compiling' ? 'Compiling...' : 'Compile'}</span>
           </Button>
         </div>
-        <Select value={language} onValueChange={setLanguage}>
-          <SelectTrigger className="w-[180px]">
+
+        {/* Language Selector */}
+        <Select 
+          value={language} 
+          onValueChange={setLanguage}
+        >
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Select language" />
           </SelectTrigger>
           <SelectContent>
@@ -161,9 +210,11 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
           </SelectContent>
         </Select>
       </div>
-      <div className="flex-grow">
+
+      {/* Code Editor */}
+      <div className="flex-grow relative w-full min-h-[300px]">
         <MonacoEditor
-          height="500px"
+          height={editorHeight}
           language={language}
           theme="vs-dark"
           value={editorContent}
@@ -175,7 +226,12 @@ export default function ContractEditor({ onCompile, compilationStatus }: Contrac
             scrollBeyondLastLine: false,
             readOnly: false,
             automaticLayout: true,
+            fontSize: window.innerWidth < 640 ? 12 : 14,
+            wordWrap: 'on',
+            wrappingStrategy: 'advanced',
+            padding: { top: 10, bottom: 10 },
           }}
+          className="rounded-md overflow-hidden border border-zinc-800"
         />
       </div>
     </div>
