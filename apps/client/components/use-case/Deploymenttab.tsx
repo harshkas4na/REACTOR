@@ -48,8 +48,8 @@ interface DeploymentTabProps {
   helperContracts?: HelperContract[];
 }
 
-export default function DeploymentTab({ 
-  reactiveTemplate, 
+export default function DeploymentTab({
+  reactiveTemplate,
   originContract,
   originABI,
   originBytecode,
@@ -67,16 +67,11 @@ export default function DeploymentTab({
     helpers: {}
   });
 
-  const [deployedAddresses, setDeployedAddresses] = useState<{
-    origin: string;
-    destination: string;
-    reactive: string;
-    helpers: Record<string, string>;
-  }>({
+  const [deployedAddresses, setDeployedAddresses] = useState({
     origin: '',
     destination: '',
     reactive: '',
-    helpers: {}
+    helpers: {} as Record<string, string>
   });
 
   const [constructorArgs, setConstructorArgs] = useState<{
@@ -129,10 +124,11 @@ export default function DeploymentTab({
   const { account, web3 } = useWeb3();
   const { setOriginAddress, setDestinationAddress } = useAutomationContext();
 
-  const areContractsIdentical = originContract === destinationContract && 
-                               originABI === destinationABI && 
-                               originBytecode === destinationBytecode;
+  const areContractsIdentical = originContract === destinationContract &&
+    originABI === destinationABI &&
+    originBytecode === destinationBytecode;
 
+  // Initialize constructor arguments
   useEffect(() => {
     const parseConstructorArgs = (abi: string): Record<string, string> => {
       try {
@@ -149,23 +145,30 @@ export default function DeploymentTab({
       return {};
     };
 
+    const helperArgs = Object.fromEntries(
+      helperContracts.map(helper => [
+        helper.name,
+        helper.abi ? parseConstructorArgs(helper.abi) : {}
+      ])
+    );
+
     setConstructorArgs({
       origin: parseConstructorArgs(originABI),
       destination: !areContractsIdentical ? parseConstructorArgs(destinationABI) : {},
       reactive: parseConstructorArgs(reactiveABI),
-      helpers: {}
+      helpers: helperArgs
     });
 
     // Initialize deployment modes for helper contracts
     const helperModes = Object.fromEntries(
       helperContracts.map(helper => [helper.name, 'new'])
     );
-    setDeploymentMode((prev:any) => ({ ...prev, ...helperModes })); 
+    setDeploymentMode((prev:any) => ({ ...prev, ...helperModes }));
   }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts]);
 
   const handleConstructorArgChange = (
-    type: string, 
-    name: string, 
+    type: string,
+    name: string,
     value: string
   ) => {
     if (type.startsWith('helper_')) {
@@ -181,10 +184,10 @@ export default function DeploymentTab({
         }
       }));
     } else {
-      setConstructorArgs((prev:any) => ({
+      setConstructorArgs(prev => ({
         ...prev,
         [type]: {
-          ...prev[type],
+          ...prev[type as keyof typeof prev],
           [name]: value
         }
       }));
@@ -193,7 +196,7 @@ export default function DeploymentTab({
 
   const handleExistingAddressChange = (type: string, value: string) => {
     if (type.startsWith('helper_')) {
-      setExistingAddresses((prev:any) => ({
+      setExistingAddresses(prev => ({
         ...prev,
         helpers: {
           ...prev.helpers,
@@ -201,7 +204,7 @@ export default function DeploymentTab({
         }
       }));
     } else {
-      setExistingAddresses((prev:any) => ({
+      setExistingAddresses(prev => ({
         ...prev,
         [type]: value
       }));
@@ -212,12 +215,12 @@ export default function DeploymentTab({
     if (!/^\d*\.?\d*$/.test(value)) return;
 
     if (type.startsWith('helper_')) {
-      setNativeTokenAmount((prev:any) => ({
+      setNativeTokenAmount(prev => ({
         ...prev,
         helpers: { ...prev.helpers, [type]: value }
       }));
     } else {
-      setNativeTokenAmount((prev:any)  => ({ ...prev, [type]: value }));
+      setNativeTokenAmount(prev => ({ ...prev, [type]: value }));
     }
   };
 
@@ -243,14 +246,14 @@ export default function DeploymentTab({
 
     try {
       validateNativeTokenAmount(type);
-      setIsDeploying((prev:any)=> ({
+      setIsDeploying(prev => ({
         ...prev,
         [type]: true
       }));
       setError(null);
 
       const chainId = await web3.eth.getChainId();
-      
+
       if (type === 'reactive' && chainId !== BigInt(5318008)) {
         throw new Error('Reactive contract can only be deployed on the Kopli network');
       }
@@ -274,12 +277,12 @@ export default function DeploymentTab({
         contractData = {
           abi: JSON.parse(
             type === 'reactive' ? reactiveABI :
-            type === 'origin' ? originABI :
-            destinationABI
+              type === 'origin' ? originABI :
+                destinationABI
           ),
           bytecode: type === 'reactive' ? reactiveBytecode :
-                   type === 'origin' ? originBytecode :
-                   destinationBytecode
+            type === 'origin' ? originBytecode :
+              destinationBytecode
         };
         constructorParameters = Object.values(constructorArgs[type as keyof typeof constructorArgs]);
         deploymentValue = web3.utils.toWei(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as string, 'ether');
@@ -291,7 +294,7 @@ export default function DeploymentTab({
         arguments: constructorParameters
       });
 
-      const gasEstimate = await deploy.estimateGas({ 
+      const gasEstimate = await deploy.estimateGas({
         from: account,
         value: deploymentValue
       });
@@ -314,34 +317,34 @@ export default function DeploymentTab({
           gasPrice: String(gasPrice),
           value: deploymentValue
         })
-        .on('transactionHash', (hash: string | Uint8Array) => {
-          console.log('Transaction Hash:', hash);
-          transactionHash = hash.toString();
-          
-          if (type.startsWith('helper_')) {
-            setDeploymentInfo((prev:any) => ({
-              ...prev,
-              helpers: {
-                ...prev.helpers,
+          .on('transactionHash', (hash: string | Uint8Array) => {
+            console.log('Transaction Hash:', hash);
+            transactionHash = hash.toString();
+
+            if (type.startsWith('helper_')) {
+              setDeploymentInfo((prev:any) => ({
+                ...prev,
+                helpers: {
+                  ...prev.helpers,
+                  [type]: { address: 'Deploying...', transactionHash: hash }
+                }
+              }));
+            } else {
+              setDeploymentInfo(prev => ({
+                ...prev,
                 [type]: { address: 'Deploying...', transactionHash: hash }
-              }
-            }));
-          } else {
-            setDeploymentInfo(prev => ({
-              ...prev,
-              [type]: { address: 'Deploying...', transactionHash: hash }
-            }));
-          }
-        })
-        .on('error', (error: any) => {
-          reject(error);
-        })
-        .then(resolve);
+              }));
+            }
+          })
+          .on('error', (error: any) => {
+            reject(error);
+          })
+          .then(resolve);
       });
 
       if (deployedContract) {
         const contractAddress = (deployedContract as any).options.address;
-        
+
         if (type.startsWith('helper_')) {
           setDeploymentInfo(prev => ({
             ...prev,
@@ -365,7 +368,7 @@ export default function DeploymentTab({
         }
 
         toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} contract deployed successfully!`);
-        
+
         return {
           transactionHash,
           contractAddress
@@ -382,10 +385,9 @@ export default function DeploymentTab({
       }));
     }
   };
-  console.log(constructorArgs)
 
   const renderDeploymentInfo = (type: string) => {
-    const info = type.startsWith('helper_') 
+    const info = type.startsWith('helper_')
       ? deploymentInfo.helpers[type]
       : deploymentInfo[type as keyof Omit<DeploymentInfo, 'helpers'>];
 
@@ -440,9 +442,9 @@ export default function DeploymentTab({
     const type = `helper_${helper.name}`;
     const isNew = deploymentMode[helper.name] === 'new';
     const address = isNew ? deployedAddresses.helpers[type] : existingAddresses.helpers[type];
-  
+
     return (
-      <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+      <Card key={helper.name} className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
         <CardHeader className="border-b border-zinc-800">
           <CardTitle className="text-xl font-bold text-zinc-100">
             {helper.name} Helper Contract
@@ -466,7 +468,7 @@ export default function DeploymentTab({
                 Use Existing
               </Button>
             </div>
-  
+
             {!isNew && (
               <div>
                 <Label htmlFor={`${type}-address`} className="text-zinc-300">
@@ -474,7 +476,6 @@ export default function DeploymentTab({
                 </Label>
                 <Input
                   id={`${type}-address`}
-                  name={`${type}-address`}
                   value={existingAddresses.helpers[type] || ''}
                   onChange={(e) => handleExistingAddressChange(type, e.target.value)}
                   className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
@@ -482,7 +483,7 @@ export default function DeploymentTab({
                 />
               </div>
             )}
-  
+
             {address && renderDeploymentInfo(type)}
             {address && helper.abi && (
               <ContractInteraction
@@ -492,7 +493,7 @@ export default function DeploymentTab({
                 account={account}
               />
             )}
-  
+
             {isNew && !address && (
               <>
                 <div className="flex justify-between">
@@ -507,7 +508,7 @@ export default function DeploymentTab({
                     {showCode.helpers[type] ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
-  
+
                 {showCode.helpers[type] && (
                   <div className="border border-zinc-800 rounded-lg overflow-hidden">
                     <MonacoEditor
@@ -522,20 +523,16 @@ export default function DeploymentTab({
                     />
                   </div>
                 )}
-  
+
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
-                  {/* //Check is there something inside constructorArgs.helpers[helper.name] */}
-                  {Object.entries(constructorArgs.helpers[helper.name] || {}).length >= 0 && (
-                    <>
-                    {Object.entries(constructorArgs.helpers[helper.name] || {}).map(([argName, value]) => (
+                  {Object.entries(constructorArgs.helpers[helper.name] || {}).map(([argName, value]) => (
                     <div key={argName}>
                       <Label htmlFor={`${type}-${argName}`} className="text-zinc-300">
                         {argName}
                       </Label>
                       <Input
                         id={`${type}-${argName}`}
-                        name={`${type}-${argName}`}
                         value={value}
                         onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
                         className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
@@ -543,27 +540,35 @@ export default function DeploymentTab({
                       />
                     </div>
                   ))}
-                  </>
-                  )}
                 </div>
-  
-                <DeployButton
-                  editedContract={helper.contract}
-                  onCompileSuccess={(abi, bytecode) => {
-                    //do nothing
-                  }}
-                  onDeploySuccess={(address, transactionHash) => {
-                    setDeploymentInfo((prev:any) => ({
-                      ...prev,
-                      helpers: {
-                        ...prev.helpers,
-                        [type]: { address, transactionHash }
-                      }
-                    }));
-                  }}
-                  web3={web3}
-                  account={account}
-                />
+
+                <div>
+                  <Label htmlFor={`${type}-token-amount`} className="text-zinc-300">
+                    Native Token Amount
+                  </Label>
+                  <Input
+                    id={`${type}-token-amount`}
+                    value={nativeTokenAmount.helpers[type] || '0'}
+                    onChange={(e) => handleNativeTokenAmountChange(type, e.target.value)}
+                    className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                    placeholder="Enter amount in ETH"
+                  />
+                </div>
+
+                <Button
+                  onClick={() => handleDeploy(type)}
+                  disabled={isDeploying.helpers[type]}
+                  className="w-full mt-4"
+                >
+                  {isDeploying.helpers[type] ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying...
+                    </>
+                  ) : (
+                    'Deploy Contract'
+                  )}
+                </Button>
               </>
             )}
           </div>
@@ -575,13 +580,13 @@ export default function DeploymentTab({
   const renderContractCard = (type: 'origin' | 'destination' | 'reactive') => {
     const isNew = deploymentMode[type] === 'new';
     const address = isNew ? deployedAddresses[type] : existingAddresses[type];
-    const abi = type === 'reactive' ? reactiveABI : 
-                type === 'origin' ? originABI : 
-                destinationABI;
+    const abi = type === 'reactive' ? reactiveABI :
+      type === 'origin' ? originABI :
+        destinationABI;
     const contract = type === 'reactive' ? reactiveTemplate :
-                    type === 'origin' ? originContract :
-                    destinationContract;
-  
+      type === 'origin' ? originContract :
+        destinationContract;
+
     return (
       <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
         <CardHeader className="border-b border-zinc-800">
@@ -607,7 +612,7 @@ export default function DeploymentTab({
                 Use Existing
               </Button>
             </div>
-  
+
             {!isNew && (
               <div>
                 <Label htmlFor={`${type}-address`} className="text-zinc-300">
@@ -615,7 +620,6 @@ export default function DeploymentTab({
                 </Label>
                 <Input
                   id={`${type}-address`}
-                  name={`${type}-address`}
                   value={existingAddresses[type]}
                   onChange={(e) => handleExistingAddressChange(type, e.target.value)}
                   className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
@@ -623,7 +627,7 @@ export default function DeploymentTab({
                 />
               </div>
             )}
-  
+
             {address && renderDeploymentInfo(type)}
             {address && (
               <ContractInteraction
@@ -633,7 +637,7 @@ export default function DeploymentTab({
                 account={account}
               />
             )}
-  
+
             {isNew && !address && (
               <>
                 <div className="flex justify-between">
@@ -645,7 +649,7 @@ export default function DeploymentTab({
                     {showCode[type] ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
-  
+
                 {showCode[type] && (
                   <div className="border border-zinc-800 rounded-lg overflow-hidden">
                     <MonacoEditor
@@ -660,7 +664,7 @@ export default function DeploymentTab({
                     />
                   </div>
                 )}
-  
+
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
                   {Object.entries(constructorArgs[type]).map(([argName, value]) => (
@@ -670,7 +674,6 @@ export default function DeploymentTab({
                       </Label>
                       <Input
                         id={`${type}-${argName}`}
-                        name={`${type}-${argName}`}
                         value={value}
                         onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
                         className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
@@ -679,7 +682,7 @@ export default function DeploymentTab({
                     </div>
                   ))}
                 </div>
-  
+
                 {(type === 'destination' || (type === 'origin' && areContractsIdentical)) && (
                   <div>
                     <Label htmlFor={`${type}-token-amount`} className="text-zinc-300">
@@ -687,7 +690,6 @@ export default function DeploymentTab({
                     </Label>
                     <Input
                       id={`${type}-token-amount`}
-                      name={`${type}-token-amount`}
                       value={nativeTokenAmount[type]}
                       onChange={(e) => handleNativeTokenAmountChange(type, e.target.value)}
                       className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
@@ -695,21 +697,21 @@ export default function DeploymentTab({
                     />
                   </div>
                 )}
-  
-                <DeployButton
-                  editedContract={contract}
-                  onCompileSuccess={(abi, bytecode) => {
-                    //do nothing
-                  }}
-                  onDeploySuccess={(address, transactionHash) => {
-                    setDeploymentInfo((prev:any) => ({
-                      ...prev,
-                      [type]: { address, transactionHash }
-                    }));
-                  }}
-                  web3={web3}
-                  account={account}
-                />
+
+                <Button
+                  onClick={() => handleDeploy(type)}
+                  disabled={isDeploying[type]}
+                  className="w-full mt-4"
+                >
+                  {isDeploying[type] ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying...
+                    </>
+                  ) : (
+                    'Deploy Contract'
+                  )}
+                </Button>
               </>
             )}
           </div>
@@ -737,7 +739,7 @@ export default function DeploymentTab({
           {renderContractCard('destination')}
         </>
       )}
-      
+
       {renderContractCard('reactive')}
 
       {helperContracts?.length > 0 && (
