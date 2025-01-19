@@ -1,7 +1,7 @@
 "use client";
 import React, { useRef, useEffect } from 'react';
 import { motion, useAnimation, useInView } from "framer-motion";
-import { Card, CardBody, Button } from "@nextui-org/react";
+import { Card, CardBody, Button, Link } from "@nextui-org/react";
 import Image from "next/image";
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
@@ -50,6 +50,7 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
                 </p>
               </div>
               <div className="pt-6 sm:pt-8">
+                <Link href="/automations/uniswap-stop-order">
                 <Button 
                   className="w-full sm:w-48 h-10 sm:h-12 text-base sm:text-lg"
                   color="primary"
@@ -57,6 +58,7 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
                 >
                   Get Started
                 </Button>
+                  </Link>
               </div>
             </div>
             <div className="w-full md:w-1/2 relative min-h-[200px] md:h-full">

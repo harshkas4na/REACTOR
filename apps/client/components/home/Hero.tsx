@@ -17,15 +17,15 @@ const Hero = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-              Build Reactive Smart Contracts
+              Automate DeFi Without Code
             </h1>
             <p className="text-xl sm:text-2xl mb-8 text-zinc-300">
-              Create, deploy, and share automated smart contract templates
+              Deploy powerful DeFi automations in minutes with ready-to-use templates
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
                 as={Link}
-                href="/dapp-automation"
+                href="/automations/uniswap-stop-order"
                 color="primary"
                 variant="shadow"
                 size="lg"
@@ -36,7 +36,7 @@ const Hero = () => {
               </Button>
               <Button
                 as={Link}
-                href="/generate-reactive-contract"
+                href="/deploy-reactive-contract"
                className="w-full sm:w-auto  hover:bg-blue-950/50"
                 variant="bordered"
                 size="lg"

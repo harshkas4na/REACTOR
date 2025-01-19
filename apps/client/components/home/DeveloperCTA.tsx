@@ -18,10 +18,10 @@ const DeveloperCTA = () => {
           className="text-center px-4 sm:px-6"
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6 text-white">
-            Build Custom Automations
+          Build the Future of DeFi Automation
           </h2>
           <p className="text-lg sm:text-xl mb-6 sm:mb-8 text-zinc-200">
-            Use our RSC technology to create your own automated DeFi solutions
+          Harness the power of Reactive Smart Contracts to create seamless, cross-chain DeFi automations. Join developers building the next generation of DeFi infrastructure.
           </p>
           <Button
             as={Link}

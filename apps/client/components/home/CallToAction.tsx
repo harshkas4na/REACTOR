@@ -13,7 +13,7 @@ const CallToAction = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          Ready to Automate Your Smart Contracts?
+          Build the Future of DeFi Automation
         </motion.h2>
         <motion.p 
           className="text-xl mb-8 max-w-2xl mx-auto"
@@ -21,7 +21,7 @@ const CallToAction = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          Join thousands of developers and businesses leveraging the power of reactive smart contracts.
+          Harness the power of Reactive Smart Contracts to create seamless, cross-chain DeFi automations. Join developers building the next generation of DeFi infrastructure.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -30,7 +30,7 @@ const CallToAction = () => {
         >
           <Link href="/signup">
             <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-gray-200 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700">
-              Get Started Now
+              Start Building
             </Button>
           </Link>
         </motion.div>
