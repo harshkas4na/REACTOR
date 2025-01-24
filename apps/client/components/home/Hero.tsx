@@ -54,8 +54,7 @@ const Hero = () => {
           >
             <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur-3xl shadow-2xl">
               <Image src="/Background2.jpg" alt="Reactor Logo"  width={500} height={500} className="object-cover w-full h-full" /> 
-              {/* <div className="absolute inset-0 bg-[url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-nWbtLyKBEQ72R4nNytSIq5lnYcTzIx.png')] bg-cover bg-center opacity-75"></div>
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20"></div> */}
+              {/* <img src="/Background2.jpg" alt="Reactor Logo"  className="object-cover w-full h-full " />  */}
             </div>
           </motion.div>
         </div>

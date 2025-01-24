@@ -1,6 +1,6 @@
 'use client'
 import { ethers } from 'ethers';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -60,24 +60,72 @@ const SUPPORTED_CHAINS = [
 export default function UniswapStopOrderPage() {
 
     const [formData, setFormData] = useState<StopOrderFormData>({
-        chainId: '',
-        pairAddress: '',
-        sellToken0: true,
-        clientAddress: '',
-        coefficient: '1000',
-        threshold: '',
-        amount: ''
+      chainId: '',
+      pairAddress: '',
+      sellToken0: true,
+      clientAddress: '',  // This will be updated when we get the connected account
+      coefficient: '1000',
+      threshold: '',
+      amount: ''
+    });
+
+
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [connectedAccount, setConnectedAccount] = useState<string>('');
+
+    const [deploymentStep, setDeploymentStep] = useState<'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'switching-back' | 'approving' | 'complete'>('idle');
+    const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
+    const [isLoadingPair, setIsLoadingPair] = useState(false);
+
+
+    // Add effect to get connected account
+  useEffect(() => {
+    const getConnectedAccount = async () => {
+      if (window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const accounts = await provider.listAccounts();
+          if (accounts.length > 0) {
+            const account = accounts[0].address;
+            setConnectedAccount(account);
+            setFormData(prev => ({
+              ...prev,
+              clientAddress: account
+            }));
+          }
+        } catch (error) {
+          console.error('Error getting connected account:', error);
+        }
+      }
+    };
+
+    getConnectedAccount();
+
+    // Listen for account changes
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setConnectedAccount(accounts[0]);
+          setFormData(prev => ({
+            ...prev,
+            clientAddress: accounts[0]
+          }));
+        } else {
+          setConnectedAccount('');
+        }
       });
+    }
 
-      const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const [deploymentStep, setDeploymentStep] = useState<'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'approving' | 'complete'>('idle');
-  const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
-const [isLoadingPair, setIsLoadingPair] = useState(false);
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', () => {});
+      }
+    };
+  }, []);
 
 const handleFetchPairInfo = async (pairAddress: string) => {
     setIsLoadingPair(true);
-    console.log("pairAddress", pairAddress);
+    setFetchError('');
     
     try {
       // First validate the address format
@@ -86,6 +134,13 @@ const handleFetchPairInfo = async (pairAddress: string) => {
       }
   
       const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+      const currentChainId = network.chainId.toString();
+
+      // Check if the current chain matches the selected chain
+      if (formData.chainId && currentChainId !== formData.chainId) {
+        throw new Error('You are currently connected to a different network than selected. Please switch networks or select the correct chain.');
+      }
   
       // First check if there's any code at the address
       const code = await provider.getCode(pairAddress);
@@ -158,8 +213,8 @@ const handleFetchPairInfo = async (pairAddress: string) => {
   
     } catch (error: any) {
       console.error('Error fetching pair info:', error);
-      // You might want to show this error to the user
-      toast.error(error.message || 'Failed to fetch pair information');
+      setFetchError(error.message);
+      setPairInfo(null);
     } finally {
       setIsLoadingPair(false);
     }
@@ -208,28 +263,40 @@ const handleFetchPairInfo = async (pairAddress: string) => {
     }
   } 
 
+
+
+  // Modified handleCreateOrder to handle network switching
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+
       // Step 1: Deploy Destination Contract
       setDeploymentStep('deploying-destination');
       const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
       if (!selectedChain) throw new Error('Invalid chain selected');
-  
+
       const destinationAddress = await deployDestinationContract(
         selectedChain.routerAddress
       );
-  
-      // Switch to Kopli network after destination contract deployment
-      setDeploymentStep('switching-network');
-      try {
-        await switchToKopliNetwork();
-        console.log('Successfully switched to Kopli network');
-      } catch (error: any) {
-        throw new Error(`Network switch failed: ${error.message}`);
-      }
-  
-      // Step 2: Deploy RSC on Kopli
+
+     
+
+      // Step 2: Approve Token Spending
+      setDeploymentStep('approving');
+      const tokenToApprove = formData.sellToken0 ? pairInfo?.token0 : pairInfo?.token1;
+      if (!tokenToApprove) throw new Error('Token address not found');
+
+      await approveTokens(
+        tokenToApprove,
+        destinationAddress,
+        formData.amount
+      );
+
+       // Switch to Kopli network
+       setDeploymentStep('switching-network');
+       await switchToKopliNetwork();
+
+      // Step 3: Deploy RSC on Kopli
       setDeploymentStep('deploying-rsc');
       await deployRSC({
         pair: formData.pairAddress,
@@ -239,25 +306,24 @@ const handleFetchPairInfo = async (pairAddress: string) => {
         coefficient: formData.coefficient,
         threshold: formData.threshold
       });
-  
-      // Step 3: Approve Token Spending
-      setDeploymentStep('approving');
-      const tokenToApprove = formData.sellToken0 ? pairInfo?.token0 : pairInfo?.token1;
-      if (!tokenToApprove) throw new Error('Token address not found');
-  
-      await approveTokens(
-        tokenToApprove,
-        destinationAddress,
-        formData.amount
-      );
-  
+      
+      // // Switch back to original network
+      // setDeploymentStep('switching-back');
+      // await switchToNetwork(originalChainId);
+      
+
+
+
       setDeploymentStep('complete');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating stop order:', error);
+      toast.error(error.message || 'Failed to create stop order');
       setDeploymentStep('idle');
     }
   };
+
   
+
 
 
 
@@ -636,13 +702,13 @@ async function approveTokens(
                   placeholder="Token 0 Address"
                   disabled
                   value={pairInfo?.token0}
-                  className="bg-gray-800 border-gray-700 text-gray-200"
+                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
                 <Input 
                   placeholder="Token 1 Address"
                   disabled
                   value={pairInfo?.token1}
-                  className="bg-gray-800 border-gray-700 text-gray-200"
+                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
                 
                 {/* Sell Direction */}
@@ -652,10 +718,10 @@ async function approveTokens(
                     value={formData.sellToken0 ? "token0" : "token1"}
                     onValueChange={(value) => setFormData({...formData, sellToken0: value === "token0"})}
                   >
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-gray-200">
+                    <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500">
                       <SelectValue placeholder="Select token to sell" />
                     </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-700 text-gray-200">
+                    <SelectContent className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500">
                       <SelectItem value="token0">Token 0</SelectItem>
                       <SelectItem value="token1">Token 1</SelectItem>
                     </SelectContent>
@@ -684,7 +750,7 @@ async function approveTokens(
                   placeholder="Enter client address"
                   value={formData.clientAddress}
                   onChange={(e) => setFormData({...formData, clientAddress: e.target.value})}
-                  className="bg-gray-800 border-gray-700 text-gray-200"
+                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
               </div>
 
@@ -714,14 +780,14 @@ async function approveTokens(
                   placeholder="Coefficient (e.g., 1000)"
                   value={formData.coefficient}
                   onChange={(e) => setFormData({...formData, coefficient: e.target.value})}
-                  className="bg-gray-800 border-gray-700 text-gray-200"
+                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
                 <Input 
                   type="number"
                   placeholder="Threshold"
                   value={formData.threshold}
                   onChange={(e) => setFormData({...formData, threshold: e.target.value})}
-                  className="bg-gray-800 border-gray-700 text-gray-200"
+                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
                 <p className="text-sm text-gray-400">
                   Current Price Ratio: {/* Add price ratio calculation */}
@@ -749,25 +815,20 @@ async function approveTokens(
                   placeholder="Enter amount"
                   value={formData.amount}
                   onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                  className="bg-gray-800 border-gray-700 text-gray-200"
+                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
               </div>
 
-              {/* Status Alerts */}
-            <Alert className="bg-blue-900/20 border-blue-500/50">
-              <AlertCircle className="h-4 w-4 text-blue-400" />
-              <AlertDescription className="text-zinc-200">
-                Ensure the client address has approved sufficient tokens before creating the stop order.
-              </AlertDescription>
-            </Alert>
+              
 
             {deploymentStep !== 'idle' && (
               <Alert className="bg-blue-900/20 border-blue-500/50">
                 <AlertCircle className="h-4 w-4 text-blue-400" />
-                <AlertDescription className="text-zinc-200">
+                <AlertDescription className="mt-1 text-zinc-200">
                   {deploymentStep === 'deploying-destination' && 'Deploying destination contract...'}
                   {deploymentStep === 'switching-network' && 'Switching to Kopli network...'}
                   {deploymentStep === 'deploying-rsc' && 'Deploying reactive smart contract on Kopli...'}
+                  {deploymentStep === 'switching-back' && 'Switching back to original network...'}
                   {deploymentStep === 'approving' && 'Approving token spending...'}
                   {deploymentStep === 'complete' && 'Stop order created successfully!'}
                 </AlertDescription>
