@@ -578,7 +578,7 @@ async function approveTokens(
                     <HoverCardTrigger>
                       <Info className="h-4 w-4 text-zinc-400" />
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-zinc-800 border-zinc-700">
+                    <HoverCardContent className="w-80 ">
                       <p className="text-sm text-zinc-200">
                         Choose the blockchain network where your tokens are located.
                         This determines which Uniswap V2 contracts we'll interact with.
@@ -593,7 +593,7 @@ async function approveTokens(
                   <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
                     <SelectValue placeholder="Select chain" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectContent className="">
                     {SUPPORTED_CHAINS.map(chain => (
                       <SelectItem 
                         key={chain.id} 
@@ -690,7 +690,7 @@ async function approveTokens(
                     <HoverCardTrigger>
                       <Info className="h-4 w-4 text-gray-400" />
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-gray-800 border-gray-700 text-gray-200">
+                    <HoverCardContent className="w-80  text-gray-200">
                       <p className="text-sm text-gray-200">
                         Enter the addresses of both tokens in the trading pair.
                         The order doesn't matter - you'll select which one to sell next.
@@ -737,7 +737,7 @@ async function approveTokens(
                     <HoverCardTrigger>
                       <Info className="h-4 w-4 text-gray-400" />
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-gray-800 border-gray-700 text-gray-200">
+                    <HoverCardContent className="w-80  text-gray-200">
                       <p className="text-sm text-gray-200">
                         The address that has approved token spending and will receive 
                         the swapped tokens. Make sure this address has approved the contract
@@ -762,7 +762,7 @@ async function approveTokens(
                     <HoverCardTrigger>
                       <Info className="h-4 w-4 text-gray-400" />
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-gray-800 border-gray-700 text-gray-200">
+                    <HoverCardContent className="w-80  text-gray-200">
                       <div className="space-y-2">
                         <h4 className="font-medium">Understanding Threshold Settings</h4>
                         <p className="text-sm text-gray-200">
@@ -802,7 +802,7 @@ async function approveTokens(
                     <HoverCardTrigger>
                       <Info className="h-4 w-4 text-gray-400" />
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-80 bg-gray-800 border-gray-700 text-gray-200">
+                    <HoverCardContent className="w-80  text-gray-200">
                       <p className="text-sm text-gray-200">
                         The amount of tokens you want to sell when the price threshold 
                         is reached. Make sure to approve at least this amount.

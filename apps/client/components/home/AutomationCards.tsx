@@ -11,16 +11,16 @@ const automations = [
     description: "Automatically sell tokens when they reach a certain price threshold. Set up sophisticated trading strategies with multiple conditions and actions.",
     icon: "/Uniswap-stop-order.jpg",
   },
-  {
-    title: "Aave Loan Repayment",
-    description: "Manage your Aave loans with automated repayment triggers. Protect your collateral and optimize your borrowing strategy across multiple markets.",
-    icon: "/aave-logo.png",
-  },
-  {
-    title: "Compound Yield Optimizer",
-    description: "Maximize your yields on Compound with automated supply and borrow position management. React to APY changes and market conditions in real-time.",
-    icon: "/compound-logo.png",
-  },
+  // {
+  //   title: "Aave Loan Repayment",
+  //   description: "Manage your Aave loans with automated repayment triggers. Protect your collateral and optimize your borrowing strategy across multiple markets.",
+  //   icon: "/aave-logo.png",
+  // },
+  // {
+  //   title: "Compound Yield Optimizer",
+  //   description: "Maximize your yields on Compound with automated supply and borrow position management. React to APY changes and market conditions in real-time.",
+  //   icon: "/compound-logo.png",
+  // },
 ];
 
 const AutomationCard = ({ automation, index }: { automation: any, index: number }) => {
@@ -80,7 +80,7 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
 
 const AutomationCards = () => {
   return (
-    <section className="py-24">
+    <section className="py-24" id='popularAutomations'>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-4xl font-bold text-center mb-20 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
           Popular Automations
