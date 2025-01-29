@@ -11,7 +11,7 @@ import { useUserSetup } from "@/hooks/templates/useUserSetup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { MDEditorProps } from '@uiw/react-md-editor';
@@ -92,7 +92,11 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="relative z-20 max-w-8xl mx-auto pointer-events-auto">
         <div className="relative mb-8">
-          <UseCaseHeader />
+        <Link href="/templates/SmartContracts">
+        <Button variant="outline" className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Use Cases
+        </Button>
+        </Link>
         </div>
 
         <div className="relative mb-8">
@@ -133,55 +137,55 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsList>
 
           <TabsContent value="implementation">
-            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
-              <CardHeader className="border-b border-zinc-800">
-                <CardTitle className="text-2xl font-bold text-zinc-100">
-                  Implementation Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <Button
-                    variant="outline"
-                    className="relative w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
-                    onClick={() => setShowImplementation(!showImplementation)}
-                  >
-                    {showImplementation ? (
-                      <>
-                        Hide Implementation Details
-                        <ChevronUp className="h-4 w-4" />
-                      </>
-                    ) : (
-                      <>
-                        Show Implementation Details
-                        <ChevronDown className="h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-
-                  {showImplementation && (
-                    <div 
-                      className="relative text-zinc-300 bg-blue-900/20 rounded-lg p-4 border border-zinc-800" 
-                      data-color-mode="dark"
-                    >
-                      {useCase.implementation ? (
-                        <MDMarkdown
-                          source={useCase.implementation} 
-                          style={{ 
-                            backgroundColor: 'transparent',
-                            color: 'rgb(228 228 231)',
-                            padding: '1rem'
-                          }}
-                        />
-                      ) : (
-                        <p>No implementation details available.</p>
-                      )}
-                    </div>
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+            <CardHeader className="border-b border-zinc-800">
+              <CardTitle className="text-2xl font-bold text-zinc-100">
+                Implementation Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <Button
+                  variant="outline"
+                  className="relative flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
+                  onClick={() => setShowImplementation(!showImplementation)}
+                >
+                  {showImplementation ? (
+                    <>
+                      Hide Details
+                      <ChevronUp className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Show Details
+                      <ChevronDown className="h-4 w-4" />
+                    </>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </Button>
+
+                {showImplementation && (
+                  <div 
+                    className="relative text-zinc-300 bg-blue-900/20 rounded-lg p-4 border border-zinc-800" 
+                    data-color-mode="dark"
+                  >
+                    {useCase.implementation ? (
+                      <MDMarkdown
+                        source={useCase.implementation} 
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: 'rgb(228 228 231)',
+                          padding: '1rem'
+                        }}
+                      />
+                    ) : (
+                      <p>No implementation details available.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
           <TabsContent value="deployment">
             <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
@@ -219,58 +223,6 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsContent>
         </Tabs>
 
-        <Card className="relative z-20 bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-8 backdrop-blur-sm">
-          <CardHeader className="border-b border-zinc-800">
-            <CardTitle className="text-2xl font-bold text-zinc-100">
-              Benefits and Use Cases
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                className="relative w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
-                onClick={() => setShowBenefits(!showBenefits)}
-              >
-                {showBenefits ? (
-                  <>
-                    Hide Benefits and Use Cases
-                    <ChevronUp className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    Show Benefits and Use Cases
-                    <ChevronDown className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-
-              {showBenefits && (
-                <div className="space-y-6">
-                  <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
-                    <h3 className="text-xl font-semibold text-zinc-100 mb-3">Key Benefits</h3>
-                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
-                      <li>Automated cross-chain operations</li>
-                      <li>Enhanced security and reliability</li>
-                      <li>Reduced operational complexity</li>
-                      <li>Cost-effective deployment</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
-                    <h3 className="text-xl font-semibold text-zinc-100 mb-3">Ideal Use Cases</h3>
-                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
-                      <li>Cross-chain token bridges</li>
-                      <li>Multi-chain DeFi applications</li>
-                      <li>Decentralized exchange integrations</li>
-                      <li>Cross-chain governance systems</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

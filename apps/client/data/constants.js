@@ -29,19 +29,19 @@ export const TESTIMONIALS = [
   export const TEMPLATE_CARDS = [
     {
       title: "Smart Contracts Library",
-      description: "Provide a library of pre-built RSC templates for common use cases. Users could choose a template, customize it with parameters like wallet addresses, token types, or conditions, and deploy without needing to modify the underlying code.",
+      description: "Explore implementation examples and use cases for Reactive Smart Contracts. Find inspiration for building your own RSC-powered solutions or contribute your ideas to help shape future no-code automations.",
       features: {
-        title: "Use Cases Examples:",
+        title: "What you'll find:",
         items: [
-          "Multi-signature wallets",
-          "Subscription services",
-          "Escrow services"
+          "Reference implementations for common RSC patterns",
+          "Community-contributed use cases and ideas",
+          "Technical documentation and best practices"
         ]
       },
       links: {
         primary: {
           href: "/templates/SmartContracts",
-          text: "See All Templates"
+          text: "View Templates"
         },
         secondary: {
           href: "/templates/SmartContracts/contribute",
@@ -50,24 +50,25 @@ export const TESTIMONIALS = [
       },
       image: {
         src: "/solidity.jpg",
-        alt: "DApp Library"
+        alt: "RSC Examples"
       }
     },
     {
       title: "DApp Library",
-      description: "Offer templates that integrate with common decentralized applications (e.g., Uniswap, Compound). Users can input parameters to automate actions on these dApps without modifying their code.",
+      description: "Discover different approaches to integrating RSCs with popular DeFi protocols. Share your innovative use cases that could become future no-code automations on REACTOR.",
       features: {
-        title: "Features:",
+        title: "Explore:",
         items: [
-          "Pre-built dApp Integrations",
-          "Trigger Automation for Specific Use Cases"
+          "DeFi automation patterns and examples",
+          "Protocol integration templates",
+          "Cross-protocol interaction patterns"
         ]
       },
-      additionalInfo: "Automate RSCs for actions like swapping tokens on Uniswap after a certain threshold or automating yield farming operations based on specific market conditions.",
+      additionalInfo: "Help us identify valuable automation opportunities by sharing your RSC implementation ideas with the developer community.",
       links: {
         primary: {
           href: "/templates/DappLibrary",
-          text: "See All Templates"
+          text: "View Templates"
         },
         secondary: {
           href: "/templates/DappLibrary/contribute",
@@ -76,7 +77,7 @@ export const TESTIMONIALS = [
       },
       image: {
         src: "/DApp.jpg",
-        alt: "Templates for Common dApps"
+        alt: "DApp Integration Patterns"
       }
     }
   ];

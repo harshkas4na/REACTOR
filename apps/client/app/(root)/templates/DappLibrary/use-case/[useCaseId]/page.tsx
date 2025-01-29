@@ -11,10 +11,11 @@ import { useUserSetup } from "@/hooks/templates/useUserSetup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { MDEditorProps } from '@uiw/react-md-editor';
 import DeploymentTab from '@/components/use-case/Deploymenttab';
+import Link from 'next/link';
 
 // Dynamically import MDEditor to avoid SSR issues
 const MDEditor = dynamic<MDEditorProps>(
@@ -90,7 +91,11 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="relative z-20 max-w-8xl mx-auto">
-        <UseCaseHeader />
+      <Link href="/templates/DappLibrary">
+      <Button variant="outline" className="mb-6">
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Use Cases
+      </Button>
+      </Link>
         <UseCaseContent
           useCase={useCase}
           likes={filteredLikes.length}
@@ -137,17 +142,17 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
                 <div className="space-y-4">
                   <Button
                     variant="outline"
-                    className="relative w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
+                    className="relative flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
                     onClick={() => setShowImplementation(!showImplementation)}
                   >
                     {showImplementation ? (
                       <>
-                        Hide Implementation Details
+                        Hide Details
                         <ChevronUp className="h-4 w-4" />
                       </>
                     ) : (
                       <>
-                        Show Implementation Details
+                        Show Details
                         <ChevronDown className="h-4 w-4" />
                       </>
                     )}
@@ -215,62 +220,7 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsContent>
         </Tabs>
 
-        <Card className="relative z-20 bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-8 backdrop-blur-sm">
-          <CardHeader className="border-b border-zinc-800">
-            <CardTitle className="text-2xl font-bold text-zinc-100">
-              Benefits and Use Cases
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                className="relative w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
-                onClick={() => setShowBenefits(!showBenefits)}
-              >
-                {showBenefits ? (
-                  <>
-                    Hide Benefits and Use Cases
-                    <ChevronUp className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    Show Benefits and Use Cases
-                    <ChevronDown className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-
-              {showBenefits && (
-                <div className="space-y-6">
-                  <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
-                    <h3 className="text-xl font-semibold text-zinc-100 mb-3">
-                      Key Benefits
-                    </h3>
-                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
-                      <li>Automated cross-chain operations</li>
-                      <li>Enhanced security and reliability</li>
-                      <li>Reduced operational complexity</li>
-                      <li>Cost-effective deployment</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
-                    <h3 className="text-xl font-semibold text-zinc-100 mb-3">
-                      Ideal Use Cases
-                    </h3>
-                    <ul className="list-disc list-inside text-zinc-300 space-y-2">
-                      <li>Cross-chain token bridges</li>
-                      <li>Multi-chain DeFi applications</li>
-                      <li>Decentralized exchange integrations</li>
-                      <li>Cross-chain governance systems</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+       
       </div>
     </div>
   );

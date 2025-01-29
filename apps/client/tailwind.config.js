@@ -19,6 +19,7 @@ module.exports = {
       },
     },
     extend: {
+      
       colors: {
         'deep-navy': '#020B2D',
         border: "hsl(var(--border))",

@@ -58,7 +58,7 @@ export function UseCaseContent({
         <div className="space-y-4">
           <Button
             variant="outline"
-            className="w-full flex items-center justify-center bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 gap-2"
+            className=" flex items-center justify-center bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 gap-2"
             onClick={() => setShowOverview(!showOverview)}
           >
             {showOverview ? (

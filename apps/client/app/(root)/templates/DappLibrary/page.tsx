@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Grid, List } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import type { UseCase, Comment, Like, User } from '@/types/use-case';
+import Link from 'next/link';
 
 const TYPE_OPTIONS = {
   'live-data': 'Live Data',
@@ -77,11 +78,23 @@ export default function DAppLibraryPage() {
   const uniqueTypes = Array.from(new Set(typedUseCases.map(uc => uc.type)));
 
   return (
-    <div className="min-h-screen  py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-12 text-gray-100">
-          DApp Library
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-7xl mx-auto pointer-events-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-gray-100">
+          DApp Automation Examples
         </h1>
+        <p className="mt-4 text-lg text-gray-300 max-w-3xl mx-auto mb-6">
+          Explore different patterns for automating DeFi operations with RSC. See how various protocols can be integrated and automated.
+        </p>
+        <Link href={'/templates/DappLibrary/contribute'}>
+          <Button
+            className="bg-primary hover:bg-primary/90 text-white"
+          >
+            Submit Your Use Case
+          </Button>
+        </Link>
+      </div>
         
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex-1 w-full sm:w-auto">

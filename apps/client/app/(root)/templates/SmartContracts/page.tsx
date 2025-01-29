@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Grid, List } from 'lucide-react';
 import type { UseCase, Comment, Like, User } from '@/types/use-case';
+import Link from 'next/link';
 
 export default function UseCasesPage() {
   const { convexUserId, isAuthenticated } = useConvexUser();
@@ -54,13 +55,29 @@ export default function UseCasesPage() {
     return <LoadingSpinner />;
   }
 
+  
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="relative z-20 max-w-7xl mx-auto pointer-events-auto">
-        <h1 className="relative text-4xl font-bold text-center mb-12 text-gray-100">
-          Reactive Smart Contracts Library
-        </h1>
-        
+        {/* Updated Header Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4 text-gray-100">
+            RSC Use Cases Explorer
+          </h1>
+          <p className="text-lg text-gray-300 max-w-3xl mx-auto mb-6">
+            Discover and share innovative ways to use Reactive Smart Contracts. 
+            Help shape future no-code automations by contributing your ideas.
+          </p>
+          <Link href={'/templates/SmartContracts/contribute'}>
+          <Button
+            className="bg-primary hover:bg-primary/90 text-white"
+          >
+            Submit Your Use Case
+          </Button>
+          </Link>
+        </div>
+
+        {/* Enhanced Filter Section */}
         <div className="relative z-20 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative flex-1 w-full sm:w-auto">
             <Input 
@@ -77,32 +94,42 @@ export default function UseCasesPage() {
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent className="relative z-30 bg-zinc-800 border-zinc-700">
-                <SelectItem value="all" className="text-zinc-100 focus:bg-blue-600/20">All Categories</SelectItem>
-                <SelectItem value="defi" className="text-zinc-100 focus:bg-blue-600/20">DeFi</SelectItem>
-                <SelectItem value="nft" className="text-zinc-100 focus:bg-blue-600/20">NFT</SelectItem>
-                <SelectItem value="dao" className="text-zinc-100 focus:bg-blue-600/20">DAO</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="defi">DeFi Automation</SelectItem>
+                <SelectItem value="cross-chain">Cross-Chain</SelectItem>
+                <SelectItem value="portfolio">Portfolio Management</SelectItem>
+                <SelectItem value="trading">Trading Automation</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
             
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => setViewMode('grid')}
-              className="relative z-20 border-zinc-700 text-zinc-100 hover:bg-blue-600/20 hover:text-zinc-50"
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => setViewMode('list')}
-              className="relative z-20 border-zinc-700 text-zinc-100 hover:bg-blue-600/20 hover:text-zinc-50"
-            >
-              <List className="h-4 w-4" />
-            </Button>
+            {/* View mode toggles */}
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setViewMode('grid')}
+                className={`relative z-20 border-zinc-700 ${
+                  viewMode === 'grid' ? 'bg-blue-600/20 text-blue-400' : 'text-zinc-100'
+                } hover:bg-blue-600/20 hover:text-zinc-50`}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setViewMode('list')}
+                className={`relative z-20 border-zinc-700 ${
+                  viewMode === 'list' ? 'bg-blue-600/20 text-blue-400' : 'text-zinc-100'
+                } hover:bg-blue-600/20 hover:text-zinc-50`}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-        
+
+        {/* Use Cases Grid/List */}
         <div className={
           `relative z-20 ${viewMode === 'grid' 
             ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8' 
@@ -122,7 +149,6 @@ export default function UseCasesPage() {
         </div>
       </div>
 
-      {/* Dialog with higher z-index */}
       <CommentDialog
         useCase={useCases.find(uc => uc._id === selectedUseCase)}
         comments={comments.filter(comment => comment.useCaseId === selectedUseCase)}

@@ -12,8 +12,8 @@ const templates = [
   { id: 1, title: 'Live Data Integration', description: 'Real-time data flow from famous DApps on any chain', complexity: 'Intermediate', icon: '📊',link:"/live-data-integration" },
   { id: 2, title: 'Cross-DApp Automation', description: 'Automate actions on your DApps on basis of other DApps reactions', complexity: 'Intermediate', icon: '🔗',link:"/cross-dapp-automation" },
   { id: 3, title: 'Cross-Chain Bridge', description: 'Seamless data transfer across different blockchains DApps', complexity: 'Easy', icon: '🌉',link:"/cross-chain-bridge" },
-  { id: 4, title: 'External DApp Automation', description: 'Automate functions on one of your famous Dapps', complexity: 'Advanced', icon: '🔌',link:"/external-dapp-integration" },
-  { id: 5, title: 'Coming Soon', description: 'New template under development', complexity: 'N/A', icon: '🚧', comingSoon: true },
+  { id: 4, title: 'External DApp Automation', description: 'Automate functions on one of your famous Dapps', complexity: 'Advanced', icon: '🔌',link:"/external-dapp-integration",comingSoon:true },
+  
 ]
 
 export default function Component() {
@@ -120,7 +120,7 @@ export default function Component() {
 
       <footer className="mt-12 py-6 border-t border-zinc-800 bg-gradient-to-br from-blue-900/10 to-purple-900/10">
         <div className="container mx-auto px-4 text-center text-zinc-400">
-          <p>&copy; 2023 DApp Automation System. All rights reserved.</p>
+          <p>&copy; 2025 DApp Automation System. All rights reserved.</p>
         </div>
       </footer>
     </div>

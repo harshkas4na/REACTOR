@@ -13,6 +13,7 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import { useAuth } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
+import {SUPPORTED_NETWORKS} from '@/app/_context/Web3Context'
 
 
 
@@ -69,21 +70,37 @@ export default function Navigation() {
 
           {/* Right Section */}
           <div className="flex items-center justify-end space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
-            {/* Network Select */}
-            <div className="hidden md:block">
-              <Select 
-                value={selectedNetwork} 
-                onValueChange={(value) => switchNetwork(value)}
-              >
-                <SelectTrigger className="w-[120px] lg:w-[180px] text-xs sm:text-sm">
-                  <SelectValue placeholder="Select Network" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
-                  <SelectItem value="KOPLI">Kopli</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+           {/* Network Select */}
+          <div className="hidden md:block">
+            <Select 
+              value={selectedNetwork} 
+              onValueChange={(value) => switchNetwork(value)}
+            >
+              <SelectTrigger className="w-[120px] lg:w-[180px] text-xs sm:text-sm">
+                <SelectValue placeholder="Select Network" />
+              </SelectTrigger>
+              <SelectContent>
+                {/* Testnets */}
+                <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
+                <SelectItem value="KOPLI">Kopli Testnet</SelectItem>
+                
+                {/* Divider */}
+                <div className="h-px bg-zinc-800 my-1" />
+                
+                {/* Mainnets */}
+                <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
+                <SelectItem value="AVALANCHE">Avalanche C-Chain</SelectItem>
+                <SelectItem value="ARBITRUM">Arbitrum One</SelectItem>
+                <SelectItem value="MANTA">Manta Pacific</SelectItem>
+                <SelectItem value="BASE">Base Chain</SelectItem>
+                <SelectItem value="BSC">Binance Smart Chain</SelectItem>
+                <SelectItem value="POLYGON">Polygon PoS</SelectItem>
+                <SelectItem value="POLYGON_ZKEVM">Polygon zkEVM</SelectItem>
+                <SelectItem value="OPBNB">opBNB Mainnet</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
             
             {/* Connect Wallet Button */}
             <Button

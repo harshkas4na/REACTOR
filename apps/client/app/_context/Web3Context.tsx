@@ -31,22 +31,99 @@ interface NetworkConfig {
   chainId: number;
   name: string;
   rpcUrl: string;
+  hasCallback:Boolean;
+  isDestination:Boolean;
+  callbackProxy?:string;
 }
 
 interface SupportedNetworks {
   [key: string]: NetworkConfig;
 }
-
-const SUPPORTED_NETWORKS: SupportedNetworks = {
+export const SUPPORTED_NETWORKS: SupportedNetworks = {
+  // Testnets
   SEPOLIA: {
     chainId: 11155111,
     name: 'Ethereum Sepolia',
-    rpcUrl: 'https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID'
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: true,
+    callbackProxy: '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8'
   },
   KOPLI: {
     chainId: 5318008,
-    name: 'Kopli',
-    rpcUrl: 'https://kopli-rpc.rkt.ink'
+    name: 'Kopli Testnet',
+    rpcUrl: 'https://kopli-rpc.rkt.ink',
+    hasCallback: true,
+    isDestination: true,
+    callbackProxy: '0x0000000000000000000000000000000000FFFFFF'
+  },
+
+  // Mainnets
+  ETHEREUM: {
+    chainId: 1,
+    name: 'Ethereum Mainnet',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: false
+  },
+  AVALANCHE: {
+    chainId: 43114,
+    name: 'Avalanche C-Chain',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: true,
+    callbackProxy: '0x76DdEc79A96e5bf05565dA4016C6B027a87Dd8F0'
+  },
+  ARBITRUM: {
+    chainId: 42161,
+    name: 'Arbitrum One',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: false
+  },
+  MANTA: {
+    chainId: 169,
+    name: 'Manta Pacific',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: true,
+    callbackProxy: '0x9299472A6399Fd1027ebF067571Eb3e3D7837FC4'
+  },
+  BASE: {
+    chainId: 8453,
+    name: 'Base Chain',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: true,
+    callbackProxy: '0x4730c58FDA9d78f60c987039aEaB7d261aAd942E'
+  },
+  BSC: {
+    chainId: 56,
+    name: 'Binance Smart Chain',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: false
+  },
+  POLYGON: {
+    chainId: 137,
+    name: 'Polygon PoS',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: true,
+    isDestination: false
+  },
+  POLYGON_ZKEVM: {
+    chainId: 1101,
+    name: 'Polygon zkEVM',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: false,
+    isDestination: false
+  },
+  OPBNB: {
+    chainId: 204,
+    name: 'opBNB Mainnet',
+    rpcUrl: 'Find on Chainlist',
+    hasCallback: false,
+    isDestination: false
   }
 };
 

@@ -80,7 +80,7 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
 
 const AutomationCards = () => {
   return (
-    <section className="py-24" id='popularAutomations'>
+    <section className="py-24" >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-4xl font-bold text-center mb-20 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
           Popular Automations

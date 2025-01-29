@@ -12,7 +12,6 @@ import { toast } from 'react-hot-toast';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 import dynamic from 'next/dynamic';
 import ContractInteraction from './ContractInteraction';
-import DeployButton from '../DeployButton';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -588,7 +587,7 @@ export default function DeploymentTab({
         destinationContract;
 
     return (
-      <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+      <Card className="bg-gradient-to-br relative z-20 pointer-events-auto from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
         <CardHeader className="border-b border-zinc-800">
           <CardTitle className="text-xl font-bold text-zinc-100">
             {type.charAt(0).toUpperCase() + type.slice(1)} Contract

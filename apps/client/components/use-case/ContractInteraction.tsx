@@ -149,7 +149,7 @@ const ContractInteraction: React.FC<ContractInteractionProps> = ({
                           value={functionInputs[func.name]?.[input.name] || ''}
                           onChange={(e) => handleInputChange(func.name, input.name, e.target.value)}
                           placeholder={`Enter ${input.type}`}
-                          className="mt-1 bg-gray-800 text-gray-200"
+                          className="mt-1 bg-gray-800 relative z-10 pointer-events-auto text-gray-200"
                         />
                       </div>
                     ))}

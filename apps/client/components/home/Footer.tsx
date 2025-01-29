@@ -2,7 +2,7 @@
 import { Button } from "@nextui-org/react"
 import Link from "next/link"
 import { Input } from "@nextui-org/react"
-import { FaTwitter, FaDiscord, FaGithub } from 'react-icons/fa'
+import { FaTwitter, FaLinkedin, FaGithub } from 'react-icons/fa'
 
 const Footer = () => {
   return (
@@ -34,13 +34,13 @@ const Footer = () => {
           <div className="text-center sm:text-left">
             <h4 className="text-lg font-semibold mb-4 text-white">Connect</h4>
             <div className="flex justify-center sm:justify-start space-x-4">
-              <Link href="#" className="text-gray-400 hover:text-primary transition-colors duration-300">
+              <Link href="https://x.com/HarshKasan89518" className="text-gray-400 hover:text-primary transition-colors duration-300">
                 <FaTwitter size={24} />
               </Link>
-              <Link href="#" className="text-gray-400 hover:text-primary transition-colors duration-300">
-                <FaDiscord size={24} />
+              <Link href="https://www.linkedin.com/feed/" className="text-gray-400 hover:text-primary transition-colors duration-300">
+                <FaLinkedin size={24} />
               </Link>
-              <Link href="#" className="text-gray-400 hover:text-primary transition-colors duration-300">
+              <Link href="https://github.com/harshkas4na" className="text-gray-400 hover:text-primary transition-colors duration-300">
                 <FaGithub size={24} />
               </Link>
             </div>
@@ -67,7 +67,7 @@ const Footer = () => {
         </div>
         
         <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-800 text-center">
-          <p className="text-sm">&copy; 2023 REACTOR. All rights reserved.</p>
+          <p className="text-sm">&copy; 2025 REACTOR. All rights reserved.</p>
         </div>
       </div>
     </footer>

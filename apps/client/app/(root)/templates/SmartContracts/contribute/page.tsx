@@ -12,6 +12,8 @@
   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
   import { ArrowLeft, PenSquare, X } from 'lucide-react';
   import Link from 'next/link';
+  import { HelpCircle } from 'lucide-react';
+  import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
   import { toast } from 'react-hot-toast';
   import { api } from '@/convex/_generated/api';
   import EditorPage from './EditorPage';
@@ -226,6 +228,28 @@
                 {currentStep === 0 && (
                   <div className="space-y-4 sm:space-y-6">
                     <div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-4 w-4 text-zinc-400" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs bg-black">
+                            <p>Give your use case a clear, descriptive title that indicates its main functionality</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={handleInputChange('title')}
+                      required
+                      className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
                       <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
                       <Input
                         id="title"
@@ -329,7 +353,19 @@
                 {currentStep === 1 && (
                   <div className="space-y-6 sm:space-y-8">
                     <div>
+                    <div className="flex items-center gap-2">
                       <Label htmlFor="overview" className="text-zinc-200 text-base sm:text-lg">Overview</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-4 w-4 text-zinc-400" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs bg-black">
+                            <p>Provide a comprehensive overview of your use case. Include the problem it solves and how it leverages RSC technology.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                       <div className="mt-2">
                         <Button
                           type="button"
@@ -391,9 +427,19 @@
                 {currentStep === 2 && (
                   <div className="relative z-20 space-y-6 sm:space-y-8">
                     <div>
-                      <Label htmlFor="reactiveTemplate" className="text-zinc-200 text-base sm:text-lg">
-                        Reactive Template
-                      </Label>
+                    <div className="flex items-center gap-2">
+                    <Label htmlFor="reactiveTemplate" className="text-zinc-200 text-base sm:text-lg">Reactive Template</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <HelpCircle className="h-4 w-4 text-zinc-400" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs bg-black">
+                          <p>Add your RSC template code here. You can generate a template using our RSC generator or write your own following our guidelines.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                       <Tabs defaultValue="code" className="relative z-20 w-full mt-2">
                         <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-4'>
                           <TabsList className="bg-zinc-800">
@@ -557,11 +603,20 @@
                     </div>
                   </div>
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="githubRepo" className="text-zinc-200 text-base sm:text-lg">
-                    GitHub Repository URL
-                  </Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="githubRepo" className="text-zinc-200 text-base sm:text-lg">GitHub Repository URL</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-4 w-4 text-zinc-400" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs bg-black ">
+                        <p>Link to your Foundry repository containing the complete implementation. Make sure it follows our demo repository structure.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  </div>
                   <Input
                     id="githubRepo"
                     type="url"
