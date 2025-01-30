@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useWeb3 } from '@/app/_context/Web3Context'
 import { BASE_URL } from '@/data/constants'
 import DeployButton from '@/components/DeployButton'
+import ContractPreview from '@/components/contract-preview'
 
 const steps = ['Contract Input', 'Event Selection', 'Input Selection', 'Template Preview']
 
@@ -291,119 +292,86 @@ export default function LiveDataIntegration() {
               </motion.div>
             )}
 
-            {currentStep === 3 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="space-y-6"
-              >
-                <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Template Preview</h2>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2 text-zinc-200">Reactive Contract Template</h3>
-                    <Textarea
-                      value={previewCode}
-                      readOnly
-                      className="h-64 font-mono bg-blue-900/20 border-zinc-700 text-zinc-200"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium mb-2 text-zinc-200">Destination Contract Functions</h3>
-                    <Textarea
-                      value={destinationFunctions}
-                      readOnly
-                      className="h-64 font-mono bg-blue-900/20 border-zinc-700 text-zinc-200"
-                    />
-                  </div>
-
-                  <Alert className="bg-yellow-900/20 border-yellow-500/50">
-                    <AlertCircle className="h-4 w-4 text-yellow-400" />
-                    <AlertTitle className="text-yellow-300">Warning</AlertTitle>
-                    <AlertDescription className="text-yellow-200">
-                      Ensure you have deployed your destination contract with the provided functions before proceeding.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="space-y-4">
-                    <div className="bg-blue-900/20 rounded-lg p-4 border border-zinc-800">
-                      <p className="text-zinc-200 mb-4">
-                        Implement the above generated function(s) in your destination contract to store the datas in some state with help of these functions, deploy it, and paste the address here.
-                      </p>
-                      <p className="text-zinc-200">
-                        Important: Before deploying your destination contract, please ensure the following requirements are met:
-                      </p>
-                      <ul className="list-disc list-inside space-y-2 mt-2 text-zinc-300">
-                        <li>Implement the AbstractCallback interface in your destination contract.</li>
-                        <li>Configure your constructor as payable and pass the Callback_sender parameter to AbstractCallback.</li>
-                        <li>Include minimum 0.1 native tokens for successful callbacks.</li>
-                      </ul>
-                      <p className="mt-4 text-zinc-200">
-                        For comprehensive implementation details, check our{' '}
-                        <a href="https://dev.reactive.network/" 
-                          className="text-blue-400 hover:text-blue-300 transition-colors" 
-                          target="_blank">
-                          REACTIVE NETWORK documentation
-                        </a>
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="destinationAddress" className="text-zinc-200">
-                        Destination Contract Address
-                      </Label>
-                      <Input
-                        id="destinationAddress"
-                        placeholder="0x..."
-                        value={destinationAddress}
-                        onChange={(e) => setDestinationAddress(e.target.value)}
-                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
-                      />
-                    </div>
-
-                    {destinationAddress && (
-                      <DeployButton
-                        editedContract={previewCode.replace(
-                          "0x0000000000000000000000000000000000000000",
-                          destinationAddress
-                        )}
-                        onCompileSuccess={(abi, bytecode) => {
-                          setAbi(abi);
-                          setBytecode(bytecode);
-                        }}
-                        onDeploySuccess={(address, txHash) => {
-                          setDeployedAddress(address);
-                          setDeploymentTxHash(txHash);
-                        }}
-                        web3={web3}
-                        account={account}
-                      />
-                    )}
-
-                    {deployedAddress && (
-                      <Alert className="bg-green-900/20 border-green-500/50">
-                        <CheckCircle2 className="h-4 w-4 text-green-400" />
-                        <AlertTitle className="text-green-300">Success</AlertTitle>
-                        <AlertDescription className="text-green-200">
-                          Contract successfully deployed at address: {deployedAddress}
-                          {deploymentTxHash && (
-                            <div className="mt-2">
-                              <p>Transaction Hash: {deploymentTxHash}</p>
-                              <Button 
-                                className="mt-2 bg-blue-600 hover:bg-blue-700"
-                                onClick={() => window.open(`https://kopli.reactscan.net/tx/${deploymentTxHash}`, '_blank')}
-                              >
-                                View on Explorer
-                              </Button>
-                            </div>
-                          )}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
+          {currentStep === 3 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6"
+            >
+              <h2 className="text-2xl font-semibold mb-4 text-zinc-100">Template Preview</h2>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-2 text-zinc-200">Reactive Contract Template</h3>
+                  <ContractPreview 
+                    fullCode={previewCode} 
+                    showSimplified={true} 
+                    destinationAddress={destinationAddress}
+                  />
                 </div>
-              </motion.div>
-            )}
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-2 text-zinc-200">Destination Contract Functions</h3>
+                  <Textarea
+                    value={destinationFunctions}
+                    readOnly
+                    className="h-24 font-mono bg-blue-900/20 border-zinc-700 text-zinc-200"
+                  />
+                </div>
+
+                <Alert className="bg-yellow-900/20 border-yellow-500/50">
+                  <AlertCircle className="h-4 w-4 text-yellow-400" />
+                  <AlertTitle className="text-yellow-300">Warning</AlertTitle>
+                  <AlertDescription className="text-yellow-200">
+                    Ensure you have deployed your destination contract with the provided functions before proceeding.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-4">
+                  
+
+                  <div>
+                    <Label htmlFor="destinationAddress" className="text-zinc-200">
+                      Destination Contract Address
+                    </Label>
+                    <Input
+                      id="destinationAddress"
+                      placeholder="0x..."
+                      value={destinationAddress}
+                      onChange={(e) => setDestinationAddress(e.target.value)}
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                    />
+                  </div>
+
+                  {destinationAddress && (
+                    <DeployButton
+                      editedContract={previewCode.replace(
+                        "0x0000000000000000000000000000000000000000",
+                        destinationAddress
+                      )}
+                      
+                      onCompileSuccess={(abi, bytecode) => {
+                        setAbi(abi);
+                        setBytecode(bytecode);
+                      }}
+                      onDeploySuccess={(address, txHash) => {
+                        setDeployedAddress(address);
+                        setDeploymentTxHash(txHash);
+                      }}
+                      web3={web3}
+                      account={account}
+                    />
+                  )}
+
+                  {deployedAddress && (
+                    <Alert className="bg-green-900/20 border-green-500/50">
+                      {/* Success alert content */}
+                    </Alert>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
           </CardContent>
 
           <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 p-4 sm:p-6 border-t border-zinc-800">

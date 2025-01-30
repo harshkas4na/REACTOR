@@ -39,13 +39,13 @@ interface StopOrderFormData {
   
 
 interface PairInfo {
-    token0: string;
-    token1: string;
-    token0Symbol?: string;
-    token1Symbol?: string;
-    reserve0?: string;
-    reserve1?: string;
-  }
+  token0: string;
+  token1: string;
+  token0Symbol?: string;
+  token1Symbol?: string;
+  reserve0?: string;
+  reserve1?: string;
+}
 
 // Configuration constants
 const SUPPORTED_CHAINS = [
@@ -59,23 +59,23 @@ const SUPPORTED_CHAINS = [
 
 export default function UniswapStopOrderPage() {
 
-    const [formData, setFormData] = useState<StopOrderFormData>({
-      chainId: '',
-      pairAddress: '',
-      sellToken0: true,
+  const [formData, setFormData] = useState<StopOrderFormData>({
+    chainId: '',
+    pairAddress: '',
+    sellToken0: true,
       clientAddress: '',  // This will be updated when we get the connected account
-      coefficient: '1000',
-      threshold: '',
-      amount: ''
-    });
+    coefficient: '1000',
+    threshold: '',
+    amount: ''
+  });
 
 
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [connectedAccount, setConnectedAccount] = useState<string>('');
 
     const [deploymentStep, setDeploymentStep] = useState<'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'switching-back' | 'approving' | 'complete'>('idle');
-    const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
-    const [isLoadingPair, setIsLoadingPair] = useState(false);
+  const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
+  const [isLoadingPair, setIsLoadingPair] = useState(false);
 
 
     // Add effect to get connected account
@@ -151,9 +151,9 @@ const handleFetchPairInfo = async (pairAddress: string) => {
   
       // Define the interface for the pair contract
       const pairInterface = new ethers.Interface([
-        'function token0() view returns (address)',
-        'function token1() view returns (address)',
-        'function getReserves() view returns (uint112, uint112, uint32)'
+          'function token0() view returns (address)',
+          'function token1() view returns (address)',
+          'function getReserves() view returns (uint112, uint112, uint32)'
       ]);
   
       const pairContract = new ethers.Contract(
@@ -161,7 +161,7 @@ const handleFetchPairInfo = async (pairAddress: string) => {
         pairInterface,
         provider
       );
-  
+
       // Wrap each call in try-catch to handle specific failures
       let token0, token1, reserves;
       try {
@@ -189,19 +189,19 @@ const handleFetchPairInfo = async (pairAddress: string) => {
       let token0Symbol = 'Unknown', token1Symbol = 'Unknown';
   
       try {
-        const token0Contract = new ethers.Contract(token0, erc20Interface, provider);
+      const token0Contract = new ethers.Contract(token0, erc20Interface, provider);
         token0Symbol = await token0Contract.symbol();
       } catch (error) {
         console.warn("Could not fetch token0 symbol:", error);
       }
   
       try {
-        const token1Contract = new ethers.Contract(token1, erc20Interface, provider);
+      const token1Contract = new ethers.Contract(token1, erc20Interface, provider);
         token1Symbol = await token1Contract.symbol();
       } catch (error) {
         console.warn("Could not fetch token1 symbol:", error);
       }
-  
+
       setPairInfo({
         token0,
         token1,
@@ -328,30 +328,30 @@ const handleFetchPairInfo = async (pairAddress: string) => {
 
 
 async function deployDestinationContract(routerAddress: string): Promise<string> {
-  try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     
     // Create contract factory
-    
-    const factory = new ethers.ContractFactory(
-      stopOrderABI,
-      stopOrderByteCode,
-      signer
-    );
-    
+      
+      const factory = new ethers.ContractFactory(
+        stopOrderABI,
+        stopOrderByteCode,
+        signer
+      );
+
     // Deploy contract
-    const contract = await factory.deploy(
-      routerAddress,
+      const contract = await factory.deploy(
+        routerAddress,
       { value: ethers.parseEther("0") } // Fund contract with 0.1 ETH
-    );
+      );
     console.log("contract", contract);
-    await contract.waitForDeployment();
+      await contract.waitForDeployment();
     return contract.target.toString();
-  } catch (error) {
-    console.error('Error deploying destination contract:', error);
-    throw error;
-  }
+    } catch (error) {
+      console.error('Error deploying destination contract:', error);
+      throw error;
+    }
 }
 
 async function deployRSC(params: {
@@ -419,7 +419,7 @@ async function deployRSC(params: {
         gasLimit: gasLimit.toString(),
         gasPrice: gasPrice.toString()
       });
-  
+
       const contract = await factory.deploy(
         params.pair,
         params.stopOrder,
@@ -463,7 +463,7 @@ async function approveTokens(
   
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-  
+      
       // Get token contract with extended interface including decimals
       const tokenContract = new ethers.Contract(
         tokenAddress,
@@ -474,7 +474,7 @@ async function approveTokens(
         ],
         signer
       );
-  
+
       // Get token decimals
       const decimals = await tokenContract.decimals();
       console.log("Token decimals:", decimals);
@@ -561,14 +561,14 @@ async function approveTokens(
             </CardContent>
           </Card>
         </motion.div>
-  
+
         {/* Main Form Card */}
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800  mb-12">
           <CardHeader className="border-b border-zinc-800">
             <CardTitle className="text-zinc-100">Create Stop Order</CardTitle>
             <CardDescription className="text-zinc-300">Configure your automated token swap</CardDescription>
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <form className="space-y-6">
               {/* Chain Selection */}
               <div className="space-y-2">
@@ -580,7 +580,7 @@ async function approveTokens(
                     </HoverCardTrigger>
                     <HoverCardContent className="w-80 ">
                       <p className="text-sm text-zinc-200">
-                        Choose the blockchain network where your tokens are located.
+                        Choose the blockchain network where your tokens are located. 
                         This determines which Uniswap V2 contracts we'll interact with.
                       </p>
                     </HoverCardContent>
@@ -636,7 +636,7 @@ async function approveTokens(
                     handleFetchPairInfo(e.target.value);
                     }
                 }}
-                />
+              />
             </div>
 
             {isLoadingPair && (
@@ -821,7 +821,7 @@ async function approveTokens(
 
               
 
-            {deploymentStep !== 'idle' && (
+              {deploymentStep !== 'idle' && (
               <Alert className="bg-blue-900/20 border-blue-500/50">
                 <AlertCircle className="h-4 w-4 text-blue-400" />
                 <AlertDescription className="mt-1 text-zinc-200">
@@ -833,15 +833,15 @@ async function approveTokens(
                   {deploymentStep === 'complete' && 'Stop order created successfully!'}
                 </AlertDescription>
               </Alert>
-            )}
+                )}
 
             <Button 
               type="submit"
               onClick={handleCreateOrder}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             >
-              Create Stop Order
-            </Button>
+                Create Stop Order
+              </Button>
             </form>
           </CardContent>
         </Card>
@@ -853,28 +853,28 @@ async function approveTokens(
           <CardDescription className="text-zinc-300">
             Learn how stop orders work and how to use them effectively
           </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible className="w-full">
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
             {/* Accordion items with updated styling */}
             <AccordionItem value="what-is" className="border-zinc-800">
               <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
                 What is a Stop Order?
               </AccordionTrigger>
               <AccordionContent className="text-zinc-300">
-                <div className="space-y-4">
+                  <div className="space-y-4">
                   <p>
-                    A stop order is like an automated guardian for your tokens. It watches the price 24/7 and automatically sells your tokens when they drop to your specified price level, helping protect you from further losses.
-                  </p>
+                      A stop order is like an automated guardian for your tokens. It watches the price 24/7 and automatically sells your tokens when they drop to your specified price level, helping protect you from further losses.
+                    </p>
                   <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
                     <h4 className="font-medium text-zinc-100 mb-2">Example:</h4>
                     <p className="text-sm text-zinc-300">
-                      If you own tokens worth $100 each and want to protect against significant losses, you might set a stop order at $90. If the price falls to $90, your tokens will automatically sell, limiting your loss to 10%.
-                    </p>
+                        If you own tokens worth $100 each and want to protect against significant losses, you might set a stop order at $90. If the price falls to $90, your tokens will automatically sell, limiting your loss to 10%.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
+                </AccordionContent>
+              </AccordionItem>
 
               <AccordionItem value="how-it-works">
                 <AccordionTrigger>How Does It Work?</AccordionTrigger>

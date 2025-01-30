@@ -15,6 +15,7 @@ import { useContractGeneration } from '@/hooks/automation/useContractGeneration'
 import AutomationForm2 from '@/components/automation/SCAutomation/AutomationForm2'
 import DeployButton from '@/components/DeployButton'
 import { BASE_URL } from '@/data/constants'
+import ContractPreview from '@/components/contract-preview'
 
 export default function CrossDAppAutomation() {
   const [availableEvents, setAvailableEvents] = useState([])
@@ -257,7 +258,7 @@ export default function CrossDAppAutomation() {
             <>
               <Button
                 onClick={() => setIsTemplateVisible(!isTemplateVisible)}
-                className="w-full bg-blue-900/20 hover:bg-blue-900/30 text-zinc-200 flex justify-between items-center border border-blue-500/20 text-sm sm:text-base py-2 sm:py-3"
+                className=" bg-blue-900/20 hover:bg-blue-900/30 text-zinc-200 flex justify-between items-center border border-blue-500/20 text-sm sm:text-base py-2 sm:py-3"
               >
                 <span>{isTemplateVisible ? 'Hide' : 'Show'} Generated Template</span>
                 {isTemplateVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -266,9 +267,11 @@ export default function CrossDAppAutomation() {
               {isTemplateVisible && (
                 <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
                   <CardContent className="p-3 sm:p-6">
-                    <pre className="whitespace-pre-wrap text-xs sm:text-sm text-zinc-300 overflow-x-auto p-3 sm:p-4 bg-blue-900/20 rounded-lg border border-zinc-800 max-h-[400px]">
-                      {reactiveContract}
-                    </pre>
+                  <ContractPreview 
+                    fullCode={reactiveContract} 
+                    showSimplified={true} 
+                    destinationAddress={destinationAddress}
+                  />
                   </CardContent>
                 </Card>
               )}

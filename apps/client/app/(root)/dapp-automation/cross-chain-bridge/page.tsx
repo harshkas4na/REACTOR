@@ -16,6 +16,7 @@ import AutomationForm2 from '@/components/automation/SCAutomation/AutomationForm
 import DeployButton from '@/components/DeployButton'
 import { useWeb3 } from '@/app/_context/Web3Context'
 import { BASE_URL } from '@/data/constants'
+import ContractPreview from '@/components/contract-preview'
 
 export default function CrossChainBridge() {
   const [step, setStep] = useState(1)
@@ -272,16 +273,18 @@ export default function CrossChainBridge() {
                     <div className="mb-6">
                       <Button
                         onClick={toggleContractVisibility}
-                        className="w-full flex justify-between items-center p-4 bg-blue-900/20 text-zinc-200 border border-blue-500/20 hover:bg-blue-900/30"
+                        className="flex justify-between items-center p-4 bg-blue-900/20 text-zinc-200 border border-blue-500/20 hover:bg-blue-900/30"
                       >
                         <span>View Generated Contract</span>
                         {isContractVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
                       {isContractVisible && (
-                        <div className="mt-2 p-4 bg-blue-900/20 rounded-lg border border-zinc-800">
-                          <pre className="whitespace-pre-wrap overflow-x-auto text-zinc-300">
-                            {reactiveContract}
-                          </pre>
+                        <div className="mt-2  bg-blue-900/20 rounded-lg border border-zinc-800">
+                          <ContractPreview 
+                            fullCode={reactiveContract} 
+                            showSimplified={true} 
+                            destinationAddress={destinationAddress}
+                          />
                         </div>
                       )}
                     </div>
