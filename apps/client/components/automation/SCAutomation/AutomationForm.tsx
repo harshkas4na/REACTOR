@@ -4,18 +4,35 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Info } from 'lucide-react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import AutomationCard from './AutomationCard';
 import ConfigurationFields from './ConfigurationFields';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
+// Supported chains configuration
+const SUPPORTED_CHAINS = {
+  ORIGINS: [
+    { id: 11155111, name: 'Ethereum Sepolia' },
+    { id: 1, name: 'Ethereum Mainnet' },
+    { id: 43114, name: 'Avalanche C-Chain' },
+    { id: 42161, name: 'Arbitrum One' },
+    { id: 169, name: 'Manta Pacific' },
+    { id: 8453, name: 'Base Chain' },
+    { id: 56, name: 'BSC' },
+    { id: 137, name: 'Polygon PoS' },
+    { id: 5318008, name: 'Kopli Testnet' }
+  ],
+  DESTINATIONS: [
+    { id: 11155111, name: 'Ethereum Sepolia' },
+    { id: 43114, name: 'Avalanche C-Chain' },
+    { id: 169, name: 'Manta Pacific' },
+    { id: 8453, name: 'Base Chain' },
+    { id: 5318008, name: 'Kopli Testnet' }
+  ]
+};
 
 export default function AutomationForm({ 
   onSubmit, 
@@ -65,7 +82,6 @@ export default function AutomationForm({
     }
   };
 
-
   const validateEthereumAddress = (address: string) => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
@@ -73,8 +89,6 @@ export default function AutomationForm({
   const validateChainId = (chainId: string) => {
     return !isNaN(Number(chainId)) && Number(chainId) > 0;
   };
-
-  
 
   useEffect(() => {
     setValidations(prev => ({
@@ -89,7 +103,24 @@ export default function AutomationForm({
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       <div className="space-y-6">
-        <Label className="text-lg font-semibold text-gray-300">Automations</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-lg font-semibold text-gray-300">Automations</Label>
+          <HoverCard>
+            <HoverCardTrigger>
+              <Info className="h-4 w-4 text-gray-400" />
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="font-medium text-zinc-100">Event-Function Pairs</h4>
+                <p className="text-sm text-zinc-300">
+                  Define which events to monitor and what functions to execute in response. 
+                  First parameter of functions must be address (for ReactVM).
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        </div>
+
         {automations.map((automation, index) => (
           <AutomationCard
             key={index}
@@ -97,6 +128,7 @@ export default function AutomationForm({
             index={index}
           />
         ))}
+
         <Button 
           type="button" 
           variant="outline" 
@@ -129,77 +161,121 @@ export default function AutomationForm({
             onCheckedChange={handleSameChainToggle}
             className="h-5 w-5 border-2 border-gray-300 dark:border-gray-600 rounded checked:bg-blue-500 dark:checked:bg-blue-400"
           />
-          <Label 
-            htmlFor="sameChain" 
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Origin and destination chains are the same
-          </Label>
+          <div className="flex items-center space-x-2">
+            <Label 
+              htmlFor="sameChain" 
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Origin and destination chains are the same
+            </Label>
+            <HoverCard>
+              <HoverCardTrigger>
+                <Info className="h-4 w-4 text-gray-400" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <p className="text-sm text-zinc-300">
+                  Enable this if your origin and destination contracts are on the same blockchain network.
+                </p>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
         </div>
 
         {sameChain ? (
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Chain ID</Label>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Input
-                    type="number"
-                    contentEditable={true}
-                    value={OrgChainId}
-                    onChange={(e) => {
-                      setOrgChainId(e.target.value);
-                      setDesChainId(e.target.value);
-                    }}
-                    placeholder="Enter Chain ID"
-                    className={`w-full p-2 bg-white dark:bg-gray-800 border ${validations.OrgChainId ? 'border-green-500' : 'border-red-500'} rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200`}
-                  />
-                </TooltipTrigger>
-                <TooltipContent className="bg-gray-800 text-white dark:bg-white dark:text-gray-800 p-2 rounded-md shadow-lg">
-                  <p>Enter a valid positive number</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center space-x-2">
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Chain ID</Label>
+              <HoverCard>
+                <HoverCardTrigger>
+                  <Info className="h-4 w-4 text-gray-400" />
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-zinc-100">Supported Chains</h4>
+                    <p className="text-sm text-zinc-300">
+                      For same-chain operations, use one of the networks that support both monitoring and execution:
+                      {SUPPORTED_CHAINS.DESTINATIONS.map(chain => 
+                        `\n• ${chain.name} (${chain.id})`
+                      )}
+                    </p>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+            </div>
+            <Input
+              type="number"
+              value={OrgChainId}
+              onChange={(e) => {
+                setOrgChainId(e.target.value);
+                setDesChainId(e.target.value);
+              }}
+              placeholder="Enter Chain ID"
+              className={`w-full p-2 bg-white dark:bg-gray-800 border ${
+                validations.OrgChainId ? 'border-green-500' : 'border-red-500'
+              } rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200`}
+            />
           </div>
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Origin Chain ID</Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Input
-                      type="number"
-                      value={OrgChainId}
-                      onChange={(e) => setOrgChainId(e.target.value)}
-                      placeholder="Enter Origin Chain ID"
-                      className={`w-full p-2 bg-white dark:bg-gray-800 border ${validations.OrgChainId ? 'border-green-500' : 'border-red-500'} rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200`}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-gray-800 text-white dark:bg-white dark:text-gray-800 p-2 rounded-md shadow-lg">
-                    <p>Enter a valid positive number</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex items-center space-x-2">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Origin Chain ID</Label>
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-gray-400" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-zinc-100">Origin Chain Support</h4>
+                      <p className="text-sm text-zinc-300">
+                        Choose from supported origin networks:
+                        {SUPPORTED_CHAINS.ORIGINS.map(chain => 
+                          `\n• ${chain.name} (${chain.id})`
+                        )}
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <Input
+                type="number"
+                value={OrgChainId}
+                onChange={(e) => setOrgChainId(e.target.value)}
+                placeholder="Enter Origin Chain ID"
+                className={`w-full p-2 bg-white dark:bg-gray-800 border ${
+                  validations.OrgChainId ? 'border-green-500' : 'border-red-500'
+                } rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200`}
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Destination Chain ID</Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Input
-                      type="number"
-                      value={DesChainId}
-                      onChange={(e) => setDesChainId(e.target.value)}
-                      placeholder="Enter Destination Chain ID"
-                      className={`w-full p-2 bg-white dark:bg-gray-800 border ${validations.DesChainId ? 'border-green-500' : 'border-red-500'} rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200`}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-gray-800 text-white dark:bg-white dark:text-gray-800 p-2 rounded-md shadow-lg">
-                    <p>Enter a valid positive number</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex items-center space-x-2">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Destination Chain ID</Label>
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-gray-400" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-zinc-100">Destination Chain Support</h4>
+                      <p className="text-sm text-zinc-300">
+                        Choose from supported destination networks:
+                        {SUPPORTED_CHAINS.DESTINATIONS.map(chain => 
+                          `\n• ${chain.name} (${chain.id})`
+                        )}
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <Input
+                type="number"
+                value={DesChainId}
+                onChange={(e) => setDesChainId(e.target.value)}
+                placeholder="Enter Destination Chain ID"
+                className={`w-full p-2 bg-white dark:bg-gray-800 border ${
+                  validations.DesChainId ? 'border-green-500' : 'border-red-500'
+                } rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200`}
+              />
             </div>
           </div>
         )}
@@ -208,6 +284,7 @@ export default function AutomationForm({
       <ConfigurationFields 
         isOriginAddressValid={validations.originAddress}
         isDestinationAddressValid={validations.destinationAddress}
+        sameChain={sameChain}
       />
 
       {error && (
@@ -224,4 +301,3 @@ export default function AutomationForm({
     </form>
   );
 }
-

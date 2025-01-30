@@ -9,16 +9,39 @@ import { useWeb3 } from '@/app/_context/Web3Context';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, ExternalLink } from 'lucide-react';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Loader2, ExternalLink, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import DeployButton from '@/components/DeployButton';
 
+// Supported chains configuration
+const SUPPORTED_CHAINS = {
+  ORIGINS: [
+    { id: 11155111, name: 'Ethereum Sepolia' },
+    { id: 1, name: 'Ethereum Mainnet' },
+    { id: 43114, name: 'Avalanche C-Chain' },
+    { id: 42161, name: 'Arbitrum One' },
+    { id: 169, name: 'Manta Pacific' },
+    { id: 8453, name: 'Base Chain' },
+    { id: 56, name: 'Binance Smart Chain' },
+    { id: 137, name: 'Polygon PoS' },
+    { id: 5318008, name: 'Kopli Testnet' }
+  ],
+  DESTINATIONS: [
+    { id: 11155111, name: 'Ethereum Sepolia' },
+    { id: 43114, name: 'Avalanche C-Chain' },
+    { id: 169, name: 'Manta Pacific' },
+    { id: 8453, name: 'Base Chain' },
+    { id: 5318008, name: 'Kopli Testnet' }
+  ]
+};
+
 const NETWORK_NAMES: { [key: number]: string } = {
-  5318008: 'Kopli', // Assuming this is the chain ID for Kopli
-  // Add other network names if needed
+  5318008: 'Kopli'
 };
 
 export default function AutomationPage() {
+  // Existing state management
   const [showContract, setShowContract] = useState(false);
   const [editingContract, setEditingContract] = useState(false);
   const [editedContract, setEditedContract] = useState('');
@@ -29,10 +52,11 @@ export default function AutomationPage() {
   const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [deploymentTxHash, setDeploymentTxHash] = useState<string | null>(null);
   const [isValidForm, setIsValidForm] = useState(false);
-  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle')
+  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
 
-  const { toast } = useToast()
+  const { toast } = useToast();
 
+  // Context hooks
   const {
     OrgChainId,
     DesChainId,
@@ -53,14 +77,17 @@ export default function AutomationPage() {
     },
   });
 
+  // Utility functions
   const isEthereumAddress = (address: string): boolean => {
-    return /^0x[a-fA-F0-9]{40}$/.test(address)
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
   }
 
+  // Effect for form validation
   useEffect(() => {
     validateForm();
   }, [automations, OrgChainId, DesChainId, originAddress, destinationAddress]);
 
+  // Form validation
   const validateForm = () => {
     const isValidAutomations = automations.every(automation => {
       const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\((address|uint256|string|bool|bytes32|uint8)(\s*,\s*(address|uint256|string|bool|bytes32|uint8))*\)$/;
@@ -68,16 +95,13 @@ export default function AutomationPage() {
       return eventRegex.test(automation.event) && functionRegex.test(automation.function);
     });
     
-    // console.log('isValidAutomations:', isValidAutomations);
     const isValidAddresses = isEthereumAddress(originAddress) && isEthereumAddress(destinationAddress);
-    // console.log('isValidAddresses:', isValidAddresses);
-  
     const isValidChainIds = !isNaN(Number(OrgChainId)) && !isNaN(Number(DesChainId));
-    // console.log('isValidChainIds:', isValidChainIds);
   
     setIsValidForm(isValidAutomations && isValidAddresses && isValidChainIds);
   };
 
+  // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isValidForm) {
@@ -92,6 +116,7 @@ export default function AutomationPage() {
     }
   };
 
+  // Contract editing handlers
   const handleSaveEditedContract = () => {
     setReactiveContract(editedContract);
     setEditingContract(false);
@@ -101,152 +126,65 @@ export default function AutomationPage() {
     setEditedContract(value);
   };
 
-  const handleCompile = async () => {
-    setCompileError(null);
-    try {
-      const response = await fetch('http://localhost:5000/compile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sourceCode: editedContract }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to compile contract');
-      }
-
-      const { abi, bytecode } = await response.json();
-      if (!abi || !bytecode) {
-        throw new Error('Compilation successful, but ABI or bytecode is missing');
-      }
-      setAbi(abi);
-      setBytecode(bytecode);
-    } catch (error: any) {
-      console.error('Error in compile:', error);
-      setCompileError(error.message);
-    }
-  };
-
+  // Network handling
   const getNetworkName = async (web3: any) => {
     try {
-      const chainId = await web3.eth.getChainId()
-      return NETWORK_NAMES[chainId] || `Chain ID: ${chainId}`
+      const chainId = await web3.eth.getChainId();
+      return NETWORK_NAMES[chainId] || `Chain ID: ${chainId}`;
     } catch (error) {
-      console.error('Error getting network name:', error)
-      return 'Unknown Network'
-    }
-  }
-
-  const handleDeploy = async () => {
-    if (!web3 || !account || !abi || !bytecode) {
-      toast({
-        variant: "destructive",
-        title: "Deployment Error",
-        description: "Missing required deployment configuration",
-      })
-      return
-    }
-
-    setDeploymentStatus('deploying')
-    setDeploymentError(null)
-
-    try {
-      // Create new contract instance
-      const contract = new web3.eth.Contract(abi)
-      
-      // Get network name before deployment
-      const networkName = await getNetworkName(web3)
-      
-      // Check if the network is Kopli
-      if (networkName !== 'Kopli') {
-        throw new Error('Deployment is only allowed on the Kopli network')
-      }
-
-      // Prepare deployment transaction
-      const deploy = contract.deploy({
-        data: bytecode,
-        arguments: []
-      })
-
-      // Estimate gas
-      const gasEstimate = await deploy.estimateGas({ from: account })
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2)
-      const gasPrice = await web3.eth.getGasPrice()
-
-      // Check balance
-      const balance = await web3.eth.getBalance(account)
-      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice)
-
-      if (BigInt(balance) < requiredBalance) {
-        throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`)
-      }
-
-      let transactionHash = ''
-      
-      // Deploy with event tracking
-      const deployedContract = await new Promise((resolve, reject) => {
-        deploy.send({
-          from: account,
-          gas: String(gasLimit),
-          gasPrice: String(gasPrice),
-        })
-        .on('transactionHash', (hash: string | Uint8Array) => {
-          console.log('Transaction Hash:', hash)
-          transactionHash = hash as string
-          setDeploymentTxHash(hash as string)
-        })
-        .on('error', (error: any) => {
-          reject(error)
-        })
-        .then(resolve)
-      })
-
-      // Update final deployment status
-      if (deployedContract) {
-        const contractAddress = (deployedContract as any).options.address
-        setDeployedAddress(contractAddress)
-        setDeploymentStatus('success')
-
-        toast({
-          title: "Deployment Successful",
-          description: `Contract deployed at ${contractAddress} on ${networkName}`,
-        })
-
-        return {
-          transactionHash,
-          contractAddress,
-          networkName
-        }
-      }
-
-    } catch (error: any) {
-      console.error('Deployment error:', error)
-      setDeploymentStatus('error')
-      setDeploymentError(error.message)
-      toast({
-        variant: "destructive",
-        title: "Deployment Failed",
-        description: error.message,
-      })
+      console.error('Error getting network name:', error);
+      return 'Unknown Network';
     }
   }
 
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-      {/* Main content wrapper with explicit z-index */}
       <div className="relative z-20 max-w-4xl mx-auto space-y-8">
-        <h1 className="relative text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
-          Create Your Automation
-        </h1>
-        
-        {/* Cards with explicit z-index and pointer-events-auto */}
+        {/* Info Card */}
+        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-zinc-100">
+              Create Your Reactive Smart Contract
+            </CardTitle>
+            <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-800 mt-4">
+              <p className="text-zinc-300">
+                Reactive Smart Contracts (RSCs) enable automated blockchain interactions through event monitoring.
+                Learn more in the{' '}
+                <a 
+                  href="https://dev.reactive.network/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline"
+                >
+                  Reactive Network Documentation
+                </a>
+              </p>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Main Form */}
         <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
           <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
-            <CardTitle className="text-2xl font-bold text-zinc-100">
-              Automation Configuration
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-2xl font-bold text-zinc-100">
+                Automation Configuration
+              </CardTitle>
+              <HoverCard>
+                <HoverCardTrigger>
+                  <Info className="h-5 w-5 text-zinc-400" />
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-zinc-100">About RSC Configuration</h4>
+                    <p className="text-sm text-zinc-300">
+                      Configure how your RSC will monitor events and execute functions across chains.
+                      Make sure your contracts are deployed before creating the automation.
+                    </p>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+            </div>
           </CardHeader>
           <CardContent className="p-6">
             <AutomationForm
@@ -258,6 +196,7 @@ export default function AutomationPage() {
           </CardContent>
         </Card>
 
+        {/* Contract Display */}
         {reactiveContract && (
           <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
             <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
@@ -278,26 +217,25 @@ export default function AutomationPage() {
                 onContractChange={handleContractChange}
               />
               <div className="mt-6 space-y-4">
-                
                 <DeployButton
-                    editedContract={editedContract}
-                    onCompileSuccess={(abi, bytecode) => {
-                      setAbi(abi);
-                      setBytecode(bytecode);
-                    }}
-                    onDeploySuccess={(address, transactionHash) => {
-                      setDeployedAddress(address);
-                      setDeploymentTxHash(transactionHash);
-                    }}
-                    web3={web3}
-                    account={account}
-                  />
+                  editedContract={editedContract}
+                  onCompileSuccess={(abi, bytecode) => {
+                    setAbi(abi);
+                    setBytecode(bytecode);
+                  }}
+                  onDeploySuccess={(address, transactionHash) => {
+                    setDeployedAddress(address);
+                    setDeploymentTxHash(transactionHash);
+                  }}
+                  web3={web3}
+                  account={account}
+                />
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Alerts and status cards with proper z-index */}
+        {/* Error and Status Displays */}
         {compileError && (
           <Alert variant="destructive" className="relative z-20 pointer-events-auto bg-red-900/20 border-red-800">
             <AlertTitle className="text-red-200 font-semibold">
@@ -320,6 +258,7 @@ export default function AutomationPage() {
           </Alert>
         )}
 
+        {/* Deployment Success Card */}
         {deployedAddress && (
           <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
             <CardHeader className="bg-gradient-to-r from-green-600/10 to-teal-600/10 p-6 rounded-t-lg">
@@ -351,4 +290,4 @@ export default function AutomationPage() {
       </div>
     </div>
   );
-};
+}

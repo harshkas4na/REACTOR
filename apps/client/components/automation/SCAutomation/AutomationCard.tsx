@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2 } from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 import { AutomationType } from '../../../types/Automation';
 import {
@@ -15,6 +15,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface AutomationCardProps {
   automation: AutomationType;
@@ -27,20 +32,18 @@ export default function AutomationCard({
 }: AutomationCardProps) {
   const { automations, setAutomations } = useAutomationContext();
   
-  // Improved validation functions
+  // Validation functions
   const validateEventInput = useCallback((input: string): boolean => {
-    // Regex for event signature: event_name(type1,type2,...)
     const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\((address|uint256|string|bool|bytes32|uint8)(,(address|uint256|string|bool|bytes32|uint8))*\)$/;
     return eventRegex.test(input);
   }, []);
 
   const validateFunctionInput = useCallback((input: string): boolean => {
-    // Regex for function signature: function_name(address,type1,type2,...)
     const functionRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\(address(,(address|uint256|string|bool|bytes32|uint8))*\)$/;
     return functionRegex.test(input);
   }, []);
 
-  // Improved handleAutomationChange function
+  // Automation change handler
   const handleAutomationChange = useCallback((field: 'event' | 'function' | 'topic0', value: string) => {
     setAutomations(prevAutomations => 
       prevAutomations.map((a, i) => {
@@ -49,11 +52,9 @@ export default function AutomationCard({
         const updatedAutomation = { ...a, [field]: value };
 
         if (field === 'event') {
-          // Validate event input
           const isEventValid = validateEventInput(value);
           
           if (isEventValid) {
-            // Generate topic0 only for valid event signatures
             try {
               updatedAutomation.topic0 = ethers.keccak256(ethers.toUtf8Bytes(value));
             } catch (error) {
@@ -80,8 +81,37 @@ export default function AutomationCard({
   return (
     <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 bg-blend-normal border-zinc-800">
       <CardContent className="space-y-4 p-4">
+        {/* Event Input */}
         <div className="space-y-2">
-          <Label className="text-zinc-300">Event</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-zinc-300">Event Signature</Label>
+            <HoverCard>
+              <HoverCardTrigger>
+                <Info className="h-4 w-4 text-zinc-400" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-zinc-100">Event Format</h4>
+                  <p className="text-sm text-zinc-300">
+                    The event signature from your origin contract that you want to monitor.
+                    Format: EventName(type1,type2,...)
+                  </p>
+                  <p className="text-sm text-zinc-300 mt-2">
+                    Supported types:
+                    • address
+                    • uint256
+                    • string
+                    • bool
+                    • bytes32
+                    • uint8
+                  </p>
+                  <p className="text-sm text-zinc-400 mt-2">
+                    Example: Transfer(address,address,uint256)
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
           <Input
             value={automation.event}
             onChange={(e) => handleAutomationChange('event', e.target.value)}
@@ -95,17 +125,43 @@ export default function AutomationCard({
           />
           {!validateEventInput(automation.event) && (
             <p className="text-red-400 text-sm">
-              Invalid event signature. Use format: EventName(type1,type2,...)
+              Invalid event signature format
             </p>
           )}
         </div>
 
+        {/* Function Input */}
         <div className="space-y-2">
-          <Label className="text-zinc-300">Function</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-zinc-300">Function Signature</Label>
+            <HoverCard>
+              <HoverCardTrigger>
+                <Info className="h-4 w-4 text-zinc-400" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-zinc-100">Function Format</h4>
+                  <p className="text-sm text-zinc-300">
+                    The function to execute on your destination contract.
+                    First parameter must be address (for ReactVM).
+                  </p>
+                  <div className="mt-2 p-2 bg-gray-900/50 rounded-md">
+                    <p className="text-sm text-zinc-300">
+                      Format: functionName(address,type1,type2,...)
+                      First parameter is reserved for ReactVM address.
+                    </p>
+                  </div>
+                  <p className="text-sm text-zinc-400 mt-2">
+                    Example: executeTransfer(address,uint256)
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
           <Input
             value={automation.function}
             onChange={(e) => handleAutomationChange('function', e.target.value)}
-            placeholder="FunctionName(address,uint256)"
+            placeholder="functionName(address,uint256)"
             required
             className={`bg-gray-900/50 border ${
               validateFunctionInput(automation.function) 
@@ -115,13 +171,30 @@ export default function AutomationCard({
           />
           {!validateFunctionInput(automation.function) && (
             <p className="text-red-400 text-sm">
-              Invalid function signature. Use format: FunctionName(address,type1,type2,...)
+              First parameter must be address
             </p>
           )}
         </div>
 
+        {/* Topic0 Display */}
         <div className="space-y-2">
-          <Label className="text-zinc-300">Topic0 (auto-generated)</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-zinc-300">Topic0 (auto-generated)</Label>
+            <HoverCard>
+              <HoverCardTrigger>
+                <Info className="h-4 w-4 text-zinc-400" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-zinc-100">Event Topic Hash</h4>
+                  <p className="text-sm text-zinc-300">
+                    The keccak256 hash of your event signature. This is automatically 
+                    generated and used to identify events on the blockchain.
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
           <Input
             value={automation.topic0 || ''}
             readOnly
@@ -129,6 +202,7 @@ export default function AutomationCard({
           />
         </div>
 
+        {/* Remove Button */}
         {index > 0 && (
           <div className="flex justify-end">
             <TooltipProvider>
@@ -144,7 +218,7 @@ export default function AutomationCard({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-gray-800 text-zinc-200">
-                  <p>Remove automation</p>
+                  <p>Remove this automation</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
