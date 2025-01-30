@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,29 +28,58 @@ interface ContractInteractionProps {
 }
 
 const ContractInteraction: React.FC<ContractInteractionProps> = ({
-    abi,
-    contractAddress,
-    web3,
-    account
-  }) => {
-    const [functionInputs, setFunctionInputs] = useState<{[key: string]: {[key: string]: string}}>({});
-    const [functionOutputs, setFunctionOutputs] = useState<{[key: string]: string}>({});
-    const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
-  
-    const parsedABI = JSON.parse(abi);
-    const functions = parsedABI.filter((item: any) => 
+  abi,
+  contractAddress,
+  web3,
+  account
+}) => {
+  const [functionInputs, setFunctionInputs] = useState<{[key: string]: {[key: string]: string}}>({});
+  const [functionOutputs, setFunctionOutputs] = useState<{[key: string]: string}>({});
+  const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
+  const [isValidAddress, setIsValidAddress] = useState(false);
+
+  useEffect(() => {
+      const validateAddress = async () => {
+          if (!web3 || !contractAddress) {
+              setIsValidAddress(false);
+              return;
+          }
+
+          try {
+              // Check if the address is valid
+              const isValid = web3.utils.isAddress(contractAddress);
+              if (!isValid) {
+                  setIsValidAddress(false);
+                  return;
+              }
+
+              // Check if there's contract code at the address
+              const code = await web3.eth.getCode(contractAddress);
+              setIsValidAddress(code !== '0x' && code !== '0x0');
+          } catch (error) {
+              console.error('Error validating contract address:', error);
+              setIsValidAddress(false);
+          }
+      };
+
+      validateAddress();
+  }, [web3, contractAddress]);
+
+  // Rest of your existing code...
+  const parsedABI = JSON.parse(abi);
+  const functions = parsedABI.filter((item: any) => 
       item.type === 'function'
-    ) as ContractFunction[];
-  
-    const handleInputChange = (functionName: string, inputName: string, value: string) => {
+  ) as ContractFunction[];
+
+  const handleInputChange = (functionName: string, inputName: string, value: string) => {
       setFunctionInputs(prev => ({
-        ...prev,
-        [functionName]: {
-          ...(prev[functionName] || {}),
-          [inputName]: value
-        }
+          ...prev,
+          [functionName]: {
+              ...(prev[functionName] || {}),
+              [inputName]: value
+          }
       }));
-    };
+  };
   
     // Helper function to format contract response
     const formatContractResponse = (response: any): string => {
@@ -119,43 +148,53 @@ const ContractInteraction: React.FC<ContractInteractionProps> = ({
       }
     };
   
-    return (
+    if (!isValidAddress) {
+      return (
+          <div className="p-4 bg-yellow-500/10 border border-yellow-500/50 rounded-md">
+              <p className="text-yellow-200">
+                  Please enter a valid contract address. The address should be a deployed smart contract.
+              </p>
+          </div>
+      );
+  }
+
+  return (
       <div className="space-y-4">
-        {functions.map((func) => (
-          <Accordion type="single" collapsible key={func.name}>
-            <AccordionItem value={func.name}>
-              <AccordionTrigger className="text-gray-200 hover:text-gray-100">
-                <div className="flex items-center space-x-2">
-                  <span>{func.name}</span>
-                  <span className="text-sm text-gray-400">
-                    ({func.stateMutability})
-                  </span>
-                  {func.stateMutability === 'payable' && (
-                    <span className="text-xs text-yellow-500 ml-2">
-                      Requires ETH
-                    </span>
-                  )}
+          {functions.map((func) => (
+              <Accordion type="single" collapsible key={func.name}>
+                  <AccordionItem value={func.name}>
+                      <AccordionTrigger className="text-gray-200 hover:text-gray-100">
+                          <div className="flex items-center space-x-2">
+                              <span>{func.name}</span>
+                              <span className="text-sm text-gray-400">
+                                  ({func.stateMutability})
+                              </span>
+                              {func.stateMutability === 'payable' && (
+                                  <span className="text-xs text-yellow-500 ml-2">
+                                      Requires ETH
+                                  </span>
+                              )}
+                          </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 bg-gray-900 rounded-md relative z-30"> {/* Added relative z-30 */}
+              {func.inputs.length > 0 && (
+                <div className="space-y-4 mb-4 relative"> {/* Added relative */}
+                  {func.inputs.map((input) => (
+                    <div key={input.name} className="relative"> {/* Added relative */}
+                      <Label className="text-gray-300">
+                        {input.name} ({input.type})
+                      </Label>
+                      <Input
+                        value={functionInputs[func.name]?.[input.name] || ''}
+                        onChange={(e) => handleInputChange(func.name, input.name, e.target.value)}
+                        placeholder={`Enter ${input.type}`}
+                        className="mt-1 bg-gray-800 text-gray-200 relative z-30 pointer-events-auto" // Updated classes
+                      />
+                    </div>
+                  ))}
                 </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-4 bg-gray-900 rounded-md">
-                {func.inputs.length > 0 && (
-                  <div className="space-y-4 mb-4">
-                    {func.inputs.map((input) => (
-                      <div key={input.name}>
-                        <Label className="text-gray-300">
-                          {input.name} ({input.type})
-                        </Label>
-                        <Input
-                          value={functionInputs[func.name]?.[input.name] || ''}
-                          onChange={(e) => handleInputChange(func.name, input.name, e.target.value)}
-                          placeholder={`Enter ${input.type}`}
-                          className="mt-1 bg-gray-800 relative z-10 pointer-events-auto text-gray-200"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-  
+              )}
+              
                 <Button
                   onClick={() => callFunction(func.name, func.inputs, func.stateMutability)}
                   disabled={isLoading[func.name]}

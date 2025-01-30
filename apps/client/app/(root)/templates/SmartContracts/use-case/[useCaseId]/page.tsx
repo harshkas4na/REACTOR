@@ -89,7 +89,7 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
   }
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div className="relative mt-3 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="relative z-20 max-w-8xl mx-auto pointer-events-auto">
         <div className="relative mb-8">
         <Link href="/templates/SmartContracts">

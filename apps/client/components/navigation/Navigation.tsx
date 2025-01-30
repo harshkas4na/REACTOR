@@ -53,7 +53,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0">
+          <Link href="/">
             <Image 
               src="/logo6-2.png" 
               alt="Reactor Logo" 

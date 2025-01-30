@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +59,55 @@ export default function DeploymentTab({
   reactiveBytecode,
   helperContracts = []
 }: DeploymentTabProps) {
+  const areContractsIdentical = useMemo(() => 
+    originContract === destinationContract &&
+    originABI === destinationABI &&
+    originBytecode === destinationBytecode,
+    [originContract, destinationContract, originABI, destinationABI, originBytecode, destinationBytecode]
+  );
+  
+  const initialConstructorArgs = useMemo(() => {
+    const parseConstructorArgs = (abi: string): Record<string, string> => {
+      try {
+        const parsedABI = JSON.parse(abi);
+        const constructor = parsedABI.find((item: any) => item.type === 'constructor');
+        return constructor?.inputs 
+          ? Object.fromEntries(constructor.inputs.map((input: any) => [input.name, '']))
+          : {};
+      } catch {
+        return {};
+      }
+    };
+  
+    const helperArgs: Record<string, Record<string, string>> = {};
+    helperContracts.forEach(helper => {
+      if (helper.abi) {
+        helperArgs[helper.name] = parseConstructorArgs(helper.abi);
+      }
+    });
+  
+    return {
+      origin: parseConstructorArgs(originABI),
+      destination: !areContractsIdentical ? parseConstructorArgs(destinationABI) : {},
+      reactive: parseConstructorArgs(reactiveABI),
+      helpers: helperArgs
+    };
+  }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts]);
+
+  const [constructorArgs, setConstructorArgs] = useState(initialConstructorArgs);
+
+const [deploymentMode, setDeploymentMode] = useState(() => {
+  const modes:any = {
+    origin: 'new',
+    destination: 'new',
+    reactive: 'new',
+  };
+  helperContracts.forEach((helper:any) => {
+    modes[helper.name] = 'new';
+  }); 
+  return modes;
+});
+
   const [deploymentInfo, setDeploymentInfo] = useState<DeploymentInfo>({
     origin: null,
     destination: null,
@@ -73,17 +122,17 @@ export default function DeploymentTab({
     helpers: {} as Record<string, string>
   });
 
-  const [constructorArgs, setConstructorArgs] = useState<{
-    origin: Record<string, string>;
-    destination: Record<string, string>;
-    reactive: Record<string, string>;
-    helpers: Record<string, Record<string, string>>;
-  }>({
-    origin: {},
-    destination: {},
-    reactive: {},
-    helpers: {}
-  });
+  // const [constructorArgs, setConstructorArgs] = useState<{
+  //   origin: Record<string, string>;
+  //   destination: Record<string, string>;
+  //   reactive: Record<string, string>;
+  //   helpers: Record<string, Record<string, string>>;
+  // }>({
+  //   origin: {},
+  //   destination: {},
+  //   reactive: {},
+  //   helpers: {}
+  // });
 
   const [isDeploying, setIsDeploying] = useState({
     origin: false,
@@ -99,11 +148,11 @@ export default function DeploymentTab({
     helpers: {} as Record<string, boolean>
   });
 
-  const [deploymentMode, setDeploymentMode] = useState<Record<string, 'new' | 'existing'>>({
-    origin: 'new',
-    destination: 'new',
-    reactive: 'new'
-  });
+  // const [deploymentMode, setDeploymentMode] = useState<Record<string, 'new' | 'existing'>>({
+  //   origin: 'new',
+  //   destination: 'new',
+  //   reactive: 'new'
+  // });
 
   const [existingAddresses, setExistingAddresses] = useState({
     origin: '',
@@ -123,53 +172,57 @@ export default function DeploymentTab({
   const { account, web3 } = useWeb3();
   const { setOriginAddress, setDestinationAddress } = useAutomationContext();
 
-  const areContractsIdentical = originContract === destinationContract &&
-    originABI === destinationABI &&
-    originBytecode === destinationBytecode;
+  
 
-  // Initialize constructor arguments
-  useEffect(() => {
-    const parseConstructorArgs = (abi: string): Record<string, string> => {
-      try {
-        const parsedABI = JSON.parse(abi);
-        const constructor = parsedABI.find((item: any) => item.type === 'constructor');
-        if (constructor?.inputs) {
-          return Object.fromEntries(
-            constructor.inputs.map((input: any) => [input.name, ''])
-          );
-        }
-      } catch (err) {
-        console.error('Error parsing ABI:', err);
-      }
-      return {};
-    };
+    
+//   // Initialize constructor arguments// Replace your current useEffect with this version
+// useEffect(() => {
+//   try {
+//     // Parse constructor arguments for a contract's ABI
+//     const parseConstructorArgs = (abi: string): Record<string, string> => {
+//       try {
+//         const parsedABI = JSON.parse(abi);
+//         const constructor = parsedABI.find((item: any) => item.type === 'constructor');
+//         return constructor?.inputs 
+//           ? Object.fromEntries(constructor.inputs.map((input: any) => [input.name, '']))
+//           : {};
+//       } catch {
+//         return {};
+//       }
+//     };
 
-    const helperArgs = Object.fromEntries(
-      helperContracts.map(helper => [
-        helper.name,
-        helper.abi ? parseConstructorArgs(helper.abi) : {}
-      ])
-    );
+//     // Initialize helper contract arguments
+//     const helperArgs: Record<string, Record<string, string>> = {};
+//     for (const helper of helperContracts) {
+//       if (helper.abi) {
+//         helperArgs[helper.name] = parseConstructorArgs(helper.abi);
+//       }
+//     }
 
-    setConstructorArgs({
-      origin: parseConstructorArgs(originABI),
-      destination: !areContractsIdentical ? parseConstructorArgs(destinationABI) : {},
-      reactive: parseConstructorArgs(reactiveABI),
-      helpers: helperArgs
-    });
+//     // Update constructor arguments state
+//     setConstructorArgs({
+//       origin: parseConstructorArgs(originABI),
+//       destination: !areContractsIdentical ? parseConstructorArgs(destinationABI) : {},
+//       reactive: parseConstructorArgs(reactiveABI),
+//       helpers: helperArgs
+//     });
 
-    // Initialize deployment modes for helper contracts
-    const helperModes = Object.fromEntries(
-      helperContracts.map(helper => [helper.name, 'new'])
-    );
-    setDeploymentMode((prev:any) => ({ ...prev, ...helperModes }));
-  }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts]);
+//     // Initialize deployment modes for helper contracts
+//     const helperModes = Object.fromEntries(
+//       helperContracts.map(helper => [helper.name, 'new'])
+//     );
+//     setDeploymentMode((prev:any) => ({ ...prev, ...helperModes }));
+//   } catch (error) {
+//     console.error('Error initializing constructor arguments:', error);
+//   }
+// }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts]);
 
   const handleConstructorArgChange = (
     type: string,
     name: string,
     value: string
   ) => {
+    console.log(type, name, value);
     if (type.startsWith('helper_')) {
       const helperName = type.replace('helper_', '');
       setConstructorArgs(prev => ({
@@ -441,35 +494,35 @@ export default function DeploymentTab({
     const type = `helper_${helper.name}`;
     const isNew = deploymentMode[helper.name] === 'new';
     const address = isNew ? deployedAddresses.helpers[type] : existingAddresses.helpers[type];
-
+  
     return (
-      <Card key={helper.name} className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+      <Card key={helper.name} className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm overflow-visible">
         <CardHeader className="border-b border-zinc-800">
           <CardTitle className="text-xl font-bold text-zinc-100">
             {helper.name} Helper Contract
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-4">
+        <CardContent className="p-6 relative">
+          <div className="space-y-4 relative z-30">
             <div className="flex gap-4">
               <Button
                 variant={isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode(prev => ({ ...prev, [helper.name]: 'new' }))}
+                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [helper.name]: 'new' }))}
                 className={`w-1/2 ${isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode(prev => ({ ...prev, [helper.name]: 'existing' }))}
+                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [helper.name]: 'existing' }))}
                 className={`w-1/2 ${!isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
             </div>
-
+  
             {!isNew && (
-              <div>
+              <div className="relative z-30">
                 <Label htmlFor={`${type}-address`} className="text-zinc-300">
                   Contract Address
                 </Label>
@@ -477,12 +530,12 @@ export default function DeploymentTab({
                   id={`${type}-address`}
                   value={existingAddresses.helpers[type] || ''}
                   onChange={(e) => handleExistingAddressChange(type, e.target.value)}
-                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                   placeholder="Enter deployed contract address"
                 />
               </div>
             )}
-
+  
             {address && renderDeploymentInfo(type)}
             {address && helper.abi && (
               <ContractInteraction
@@ -492,10 +545,10 @@ export default function DeploymentTab({
                 account={account}
               />
             )}
-
+  
             {isNew && !address && (
               <>
-                <div className="flex justify-between">
+                <div className="flex justify-between relative z-30">
                   <Button
                     variant="outline"
                     onClick={() => setShowCode(prev => ({
@@ -507,9 +560,9 @@ export default function DeploymentTab({
                     {showCode.helpers[type] ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
-
+  
                 {showCode.helpers[type] && (
-                  <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden relative z-30">
                     <MonacoEditor
                       height="300px"
                       language="solidity"
@@ -522,11 +575,11 @@ export default function DeploymentTab({
                     />
                   </div>
                 )}
-
-                <div className="space-y-4">
+  
+                <div className="space-y-4 relative z-30">
                   <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
                   {Object.entries(constructorArgs.helpers[helper.name] || {}).map(([argName, value]) => (
-                    <div key={argName}>
+                    <div key={argName} className="relative">
                       <Label htmlFor={`${type}-${argName}`} className="text-zinc-300">
                         {argName}
                       </Label>
@@ -534,14 +587,14 @@ export default function DeploymentTab({
                         id={`${type}-${argName}`}
                         value={value}
                         onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
-                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                         placeholder={`Enter ${argName}`}
                       />
                     </div>
                   ))}
                 </div>
-
-                <div>
+  
+                <div className="relative z-30">
                   <Label htmlFor={`${type}-token-amount`} className="text-zinc-300">
                     Native Token Amount
                   </Label>
@@ -549,15 +602,15 @@ export default function DeploymentTab({
                     id={`${type}-token-amount`}
                     value={nativeTokenAmount.helpers[type] || '0'}
                     onChange={(e) => handleNativeTokenAmountChange(type, e.target.value)}
-                    className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                    className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                     placeholder="Enter amount in ETH"
                   />
                 </div>
-
+  
                 <Button
                   onClick={() => handleDeploy(type)}
                   disabled={isDeploying.helpers[type]}
-                  className="w-full mt-4"
+                  className="w-full mt-4 relative z-30"
                 >
                   {isDeploying.helpers[type] ? (
                     <>
@@ -585,35 +638,35 @@ export default function DeploymentTab({
     const contract = type === 'reactive' ? reactiveTemplate :
       type === 'origin' ? originContract :
         destinationContract;
-
+  
     return (
-      <Card className="bg-gradient-to-br relative z-20 pointer-events-auto from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+      <Card className="bg-gradient-to-br relative from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm overflow-visible">
         <CardHeader className="border-b border-zinc-800">
           <CardTitle className="text-xl font-bold text-zinc-100">
             {type.charAt(0).toUpperCase() + type.slice(1)} Contract
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-6 relative">
+          <div className="space-y-4 relative z-30">
             <div className="flex gap-4">
               <Button
                 variant={isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode(prev => ({ ...prev, [type]: 'new' }))}
+                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [type]: 'new' }))}
                 className={`w-1/2 ${isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode(prev => ({ ...prev, [type]: 'existing' }))}
+                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [type]: 'existing' }))}
                 className={`w-1/2 ${!isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
             </div>
-
+  
             {!isNew && (
-              <div>
+              <div className="relative z-30">
                 <Label htmlFor={`${type}-address`} className="text-zinc-300">
                   Contract Address
                 </Label>
@@ -621,12 +674,12 @@ export default function DeploymentTab({
                   id={`${type}-address`}
                   value={existingAddresses[type]}
                   onChange={(e) => handleExistingAddressChange(type, e.target.value)}
-                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                   placeholder="Enter deployed contract address"
                 />
               </div>
             )}
-
+  
             {address && renderDeploymentInfo(type)}
             {address && (
               <ContractInteraction
@@ -636,10 +689,10 @@ export default function DeploymentTab({
                 account={account}
               />
             )}
-
+  
             {isNew && !address && (
               <>
-                <div className="flex justify-between">
+                <div className="flex justify-between relative z-30">
                   <Button
                     variant="outline"
                     onClick={() => setShowCode(prev => ({ ...prev, [type]: !prev[type] }))}
@@ -648,9 +701,9 @@ export default function DeploymentTab({
                     {showCode[type] ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
-
+  
                 {showCode[type] && (
-                  <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden relative z-30">
                     <MonacoEditor
                       height="300px"
                       language="solidity"
@@ -663,11 +716,11 @@ export default function DeploymentTab({
                     />
                   </div>
                 )}
-
-                <div className="space-y-4">
+  
+                <div className="space-y-4 relative z-30">
                   <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
                   {Object.entries(constructorArgs[type]).map(([argName, value]) => (
-                    <div key={argName}>
+                    <div key={argName} className="relative">
                       <Label htmlFor={`${type}-${argName}`} className="text-zinc-300">
                         {argName}
                       </Label>
@@ -675,15 +728,15 @@ export default function DeploymentTab({
                         id={`${type}-${argName}`}
                         value={value}
                         onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
-                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                         placeholder={`Enter ${argName}`}
                       />
                     </div>
                   ))}
                 </div>
-
+  
                 {(type === 'destination' || (type === 'origin' && areContractsIdentical)) && (
-                  <div>
+                  <div className="relative z-30">
                     <Label htmlFor={`${type}-token-amount`} className="text-zinc-300">
                       Native Token Amount <span className="text-yellow-400">(min 0.1)</span>
                     </Label>
@@ -691,16 +744,16 @@ export default function DeploymentTab({
                       id={`${type}-token-amount`}
                       value={nativeTokenAmount[type]}
                       onChange={(e) => handleNativeTokenAmountChange(type, e.target.value)}
-                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200"
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                       placeholder="Enter amount in ETH"
                     />
                   </div>
                 )}
-
+  
                 <Button
                   onClick={() => handleDeploy(type)}
                   disabled={isDeploying[type]}
-                  className="w-full mt-4"
+                  className="w-full mt-4 relative z-30"
                 >
                   {isDeploying[type] ? (
                     <>
