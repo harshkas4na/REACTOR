@@ -1,5 +1,8 @@
 
 
+  //Base URL for the API
+  export const BASE_URL = 'http://35.238.251.230'
+
 export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
     { label: 'Templates', path: '/templates' },
@@ -23,7 +26,7 @@ export const TESTIMONIALS = [
 
 
   export const API_ENDPOINTS = {
-    GENERATE_CONTRACT: 'http://BASE_URL/generateSC'
+    GENERATE_CONTRACT: `${BASE_URL}/generateSC`
   }
 
   export const TEMPLATE_CARDS = [
@@ -82,6 +85,3 @@ export const TESTIMONIALS = [
     }
   ];
 
-
-  //Base URL for the API
-  export const BASE_URL = 'http://35.238.251.230'
