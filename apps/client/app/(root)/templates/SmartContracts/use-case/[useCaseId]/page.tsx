@@ -137,7 +137,7 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsList>
 
           <TabsContent value="implementation">
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ">
             <CardHeader className="border-b border-zinc-800">
               <CardTitle className="text-2xl font-bold text-zinc-100">
                 Implementation Details
@@ -188,7 +188,7 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
         </TabsContent>
 
           <TabsContent value="deployment">
-            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ">
               <CardHeader className="border-b border-zinc-800">
                 <CardTitle className="text-2xl font-bold text-zinc-100">
                   Contract Deployment

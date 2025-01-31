@@ -65,6 +65,11 @@ export default function DeploymentTab({
     originBytecode === destinationBytecode,
     [originContract, destinationContract, originABI, destinationABI, originBytecode, destinationBytecode]
   );
+
+  const [networkStatus, setNetworkStatus] = useState<{
+    isCorrectNetwork: boolean;
+    currentNetwork: string;
+  }>({ isCorrectNetwork: false, currentNetwork: '' });
   
   const initialConstructorArgs = useMemo(() => {
     const parseConstructorArgs = (abi: string): Record<string, string> => {
@@ -122,18 +127,7 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     helpers: {} as Record<string, string>
   });
 
-  // const [constructorArgs, setConstructorArgs] = useState<{
-  //   origin: Record<string, string>;
-  //   destination: Record<string, string>;
-  //   reactive: Record<string, string>;
-  //   helpers: Record<string, Record<string, string>>;
-  // }>({
-  //   origin: {},
-  //   destination: {},
-  //   reactive: {},
-  //   helpers: {}
-  // });
-
+ 
   const [isDeploying, setIsDeploying] = useState({
     origin: false,
     destination: false,
@@ -147,12 +141,6 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     reactive: false,
     helpers: {} as Record<string, boolean>
   });
-
-  // const [deploymentMode, setDeploymentMode] = useState<Record<string, 'new' | 'existing'>>({
-  //   origin: 'new',
-  //   destination: 'new',
-  //   reactive: 'new'
-  // });
 
   const [existingAddresses, setExistingAddresses] = useState({
     origin: '',
@@ -172,50 +160,6 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
   const { account, web3 } = useWeb3();
   const { setOriginAddress, setDestinationAddress } = useAutomationContext();
 
-  
-
-    
-//   // Initialize constructor arguments// Replace your current useEffect with this version
-// useEffect(() => {
-//   try {
-//     // Parse constructor arguments for a contract's ABI
-//     const parseConstructorArgs = (abi: string): Record<string, string> => {
-//       try {
-//         const parsedABI = JSON.parse(abi);
-//         const constructor = parsedABI.find((item: any) => item.type === 'constructor');
-//         return constructor?.inputs 
-//           ? Object.fromEntries(constructor.inputs.map((input: any) => [input.name, '']))
-//           : {};
-//       } catch {
-//         return {};
-//       }
-//     };
-
-//     // Initialize helper contract arguments
-//     const helperArgs: Record<string, Record<string, string>> = {};
-//     for (const helper of helperContracts) {
-//       if (helper.abi) {
-//         helperArgs[helper.name] = parseConstructorArgs(helper.abi);
-//       }
-//     }
-
-//     // Update constructor arguments state
-//     setConstructorArgs({
-//       origin: parseConstructorArgs(originABI),
-//       destination: !areContractsIdentical ? parseConstructorArgs(destinationABI) : {},
-//       reactive: parseConstructorArgs(reactiveABI),
-//       helpers: helperArgs
-//     });
-
-//     // Initialize deployment modes for helper contracts
-//     const helperModes = Object.fromEntries(
-//       helperContracts.map(helper => [helper.name, 'new'])
-//     );
-//     setDeploymentMode((prev:any) => ({ ...prev, ...helperModes }));
-//   } catch (error) {
-//     console.error('Error initializing constructor arguments:', error);
-//   }
-// }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts]);
 
   const handleConstructorArgChange = (
     type: string,
@@ -264,8 +208,13 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
   };
 
   const handleNativeTokenAmountChange = (type: string, value: string) => {
-    if (!/^\d*\.?\d*$/.test(value)) return;
-
+    // Only allow numbers with up to 18 decimal places
+    const regex = /^\d*\.?\d{0,18}$/;
+    if (!regex.test(value) && value !== '') return;
+  
+    // Prevent values over 1000 ETH for safety
+    if (parseFloat(value) > 1000) return;
+  
     if (type.startsWith('helper_')) {
       setNativeTokenAmount(prev => ({
         ...prev,
@@ -275,7 +224,7 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
       setNativeTokenAmount(prev => ({ ...prev, [type]: value }));
     }
   };
-
+  
   const validateNativeTokenAmount = (type: string) => {
     let amount;
     if (type.startsWith('helper_')) {
@@ -283,37 +232,163 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     } else {
       amount = parseFloat(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as string);
     }
-
+  
+    // For reactive contracts, no native token is needed
+    if (type === 'reactive') return;
+  
     const isDestination = type === 'destination' || (type === 'origin' && areContractsIdentical);
     if (isDestination && (isNaN(amount) || amount < 0.1)) {
       throw new Error(`Minimum 0.1 native tokens required for ${type} contract`);
     }
+  
+    // Maximum safety check
+    if (amount > 1000) {
+      throw new Error('Maximum native token amount exceeded (1000 ETH limit)');
+    }
   };
 
-  const handleDeploy = async (type: string) => {
+  useEffect(() => {
+    const checkNetwork = async () => {
+      if (web3) {
+        const chainId = await web3.eth.getChainId();
+        const isKopli = chainId === BigInt(5318008);
+        const networkName = chainId === BigInt(5318008) ? 'Kopli' : 
+          chainId === BigInt(1) ? 'Ethereum' :
+          chainId === BigInt(137) ? 'Polygon' :
+          `Chain ID: ${chainId}`;
+        
+        setNetworkStatus({
+          isCorrectNetwork: isKopli,
+          currentNetwork: networkName
+        });
+      }
+    };
+    checkNetwork();
+  }, [web3]);
+
+  // Helper function to render the deploy button content
+  const renderDeployButton = (type: string, isDeploying: boolean) => {
     if (!web3 || !account) {
-      setError("Please connect your wallet");
+      return (
+        <div className="mt-6 space-y-2">
+          <Alert variant="destructive" className="bg-red-900/20 border-red-800">
+            <AlertTitle className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"/>
+              Wallet Not Connected
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-zinc-300">
+              {type === 'reactive' ? (
+                <span>Please connect your wallet to the <strong>Kopli Network</strong> to deploy this contract.</span>
+              ) : (
+                <span>Please connect your wallet to deploy this contract.</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      );
+    }
+
+    if (type === 'reactive' && !networkStatus.isCorrectNetwork) {
+      return (
+        <div className="mt-6 space-y-2">
+          <Alert variant="destructive" className="bg-yellow-900/20 border-yellow-800">
+            <AlertTitle className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"/>
+              Incorrect Network
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-zinc-300">
+              You are currently on <strong>{networkStatus.currentNetwork}</strong>.
+              <br />
+              Reactive contracts must be deployed on <strong>Kopli Network</strong>.
+            </AlertDescription>
+          </Alert>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-6 space-y-2">
+        {type === 'reactive' && (
+          <Alert className="bg-blue-900/20 border-blue-800">
+            <AlertTitle className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-blue-500"/>
+              Network Status
+            </AlertTitle>
+            <AlertDescription className="text-zinc-300">
+              Connected to <strong>Kopli Network</strong> - Ready to deploy
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Button
+          onClick={() => handleDeploy(type)}
+          disabled={isDeploying}
+          className={`bg-gradient-to-r relative z-30 from-blue-600 to-purple-600 
+            hover:from-blue-700 hover:to-purple-700 transition-all duration-200
+            ${isDeploying ? 'opacity-80 cursor-not-allowed' : ''}`}
+        >
+          {isDeploying ? (
+            <div className="relative">
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Deploying Contract...</span>
+              </div>
+              <div className="absolute top-8 left-0 right-0 text-xs text-zinc-400">
+                Please wait for transaction confirmation
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <span>Deploy Contract</span>
+              {type === 'reactive' && (
+                <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full">
+                  on Kopli
+                </span>
+              )}
+            </div>
+          )}
+        </Button>
+      </div>
+    );
+  };
+
+// Updated handle deploy function with better error handling
+
+
+const handleDeploy = async (type: string) => {
+  if (!web3 || !account) {
+    toast.error("Please connect your wallet first");
+    return;
+  }
+
+  const deploymentToast = toast.loading(
+    "Preparing deployment...", 
+    { id: `deploy-${type}` }
+  );
+
+  try {
+    validateNativeTokenAmount(type);
+    setIsDeploying(prev => ({
+      ...prev,
+      [type]: true
+    }));
+    setError(null);
+
+    const chainId = await web3.eth.getChainId();
+    const isKopli = chainId === BigInt(5318008);
+    
+    if (type === 'reactive' && !isKopli) {
+      toast.error("Reactive contracts must be deployed on Kopli network", {
+        id: deploymentToast
+      });
       return;
     }
 
+    let contractData;
+    let constructorParameters;
+    let deploymentValue;
+
     try {
-      validateNativeTokenAmount(type);
-      setIsDeploying(prev => ({
-        ...prev,
-        [type]: true
-      }));
-      setError(null);
-
-      const chainId = await web3.eth.getChainId();
-
-      if (type === 'reactive' && chainId !== BigInt(5318008)) {
-        throw new Error('Reactive contract can only be deployed on the Kopli network');
-      }
-
-      let contractData;
-      let constructorParameters;
-      let deploymentValue;
-
       if (type.startsWith('helper_')) {
         const helperContract = helperContracts.find(h => type === `helper_${h.name}`);
         if (!helperContract || !helperContract.abi || !helperContract.bytecode) {
@@ -337,106 +412,175 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
               destinationBytecode
         };
         constructorParameters = Object.values(constructorArgs[type as keyof typeof constructorArgs]);
-        deploymentValue = web3.utils.toWei(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as string, 'ether');
+        deploymentValue = type === 'reactive' ? '0' : 
+          web3.utils.toWei(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as any || '0', 'ether');
       }
-
-      const contract = new web3.eth.Contract(contractData.abi);
-      const deploy = contract.deploy({
-        data: contractData.bytecode,
-        arguments: constructorParameters
+    } catch (error) {
+      toast.error("Failed to prepare contract data. Please check your inputs.", {
+        id: deploymentToast
       });
+      return;
+    }
 
-      const gasEstimate = await deploy.estimateGas({
+    // Validate constructor parameters
+    const missingParams = constructorParameters.filter(param => !param);
+    if (missingParams.length > 0) {
+      toast.error(`Please fill in all constructor parameters for ${type} contract`, {
+        id: deploymentToast
+      });
+      return;
+    }
+
+    toast.loading("Creating contract instance...", { id: deploymentToast });
+
+    const contract = new web3.eth.Contract(contractData.abi);
+    const deploy = contract.deploy({
+      data: contractData.bytecode,
+      arguments: constructorParameters
+    });
+
+    toast.loading("Estimating gas...", { id: deploymentToast });
+
+    let gasEstimate;
+    try {
+      gasEstimate = await deploy.estimateGas({
         from: account,
         value: deploymentValue
       });
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
-      const gasPrice = await web3.eth.getGasPrice();
-
-      const balance = await web3.eth.getBalance(account);
-      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(deploymentValue);
-
-      if (BigInt(balance) < requiredBalance) {
-        throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`);
+    } catch (error: any) {
+      let errorMessage = error.message;
+      if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas estimation';
+      } else if (errorMessage.includes('execution reverted')) {
+        errorMessage = 'Contract deployment would fail - please check your constructor parameters';
       }
-
-      let transactionHash = '';
-
-      const deployedContract = await new Promise((resolve, reject) => {
-        deploy.send({
-          from: account,
-          gas: String(gasLimit),
-          gasPrice: String(gasPrice),
-          value: deploymentValue
-        })
-          .on('transactionHash', (hash: string | Uint8Array) => {
-            console.log('Transaction Hash:', hash);
-            transactionHash = hash.toString();
-
-            if (type.startsWith('helper_')) {
-              setDeploymentInfo((prev:any) => ({
-                ...prev,
-                helpers: {
-                  ...prev.helpers,
-                  [type]: { address: 'Deploying...', transactionHash: hash }
-                }
-              }));
-            } else {
-              setDeploymentInfo(prev => ({
-                ...prev,
-                [type]: { address: 'Deploying...', transactionHash: hash }
-              }));
-            }
-          })
-          .on('error', (error: any) => {
-            reject(error);
-          })
-          .then(resolve);
+      toast.error(`Gas estimation failed: ${errorMessage}`, {
+        id: deploymentToast
       });
+      return;
+    }
 
-      if (deployedContract) {
-        const contractAddress = (deployedContract as any).options.address;
+    // Calculate gas limit with 20% buffer
+    const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
+
+    // Get current balance for validation
+    const balance = await web3.eth.getBalance(account);
+    const gasPrice = await web3.eth.getGasPrice();
+    const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(deploymentValue);
+
+    if (BigInt(balance) < requiredBalance) {
+      const required = web3.utils.fromWei(requiredBalance.toString(), 'ether');
+      const available = web3.utils.fromWei(balance.toString(), 'ether');
+      toast.error(
+        `Insufficient balance! Required: ${Number(required).toFixed(4)} ETH, Available: ${Number(available).toFixed(4)} ETH`,
+        { id: deploymentToast }
+      );
+      return;
+    }
+
+    toast.loading(
+      "Please confirm the transaction in your wallet...", 
+      { id: deploymentToast }
+    );
+
+    let transactionHash = '';
+
+    const deployedContract = await new Promise((resolve, reject) => {
+      deploy.send({
+        from: account,
+        gas: String(gasLimit),
+        value: deploymentValue,
+        
+      })
+      .on('transactionHash', (hash: string | Uint8Array) => {
+        transactionHash = hash.toString();
+        toast.loading(
+          `Transaction submitted\nHash: ${hash.toString().slice(0, 6)}...${hash.toString().slice(-4)}`,
+          { id: deploymentToast }
+        );
 
         if (type.startsWith('helper_')) {
-          setDeploymentInfo(prev => ({
+          setDeploymentInfo((prev: any) => ({
             ...prev,
             helpers: {
               ...prev.helpers,
-              [type]: { address: contractAddress, transactionHash }
+              [type]: { address: 'Deploying...', transactionHash: hash }
             }
-          }));
-          setDeployedAddresses(prev => ({
-            ...prev,
-            helpers: { ...prev.helpers, [type]: contractAddress }
           }));
         } else {
           setDeploymentInfo(prev => ({
             ...prev,
-            [type]: { address: contractAddress, transactionHash }
+            [type]: { address: 'Deploying...', transactionHash: hash }
           }));
-          setDeployedAddresses(prev => ({ ...prev, [type]: contractAddress }));
-          if (type === 'origin') setOriginAddress(contractAddress);
-          if (type === 'destination') setDestinationAddress(contractAddress);
         }
+      })
+      .on('receipt', (receipt: any) => {
+        console.log('Deployment receipt:', receipt);
+      })
+      .on('error', (error: any) => {
+        console.error('Deployment error:', error);
+        if (error.code === 4001) {
+          toast.error('Transaction was rejected by user', { id: deploymentToast });
+        } else {
+          reject(error);
+        }
+      })
+      .then(resolve);
+    });
 
-        toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} contract deployed successfully!`);
+    if (deployedContract) {
+      const contractAddress = (deployedContract as any).options.address;
 
-        return {
-          transactionHash,
-          contractAddress
-        };
+      if (type.startsWith('helper_')) {
+        setDeploymentInfo(prev => ({
+          ...prev,
+          helpers: {
+            ...prev.helpers,
+            [type]: { address: contractAddress, transactionHash }
+          }
+        }));
+        setDeployedAddresses(prev => ({
+          ...prev,
+          helpers: { ...prev.helpers, [type]: contractAddress }
+        }));
+      } else {
+        setDeploymentInfo(prev => ({
+          ...prev,
+          [type]: { address: contractAddress, transactionHash }
+        }));
+        setDeployedAddresses(prev => ({ ...prev, [type]: contractAddress }));
+        if (type === 'origin') setOriginAddress(contractAddress);
+        if (type === 'destination') setDestinationAddress(contractAddress);
       }
-    } catch (error: any) {
-      console.error(`${type} deployment error:`, error);
-      setError(error.message);
-      toast.error(`Deployment failed: ${error.message}`);
-    } finally {
-      setIsDeploying(prev => ({
-        ...prev,
-        [type]: false
-      }));
+
+      toast.success(
+        `${type.charAt(0).toUpperCase() + type.slice(1)} contract deployed successfully!\nAddress: ${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)}`,
+        { id: deploymentToast, duration: 5000 }
+      );
     }
-  };
+  } catch (error: any) {
+    console.error('Deployment error:', error);
+    let errorMessage = error.message;
+    
+    if (error.code === 4001) {
+      errorMessage = 'Transaction rejected by user';
+    } else if (error.code === -32603) {
+      errorMessage = 'Internal JSON-RPC error. Please check your wallet and try again.';
+    } else if (errorMessage.includes('insufficient funds')) {
+      errorMessage = 'Insufficient funds for deployment';
+    } else if (errorMessage.includes('nonce too low')) {
+      errorMessage = 'Transaction nonce error. Please reset your MetaMask account.';
+    }
+    
+    toast.error(`Deployment failed: ${errorMessage}`, { id: deploymentToast });
+    setError(errorMessage);
+  } finally {
+    setIsDeploying(prev => ({
+      ...prev,
+      [type]: false
+    }));
+  }
+};
 
   const renderDeploymentInfo = (type: string) => {
     const info = type.startsWith('helper_')
@@ -496,7 +640,7 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     const address = isNew ? deployedAddresses.helpers[type] : existingAddresses.helpers[type];
   
     return (
-      <Card key={helper.name} className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm overflow-visible">
+      <Card key={helper.name} className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800  overflow-visible">
         <CardHeader className="border-b border-zinc-800">
           <CardTitle className="text-xl font-bold text-zinc-100">
             {helper.name} Helper Contract
@@ -607,20 +751,7 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
                   />
                 </div>
   
-                <Button
-                  onClick={() => handleDeploy(type)}
-                  disabled={isDeploying.helpers[type]}
-                  className="w-full mt-4 relative z-30"
-                >
-                  {isDeploying.helpers[type] ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying...
-                    </>
-                  ) : (
-                    'Deploy Contract'
-                  )}
-                </Button>
+                {renderDeployButton(type, isDeploying.helpers[type])}
               </>
             )}
           </div>
@@ -640,7 +771,7 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
         destinationContract;
   
     return (
-      <Card className="bg-gradient-to-br relative from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm overflow-visible">
+      <Card className="bg-gradient-to-br relative from-blue-900/30 to-purple-900/30 border-zinc-800  overflow-visible">
         <CardHeader className="border-b border-zinc-800">
           <CardTitle className="text-xl font-bold text-zinc-100">
             {type.charAt(0).toUpperCase() + type.slice(1)} Contract
@@ -750,20 +881,8 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
                   </div>
                 )}
   
-                <Button
-                  onClick={() => handleDeploy(type)}
-                  disabled={isDeploying[type]}
-                  className="w-full mt-4 relative z-30"
-                >
-                  {isDeploying[type] ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying...
-                    </>
-                  ) : (
-                    'Deploy Contract'
-                  )}
-                </Button>
+                
+                {renderDeployButton(type, isDeploying[type])}
               </>
             )}
           </div>

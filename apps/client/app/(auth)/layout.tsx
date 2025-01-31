@@ -1,7 +1,14 @@
-export default function RootLayout({ children }:Readonly<{children: React.ReactNode;}>) {
+// layout.tsx
+export default function RootLayout({ 
+  children 
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <main className=" mx-[36%] my-[4%]">
-      {children}
+    <main className="mx-auto w-full max-w-[1200px] px-2 sm:px-4 md:px-6 py-4">
+      <div className="w-full">
+        {children}
+      </div>
     </main>
   )
 }

@@ -75,6 +75,9 @@ module.exports = {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
+      screens: {
+        'xxs': '375px',  // Added xxs breakpoint
+      },
     },
   },
   plugins: [require("tailwindcss-animate"), nextui()],

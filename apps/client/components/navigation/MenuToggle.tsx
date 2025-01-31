@@ -10,13 +10,18 @@ interface MenuToggleProps {
 
 export function MenuToggle({ isOpen, onToggle }: MenuToggleProps) {
   return (
-    <div className="sm:hidden flex items-center">
-      <Button variant="ghost" size="icon" onClick={onToggle}>
+    <div className="lg:hidden flex items-center">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        onClick={onToggle}
+        className="text-gray-300 hover:text-primary"
+      >
         {isOpen ? 
-          <X className="h-6 w-6 text-primary" /> : 
-          <Menu className="h-6 w-6 text-primary" />
+          <X className="h-6 w-6" /> : 
+          <Menu className="h-6 w-6" />
         }
       </Button>
     </div>
-  )
+  );
 }

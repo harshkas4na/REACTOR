@@ -45,7 +45,7 @@ export default function Navigation() {
 
   return (
     <motion.nav 
-      className="sticky top-0 z-50 w-full border-b border-border backdrop-blur-sm"
+      className="sticky top-0 z-50 w-full border-b border-border "
       initial={{ opacity: 0, y: -50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -158,7 +158,10 @@ export default function Navigation() {
       </div>
 
       {/* Mobile Menu */}
-      <MobileMenu isOpen={isMenuOpen} />
+  <MobileMenu 
+  isOpen={isMenuOpen} 
+  onClose={() => setIsMenuOpen(false)} 
+  />
     </motion.nav>
   );
 }
