@@ -35,7 +35,7 @@ export default function TargetConfiguration() {
     setIsVerifying(true)
     setVerificationError('')
     try {
-      const response = await fetch('http://localhost:5000/DappAutomation', {
+      const response = await fetch('http://BASE_URL/DappAutomation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
