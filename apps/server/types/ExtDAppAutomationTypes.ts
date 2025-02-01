@@ -55,8 +55,17 @@ export interface RSCConfig {
     pairs: EventFunctionPair[];
     isPausable: boolean;
     customLogic?: string;
-    protocols?: ProtocolConfig[];
-    safetyChecks?: SafetyConfig;
+    // protocols?: ProtocolConfig[];
+    // safetyChecks?: SafetyConfig;
+    chainId?:number;
+    baseContract: string;         // e.g., 'AbstractCallback', 'FlashLoanReceiver'
+    protocols: ProtocolIntegration[];
+    constructorParams: FunctionParam[];
+    stateVariables: StateVariable[];
+    callbackFunctions: CallbackFunction[];
+    helperFunctions: HelperFunction[];
+    safetyChecks: SafetyCheck[];
+    events: EventInfo[];
 }
 
 export interface ProtocolConfig {
