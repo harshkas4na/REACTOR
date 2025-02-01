@@ -12,7 +12,8 @@ export class ExtDAppAutomationController {
     private protocolService: ProtocolService;
 
     constructor() {
-        const etherscanApiKey = "etherscan_api_key";
+        // console.log("envkey:",process.env.ETHERSCAN_API_KEY)
+        const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
         if (!etherscanApiKey) {
             throw new Error('ETHERSCAN_API_KEY is not defined');
         }
