@@ -32,10 +32,9 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
         hidden: { opacity: 0, y: 100 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
       }}
-      className="w-full mb-8 sm:mb-16"
     >
       <Card 
-        className="bg-gradient-to-br w-full min-h-[400px] sm:h-[500px] from-blue-500/10 to-purple-500/10 backdrop-blur-xl border-none shadow-xl hover:shadow-2xl transition-all duration-300"
+        className="bg-gradient-to-br rounded-lg w-full min-h-[400px] sm:h-[500px] from-blue-500/10 to-purple-500/10 backdrop-blur-xl border-none shadow-xl hover:shadow-2xl transition-all duration-300"
         isHoverable
       >
         <CardBody className="p-0 h-full">
@@ -52,7 +51,7 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
               <div className="pt-6 sm:pt-8">
                 <Link href="/automations/uniswap-stop-order">
                 <Button 
-                  className="w-full sm:w-48 h-10 sm:h-12 text-base sm:text-lg"
+                  className="w-full hover:bg-primary/80 rounded-md sm:w-48 h-10 sm:h-12 text-base sm:text-lg"
                   color="primary"
                   endContent={<ArrowRightIcon className="h-5 w-5 ml-2" />}
                 >

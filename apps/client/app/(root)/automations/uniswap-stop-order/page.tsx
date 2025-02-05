@@ -167,7 +167,6 @@ const handleFetchPairInfo = async (pairAddress: string) => {
       try {
         token0 = await pairContract.token0();
         token1 = await pairContract.token1();
-        console.log("Tokens fetched:", { token0, token1 });
       } catch (error) {
         console.error("Error fetching tokens:", error);
         throw new Error('Failed to fetch token addresses - this might not be a valid Uniswap V2 pair');
@@ -175,7 +174,6 @@ const handleFetchPairInfo = async (pairAddress: string) => {
   
       try {
         reserves = await pairContract.getReserves();
-        console.log("Reserves fetched:", reserves);
       } catch (error) {
         console.error("Error fetching reserves:", error);
         throw new Error('Failed to fetch reserves - this might not be a valid Uniswap V2 pair');
@@ -345,7 +343,6 @@ async function deployDestinationContract(routerAddress: string): Promise<string>
         routerAddress,
       { value: ethers.parseEther("0") } // Fund contract with 0.1 ETH
       );
-    console.log("contract", contract);
       await contract.waitForDeployment();
     return contract.target.toString();
     } catch (error) {
@@ -409,16 +406,7 @@ async function deployRSC(params: {
       }
   
       // Deploy contract with gas settings
-      console.log("Deploying RSC with parameters:", {
-        pair: params.pair,
-        callbackSender: params.stopOrder,
-        client: params.client,
-        token0: params.token0,
-        coefficient: params.coefficient,
-        threshold: params.threshold,
-        gasLimit: gasLimit.toString(),
-        gasPrice: gasPrice.toString()
-      });
+    
 
       const contract = await factory.deploy(
         params.pair,
@@ -436,7 +424,6 @@ async function deployRSC(params: {
       const deployedContract = await contract.waitForDeployment();
       const contractAddress = await deployedContract.getAddress();
       
-      console.log("RSC deployed successfully at:", contractAddress);
       return contractAddress;
   
     } catch (error: any) {
@@ -477,31 +464,24 @@ async function approveTokens(
 
       // Get token decimals
       const decimals = await tokenContract.decimals();
-      console.log("Token decimals:", decimals);
   
       // Parse amount with correct decimals
       const parsedAmount = ethers.parseUnits(amount, decimals);
-      console.log("Parsed amount:", parsedAmount.toString());
   
       // Check current allowance
       const currentAllowance = await tokenContract.allowance(await signer.getAddress(), spenderAddress);
-      console.log("Current allowance:", currentAllowance.toString());
   
       // If current allowance is not zero and less than desired amount, first reset it
       if (currentAllowance.toString() !== "0" && currentAllowance.lt(parsedAmount)) {
-        console.log("Resetting allowance first...");
         const resetTx = await tokenContract.approve(spenderAddress, 0);
         await resetTx.wait();
       }
   
       // Approve new amount
-      console.log("Approving amount:", parsedAmount.toString());
       const tx = await tokenContract.approve(spenderAddress, parsedAmount);
-      console.log("Approval transaction:", tx.hash);
       
       // Wait for transaction confirmation
       const receipt = await tx.wait();
-      console.log("Approval confirmed in block:", receipt.blockNumber);
     } catch (error:any) {
       console.error('Error in approveTokens:', error);
       throw new Error(`Token approval failed: ${error.message || 'Unknown error'}`);

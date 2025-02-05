@@ -118,11 +118,7 @@ export default function Component() {
 
       </main>
 
-      <footer className="mt-12 py-6 border-t border-zinc-800 bg-gradient-to-br from-blue-900/10 to-purple-900/10">
-        <div className="container mx-auto px-4 text-center text-zinc-400">
-          <p>&copy; 2025 DApp Automation System. All rights reserved.</p>
-        </div>
-      </footer>
+     
     </div>
   )
 }

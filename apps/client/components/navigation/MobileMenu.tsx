@@ -45,7 +45,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   if (!isOpen) return null;
 
   const handleNetworkChange = (value: string) => {
-    console.log("Selected Network:", value);
     switchNetwork(value);
   };
 

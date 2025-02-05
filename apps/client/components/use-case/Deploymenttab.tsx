@@ -166,7 +166,6 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     name: string,
     value: string
   ) => {
-    console.log(type, name, value);
     if (type.startsWith('helper_')) {
       const helperName = type.replace('helper_', '');
       setConstructorArgs(prev => ({
@@ -515,7 +514,6 @@ const handleDeploy = async (type: string) => {
         }
       })
       .on('receipt', (receipt: any) => {
-        console.log('Deployment receipt:', receipt);
       })
       .on('error', (error: any) => {
         console.error('Deployment error:', error);

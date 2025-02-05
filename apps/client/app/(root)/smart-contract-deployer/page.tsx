@@ -176,7 +176,6 @@ export default function SmartContractDeployer() {
             value: value
           })
           .on('transactionHash', (hash: string | Uint8Array) => {
-            console.log('Transaction Hash:', hash)
             transactionHash = hash as string
             
             // Save pending deployment

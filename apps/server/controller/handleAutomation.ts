@@ -45,7 +45,6 @@ export default async function handleAutomation(req: Request, res: Response) {
         abi: item
       }));
 
-    // console.log(functions,events);  
 
     // Respond with extracted events (including ABIs) and functions
     return res.json({ events, functions });

@@ -9,13 +9,27 @@ import Image from "next/image";
 const slides = [
   {
     id: 0,
-    title: "Automate DeFi Without Code",
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+          Automate DeFi Without Code
+        </span>{" "}
+        
+      </>
+    ),
     subtitle: "Deploy powerful DeFi automations in minutes with ready-to-use templates",
     image: "/Background2.jpg",
   },
   {
     id: 1,
-    title: "Protect Your Tokens Automatically",
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-700 ">
+          Protect Your Tokens Automatically
+        </span>{" "}
+        
+      </>
+    ),
     subtitle: "Set up Uniswap stop orders to secure your positions when prices drop",
     image: "/Uniswap-stop-order.jpg",
   },
@@ -55,10 +69,10 @@ const Hero = () => {
                   transition={{ duration: 0.5 }}
                   className="w-full"
                 >
-                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4">
                     {slides[currentSlide].title}
                   </h1>
-                  <p className="text-xl sm:text-2xl mb-8 text-zinc-300">
+                  <p className="text-xl sm:text-2xl sm:mb-1 mb-8 text-zinc-300">
                     {slides[currentSlide].subtitle}
                   </p>
                 </motion.div>
@@ -80,14 +94,14 @@ const Hero = () => {
                   variant="shadow"
                   size="lg"
                   startContent={<RocketLaunchIcon className="h-5 w-5" />}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto hover:bg-primary/80 rounded-md"
                 >
                   Use Automations
                 </Button>
                 <Button
                   as={Link}
                   href="/deploy-reactive-contract"
-                  className="w-full sm:w-auto hover:bg-blue-950/50"
+                  className="w-full rounded-md sm:w-auto hover:bg-blue-950/70"
                   variant="bordered"
                   size="lg"
                   startContent={<SparklesIcon className="h-5 w-5" />}
@@ -107,9 +121,9 @@ const Hero = () => {
                   <button
                     key={index}
                     onClick={() => setCurrentSlide(index)}
-                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    className={`w-3 h-3 rounded-full  transition-all duration-300 ${
                       currentSlide === index
-                        ? "bg-primary w-6"
+                        ? "bg-primary w-6 "
                         : "bg-zinc-600 hover:bg-zinc-500"
                     }`}
                     aria-label={`Go to slide ${index + 1}`}

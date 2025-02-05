@@ -120,7 +120,6 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
         ownerAddress, 
         isPausable 
     } = input;
-    // console.log("topicFunctionPairs",topicFunctionPairs);
     const eventConstants = generateEventConstants(topicFunctionPairs);
     const subscriptions = generateSubscriptions(topicFunctionPairs, originChainId, originContract);
     const reactLogic = generateReactLogic(topicFunctionPairs);

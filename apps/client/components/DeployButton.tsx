@@ -110,7 +110,6 @@ const DeployButton = ({
           gasPrice: String(gasPrice)
         })
         .on('transactionHash', (hash: string) => {
-          console.log('Transaction Hash:', hash);
           transactionHash = hash;
         })
         .on('error', (error: any) => {

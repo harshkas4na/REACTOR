@@ -6,9 +6,9 @@ import { FaTwitter, FaLinkedin, FaGithub } from 'react-icons/fa'
 
 const Footer = () => {
   return (
-    <footer className="mt-20 sm:mt-32 bg-gray-900/80  text-gray-300 py-12 sm:py-16 border-t border-gray-800">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
+    <footer className="mt-20 sm:mt-32 bg-gray-900 rounded-lg relative pointer-events-auto z-10 text-gray-300 py-8 sm:py-16 border-t border-gray-800 w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-12">
           <div className="text-center sm:text-left">
             <h3 className="text-xl sm:text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
               REACTOR
@@ -47,18 +47,18 @@ const Footer = () => {
           </div>
           
           {/* Newsletter */}
-          <div className="text-center sm:text-left">
+          <div className="text-center sm:text-left w-full">
             <h4 className="text-lg font-semibold mb-4 text-white">Newsletter</h4>
             <p className="text-sm mb-4">Stay updated with our latest features and releases.</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <Input 
                 type="email" 
                 placeholder="Enter your email" 
-                className="rounded-r-none bg-gray-800" 
+                className="w-full bg-gray-800" 
               />
               <Button 
                 color="primary"
-                className="rounded-l-none"
+                className="w-full sm:w-auto"
               >
                 Subscribe
               </Button>
@@ -75,4 +75,3 @@ const Footer = () => {
 };
 
 export default Footer
-

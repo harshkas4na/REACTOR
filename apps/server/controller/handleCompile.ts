@@ -4,9 +4,7 @@ const solc = require('solc');
 export default async function handleCompile(req: Request, res: Response) {
     try {
         const { sourceCode } = req.body;
-        console.log('Received source code:', sourceCode);
         const { abi, bytecode } = await compileContract(sourceCode);
-        console.log("Compilation successful. ABI and bytecode generated.");
         res.json({ abi, bytecode });
     } catch (error:any) {
         console.error('Error in compile:', error);

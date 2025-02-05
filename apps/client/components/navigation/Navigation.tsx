@@ -108,7 +108,7 @@ export default function Navigation() {
               disabled={isLoading}
               color='primary'
               variant={error ? "destructive" : "default"}
-              className="text-xs sm:text-sm px-2 sm:px-3 md:px-4 min-w-0 truncate max-w-[120px] sm:max-w-[150px]"
+              className="text-xs sm:text-sm px-2 sm:px-3 hover:bg-primary/80 md:px-4 min-w-0 truncate max-w-[120px] sm:max-w-[150px]"
             >
               {isLoading ? (
                 "Connecting..."

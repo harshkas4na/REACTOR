@@ -86,7 +86,7 @@ export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children
     setIsDestinationVerified,
   };
 
-  console.log('AutomationProvider state:', contextValue);
+ 
 
   return (
     <AutomationContext.Provider value={contextValue}>

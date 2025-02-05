@@ -13,7 +13,6 @@ export const useAutomationStore = create<AutomationStore>((set) => ({
     set((state) => ({ automationConfig: { ...state.automationConfig, ...config } })),
   createAutomation: async (config) => {
     // This would typically be an API call
-    console.log('Creating automation with config:', config)
     const newAutomation: Automation = {
       id: Date.now().toString(),
       name: config.name,

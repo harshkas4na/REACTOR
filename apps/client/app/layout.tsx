@@ -40,10 +40,11 @@ export default function RootLayout({
             <ConvexClerkProvider>
             <div className="relative min-h-screen bg-[#1a0b2e] overflow-hidden">
                 <Navigation />
-                <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <ReactorBackground/>
+                <main className="flex-grow px-4 sm:px-6 lg:px-8">
+                
                   {children}
                 </main>
+                
               </div>
             </ConvexClerkProvider>
           </AutomationProvider>

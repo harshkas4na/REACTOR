@@ -229,18 +229,19 @@ export default function LiveDataIntegration() {
                 <div className="space-y-4">
                   {events.map((event:any) => (
                     <div key={event.name} 
-                      className="flex items-center space-x-3 p-3 rounded-lg bg-blue-900/20 border border-zinc-800"
-                    >
-                      <Checkbox
-                        id={event.name}
-                        checked={selectedEvents.includes(event)}
-                        onCheckedChange={() => handleEventSelection(event)}
-                        className="border-blue-500/50"
-                      />
-                      <Label htmlFor={event.name} className="text-zinc-300">
-                        {event.name}({event.inputs.map((input:any) => input.type).join(',')})
-                      </Label>
-                    </div>
+                    className="flex items-start space-x-3 p-3 rounded-lg bg-blue-900/20 border border-zinc-800"
+                  >
+                    <Checkbox
+                      id={event.name}
+                      checked={selectedEvents.includes(event)}
+                      onCheckedChange={() => handleEventSelection(event)}
+                      className="border-blue-500/50 mt-1"
+                    />
+                    <Label htmlFor={event.name} className="text-zinc-300 break-all">
+                      <span className="break-words">{event.name}</span>
+                      <span className="break-all">({event.inputs.map((input:any) => input.type).join(',')})</span>
+                    </Label>
+                  </div>
                   ))}
                 </div>
               </motion.div>
@@ -363,9 +364,20 @@ export default function LiveDataIntegration() {
                     />
                   )}
 
-                  {deployedAddress && (
+                {deployedAddress && (
                     <Alert className="bg-green-900/20 border-green-500/50">
-                      {/* Success alert content */}
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      <AlertTitle className="text-green-300">Deployment Successful</AlertTitle>
+                      <AlertDescription className="text-green-200">
+                        <div className="mt-2 space-y-2">
+                          <p className="break-all">
+                            <span className="font-semibold">Contract Address:</span> {deployedAddress}
+                          </p>
+                          <p className="break-all">
+                            <span className="font-semibold">Transaction Hash:</span> {deploymentTxHash}
+                          </p>
+                        </div>
+                      </AlertDescription>
                     </Alert>
                   )}
                 </div>
