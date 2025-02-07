@@ -271,7 +271,7 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
       return (
         <div className="mt-6 space-y-2">
           <Alert variant="destructive" className="bg-red-900/20 border-red-800">
-            <AlertTitle className="flex items-center gap-2">
+            <AlertTitle className="flex text-red-500 items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"/>
               Wallet Not Connected
             </AlertTitle>

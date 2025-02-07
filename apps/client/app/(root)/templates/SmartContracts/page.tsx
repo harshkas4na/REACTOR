@@ -246,12 +246,8 @@ export default function UseCasesPage() {
                 <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="nft">NFT</SelectItem>
                 <SelectItem value="defi">DeFi</SelectItem>
-                <SelectItem value="gaming">Gaming</SelectItem>
-                <SelectItem value="social">Social</SelectItem>
+                <SelectItem value="token">Token</SelectItem>
                 <SelectItem value="dao">DAO</SelectItem>
-                <SelectItem value="protocol">Protocol</SelectItem>
-                <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
             
