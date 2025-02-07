@@ -30,7 +30,7 @@ export const ReactorBackground = () => {
             </linearGradient>
             
             <filter id="lightning-glow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feGaussianBlur stdDeviation="6" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
@@ -51,18 +51,18 @@ export const ReactorBackground = () => {
               className="animate-lightning-secondary-0"
               d="M200,0 L220,150 L180,300"
               stroke="url(#lightning-gradient)"
-              strokeWidth="2"
+              strokeWidth="3"
               fill="none"
               opacity="0.4"
             />
-            <path
+            {/* <path
               className="animate-lightning-secondary-0"
               d="M100,0 L120,120 L300,400"
               stroke="url(#lightning-gradient)"
               strokeWidth="2"
               fill="none"
               opacity="0.4"
-            />
+            /> */}
           </g>
         </svg>
       </div>
