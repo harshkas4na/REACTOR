@@ -1,6 +1,6 @@
 import { Id } from '@/convex/_generated/dataModel';
 
-interface HelperContract {
+export interface HelperContract {
   name: string;
   contract: string;
   abi: string;

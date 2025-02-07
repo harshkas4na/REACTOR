@@ -136,7 +136,7 @@ export default function CrossChainBridge() {
           <div className="flex justify-between mt-2">
             {["Chain Selection", "Contract Configuration", "Mapping", "Deployment"].map((label, idx) => (
               <span key={label} className={`text-sm ${
-                step >= idx + 1 ? 'text-primary font-medium' : 'text-zinc-500'
+                step >= idx + 1 ? 'text-violet-300 font-medium' : 'text-zinc-500'
               }`}>
                 {label}
               </span>

@@ -201,13 +201,13 @@
             </CardHeader>
     
             <CardContent className="relative p-4 sm:p-6">
-              <div className="relative z-20 flex justify-between items-center mb-6 sm:mb-8 overflow-x-auto">
+              <div className="relative z-20 flex h-12 items-center mb-6 sm:mb-8 overflow-x-auto">
                 {steps.map((step, index) => (
                   <div key={step} className="flex items-center min-w-[100px]">
                     <div
                       className={`relative z-20 w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
                         index <= currentStep 
-                          ? 'bg-primary text-white scale-110' 
+                          ? 'bg-primary ml-1 text-white scale-110' 
                           : 'bg-zinc-800 text-zinc-400'
                       }`}
                     >

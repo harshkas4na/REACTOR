@@ -150,10 +150,10 @@ export default function LiveDataIntegration() {
         <div className="relative z-20 mb-6 sm:mb-8 overflow-x-auto">
           <div className="flex justify-between items-center min-w-[600px] sm:min-w-0">
             {steps.map((step, index) => (
-              <div key={step} className="flex items-center">
+              <div key={step} className="flex h-12 mr-16 items-center">
                 <div className={`relative w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
                   index <= currentStep 
-                    ? 'bg-primary text-white scale-110' 
+                    ? 'bg-primary ml-1 text-white scale-110' 
                     : 'bg-blue-900/20 text-zinc-400'
                 }`}>
                   {index + 1}
@@ -169,7 +169,7 @@ export default function LiveDataIntegration() {
           <div className="flex justify-between mt-2 text-xs sm:text-sm min-w-[600px] sm:min-w-0">
             {steps.map((step, index) => (
               <span key={step} className={`${
-                index <= currentStep ? 'text-primary font-medium' : 'text-zinc-500'
+                index <= currentStep ? 'text-violet-300 font-medium' : 'text-zinc-500'
               }`}>
                 {step}
               </span>
