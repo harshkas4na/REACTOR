@@ -164,7 +164,7 @@ export default function AutomationPage() {
         </Card>
 
         {/* Main Form */}
-        <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
+        <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-6 rounded-t-lg">
             <div className="flex items-center justify-between">
               <CardTitle className="text-2xl font-bold text-zinc-100">

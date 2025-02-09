@@ -1,32 +1,70 @@
 "use client";
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import { UseCaseHeader } from "@/components/use-case/UseCaseHeader";
 import { UseCaseContent } from "@/components/use-case/UseCaseContent";
 import { CommentsDialog } from "@/components/use-case/CommentsDialog";
 import { useUserSetup } from "@/hooks/templates/useUserSetup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
-import dynamic from 'next/dynamic';
-import { MDEditorProps } from '@uiw/react-md-editor';
-import DeploymentTab from '@/components/use-case/Deploymenttab';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-
-// Dynamically import MDEditor to avoid SSR issues
-const MDEditor = dynamic<MDEditorProps>(
-  () => import('@uiw/react-md-editor').then((mod) => mod.default),
-  { ssr: false }
-);
+import dynamic from 'next/dynamic';
+import { Skeleton } from "@/components/ui/skeleton";
+import DeploymentTab from '@/components/use-case/Deploymenttab';
+import { ExpandableContent } from '@/components/use-case/ExpandableContent';
+import LoadingSkeleton from '../../../SmartContracts/use-case/[useCaseId]/LoadingSkeleton';
 
 const MDMarkdown = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
   { ssr: false }
 );
+
+// Skeleton loading component
+// const LoadingSkeleton = () => (
+//   <div className="relative mt-3 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+//     <div className="relative z-20 max-w-8xl mx-auto">
+//       {/* Back button skeleton */}
+//       <div className="mb-8">
+//         <Skeleton className="h-10 w-32 bg-purple-900/50" />
+//       </div>
+
+//       {/* Content skeleton */}
+//       <div className="mb-8 space-y-4">
+//         <Skeleton className="h-8 w-3/4 bg-purple-900/50" />
+//         <Skeleton className="h-6 w-1/2 bg-purple-900/50" />
+//         <div className="space-y-2">
+//           <Skeleton className="h-24 w-full bg-purple-900/50" />
+//           <Skeleton className="h-24 w-full bg-purple-900/50" />
+//         </div>
+//         <div className="flex gap-4">
+//           <Skeleton className="h-8 w-20 bg-purple-900/50" />
+//           <Skeleton className="h-8 w-20 bg-purple-900/50" />
+//         </div>
+//       </div>
+
+//       {/* Tabs skeleton */}
+//       <div className="space-y-4">
+//         <div className="flex gap-2">
+//           <Skeleton className="h-10 w-32 bg-purple-900/50" />
+//           <Skeleton className="h-10 w-32 bg-purple-900/50" />
+//         </div>
+//         <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+//           <CardHeader>
+//             <Skeleton className="h-8 w-48 bg-purple-900/50" />
+//           </CardHeader>
+//           <CardContent>
+//             <div className="space-y-4">
+//               <Skeleton className="h-32 w-full bg-purple-900/50" />
+//             </div>
+//           </CardContent>
+//         </Card>
+//       </div>
+//     </div>
+//   </div>
+// );
 
 interface UseCaseDetailPageProps {
   params: {
@@ -35,12 +73,9 @@ interface UseCaseDetailPageProps {
 }
 
 export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
-  
   const [showComments, setShowComments] = useState(false);
-  const [showImplementation, setShowImplementation] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [activeTab, setActiveTab] = useState("implementation");
-  const [showBenefits, setShowBenefits] = useState(false);
   const { convexUserId, isAuthenticated } = useUserSetup();
 
   // Query hooks
@@ -81,28 +116,29 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
   ) || [];
 
   if (!useCase || !comments || !likes || !users) {
-    return (
-      <div className="relative z-20 flex min-h-screen items-center justify-center">
-        <div className="text-zinc-100 mt-10">Loading...</div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-      <div className="relative z-20 max-w-8xl mx-auto">
-      <Link href="/templates/DappLibrary">
-      <Button variant="outline" className="mb-6">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Use Cases
-      </Button>
-      </Link>
-        <UseCaseContent
-          useCase={useCase}
-          likes={filteredLikes.length}
-          comments={filteredComments.length}
-          onLike={handleLike}
-          onShowComments={() => setShowComments(true)}
-        />
+    <div className="relative mt-3 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-8xl mx-auto pointer-events-auto">
+        <div className="relative mb-8">
+          <Link href="/templates/DappLibrary">
+            <Button variant="outline" className="mb-6">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Use Cases
+            </Button>
+          </Link>
+        </div>
+
+        <div className="relative mb-8">
+          <UseCaseContent
+            useCase={useCase}
+            likes={filteredLikes.length}
+            comments={filteredComments.length}
+            onLike={handleLike}
+            onShowComments={() => setShowComments(true)}
+          />
+        </div>
         
         <CommentsDialog
           isOpen={showComments}
@@ -132,7 +168,7 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
           </TabsList>
 
           <TabsContent value="implementation">
-            <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
               <CardHeader className="border-b border-zinc-800">
                 <CardTitle className="text-2xl font-bold text-zinc-100">
                   Implementation Details
@@ -140,50 +176,17 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  <Button
-                    variant="outline"
-                    className="relative flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/20 text-zinc-200"
-                    onClick={() => setShowImplementation(!showImplementation)}
-                  >
-                    {showImplementation ? (
-                      <>
-                        Hide Details
-                        <ChevronUp className="h-4 w-4" />
-                      </>
-                    ) : (
-                      <>
-                        Show Details
-                        <ChevronDown className="h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-
-                  {showImplementation && (
-                    <div 
-                      className="relative text-zinc-300 bg-blue-900/20 rounded-lg p-4 border border-zinc-800" 
-                      data-color-mode="dark"
-                    >
-                      {useCase.implementation ? (
-                        <MDMarkdown
-                          source={useCase.implementation} 
-                          style={{ 
-                            backgroundColor: 'transparent',
-                            color: 'rgb(228 228 231)',
-                            padding: '1rem'
-                          }}
-                        />
-                      ) : (
-                        <p>No implementation details available.</p>
-                      )}
-                    </div>
-                  )}
+                  <ExpandableContent 
+                    content={useCase.implementation || 'No implementation details available.'} 
+                    previewLength={500}
+                  />
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="deployment">
-            <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 backdrop-blur-sm">
+            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
               <CardHeader className="border-b border-zinc-800">
                 <CardTitle className="text-2xl font-bold text-zinc-100">
                   Contract Deployment
@@ -192,9 +195,7 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
               <CardContent className="p-6">
                 <div className="space-y-4">
                   <div className="bg-blue-900/20 border border-zinc-800 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-zinc-200 mb-2">
-                      Important Notes:
-                    </h3>
+                    <h3 className="text-lg font-semibold text-zinc-200 mb-2">Important Notes:</h3>
                     <ul className="list-disc list-inside text-zinc-300 space-y-2">
                       <li>Ensure your Destination contract includes the AbstractCallback interface</li>
                       <li>Constructor must be payable and include Callback_sender parameter</li>
@@ -219,8 +220,6 @@ export default function TemplateDetailPage({ params }: UseCaseDetailPageProps) {
             </Card>
           </TabsContent>
         </Tabs>
-
-       
       </div>
     </div>
   );
