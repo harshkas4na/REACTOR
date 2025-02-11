@@ -18,7 +18,7 @@ const slides = [
       </>
     ),
     subtitle: "Deploy powerful DeFi automations in minutes with ready-to-use templates",
-    image: "/Background2.jpg",
+    image: "/Reactor2.jpg",
   },
   {
     id: 1,
@@ -149,6 +149,7 @@ const Hero = () => {
                   alt="Hero Image"
                   width={500}
                   height={500}
+                  quality={100}
                   className="object-cover w-full h-full transition-transform duration-700 hover:scale-105"
                   priority
                   onError={(e) => {

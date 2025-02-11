@@ -143,10 +143,10 @@ export default function AutomationPage() {
         {/* Info Card */}
         <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-zinc-100">
+            <CardTitle className="text-2xl font-bold text-zinc-100 mb-4">
               Create Your Reactive Smart Contract
             </CardTitle>
-            <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-800 mt-4">
+            <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-800">
               <p className="text-zinc-300">
                 Reactive Smart Contracts (RSCs) enable automated blockchain interactions through event monitoring.
                 Learn more in the{' '}

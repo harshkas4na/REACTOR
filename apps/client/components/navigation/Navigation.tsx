@@ -13,13 +13,11 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import { useAuth } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
-import {SUPPORTED_NETWORKS} from '@/app/_context/Web3Context'
 
 
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { theme, setTheme } = useTheme()
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const { isSignedIn, signOut } = useAuth()
@@ -53,14 +51,20 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/">
-            <Image 
-              src="/logo6-2.png" 
-              alt="Reactor Logo" 
-              width={200} 
-              height={50}
-              className="w-[120px] sm:w-[150px] md:w-[180px] lg:w-[200px] h-auto" 
-            /> 
+          <Link href="/" className="flex items-center group">
+            <div className="relative">
+              <Image 
+                src="/Reactor2-bgr.png" 
+                alt="Reactor Logo" 
+                width={100} 
+                height={100}
+                quality={100}
+                className="transition-transform duration-300 group-hover:scale-105" 
+              />
+            </div>
+            <span className="font-bold text-xl ml-[-10] md:text-3xl tracking-wider bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent transition-all duration-300 group-hover:from-blue-500 group-hover:via-purple-600 group-hover:to-blue-700">
+              REACTOR
+            </span>
           </Link>
 
           {/* Desktop Menu */}

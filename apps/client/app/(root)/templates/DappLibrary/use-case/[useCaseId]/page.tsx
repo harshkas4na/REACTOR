@@ -22,49 +22,7 @@ const MDMarkdown = dynamic(
   { ssr: false }
 );
 
-// Skeleton loading component
-// const LoadingSkeleton = () => (
-//   <div className="relative mt-3 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-//     <div className="relative z-20 max-w-8xl mx-auto">
-//       {/* Back button skeleton */}
-//       <div className="mb-8">
-//         <Skeleton className="h-10 w-32 bg-purple-900/50" />
-//       </div>
 
-//       {/* Content skeleton */}
-//       <div className="mb-8 space-y-4">
-//         <Skeleton className="h-8 w-3/4 bg-purple-900/50" />
-//         <Skeleton className="h-6 w-1/2 bg-purple-900/50" />
-//         <div className="space-y-2">
-//           <Skeleton className="h-24 w-full bg-purple-900/50" />
-//           <Skeleton className="h-24 w-full bg-purple-900/50" />
-//         </div>
-//         <div className="flex gap-4">
-//           <Skeleton className="h-8 w-20 bg-purple-900/50" />
-//           <Skeleton className="h-8 w-20 bg-purple-900/50" />
-//         </div>
-//       </div>
-
-//       {/* Tabs skeleton */}
-//       <div className="space-y-4">
-//         <div className="flex gap-2">
-//           <Skeleton className="h-10 w-32 bg-purple-900/50" />
-//           <Skeleton className="h-10 w-32 bg-purple-900/50" />
-//         </div>
-//         <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
-//           <CardHeader>
-//             <Skeleton className="h-8 w-48 bg-purple-900/50" />
-//           </CardHeader>
-//           <CardContent>
-//             <div className="space-y-4">
-//               <Skeleton className="h-32 w-full bg-purple-900/50" />
-//             </div>
-//           </CardContent>
-//         </Card>
-//       </div>
-//     </div>
-//   </div>
-// );
 
 interface UseCaseDetailPageProps {
   params: {

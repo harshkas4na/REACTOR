@@ -49,7 +49,7 @@ export function UseCaseContent({
   return (
     <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 w-full">
       <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-100 break-words">
+        <CardTitle className="text-xl mb-4 sm:text-2xl md:text-3xl font-bold text-gray-100 break-words">
           {useCase.title}
         </CardTitle>
         

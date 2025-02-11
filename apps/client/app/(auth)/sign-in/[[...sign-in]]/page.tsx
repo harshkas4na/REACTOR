@@ -31,8 +31,8 @@ const SignInPage = () => {
                 formFieldLabelRow: "w-full",
                 formFieldLabel: "text-sky-100/80 text-sm md:text-base",
                 formFieldInput: `
-                  w-full 
-                  rounded-none
+                  sm:w-[96%] w-[84%]
+                  rounded-md
                   bg-sky-950/50
                   border-sky-500/20
                   focus:border-sky-400/50
@@ -44,32 +44,30 @@ const SignInPage = () => {
                   min-w-0
                   transition duration-200
                   mb-2 md:mb-3
+                  pr-10
                 `,
-                
-                // Primary button with better responsive sizing
+          
+                // Keep the rest of the styles the same
                 formButtonPrimary: `
-                  w-full 
+                  sm:w-[96%] w-[84%]
                   bg-gradient-to-r from-[#4CC9F0] to-[#7209B7] 
                   hover:opacity-90
                   text-sm md:text-base 
-                  h-8 sm:h-10 md:h-12
-                  rounded-none
+                  h-6 sm:h-6 md:h-8
+                  rounded-md
                   font-medium sm:font-semibold
                   transition-all
                 `,
-                
-                // Social buttons with consistent responsive styling
                 socialButtonsIconButton: `
                   border border-sky-500/20
                   hover:bg-sky-900/30
                   transition-colors
-                  w-full
+                  sm:w-[96%] w-[84%]
                   h-10 md:h-12
                   mb-3 sm:mb-4 md:mb-6
-                  rounded-none
+                  rounded-md
                   text-sm md:text-base
                 `,
-                
                 socialButtonsBlockButton: `
                   border-sky-500/20
                   hover:bg-sky-900/30
@@ -86,15 +84,15 @@ const SignInPage = () => {
                 formFieldRow: "mr-1 mb-0 w-full",
                 
                 // Footer elements with responsive text
-                footer: "w-full break-words text-sm md:text-base text-sky-300/80",
+                footer: "sm:w-[96%]  w-[84%] rounded-lg break-words text-sm md:text-base text-sky-300/80",
                 footerActionLink: "text-sm md:text-base break-words text-sky-400 hover:text-sky-300 font-semibold",
                 
                 // Alternative methods with improved spacing
                 alternativeMethodsBlock: "w-full gap-2 md:gap-3",
                 
                 // Divider with responsive text
-                dividerLine: "bg-sky-500/20",
-                dividerText: "text-sky-400/50 text-sm md:text-base",
+                dividerLine: "bg-sky-500/20 ",
+                dividerText: "text-sky-400/50  text-sm md:text-base",
                 
                 // Error states with responsive text
                 formFieldErrorText: "text-rose-300 text-xs sm:text-sm break-words mt-1",

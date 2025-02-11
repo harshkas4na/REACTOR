@@ -159,7 +159,7 @@ export default function LiveDataIntegration() {
                   {index + 1}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`h-1 w-12 sm:w-24 transition-all duration-200 ${
+                  <div className={`h-1 w-36 sm:w-60 mr-[-66] transition-all duration-200 ${
                     index < currentStep ? 'bg-primary' : 'bg-blue-900/20'
                   }`} />
                 )}

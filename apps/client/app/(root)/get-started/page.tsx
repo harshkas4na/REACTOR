@@ -57,7 +57,7 @@ export default function GetStartedPage() {
         Welcome to REACTOR
       </motion.h1>
       <motion.p 
-        className="text-xl text-center mb-12 text-zinc-400"
+        className="text-xl text-center mb-12 text-zinc-300 font-medium"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -71,26 +71,27 @@ export default function GetStartedPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
+            className="h-full"
           >
             <Card 
-              className="cursor-pointer transition-all bg-transparent duration-300 ease-in-out transform hover:scale-105 bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800"
+              className="cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-105 bg-gradient-to-br from-blue-900/90 to-purple-900/90 border-zinc-800 h-full flex flex-col"
               onMouseEnter={() => setHoveredCard(index)}
               onMouseLeave={() => setHoveredCard(null)}
               onClick={() => handleCardClick(option.route)}
             >
-              <CardHeader>
+              <CardHeader className="flex-none">
                 <div className={`w-12 h-12 rounded-full ${option.color} flex items-center justify-center mb-4`}>
                   <option.icon className="w-6 h-6 text-zinc-100" />
                 </div>
                 <CardTitle className="text-zinc-100">{option.title}</CardTitle>
-                <CardDescription className="text-zinc-400">{option.description}</CardDescription>
+                <CardDescription className="text-zinc-300 h-12 line-clamp-2 font-medium leading-relaxed">{option.description}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-zinc-500">
+              <CardContent className="flex-grow">
+                <p className="text-sm text-zinc-400 font-medium">
                   {hoveredCard === index ? 'Click to get started' : 'Hover for more info'}
                 </p>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex-none">
                 <Button variant="default" className="w-full">
                   Select
                 </Button>

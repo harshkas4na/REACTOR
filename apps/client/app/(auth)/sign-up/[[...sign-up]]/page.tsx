@@ -3,10 +3,8 @@ import React from 'react';
 
 const SignUpPage = () => {
   return (
-    <div className="relative flex min-h-[calc(100vh-2rem)] items-center justify-center p-2 ">
-      {/* Main container with responsive width */}
+    <div className="relative flex min-h-[calc(100vh-2rem)] items-center justify-center p-2">
       <div className="relative z-10 w-[min(90vw,480px)] mx-auto">
-        {/* Sign-up card with refined styling */}
         <div className="rounded-xl sm:rounded-2xl 
                      border border-sky-500/10 
                      shadow-[0_0_50px_-12px] shadow-sky-500/30
@@ -22,18 +20,14 @@ const SignUpPage = () => {
               elements: {
                 rootBox: "w-full ml-4 sm:mr-2 max-w-[90%] overflow-hidden",
                 card: "w-full bg-transparent shadow-none p-0 gap-3 md:gap-4",
-                
-                // Header with responsive typography
                 headerTitle: "sr-only",
                 headerSubtitle: "text-sky-200/70 sm:flex-wrap text-sm md:text-base break-words",
-                
-                // Form fields with improved responsive design
-                formField: "w-full max-w-none",
+                formField: "w-full max-w-none relative",
                 formFieldLabelRow: "w-full",
                 formFieldLabel: "text-sky-100/80 text-sm md:text-base",
                 formFieldInput: `
-                  w-full 
-                  sm:flex-wrap
+                  sm:w-[96%] w-[84%]
+                  rounded-md
                   bg-sky-950/50
                   border-sky-500/20
                   focus:border-sky-400/50
@@ -43,35 +37,42 @@ const SignUpPage = () => {
                   h-10 md:h-12
                   px-3 md:px-4
                   min-w-0
-                  rounded-none
                   transition duration-200
                   mb-2 md:mb-3
+                  pr-10
                 `,
-                
-                // Primary button with better responsive sizing
+                // Adjust password icon positioning
+                formButtonIcon: "absolute right-8 sm:right-10 top-1/2 -translate-y-1/2 transform text-sky-400",
+                passwordVisibilityButton: `
+                  absolute 
+                  mr-2
+                  right-8 sm:right-10 
+                  top-[14px] md:top-[18px]
+                  text-sky-400
+                  hover:text-sky-300
+                  transition-colors
+                `,
+                // Keep the rest of the styles the same
                 formButtonPrimary: `
-                  w-full 
+                  sm:w-[96%] w-[84%]
                   bg-gradient-to-r from-[#4CC9F0] to-[#7209B7] 
                   hover:opacity-90
                   text-sm md:text-base 
-                  h-8 sm:h-10 md:h-12
-                  rounded-none
+                  h-6 sm:h-6 md:h-8
+                  rounded-md
                   font-medium sm:font-semibold
                   transition-all
                 `,
-                
-                // Social buttons with consistent responsive styling
                 socialButtonsIconButton: `
                   border border-sky-500/20
                   hover:bg-sky-900/30
                   transition-colors
-                  w-full
+                  sm:w-[96%] w-[84%]
                   h-10 md:h-12
                   mb-3 sm:mb-4 md:mb-6
-                  rounded-none
+                  rounded-md
                   text-sm md:text-base
                 `,
-                
                 socialButtonsBlockButton: `
                   border-sky-500/20
                   hover:bg-sky-900/30
@@ -88,14 +89,14 @@ const SignUpPage = () => {
                 formFieldRow: "mr-1 mb-0 w-full",
                 
                 // Footer elements with responsive text
-                footer: "w-full break-words text-sm md:text-base text-sky-300/80",
+                footer: "sm:w-[96%]  w-[84%] rounded-lg break-words text-sm md:text-base text-sky-300/80",
                 footerActionLink: "text-sm md:text-base break-words text-sky-400 hover:text-sky-300 font-semibold",
                 
                 // Alternative methods with improved spacing
                 alternativeMethodsBlock: "w-full gap-2 md:gap-3",
                 
                 // Divider with responsive text
-                dividerLine: "bg-sky-500/20",
+                dividerLine: "bg-sky-500/20  ",
                 dividerText: "text-sky-400/50 text-sm md:text-base",
                 
                 // Identity preview with responsive text

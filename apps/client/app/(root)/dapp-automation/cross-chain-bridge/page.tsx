@@ -18,6 +18,53 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import { BASE_URL } from '@/data/constants'
 import ContractPreview from '@/components/contract-preview'
 
+
+
+const ProgressSteps = ({ currentStep = 1 }) => {
+  const steps = [
+    "Chain Selection",
+    "Contract Configuration",
+    "Mapping",
+    "Deployment"
+  ];
+
+  return (
+    <div className="relative mb-8">
+      <div className="flex items-center justify-between mb-2">
+        {steps.map((_, idx) => (
+          <div key={idx} className="flex items-center">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm ${
+              idx + 1 <= currentStep 
+                ? 'bg-purple-600 text-white' 
+                : 'bg-blue-900 text-gray-400'
+            }`}>
+              {idx + 1}
+            </div>
+            {idx < steps.length - 1 && (
+              <div className={`h-1 xsm:w-20 sm:w-40 w-24 ${
+                idx + 1 < currentStep ? 'bg-purple-600' : 'bg-blue-900'
+              }`} />
+            )}
+          </div>
+        ))}
+      </div>
+      
+      <div className="flex justify-between px-1">
+        {steps.map((label, idx) => (
+          <span key={idx} className={`text-sm xsm:pr-10 sm:pr-8 ${
+            idx + 1 <= currentStep 
+              ? 'text-gray-200' 
+              : 'text-gray-500'
+          }`}>
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
 export default function CrossChainBridge() {
   const [step, setStep] = useState(1)
   const [originChain, setOriginChain] = useState('')
@@ -114,7 +161,7 @@ export default function CrossChainBridge() {
         </motion.h1>
         
         {/* Progress Steps */}
-        <div className="relative z-20 mb-8">
+        {/* <div className="relative z-20 mb-8">
           <div className="flex justify-between items-center">
             {[1, 2, 3, 4].map((s) => (
               <div key={s} className="flex items-center">
@@ -133,16 +180,23 @@ export default function CrossChainBridge() {
               </div>
             ))}
           </div>
-          <div className="flex justify-between mt-2">
-            {["Chain Selection", "Contract Configuration", "Mapping", "Deployment"].map((label, idx) => (
-              <span key={label} className={`text-sm ${
+          <div className="flex justify-between mt-2 ">
+            {["Chain Selection", "Contract Configuration", "Mapping Construction", "Deployment"].map((label, idx) => (
+              <span key={label} className={`text-sm  ${
                 step >= idx + 1 ? 'text-violet-300 font-medium' : 'text-zinc-500'
-              }`}>
+              
+              }
+             
+              `
+          
+              
+              }>
                 {label}
               </span>
             ))}
           </div>
-        </div>
+        </div> */}
+        <ProgressSteps currentStep={step} />
 
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardContent className="p-6">
