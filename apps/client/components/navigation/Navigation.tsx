@@ -52,7 +52,7 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center group">
-            <div className="relative">
+            {/* <div className="relative">
               <Image 
                 src="/Reactor2-bgr.png" 
                 alt="Reactor Logo" 
@@ -64,7 +64,15 @@ export default function Navigation() {
             </div>
             <span className="font-bold text-xl ml-[-10] md:text-3xl tracking-wider bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent transition-all duration-300 group-hover:from-blue-500 group-hover:via-purple-600 group-hover:to-blue-700">
               REACTOR
-            </span>
+            </span> */}
+            <Image 
+                src="/Full Logo/Color/DarkBg@2x.svg" 
+                alt="Reactor Logo" 
+                width={200} 
+                height={200}
+                quality={100}
+                className="transition-transform duration-300 group-hover:scale-105" 
+              />
           </Link>
 
           {/* Desktop Menu */}

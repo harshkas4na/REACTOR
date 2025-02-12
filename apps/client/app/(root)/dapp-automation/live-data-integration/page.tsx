@@ -147,35 +147,28 @@ export default function LiveDataIntegration() {
           </AlertDescription>
         </Alert>
 
-        <div className="relative z-20 mb-6 sm:mb-8 overflow-x-auto">
-          <div className="flex justify-between items-center min-w-[600px] sm:min-w-0">
-            {steps.map((step, index) => (
-              <div key={step} className="flex h-12 mr-16 items-center">
-                <div className={`relative w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
-                  index <= currentStep 
-                    ? 'bg-primary ml-1 text-white scale-110' 
-                    : 'bg-blue-900/20 text-zinc-400'
-                }`}>
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`h-1 w-36 sm:w-60 mr-[-66] transition-all duration-200 ${
-                    index < currentStep ? 'bg-primary' : 'bg-blue-900/20'
-                  }`} />
-                )}
+        <div className="relative z-20 flex h-12 items-center mb-6 sm:mb-8 overflow-x-auto">
+                {steps.map((step, index) => (
+                  <div key={step} className="flex items-center min-w-[100px]">
+                    <div
+                      className={`relative z-20 w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
+                        index <= currentStep 
+                          ? 'bg-primary ml-1 text-white scale-110' 
+                          : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {index + 1}
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div
+                        className={`relative z-10 h-1 w-16 sm:w-24 transition-all duration-200 ${
+                          index < currentStep ? 'bg-primary' : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800'
+                        }`}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-xs sm:text-sm min-w-[600px] sm:min-w-0">
-            {steps.map((step, index) => (
-              <span key={step} className={`${
-                index <= currentStep ? 'text-violet-300 font-medium' : 'text-zinc-500'
-              }`}>
-                {step}
-              </span>
-            ))}
-          </div>
-        </div>
 
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardContent className="pt-6">

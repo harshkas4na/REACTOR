@@ -18,7 +18,7 @@ const slides = [
       </>
     ),
     subtitle: "Deploy powerful DeFi automations in minutes with ready-to-use templates",
-    image: "/Reactor2.jpg",
+    image: "/Background2.jpg",
   },
   {
     id: 1,
@@ -143,7 +143,7 @@ const Hero = () => {
                 transition={{ duration: 0.5 }}
                 className="relative aspect-[4/3] rounded-lg overflow-hidden"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10" />
+                {/* <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10" /> */}
                 <Image
                   src={slides[currentSlide].image}
                   alt="Hero Image"

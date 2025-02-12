@@ -15,58 +15,16 @@ import { useAutomationContext } from '@/app/_context/AutomationContext'
 import AutomationForm2 from '@/components/automation/SCAutomation/AutomationForm2'
 import DeployButton from '@/components/DeployButton'
 import { useWeb3 } from '@/app/_context/Web3Context'
-import { BASE_URL } from '@/data/constants'
 import ContractPreview from '@/components/contract-preview'
 
-
-
-const ProgressSteps = ({ currentStep = 1 }) => {
-  const steps = [
-    "Chain Selection",
-    "Contract Configuration",
-    "Mapping",
-    "Deployment"
-  ];
-
-  return (
-    <div className="relative mb-8">
-      <div className="flex items-center justify-between mb-2">
-        {steps.map((_, idx) => (
-          <div key={idx} className="flex items-center">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm ${
-              idx + 1 <= currentStep 
-                ? 'bg-purple-600 text-white' 
-                : 'bg-blue-900 text-gray-400'
-            }`}>
-              {idx + 1}
-            </div>
-            {idx < steps.length - 1 && (
-              <div className={`h-1 xsm:w-20 sm:w-40 w-24 ${
-                idx + 1 < currentStep ? 'bg-purple-600' : 'bg-blue-900'
-              }`} />
-            )}
-          </div>
-        ))}
-      </div>
-      
-      <div className="flex justify-between px-1">
-        {steps.map((label, idx) => (
-          <span key={idx} className={`text-sm xsm:pr-10 sm:pr-8 ${
-            idx + 1 <= currentStep 
-              ? 'text-gray-200' 
-              : 'text-gray-500'
-          }`}>
-            {label}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-};
-
+const steps = [
+  "Chain Selection",
+  "Contract Configuration",
+  "Mapping",
+  "Deployment"
+];
 
 export default function CrossChainBridge() {
-  const [step, setStep] = useState(1)
   const [originChain, setOriginChain] = useState('')
   const [destinationChain, setDestinationChain] = useState('')
   const [isContractVisible, setIsContractVisible] = useState(false)
@@ -74,7 +32,8 @@ export default function CrossChainBridge() {
   const [deploymentTxHash, setDeploymentTxHash] = useState('')
   const [abi, setAbi] = useState<any>(null)
   const [bytecode, setBytecode] = useState('')
-  
+  const [currentStep, setCurrentStep] = useState(0)
+
   const {
     OrgChainId,
     setOrgChainId,
@@ -101,15 +60,13 @@ export default function CrossChainBridge() {
   const { generateContractTemplate, isLoading } = useContractGeneration({
     onSuccess: (contract) => {
       setReactiveContract(contract);
-      // After successful generation, move to the next step
-      if (step === 3) nextStep();
+      nextStep();
     },
   });
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent form submission from refreshing the page
+    e.preventDefault();
     
-    // Validate required fields
     if (!originAddress || !destinationAddress || !OrgChainId || !DesChainId || automations.length === 0) {
       console.error('Missing required fields');
       return;
@@ -129,22 +86,23 @@ export default function CrossChainBridge() {
     }
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 4));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 0));
 
   const toggleContractVisibility = () => setIsContractVisible(!isContractVisible);
 
-  // Validate step completion before allowing next
   const canProceedToNext = () => {
-    switch (step) {
-      case 1:
+    switch (currentStep) {
+      case 0: // Chain Selection
         return originChain && destinationChain;
-      case 2:
+      case 1: // Contract Configuration
         return originAddress && destinationAddress;
-      case 3:
+      case 2: // Mapping
         return automations.length > 0 && automations.every(a => a.event && a.function);
+      case 3: // Deployment
+        return true; // No next step from deployment
       default:
-        return true;
+        return false;
     }
   };
 
@@ -161,50 +119,38 @@ export default function CrossChainBridge() {
         </motion.h1>
         
         {/* Progress Steps */}
-        {/* <div className="relative z-20 mb-8">
-          <div className="flex justify-between items-center">
-            {[1, 2, 3, 4].map((s) => (
-              <div key={s} className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
-                  s <= step 
-                    ? 'bg-primary text-white scale-110' 
-                    : 'bg-blue-900/50 text-zinc-400'
-                }`}>
-                  {s}
-                </div>
-                {s < 4 && (
-                  <div className={`h-1 w-full sm:w-24 transition-all duration-200 ${
-                    s < step ? 'bg-primary' : 'bg-blue-900/50'
-                  }`} />
-                )}
+        <div className="relative z-20 flex h-12 items-center mb-6 sm:mb-8 overflow-x-auto">
+          {steps.map((step, index) => (
+            <div key={step} className="flex items-center min-w-[100px]">
+              <div
+                className={`relative z-20 w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
+                  index <= currentStep 
+                    ? 'bg-primary ml-1 text-white scale-110' 
+                    : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 text-zinc-400'
+                }`}
+              >
+                {index + 1}
               </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 ">
-            {["Chain Selection", "Contract Configuration", "Mapping Construction", "Deployment"].map((label, idx) => (
-              <span key={label} className={`text-sm  ${
-                step >= idx + 1 ? 'text-violet-300 font-medium' : 'text-zinc-500'
-              
-              }
-             
-              `
-          
-              
-              }>
-                {label}
-              </span>
-            ))}
-          </div>
-        </div> */}
-        <ProgressSteps currentStep={step} />
+              {index < steps.length - 1 && (
+                <div
+                  className={`relative z-10 h-1 w-16 sm:w-24 transition-all duration-200 ${
+                    index < currentStep ? 'bg-primary' : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
 
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardContent className="p-6">
-            <Tabs value={`step${step}`} className="space-y-6">
-              <TabsContent value="step1">
+            <Tabs value={`step${currentStep}`} className="space-y-6">
+              {/* Step 0: Chain Selection */}
+              <TabsContent value="step0">
                 <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
                   Chain Selection
                 </CardTitle>
+                {/* Chain selection content */}
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="originChain" className="text-zinc-200">Origin Chain</Label>
@@ -231,7 +177,7 @@ export default function CrossChainBridge() {
                       </SelectContent>
                     </Select>
                   </div>
-  
+
                   <div>
                     <Label htmlFor="destinationChain" className="text-zinc-200">
                       Destination Chain
@@ -259,7 +205,7 @@ export default function CrossChainBridge() {
                       </SelectContent>
                     </Select>
                   </div>
-  
+
                   {originChain && destinationChain && (
                     <Alert className="bg-green-900/20 border-green-500/50">
                       <CheckCircle2 className="h-4 w-4 text-green-400" />
@@ -271,8 +217,9 @@ export default function CrossChainBridge() {
                   )}
                 </div>
               </TabsContent>
-  
-              <TabsContent value="step2">
+
+              {/* Step 1: Contract Configuration */}
+              <TabsContent value="step1">
                 <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
                   Contract Configuration
                 </CardTitle>
@@ -304,8 +251,9 @@ export default function CrossChainBridge() {
                   </div>
                 </div>
               </TabsContent>
-  
-              <TabsContent value="step3">
+
+              {/* Step 2: Mapping */}
+              <TabsContent value="step2">
                 <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
                   Mapping Configuration
                 </CardTitle>
@@ -318,7 +266,9 @@ export default function CrossChainBridge() {
                   />
                 </div>
               </TabsContent>
-              <TabsContent value="step4">
+
+              {/* Step 3: Deployment */}
+              <TabsContent value="step3">
                 <CardTitle className="text-2xl font-bold mb-4 text-zinc-100">
                   Deployment
                 </CardTitle>
@@ -333,7 +283,7 @@ export default function CrossChainBridge() {
                         {isContractVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
                       {isContractVisible && (
-                        <div className="mt-2  bg-blue-900/20 rounded-lg border border-zinc-800">
+                        <div className="mt-2 bg-blue-900/20 rounded-lg border border-zinc-800">
                           <ContractPreview 
                             fullCode={reactiveContract} 
                             showSimplified={true} 
@@ -387,22 +337,23 @@ export default function CrossChainBridge() {
                 </div>
               </TabsContent>
             </Tabs>
-  
+
+            {/* Navigation Buttons */}
             <div className="flex justify-between mt-6">
               <Button 
                 onClick={prevStep} 
-                disabled={step === 1} 
+                disabled={currentStep === 0} 
                 variant="outline"
                 className="border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
               >
                 Previous
-              </Button>
+                </Button>
               <Button 
                 onClick={nextStep} 
-                disabled={step === 4 || !canProceedToNext()}
+                disabled={currentStep === steps.length - 1 || !canProceedToNext()}
                 className="bg-primary hover:bg-primary/90 text-white"
               >
-                {step === 4 ? 'Finish' : 'Next'}
+                {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
               </Button>
             </div>
           </CardContent>
