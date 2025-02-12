@@ -21,7 +21,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "REACTOR",
   description: "Reactive Smart Contract Platform - Create, deploy, and share automated smart contract templates",
-  
+  icons: ['/Symbol/Color/DarkBg.png']
 };
 
 export default function RootLayout({
