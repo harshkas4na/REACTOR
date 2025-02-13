@@ -107,8 +107,8 @@ export default function CrossChainBridge() {
   };
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-64">
-      <div className="relative z-20 max-w-8xl mx-auto">
+    <div className="relative min-h-screen py-8 sm:py-12 px-2 sm:px-4 md:px-6 lg:px-8">
+      <div className="relative z-20 max-w-4xl mx-auto">
         <motion.h1 
           className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600"
           initial={{ opacity: 0, y: -20 }}
@@ -118,26 +118,28 @@ export default function CrossChainBridge() {
           Cross-Chain Bridge Template
         </motion.h1>
         
-        {/* Progress Steps */}
-        <div className="relative z-20 flex h-12 items-center mb-6 sm:mb-8 overflow-x-auto">
+       {/* Progress Steps */}
+        <div className="relative z-20 flex w-full mb-6 sm:mb-8">
           {steps.map((step, index) => (
-            <div key={step} className="flex items-center min-w-[100px]">
-              <div
-                className={`relative z-20 w-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
-                  index <= currentStep 
-                    ? 'bg-primary ml-1 text-white scale-110' 
-                    : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 text-zinc-400'
-                }`}
-              >
-                {index + 1}
-              </div>
-              {index < steps.length - 1 && (
+            <div key={step} className="flex items-center flex-1 last:flex-initial">
+              <div className="flex items-center w-full">
                 <div
-                  className={`relative z-10 h-1 w-16 sm:w-24 transition-all duration-200 ${
-                    index < currentStep ? 'bg-primary' : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800'
+                  className={`relative z-20 w-8 sm:w-10 h-8 sm:h-10 shrink-0 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 ${
+                    index <= currentStep 
+                      ? 'bg-primary text-white scale-110' 
+                      : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 text-zinc-400'
                   }`}
-                />
-              )}
+                >
+                  {index + 1}
+                </div>
+                {index < steps.length - 1 && (
+                  <div
+                    className={`relative z-10 h-1 w-full  transition-all duration-200 ${
+                      index < currentStep ? 'bg-primary' : 'bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800'
+                    }`}
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>

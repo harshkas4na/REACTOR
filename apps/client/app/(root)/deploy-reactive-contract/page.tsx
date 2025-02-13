@@ -217,19 +217,19 @@ export default function AutomationPage() {
                 onContractChange={handleContractChange}
               />
               <div className="mt-6 space-y-4">
-                <DeployButton
-                  editedContract={editedContract}
-                  onCompileSuccess={(abi, bytecode) => {
-                    setAbi(abi);
-                    setBytecode(bytecode);
-                  }}
-                  onDeploySuccess={(address, transactionHash) => {
-                    setDeployedAddress(address);
-                    setDeploymentTxHash(transactionHash);
-                  }}
-                  web3={web3}
-                  account={account}
-                />
+              <DeployButton
+                editedContract={editedContract}
+                onCompileSuccess={(abi, bytecode) => {
+                  setAbi(abi);
+                  setBytecode(bytecode);
+                }}
+                onDeploySuccess={(address, transactionHash) => {
+                  setDeployedAddress(address);
+                  setDeploymentTxHash(transactionHash);
+                }}
+                web3={web3}
+                account={account}
+              />
               </div>
             </CardContent>
           </Card>
