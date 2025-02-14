@@ -18,8 +18,8 @@ import Link from 'next/link'
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
+  // const [isLoading, setIsLoading] = useState<boolean>(false)
+  // const [error, setError] = useState<string | null>(null)
   const { isSignedIn, signOut } = useAuth()
   
 
@@ -28,8 +28,12 @@ export default function Navigation() {
     selectedNetwork,
     account,
     connectWallet,
-    switchNetwork
-  } = useWeb3()
+    switchNetwork,
+    isMobileDevice,
+    isLoading,
+    error,
+    openMetaMaskApp
+  } = useWeb3();
 
   
 
@@ -84,10 +88,21 @@ export default function Navigation() {
           <div className="flex items-center justify-end space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
            {/* Network Select */}
           <div className="hidden md:block">
-            <Select 
-              value={selectedNetwork} 
-              onValueChange={(value) => switchNetwork(value)}
-            >
+          <Select 
+            value={selectedNetwork} 
+            onValueChange={(value) => {
+              if (isMobileDevice && !window.ethereum) {
+                const shouldOpenApp = window.confirm(
+                  'Would you like to open MetaMask app to switch networks?'
+                );
+                if (shouldOpenApp) {
+                  openMetaMaskApp();
+                }
+                return;
+              }
+              switchNetwork(value);
+            }}
+          >
               <SelectTrigger className="w-[120px] lg:w-[180px] text-xs sm:text-sm">
                 <SelectValue placeholder="Select Network" />
               </SelectTrigger>
@@ -116,22 +131,21 @@ export default function Navigation() {
             
             {/* Connect Wallet Button */}
             <Button
-              onClick={connectWallet}
-              disabled={isLoading}
-              color='primary'
-              variant={error ? "destructive" : "default"}
-              className="text-xs sm:text-sm px-2 sm:px-3 hover:bg-primary/80 md:px-4 min-w-0 truncate max-w-[120px] sm:max-w-[150px]"
-            >
-              {isLoading ? (
-                "Connecting..."
-              ) : error ? (
-                "Error"
-              ) : account ? (
-                formatAddress(account)
-              ) : (
-                "Connect"
-              )}
-            </Button>
+            onClick={connectWallet}
+            disabled={isLoading}
+            variant={error ? "destructive" : "default"}
+            className="text-xs sm:text-sm px-2 sm:px-3 hover:bg-primary/80 md:px-4 min-w-0 truncate max-w-[120px] sm:max-w-[150px]"
+          >
+            {isLoading ? (
+              "Connecting..."
+            ) : error ? (
+              isMobileDevice ? "Open MetaMask" : "Install MetaMask"
+            ) : account ? (
+              formatAddress(account)
+            ) : (
+              "Connect"
+            )}
+          </Button>
 
             {/* Auth Button */}
             <div className="hidden md:block">

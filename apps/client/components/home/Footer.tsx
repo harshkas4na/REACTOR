@@ -3,6 +3,7 @@ import { Button } from "@nextui-org/react"
 import Link from "next/link"
 import { Input } from "@nextui-org/react"
 import { FaTwitter, FaLinkedin, FaGithub } from 'react-icons/fa'
+import Image from "next/image";
 
 const Footer = () => {
   return (
@@ -10,9 +11,14 @@ const Footer = () => {
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-12">
           <div className="text-center sm:text-left">
-            <h3 className="text-xl sm:text-2xl font-bold mb-4  bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent transition-all duration-300 group-hover:from-blue-500 group-hover:via-purple-600 group-hover:to-blue-700">
-              REACTOR
-            </h3>
+            <Image 
+                src="/Full Logo/Color/DarkBg@2x.svg" 
+                alt="Reactor Logo" 
+                width={150} 
+                height={150}
+                quality={100}
+                className="transition-transform mb-4 duration-300 group-hover:scale-105" 
+              />
             <p className="text-sm">Empowering DeFi users with automated portfolio management</p>
           </div>
           

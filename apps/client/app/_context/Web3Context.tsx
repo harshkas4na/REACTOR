@@ -15,7 +15,8 @@ interface Web3ContextType {
   error: string | null;
   connectWallet:()=> Promise<void>;
   switchNetwork:(networkName: string)=> Promise<void>; 
- 
+  isMobileDevice: boolean;
+  openMetaMaskApp: () => void;
 }
 
 // Create the context with a default value matching the type
@@ -133,56 +134,97 @@ export function Web3Provider({ children }: Web3ProviderProps) {
   const [account, setAccount] = useState<string>('');
   const [web3, setWeb3] = useState<Web3 | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isMobileDevice, setIsMobileDevice] = useState<boolean>(false);
+
+   // Detect if user is on mobile device
+   useEffect(() => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    setIsMobileDevice(isMobile);
+  }, []);
+
+  // Function to open MetaMask app
+  const openMetaMaskApp = () => {
+    const metamaskAppDeepLink = `https://metamask.app.link/dapp/${window.location.hostname}${window.location.pathname}`;
+    window.location.href = metamaskAppDeepLink;
+  };
  
   const connectWallet = async (): Promise<void> => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setError('Please install MetaMask!')
-      return
-    }
+    if (typeof window === 'undefined') return;
 
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
     try {
+      // Check if MetaMask is available
+      if (!window.ethereum) {
+        if (isMobileDevice) {
+          // If on mobile and no MetaMask in browser, prompt to open/install MetaMask app
+          const shouldOpenApp = window.confirm(
+            'Would you like to open this page in the MetaMask app? If you don\'t have MetaMask installed, you\'ll be redirected to the app store.'
+          );
+          if (shouldOpenApp) {
+            openMetaMaskApp();
+          }
+          return;
+        } else {
+          // If on desktop and no MetaMask, show install prompt
+          setError('Please install MetaMask to connect your wallet');
+          window.open('https://metamask.io/download/', '_blank');
+          return;
+        }
+      }
+
       const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts'
-      })
+      });
 
       if (accounts.length > 0) {
-        setAccount(accounts[0])
-        const web3Instance = new Web3(window.ethereum)
-        const chainId = await web3Instance.eth.getChainId()
-        setSelectedNetwork(getCurrentNetworkKey(Number(chainId)))
-        setWeb3(web3Instance)
+        setAccount(accounts[0]);
+        const web3Instance = new Web3(window.ethereum);
+        const chainId = await web3Instance.eth.getChainId();
+        setSelectedNetwork(getCurrentNetworkKey(Number(chainId)));
+        setWeb3(web3Instance);
       }
     } catch (err: any) {
-      console.error('Error connecting wallet:', err)
-      setError(err?.message || 'Failed to connect wallet')
+      console.error('Error connecting wallet:', err);
+      setError(err?.message || 'Failed to connect wallet');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const switchNetwork = async (networkName: string): Promise<void> => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setError('Please install MetaMask!')
-      return
+    if (typeof window === 'undefined') return;
+
+    if (!window.ethereum) {
+      if (isMobileDevice) {
+        const shouldOpenApp = window.confirm(
+          'Would you like to open MetaMask app to switch networks?'
+        );
+        if (shouldOpenApp) {
+          openMetaMaskApp();
+        }
+        return;
+      } else {
+        setError('Please install MetaMask to switch networks');
+        return;
+      }
     }
 
     try {
-      setIsLoading(true)
-      const network = SUPPORTED_NETWORKS[networkName.toUpperCase()]
-      if (!network) throw new Error('Unsupported network')
+      setIsLoading(true);
+      const network = SUPPORTED_NETWORKS[networkName.toUpperCase()];
+      if (!network) throw new Error('Unsupported network');
 
-      const chainIdHex = `0x${network.chainId.toString(16)}`
+      const chainIdHex = `0x${network.chainId.toString(16)}`;
       
       try {
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: chainIdHex }],
-        })
+        });
       } catch (switchError: any) {
         // This error code indicates that the chain has not been added to MetaMask
         if (switchError.code === 4902) {
@@ -193,22 +235,22 @@ export function Web3Provider({ children }: Web3ProviderProps) {
               chainName: network.name,
               rpcUrls: [network.rpcUrl],
             }],
-          })
+          });
         } else {
-          throw switchError
+          throw switchError;
         }
       }
 
-      setSelectedNetwork(networkName)
-      const web3Instance = new Web3(window.ethereum)
-      setWeb3(web3Instance)
+      setSelectedNetwork(networkName);
+      const web3Instance = new Web3(window.ethereum);
+      setWeb3(web3Instance);
     } catch (err: any) {
-      console.error('Error switching network:', err)
-      setError(err?.message || 'Failed to switch network')
+      console.error('Error switching network:', err);
+      setError(err?.message || 'Failed to switch network');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const getCurrentNetworkKey = (currentChainId: number): string => {
     return Object.keys(SUPPORTED_NETWORKS).find(
@@ -270,7 +312,8 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     error,
     connectWallet,
     switchNetwork,
-    
+    isMobileDevice,
+    openMetaMaskApp
   };
 
   return (
@@ -279,7 +322,6 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     </Web3Context.Provider>
   );
 }
-
 // Custom hook to use the Web3 context
 export function useWeb3() {
   const context = useContext(Web3Context);

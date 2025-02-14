@@ -74,7 +74,7 @@ export default function GetStartedPage() {
             className="h-full"
           >
             <Card 
-              className="cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-105 bg-gradient-to-br from-blue-900/90 to-purple-900/90 border-zinc-800 h-full flex flex-col"
+              className="cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-105 bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 h-full flex flex-col"
               onMouseEnter={() => setHoveredCard(index)}
               onMouseLeave={() => setHoveredCard(null)}
               onClick={() => handleCardClick(option.route)}

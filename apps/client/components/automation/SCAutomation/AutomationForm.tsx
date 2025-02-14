@@ -143,7 +143,7 @@ export default function AutomationForm({
       <Alert className="bg-yellow-50 border-yellow-100 dark:bg-yellow-900/20 dark:border-yellow-800">
         <AlertDescription className="text-yellow-800 dark:text-yellow-200">
           <strong className="font-semibold">Input Rules:</strong>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
+          <ul className="list-disc pl-5 mt-2 overflow-auto space-y-1">
             <li>Event format: EventName(type1,type2,...)</li>
             <li>Function format: functionName(address,type2,...)</li>
             <li>Valid types: address, uint256, string, bool, bytes32, uint8</li>
