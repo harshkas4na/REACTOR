@@ -10,8 +10,9 @@ const Footer = () => {
     <footer className="mt-20 sm:mt-32 bg-gray-900 rounded-lg relative pointer-events-auto z-10 text-gray-300 py-8 sm:py-16 border-t border-gray-800 w-full">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-12">
-          <div className="text-center sm:text-left">
-            <Image 
+          <div className="flex flex-col items-center sm:items-start">
+            <div className="flex justify-center sm:justify-start w-full">
+              <Image 
                 src="/Full Logo/Color/DarkBg@2x.svg" 
                 alt="Reactor Logo" 
                 width={150} 
@@ -19,7 +20,8 @@ const Footer = () => {
                 quality={100}
                 className="transition-transform mb-4 duration-300 group-hover:scale-105" 
               />
-            <p className="text-sm">Empowering DeFi users with automated portfolio management</p>
+            </div>
+            <p className="text-sm text-center sm:text-left">Empowering DeFi users with automated portfolio management</p>
           </div>
           
           {/* Quick Links */}
