@@ -127,7 +127,7 @@ interface ChainConfig {
     5318008: {
       id: 5318008,
       name: 'Kopli Testnet',
-      rpcUrl: 'https://kopli-rpc.rkt.ink',
+      rpcUrl: 'https://kopli-rpc.rnk.dev',
       explorerUrl: 'https://kopli-explorer.rkt.ink',
       explorerApiKey: '',
       explorerApiUrl: 'https://kopli-explorer.rkt.ink/api',
@@ -136,7 +136,7 @@ interface ChainConfig {
   };
   
   // RPC Configuration
-  const RNK_RPC_URL = 'https://kopli-rpc.rkt.ink';
+  const RNK_RPC_URL = 'https://kopli-rpc.rnk.dev';
   
   class RSCFlowController {
     private flowRequest: RSCFlowRequest;

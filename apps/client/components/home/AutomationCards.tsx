@@ -7,7 +7,7 @@ import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
 const automations = [
   {
-    title: "Uniswap Stop Order",
+    title: "Create Stop Order",
     description: "Automatically sell tokens when they reach a certain price threshold. Set up sophisticated trading strategies with multiple conditions and actions.",
     icon: "/Uniswap-stop-order.jpg",
   },

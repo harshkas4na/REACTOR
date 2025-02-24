@@ -3,6 +3,11 @@
 		"inputs": [
 			{
 				"internalType": "address",
+				"name": "callback_sender",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
 				"name": "_router",
 				"type": "address"
 			}
@@ -98,5 +103,9 @@
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
+	},
+	{
+		"stateMutability": "payable",
+		"type": "receive"
 	}
 ]

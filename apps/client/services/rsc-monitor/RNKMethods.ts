@@ -21,7 +21,7 @@ interface TxLog {
 }
 
 export class RNKMethods {
-  private rpcEndpoint: string = 'https://kopli-rpc.rkt.ink';
+  private rpcEndpoint: string = 'https://kopli-rpc.rnk.dev';
 
   private async callRPC(method: string, params: any[]): Promise<any> {
     const response = await fetch(this.rpcEndpoint, {

@@ -20,23 +20,35 @@ import {
 } from "@/components/ui/hover-card";
 import { Info, AlertCircle, Shield, Clock, Zap, Loader2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
-import { stopOrderByteCode } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
-import  stopOrderABI  from '@/data/automations/uniswap-stop-order/stopOrderABI.json';
-import { rscByteCode } from '@/data/automations/uniswap-stop-order/RSCByteCode';
-import  rscABI  from '@/data/automations/uniswap-stop-order/RSCABI.json';
 import { toast } from 'react-hot-toast';
+import PairFinder from '@/components/pair-finder'; // Import the PairFinder component
 
+// Import all contract artifacts
+import { stopOrderByteCodeSepolia } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
+import stopOrderABISepolia from '@/data/automations/uniswap-stop-order/stopOrderABISeploia.json';
+import { rscByteCodeSepolia } from '@/data/automations/uniswap-stop-order/RSCByteCode';
+import rscABISepolia from '@/data/automations/uniswap-stop-order/RSCABISepolia.json';
+
+import { stopOrderByteCodeMainnet } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
+import stopOrderABIMainnet from '@/data/automations/uniswap-stop-order/stopOrderABIMainnet.json';
+import { rscByteCodeMainnet } from '@/data/automations/uniswap-stop-order/RSCByteCode';
+import rscABIMainnet from '@/data/automations/uniswap-stop-order/RSCABIMainnet.json';
+
+import { stopOrderByteCodeAvalancheCChain } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
+import stopOrderABIAvalancheCChain from '@/data/automations/uniswap-stop-order/stopOrderABIAvalancheCChain.json';
+import { rscByteCodeAvalancheCChain } from '@/data/automations/uniswap-stop-order/RSCByteCode';
+import rscABIAvalancheCChain from '@/data/automations/uniswap-stop-order/RSCABIAvalancheCChain.json';
+
+// Define types for form data and pair info
 interface StopOrderFormData {
-    chainId: string;
-    pairAddress: string;
-    sellToken0: boolean;
-    clientAddress: string;
-    coefficient: string;
-    threshold: string;
-    amount: string;
-  }
-  
-  
+  chainId: string;
+  pairAddress: string;
+  sellToken0: boolean;
+  clientAddress: string;
+  coefficient: string;
+  threshold: string;
+  amount: string;
+}
 
 interface PairInfo {
   token0: string;
@@ -47,38 +59,83 @@ interface PairInfo {
   reserve1?: string;
 }
 
+interface ChainConfig {
+  id: string;
+  name: string;
+  dexName: string; // Added DEX name to display in UI
+  routerAddress: string;
+  factoryAddress: string;
+  stopOrderABI: any;
+  stopOrderBytecode: any;
+  rscABI: any;
+  rscBytecode: any;
+  rpcUrl?: string;
+}
+
 // Configuration constants
-const SUPPORTED_CHAINS = [
+const SUPPORTED_CHAINS: ChainConfig[] = [
   { 
     id: '11155111', 
-    name: 'Ethereum Sepolia', 
-    routerAddress: '0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008',
-    factoryAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
+    name: 'Ethereum Sepolia',
+    dexName: 'Uniswap V2',
+    routerAddress: '0xb26b2de65d07ebb5e54c7f6282424d3be670e1f0',
+    factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
+    stopOrderABI: stopOrderABISepolia,
+    stopOrderBytecode: stopOrderByteCodeSepolia,
+    rscABI: rscABISepolia,
+    rscBytecode: rscByteCodeSepolia,
+    rpcUrl: 'https://rpc.sepolia.org'
+  },
+  {
+    id: '1',
+    name: 'Ethereum Mainnet',
+    dexName: 'Uniswap V2',
+    routerAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
+    factoryAddress: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
+    stopOrderABI: stopOrderABIMainnet,
+    stopOrderBytecode: stopOrderByteCodeMainnet,
+    rscABI: rscABIMainnet,
+    rscBytecode: rscByteCodeMainnet,
+    rpcUrl: 'https://ethereum.publicnode.com'
+  },
+  {
+    id: '43114',
+    name: 'Avalanche C-Chain',
+    dexName: 'Pangolin',
+    routerAddress: '0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106',
+    factoryAddress: '0xefa94DE7a4656D787667C749f7E1223D71E9FD88',
+    stopOrderABI: stopOrderABIAvalancheCChain,
+    stopOrderBytecode: stopOrderByteCodeAvalancheCChain,
+    rscABI: rscABIAvalancheCChain,
+    rscBytecode: rscByteCodeAvalancheCChain,
+    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc'
   }
 ];
 
-export default function UniswapStopOrderPage() {
+type DeploymentStep = 'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'switching-back' | 'approving' | 'complete';
 
+export default function UniswapStopOrderPage() {
   const [formData, setFormData] = useState<StopOrderFormData>({
     chainId: '',
     pairAddress: '',
     sellToken0: true,
-      clientAddress: '',  // This will be updated when we get the connected account
+    clientAddress: '',
     coefficient: '1000',
     threshold: '',
     amount: ''
   });
 
-
-    const [fetchError, setFetchError] = useState<string | null>(null);
-    const [connectedAccount, setConnectedAccount] = useState<string>('');
-
-    const [deploymentStep, setDeploymentStep] = useState<'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'switching-back' | 'approving' | 'complete'>('idle');
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [connectedAccount, setConnectedAccount] = useState<string>('');
+  const [deploymentStep, setDeploymentStep] = useState<DeploymentStep>('idle');
   const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
-  const [isLoadingPair, setIsLoadingPair] = useState(false);
+  const [isLoadingPair, setIsLoadingPair] = useState<boolean>(false);
+  
+  // Find the currently selected chain configuration
+  const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
+  // Set default DEX name to display if no chain is selected
+  const dexName = selectedChain?.dexName || 'Uniswap V2';
 
-
-    // Add effect to get connected account
   useEffect(() => {
     const getConnectedAccount = async () => {
       if (window.ethereum) {
@@ -101,7 +158,6 @@ export default function UniswapStopOrderPage() {
 
     getConnectedAccount();
 
-    // Listen for account changes
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', (accounts: string[]) => {
         if (accounts.length > 0) {
@@ -123,78 +179,72 @@ export default function UniswapStopOrderPage() {
     };
   }, []);
 
-const handleFetchPairInfo = async (pairAddress: string) => {
+  // Handle pair selection from the PairFinder component
+  const handlePairSelected = (pairAddress: string, chainId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      pairAddress,
+      chainId
+    }));
+    
+    // Fetch pair info for the selected pair
+    handleFetchPairInfo(pairAddress);
+    
+    // Show success message
+    toast.success('Pair selected! Scroll down to continue configuring your stop order.');
+  };
+
+  const handleFetchPairInfo = async (pairAddress: string) => {
     setIsLoadingPair(true);
     setFetchError('');
     
     try {
-      // First validate the address format
       if (!ethers.isAddress(pairAddress)) {
         throw new Error('Invalid pair address format');
       }
-  
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
       const currentChainId = network.chainId.toString();
 
-      // Check if the current chain matches the selected chain
       if (formData.chainId && currentChainId !== formData.chainId) {
-        throw new Error('You are currently connected to a different network than selected. Please switch networks or select the correct chain.');
+        throw new Error('Please switch to the selected network');
       }
-  
-      // First check if there's any code at the address
+
       const code = await provider.getCode(pairAddress);
-      
       if (code === '0x' || code === '0x0') {
         throw new Error('No contract found at this address');
       }
-  
-      // Define the interface for the pair contract
-      const pairInterface = new ethers.Interface([
-          'function token0() view returns (address)',
-          'function token1() view returns (address)',
-          'function getReserves() view returns (uint112, uint112, uint32)'
-      ]);
-  
-      const pairContract = new ethers.Contract(
-        pairAddress,
-        pairInterface,
-        provider
-      );
 
-      // Wrap each call in try-catch to handle specific failures
-      let token0, token1, reserves;
-      try {
-        token0 = await pairContract.token0();
-        token1 = await pairContract.token1();
-      } catch (error) {
-        console.error("Error fetching tokens:", error);
-        throw new Error('Failed to fetch token addresses - this might not be a valid Uniswap V2 pair');
-      }
-  
-      try {
-        reserves = await pairContract.getReserves();
-      } catch (error) {
-        console.error("Error fetching reserves:", error);
-        throw new Error('Failed to fetch reserves - this might not be a valid Uniswap V2 pair');
-      }
-  
-      // If we got here, try to fetch the symbols
+      // The interface is the same for both Uniswap V2 and Pangolin pairs
+      const pairInterface = new ethers.Interface([
+        'function token0() view returns (address)',
+        'function token1() view returns (address)',
+        'function getReserves() view returns (uint112, uint112, uint32)'
+      ]);
+
+      const pairContract = new ethers.Contract(pairAddress, pairInterface, provider);
+      const [token0, token1, reserves] = await Promise.all([
+        pairContract.token0(),
+        pairContract.token1(),
+        pairContract.getReserves()
+      ]);
+
       const erc20Interface = new ethers.Interface([
         'function symbol() view returns (string)'
       ]);
-  
+
       let token0Symbol = 'Unknown', token1Symbol = 'Unknown';
-  
+
       try {
-      const token0Contract = new ethers.Contract(token0, erc20Interface, provider);
+        const token0Contract = new ethers.Contract(token0, erc20Interface, provider);
         token0Symbol = await token0Contract.symbol();
       } catch (error) {
         console.warn("Could not fetch token0 symbol:", error);
       }
-  
+
       try {
-      const token1Contract = new ethers.Contract(token1, erc20Interface, provider);
+        const token1Contract = new ethers.Contract(token1, erc20Interface, provider);
         token1Symbol = await token1Contract.symbol();
       } catch (error) {
         console.warn("Could not fetch token1 symbol:", error);
@@ -208,7 +258,7 @@ const handleFetchPairInfo = async (pairAddress: string) => {
         reserve0: ethers.formatUnits(reserves[0], 18),
         reserve1: ethers.formatUnits(reserves[1], 18)
       });
-  
+
     } catch (error: any) {
       console.error('Error fetching pair info:', error);
       setFetchError(error.message);
@@ -218,168 +268,154 @@ const handleFetchPairInfo = async (pairAddress: string) => {
     }
   };
 
-  async function switchToKopliNetwork(): Promise<boolean> {
-    if (!window.ethereum) {
-      throw new Error('MetaMask is not installed');
-    }
-  
+  const switchNetwork = async (chainId: string) => {
+    if (!window.ethereum) throw new Error('MetaMask is not installed');
+
     try {
-      // Kopli network parameters
-      const kopliChainParams = {
-        chainId: '0x512578', // 5318008 in hex
-        chainName: 'Kopli',
-        nativeCurrency: {
-          name: 'KOPLI',
-          symbol: 'KOPLI',
-          decimals: 18
-        },
-        rpcUrls: ['https://kopli-rpc.rkt.ink'], 
-        blockExplorerUrls: ['https://kopli.reactscan.net'] 
-      };
-  
-      try {
-        // First try to switch to Kopli if it's already added
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${parseInt(chainId).toString(16)}` }],
+      });
+      return true;
+    } catch (error: any) {
+      if (error.code === 4902) {
+        const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
+        if (!chain) throw new Error('Chain not supported');
+        
         await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: kopliChainParams.chainId }],
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: `0x${parseInt(chainId).toString(16)}`,
+            chainName: chain.name,
+            nativeCurrency: {
+              name: chain.id === '43114' ? 'AVAX' : 'ETH',
+              symbol: chain.id === '43114' ? 'AVAX' : 'ETH',
+              decimals: 18
+            },
+            rpcUrls: [chain.rpcUrl || '']
+          }],
         });
         return true;
-      } catch (switchError: any) {
-        // If chain hasn't been added yet, add it
-        if (switchError.code === 4902) {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [kopliChainParams],
-          });
-          return true;
-        }
-        throw switchError;
       }
-    } catch (error: any) {
-      console.error('Failed to switch network:', error);
-      throw new Error(`Failed to switch to Kopli network: ${error.message}`);
-    }
-  } 
-
-
-
-  // Modified handleCreateOrder to handle network switching
-  const handleCreateOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-
-      // Step 1: Deploy Destination Contract
-      setDeploymentStep('deploying-destination');
-      const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
-      if (!selectedChain) throw new Error('Invalid chain selected');
-
-      const destinationAddress = await deployDestinationContract(
-        selectedChain.routerAddress
-      );
-
-     
-
-      // Step 2: Approve Token Spending
-      setDeploymentStep('approving');
-      const tokenToApprove = formData.sellToken0 ? pairInfo?.token0 : pairInfo?.token1;
-      if (!tokenToApprove) throw new Error('Token address not found');
-
-      await approveTokens(
-        tokenToApprove,
-        destinationAddress,
-        formData.amount
-      );
-
-       // Switch to Kopli network
-       setDeploymentStep('switching-network');
-       await switchToKopliNetwork();
-
-      // Step 3: Deploy RSC on Kopli
-      setDeploymentStep('deploying-rsc');
-      await deployRSC({
-        pair: formData.pairAddress,
-        stopOrder: destinationAddress,
-        client: formData.clientAddress,
-        token0: formData.sellToken0,
-        coefficient: formData.coefficient,
-        threshold: formData.threshold
-      });
-      
-      // // Switch back to original network
-      // setDeploymentStep('switching-back');
-      // await switchToNetwork(originalChainId);
-      
-
-
-
-      setDeploymentStep('complete');
-    } catch (error: any) {
-      console.error('Error creating stop order:', error);
-      toast.error(error.message || 'Failed to create stop order');
-      setDeploymentStep('idle');
+      throw error;
     }
   };
 
-  
+  async function switchToKopliNetwork() {
+    if (!window.ethereum) throw new Error('MetaMask is not installed');
 
-
-
-
-async function deployDestinationContract(routerAddress: string): Promise<string> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x512578' }], // Kopli chainId: 5318008
+      });
+      return true;
+    } catch (error: any) {
+      if (error.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x512578',
+            chainName: 'Kopli',
+            nativeCurrency: {
+              name: 'KOPLI',
+              symbol: 'KOPLI',
+              decimals: 18
+            },
+            rpcUrls: ['https://kopli-rpc.rnk.dev'],
+            blockExplorerUrls: ['https://kopli.reactscan.net']
+          }],
+        });
+        return true;
+      }
+      throw error;
+    }
+  }
+
+  async function deployDestinationContract(chain: ChainConfig) {
+    const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     
-    // Create contract factory
+    const factory = new ethers.ContractFactory(
+      chain.stopOrderABI,
+      chain.stopOrderBytecode,
+      signer
+    );
+
+    const contract = await factory.deploy(
+      chain.routerAddress,
+      { value: ethers.parseEther("0.1") }
+    );
+    
+    await contract.waitForDeployment();
+    return contract.target.toString();
+  }
+
+  async function approveTokens(tokenAddress: string, spenderAddress: string, amount: string) {
+    try {
+      if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(spenderAddress)) {
+        throw new Error('Invalid address');
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       
-      const factory = new ethers.ContractFactory(
-        stopOrderABI,
-        stopOrderByteCode,
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        [
+          'function approve(address spender, uint256 amount) returns (bool)',
+          'function decimals() view returns (uint8)',
+          'function allowance(address owner, address spender) view returns (uint256)'
+        ],
         signer
       );
 
-    // Deploy contract
-      const contract = await factory.deploy(
-        routerAddress,
-      { value: ethers.parseEther("0") } // Fund contract with 0.1 ETH
-      );
-      await contract.waitForDeployment();
-    return contract.target.toString();
-    } catch (error) {
-      console.error('Error deploying destination contract:', error);
-      throw error;
-    }
-}
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.parseUnits(amount, decimals);
+      
+      const signerAddress = await signer.getAddress();
+      const currentAllowance = await tokenContract.allowance(signerAddress, spenderAddress);
+      
+      if (currentAllowance.toString() !== "0" && currentAllowance < parsedAmount) {
+        const resetTx = await tokenContract.approve(spenderAddress, 0);
+        await resetTx.wait();
+      }
 
-async function deployRSC(params: {
+      const tx = await tokenContract.approve(spenderAddress, parsedAmount);
+      await tx.wait();
+    } catch (error: any) {
+      console.error('Error in approveTokens:', error);
+      throw new Error(`Token approval failed: ${error.message || 'Unknown error'}`);
+    }
+  }
+
+  interface RSCParams {
     pair: string;
     stopOrder: string;
     client: string;
     token0: boolean;
     coefficient: string;
     threshold: string;
-  }): Promise<string> {
+  }
+
+  async function deployRSC(params: RSCParams, chain: ChainConfig) {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
-      // Verify network
-      const network = await provider.getNetwork();
-      const chainId = Number(network.chainId);
+      const currentNetwork = await provider.getNetwork();
+      const chainId = Number(currentNetwork.chainId);
       
-      // Check if we're on Kopli network (chain ID: 5318008)
       if (chainId !== 5318008) {
-        throw new Error('Please switch to Kopli network for deployment');
+        throw new Error('Please switch to Kopli network for RSC deployment');
       }
-  
-      // Estimate gas before deployment
+
       const factory = new ethers.ContractFactory(
-        rscABI,
-        rscByteCode,
+        chain.rscABI,
+        chain.rscBytecode,
         signer
       );
-  
-      // Estimate deployment gas
+
       const deploymentGas = await factory.getDeployTransaction(
         params.pair,
         params.stopOrder,
@@ -388,25 +424,19 @@ async function deployRSC(params: {
         params.coefficient,
         params.threshold
       ).then(tx => provider.estimateGas(tx));
-  
-      // Add 20% buffer to gas estimate
+
       const gasLimit = (deploymentGas * BigInt(120)) / BigInt(100);
-  
-      // Get gas price
       const gasPrice = await provider.getFeeData().then(fees => fees.gasPrice);
+      
       if (!gasPrice) throw new Error('Failed to get gas price');
-  
-      // Check if user has enough balance
+
       const signerAddress = await signer.getAddress();
       const balance = await provider.getBalance(signerAddress);
       const requiredBalance = gasLimit * gasPrice;
-  
+
       if (balance < requiredBalance) {
         throw new Error('Insufficient balance for RSC deployment');
       }
-  
-      // Deploy contract with gas settings
-    
 
       const contract = await factory.deploy(
         params.pair,
@@ -420,74 +450,68 @@ async function deployRSC(params: {
           gasPrice
         }
       );
-  
+
       const deployedContract = await contract.waitForDeployment();
-      const contractAddress = await deployedContract.getAddress();
-      
-      return contractAddress;
-  
+      return deployedContract.target.toString();
+
     } catch (error: any) {
       console.error('Error deploying RSC:', error);
       throw new Error(`RSC deployment failed: ${error.message || 'Unknown error'}`);
     }
   }
 
-async function approveTokens(
-    tokenAddress: string,
-    spenderAddress: string,
-    amount: string
-  ): Promise<void> {
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      if (!ethers.isAddress(tokenAddress)) {
-        throw new Error('Invalid token address');
-      }
-      if (!ethers.isAddress(spenderAddress)) {
-        throw new Error('Invalid spender address');
-      }
-      if (spenderAddress === ethers.ZeroAddress) {
-        throw new Error('Spender address cannot be zero address');
-      }
-  
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+      // Get selected chain configuration
+      const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
+      if (!selectedChain) throw new Error('Invalid chain selected');
+
+      // Step 1: Deploy Destination Contract
+      setDeploymentStep('deploying-destination');
+      const destinationAddress = await deployDestinationContract(selectedChain);
+
+      // Step 2: Approve Token Spending
+      setDeploymentStep('approving');
+      const tokenToApprove = formData.sellToken0 ? pairInfo?.token0 : pairInfo?.token1;
+      if (!tokenToApprove) throw new Error('Token address not found');
       
-      // Get token contract with extended interface including decimals
-      const tokenContract = new ethers.Contract(
-        tokenAddress,
-        [
-          'function approve(address spender, uint256 amount) returns (bool)',
-          'function decimals() view returns (uint8)',
-          'function allowance(address owner, address spender) view returns (uint256)'
-        ],
-        signer
+      await approveTokens(
+        tokenToApprove,
+        destinationAddress,
+        formData.amount
       );
 
-      // Get token decimals
-      const decimals = await tokenContract.decimals();
-  
-      // Parse amount with correct decimals
-      const parsedAmount = ethers.parseUnits(amount, decimals);
-  
-      // Check current allowance
-      const currentAllowance = await tokenContract.allowance(await signer.getAddress(), spenderAddress);
-  
-      // If current allowance is not zero and less than desired amount, first reset it
-      if (currentAllowance.toString() !== "0" && currentAllowance.lt(parsedAmount)) {
-        const resetTx = await tokenContract.approve(spenderAddress, 0);
-        await resetTx.wait();
-      }
-  
-      // Approve new amount
-      const tx = await tokenContract.approve(spenderAddress, parsedAmount);
-      
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
-    } catch (error:any) {
-      console.error('Error in approveTokens:', error);
-      throw new Error(`Token approval failed: ${error.message || 'Unknown error'}`);
+      // Step 3: Switch to Kopli network
+      setDeploymentStep('switching-network');
+      await switchToKopliNetwork();
+
+      // Step 4: Deploy RSC
+      setDeploymentStep('deploying-rsc');
+      await deployRSC({
+        pair: formData.pairAddress,
+        stopOrder: destinationAddress,
+        client: formData.clientAddress,
+        token0: formData.sellToken0,
+        coefficient: formData.coefficient,
+        threshold: formData.threshold
+      }, selectedChain);
+
+      setDeploymentStep('complete');
+      toast.success('Stop order created successfully!');
+    } catch (error: any) {
+      console.error('Error creating stop order:', error);
+      toast.error(error.message || 'Failed to create stop order');
+      setDeploymentStep('idle');
     }
-  }
-  
+  };
+
+  // Get current price ratio if pair info is available
+  const currentPriceRatio = pairInfo && pairInfo.reserve0 && pairInfo.reserve1 
+    ? formData.sellToken0 
+      ? (parseFloat(pairInfo.reserve1) / parseFloat(pairInfo.reserve0)).toFixed(8) 
+      : (parseFloat(pairInfo.reserve0) / parseFloat(pairInfo.reserve1)).toFixed(8)
+    : 'Not available';
 
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -500,14 +524,14 @@ async function approveTokens(
           className="mb-12"
         >
           <h1 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
-            Uniswap Stop Order
+            Multi-Chain Stop Order
           </h1>
           <p className="text-xl text-zinc-200 mb-8">
-            Set up automatic sell orders that trigger when token prices drop below your specified threshold - like a safety net for your crypto investments.
+            Set up automatic sell orders across Ethereum Mainnet, Sepolia testnet, and Avalanche C-Chain - protecting your positions across multiple networks.
           </p>
           
           {/* Features Card */}
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ">
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="flex items-start space-x-3">
@@ -515,8 +539,8 @@ async function approveTokens(
                     <Shield className="h-4 w-4 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-zinc-100">Set Your Price</h3>
-                    <p className="text-sm text-zinc-300">Choose when to sell</p>
+                    <h3 className="font-medium text-zinc-100">Cross-Chain Protection</h3>
+                    <p className="text-sm text-zinc-300">Monitor multiple networks</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -524,8 +548,8 @@ async function approveTokens(
                     <Clock className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-white">Automatic Protection</h3>
-                    <p className="text-sm text-gray-200">We watch 24/7</p>
+                    <h3 className="font-medium text-white">24/7 Monitoring</h3>
+                    <p className="text-sm text-gray-200">Automatic execution</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -533,8 +557,8 @@ async function approveTokens(
                     <Zap className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-white">Instant Execution</h3>
-                    <p className="text-sm text-gray-200">Sells immediately when triggered</p>
+                    <h3 className="font-medium text-white">Network Flexibility</h3>
+                    <p className="text-sm text-gray-200">Choose your preferred chain</p>
                   </div>
                 </div>
               </div>
@@ -542,38 +566,48 @@ async function approveTokens(
           </Card>
         </motion.div>
 
+        {/* Pair Finder Tool */}
+        <PairFinder 
+          chains={SUPPORTED_CHAINS} 
+          onPairSelect={handlePairSelected} 
+        />
+
         {/* Main Form Card */}
-        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800  mb-12">
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-12">
           <CardHeader className="border-b border-zinc-800">
             <CardTitle className="text-zinc-100">Create Stop Order</CardTitle>
             <CardDescription className="text-zinc-300">Configure your automated token swap</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <form className="space-y-6">
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-6" onSubmit={handleCreateOrder}>
               {/* Chain Selection */}
               <div className="space-y-2">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center mt-4 space-x-2">
                   <label className="text-sm font-medium text-zinc-200">Select Chain</label>
                   <HoverCard>
                     <HoverCardTrigger>
                       <Info className="h-4 w-4 text-zinc-400" />
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-80 ">
+                    <HoverCardContent className="w-80">
                       <p className="text-sm text-zinc-200">
-                        Choose the blockchain network where your tokens are located. 
-                        This determines which Uniswap V2 contracts we'll interact with.
+                        Choose the blockchain network where your tokens are located.
+                        Available networks: Ethereum Mainnet, Sepolia testnet, and Avalanche C-Chain.
                       </p>
                     </HoverCardContent>
                   </HoverCard>
                 </div>
                 <Select
                   value={formData.chainId}
-                  onValueChange={(value) => setFormData({...formData, chainId: value})}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, chainId: value });
+                    const chain = SUPPORTED_CHAINS.find(c => c.id === value);
+                    if (chain) switchNetwork(chain.id);
+                  }}
                 >
                   <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
                     <SelectValue placeholder="Select chain" />
                   </SelectTrigger>
-                  <SelectContent className="">
+                  <SelectContent>
                     {SUPPORTED_CHAINS.map(chain => (
                       <SelectItem 
                         key={chain.id} 
@@ -587,10 +621,10 @@ async function approveTokens(
                 </Select>
               </div>
 
-              {/* Pair Address */}
+               {/* Pair Address - Dynamic label based on selected chain */}
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Uniswap V2 Pair Address</label>
+                <label className="text-sm font-medium">{dexName} Pair Address</label>
                 <HoverCard>
                   <HoverCardTrigger>
                     <Info className="h-4 w-4 text-gray-400" />
@@ -598,7 +632,7 @@ async function approveTokens(
                   <HoverCardContent className="w-80">
                     <div className="space-y-2">
                       <p className="text-sm">
-                        Enter the Uniswap V2 pair contract address where you want to create the stop order.
+                        Enter the {dexName} pair contract address where you want to create the stop order.
                         This is the pool containing both tokens you want to trade.
                       </p>
                     </div>
@@ -663,78 +697,94 @@ async function approveTokens(
             )}
 
               {/* Token Pair Selection */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium">Token Pair</label>
-                  <HoverCard>
-                    <HoverCardTrigger>
-                      <Info className="h-4 w-4 text-gray-400" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80  text-gray-200">
-                      <p className="text-sm text-gray-200">
-                        Enter the addresses of both tokens in the trading pair.
-                        The order doesn't matter - you'll select which one to sell next.
-                      </p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-                <Input 
-                  placeholder="Token 0 Address"
-                  disabled
-                  value={pairInfo?.token0}
-                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
-                />
-                <Input 
-                  placeholder="Token 1 Address"
-                  disabled
-                  value={pairInfo?.token1}
-                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
-                />
-                
-                {/* Sell Direction */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Token to Sell</label>
-                  <Select
-                    value={formData.sellToken0 ? "token0" : "token1"}
-                    onValueChange={(value) => setFormData({...formData, sellToken0: value === "token0"})}
-                  >
-                    <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500">
-                      <SelectValue placeholder="Select token to sell" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500">
-                      <SelectItem value="token0">Token 0</SelectItem>
-                      <SelectItem value="token1">Token 1</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-zinc-200">Token Pair</label>
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-zinc-400" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 text-zinc-200">
+                    <p className="text-sm">
+                      Enter the addresses of both tokens in the trading pair.
+                      The order doesn't matter - you'll select which one to sell next.
+                    </p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-
-              {/* Client Address */}
+            
+              <Input
+                placeholder="Token 0 Address"
+                disabled
+                value={pairInfo?.token0 || ''}
+                className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+              />
+              <Input 
+                placeholder="Token 1 Address"
+                disabled
+                value={pairInfo?.token1 || ''}
+                className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+              />
+              
+              {/* Sell Direction - Improved Styling */}
               <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium">Client Address</label>
-                  <HoverCard>
-                    <HoverCardTrigger>
-                      <Info className="h-4 w-4 text-gray-400" />
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80  text-gray-200">
-                      <p className="text-sm text-gray-200">
-                        The address that has approved token spending and will receive 
-                        the swapped tokens. Make sure this address has approved the contract
-                        to spend the tokens you want to sell.
-                      </p>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-                <Input 
-                  placeholder="Enter client address"
-                  value={formData.clientAddress}
-                  onChange={(e) => setFormData({...formData, clientAddress: e.target.value})}
-                  className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
-                />
+                <label className="text-sm font-medium text-zinc-200">Select Token to Sell</label>
+                <Select
+                  value={formData.sellToken0 ? "token0" : "token1"}
+                  onValueChange={(value) => setFormData({...formData, sellToken0: value === "token0"})}
+                >
+                  <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
+                    <SelectValue placeholder="Select token to sell" />
+                  </SelectTrigger>
+                  {/* Fixed content styling to improve visibility */}
+                  <SelectContent 
+                    className="bg-zinc-900 border border-zinc-700" 
+                    position="popper"
+                    sideOffset={4}
+                  >
+                    <SelectItem 
+                      value="token0" 
+                      className="text-zinc-200 focus:bg-blue-800/30 hover:bg-blue-800/30 cursor-pointer"
+                    >
+                      {pairInfo?.token0Symbol || 'Token 0'}
+                    </SelectItem>
+                    <SelectItem 
+                      value="token1" 
+                      className="text-zinc-200 focus:bg-blue-800/30 hover:bg-blue-800/30 cursor-pointer"
+                    >
+                      {pairInfo?.token1Symbol || 'Token 1'}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
 
-              {/* Threshold Configuration */}
+            {/* Client Address */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-zinc-200">Client Address</label>
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-zinc-400" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 text-zinc-200">
+                    <p className="text-sm">
+                      The address that has approved token spending and will receive 
+                      the swapped tokens. Make sure this address has approved the contract
+                      to spend the tokens you want to sell.
+                    </p>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <Input 
+                placeholder="Enter client address"
+                value={formData.clientAddress}
+                onChange={(e) => setFormData({...formData, clientAddress: e.target.value})}
+                className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+              />
+            </div>
+
+            {/* Threshold Configuration */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium">Price Threshold Settings</label>
@@ -770,7 +820,7 @@ async function approveTokens(
                   className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
                 <p className="text-sm text-gray-400">
-                  Current Price Ratio: {/* Add price ratio calculation */}
+                  Current Price Ratio: {currentPriceRatio}
                 </p>
               </div>
 
@@ -798,57 +848,54 @@ async function approveTokens(
                   className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
               </div>
-
               
-
               {deploymentStep !== 'idle' && (
-              <Alert className="bg-blue-900/20 border-blue-500/50">
-                <AlertCircle className="h-4 w-4 text-blue-400" />
-                <AlertDescription className="mt-1 text-zinc-200">
-                  {deploymentStep === 'deploying-destination' && 'Deploying destination contract...'}
-                  {deploymentStep === 'switching-network' && 'Switching to Kopli network...'}
-                  {deploymentStep === 'deploying-rsc' && 'Deploying reactive smart contract on Kopli...'}
-                  {deploymentStep === 'switching-back' && 'Switching back to original network...'}
-                  {deploymentStep === 'approving' && 'Approving token spending...'}
-                  {deploymentStep === 'complete' && 'Stop order created successfully!'}
-                </AlertDescription>
-              </Alert>
-                )}
+                <Alert className="bg-blue-900/20 border-blue-500/50">
+                  <AlertCircle className="h-4 w-4 text-blue-400" />
+                  <AlertDescription className="text-zinc-200">
+                    {deploymentStep === 'deploying-destination' && 'Deploying destination contract...'}
+                    {deploymentStep === 'switching-network' && 'Switching to Kopli network...'}
+                    {deploymentStep === 'deploying-rsc' && 'Deploying reactive smart contract...'}
+                    {deploymentStep === 'approving' && 'Approving token spending...'}
+                    {deploymentStep === 'complete' && 'Stop order created successfully!'}
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            <Button 
-              type="submit"
-              onClick={handleCreateOrder}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-            >
+              <Button 
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                disabled={deploymentStep !== 'idle'}
+              >
                 Create Stop Order
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        {/* Educational Section */}
-      <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ">
-        <CardHeader className="border-b border-zinc-800">
-          <CardTitle className="text-zinc-100">Understanding Stop Orders</CardTitle>
-          <CardDescription className="text-zinc-300">
-            Learn how stop orders work and how to use them effectively
-          </CardDescription>
+        {/* Educational Section - Adjust terminology based on selected network */}
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+          <CardHeader className="border-b border-zinc-800">
+            <CardTitle className="text-zinc-100">Understanding Stop Orders</CardTitle>
+            <CardDescription className="text-zinc-300">
+              Learn how stop orders work and how to use them effectively
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
-            {/* Accordion items with updated styling */}
-            <AccordionItem value="what-is" className="border-zinc-800">
-              <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
-                What is a Stop Order?
-              </AccordionTrigger>
-              <AccordionContent className="text-zinc-300">
+              {/* Accordion items with updated styling */}
+              <AccordionItem value="what-is" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                  What is a Stop Order?
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300">
                   <div className="space-y-4">
-                  <p>
+                    <p>
                       A stop order is like an automated guardian for your tokens. It watches the price 24/7 and automatically sells your tokens when they drop to your specified price level, helping protect you from further losses.
                     </p>
-                  <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
-                    <h4 className="font-medium text-zinc-100 mb-2">Example:</h4>
-                    <p className="text-sm text-zinc-300">
+                    <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
+                      <h4 className="font-medium text-zinc-100 mb-2">Example:</h4>
+                      <p className="text-sm text-zinc-300">
                         If you own tokens worth $100 each and want to protect against significant losses, you might set a stop order at $90. If the price falls to $90, your tokens will automatically sell, limiting your loss to 10%.
                       </p>
                     </div>
@@ -856,23 +903,25 @@ async function approveTokens(
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="how-it-works">
-                <AccordionTrigger>How Does It Work?</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem value="how-it-works" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                  How Does It Work?
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300">
                   <div className="space-y-4">
-                    <p className="text-gray-200">
-                      Our system uses Reactive Smart Contracts (RSCs) to monitor Uniswap V2 pool prices in real-time. When your price threshold is reached, the contract automatically executes the trade.
+                    <p className="text-zinc-300">
+                      Our system uses Reactive Smart Contracts (RSCs) to monitor {dexName} pool prices in real-time. When your price threshold is reached, the contract automatically executes the trade.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-white mb-2">Price Monitoring</h4>
-                        <p className="text-sm text-gray-200">
-                          Continuously watches token pair prices through Uniswap V2 pool reserves
+                        <h4 className="font-medium text-zinc-100 mb-2">Price Monitoring</h4>
+                        <p className="text-sm text-zinc-300">
+                          Continuously watches token pair prices through {dexName} pool reserves
                         </p>
                       </div>
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-white mb-2">Automatic Execution</h4>
-                        <p className="text-sm text-gray-200">
+                        <h4 className="font-medium text-zinc-100 mb-2">Automatic Execution</h4>
+                        <p className="text-sm text-zinc-300">
                           Trades execute instantly when conditions are met, no manual intervention needed
                         </p>
                       </div>
@@ -881,22 +930,24 @@ async function approveTokens(
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="threshold">
-                <AccordionTrigger>Setting the Right Threshold</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem value="threshold" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                  Setting the Right Threshold
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300">
                   <div className="space-y-4">
-                    <p className="text-gray-200">
+                    <p className="text-zinc-300">
                       The threshold determines when your order triggers. It works with the coefficient to provide precise price control.
                     </p>
                     <div className="bg-blue-500/10 p-4 rounded-lg space-y-3">
-                      <h4 className="font-medium text-white">How to Calculate:</h4>
-                      <p className="text-sm text-gray-200">
+                      <h4 className="font-medium text-zinc-100">How to Calculate:</h4>
+                      <p className="text-sm text-zinc-300">
                         1. Choose your target price ratio (e.g., 0.95 for 5% drop)
                       </p>
-                      <p className="text-sm text-gray-200">
+                      <p className="text-sm text-zinc-300">
                         2. Multiply by coefficient (e.g., 0.95 × 1000 = 950)
                       </p>
-                      <p className="text-sm text-gray-200">
+                      <p className="text-sm text-zinc-300">
                         3. Use 1000 as coefficient and 950 as threshold
                       </p>
                     </div>
@@ -904,32 +955,34 @@ async function approveTokens(
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="best-practices">
-                <AccordionTrigger>Best Practices</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem value="best-practices" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                  Best Practices
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300">
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-white mb-2">Consider Market Volatility</h4>
-                        <p className="text-sm text-gray-200">
+                        <h4 className="font-medium text-zinc-100 mb-2">Consider Market Volatility</h4>
+                        <p className="text-sm text-zinc-300">
                           Set your threshold with enough buffer to avoid premature triggers during normal market fluctuations
                         </p>
                       </div>
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-white mb-2">Check Pool Liquidity</h4>
-                        <p className="text-sm text-gray-200">
+                        <h4 className="font-medium text-zinc-100 mb-2">Check Pool Liquidity</h4>
+                        <p className="text-sm text-zinc-300">
                           Ensure the token pair has sufficient liquidity to handle your order size
                         </p>
                       </div>
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-white mb-2">Test With Small Amounts</h4>
-                        <p className="text-sm text-gray-200">
+                        <h4 className="font-medium text-zinc-100 mb-2">Test With Small Amounts</h4>
+                        <p className="text-sm text-zinc-300">
                           Start with a small order to familiarize yourself with the system
                         </p>
                       </div>
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-white mb-2">Monitor Your Orders</h4>
-                        <p className="text-sm text-gray-200">
+                        <h4 className="font-medium text-zinc-100 mb-2">Monitor Your Orders</h4>
+                        <p className="text-sm text-zinc-300">
                           Regularly review your active orders and adjust as market conditions change
                         </p>
                       </div>
@@ -938,15 +991,17 @@ async function approveTokens(
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="important-notes">
-                <AccordionTrigger>Important Notes</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem value="important-notes" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                  Important Notes
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300">
                   <div className="space-y-4">
                     <div className="bg-blue-500/10 p-4 rounded-lg space-y-3">
-                      <h4 className="font-medium text-white">Key Points to Remember:</h4>
-                      <ul className="list-disc list-inside space-y-2 text-sm text-gray-200">
+                      <h4 className="font-medium text-zinc-100">Key Points to Remember:</h4>
+                      <ul className="list-disc list-inside space-y-2 text-sm text-zinc-300">
                         <li>Ensure sufficient token approval for the contract</li>
-                        <li>Orders execute based on Uniswap V2 pool prices</li>
+                        <li>Orders execute based on {dexName} pool prices</li>
                         <li>Orders can't be modified once created (cancel and create new instead)</li>
                         <li>Market conditions may affect execution price</li>
                       </ul>
@@ -959,6 +1014,6 @@ async function approveTokens(
         </Card>
       </div>
     </div>
-  )
+  );
 }
 

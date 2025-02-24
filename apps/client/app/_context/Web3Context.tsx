@@ -53,7 +53,7 @@ export const SUPPORTED_NETWORKS: SupportedNetworks = {
   KOPLI: {
     chainId: 5318008,
     name: 'Kopli Testnet',
-    rpcUrl: 'https://kopli-rpc.rkt.ink',
+    rpcUrl: 'https://kopli-rpc.rnk.dev',
     hasCallback: true,
     isDestination: true,
     callbackProxy: '0x0000000000000000000000000000000000FFFFFF'

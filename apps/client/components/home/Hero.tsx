@@ -19,6 +19,10 @@ const slides = [
     ),
     subtitle: "Deploy powerful DeFi automations in minutes with ready-to-use templates",
     image: "/Background2.jpg",
+    primaryButton: {
+      text: "Use Automations",
+      href: "/templates"
+    }
   },
   {
     id: 1,
@@ -32,6 +36,10 @@ const slides = [
     ),
     subtitle: "Set up Uniswap stop orders to secure your positions when prices drop",
     image: "/Uniswap-stop-order.jpg",
+    primaryButton: {
+      text: "Create Stop Order",
+      href: "/automations/uniswap-stop-order"
+    }
   },
 ];
 
@@ -87,17 +95,30 @@ const Hero = () => {
                 transition={{ delay: 0.5, duration: 0.5 }}
                 className="flex flex-col sm:flex-row gap-4"
               >
-                <Button
-                  as={Link}
-                  href="/automations/uniswap-stop-order"
-                  color="primary"
-                  variant="shadow"
-                  size="lg"
-                  startContent={<RocketLaunchIcon className="h-5 w-5" />}
-                  className="w-full sm:w-auto hover:bg-primary/80 rounded-md"
-                >
-                  Use Automations
-                </Button>
+                <div className="w-full sm:w-auto">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentSlide}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.5 }}
+                      className="w-full sm:w-auto"
+                    >
+                      <Button
+                        as={Link}
+                        href={slides[currentSlide].primaryButton.href}
+                        color="primary"
+                        variant="shadow"
+                        size="lg"
+                        startContent={<RocketLaunchIcon className="h-5 w-5" />}
+                        className="w-full sm:w-auto hover:bg-primary/80 rounded-md"
+                      >
+                        {slides[currentSlide].primaryButton.text}
+                      </Button>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
                 <Button
                   as={Link}
                   href="/deploy-reactive-contract"
@@ -121,7 +142,7 @@ const Hero = () => {
                   <button
                     key={index}
                     onClick={() => setCurrentSlide(index)}
-                    className={`w-3 h-3 rounded-full  transition-all duration-300 ${
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
                       currentSlide === index
                         ? "bg-primary w-6 "
                         : "bg-zinc-600 hover:bg-zinc-500"
@@ -143,7 +164,6 @@ const Hero = () => {
                 transition={{ duration: 0.5 }}
                 className="relative aspect-[4/3] rounded-lg overflow-hidden"
               >
-                {/* <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10" /> */}
                 <Image
                   src={slides[currentSlide].image}
                   alt="Hero Image"

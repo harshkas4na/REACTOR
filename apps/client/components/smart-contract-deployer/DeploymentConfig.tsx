@@ -27,7 +27,7 @@ const SUPPORTED_NETWORKS = {
   KOPLI: {
     chainId: 5318008,
     name: 'Kopli',
-    rpcUrl: 'https://kopli-rpc.rkt.ink'
+    rpcUrl: 'https://kopli-rpc.rnk.dev'
   }
 }
 

@@ -1,0 +1,242 @@
+[
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_pair",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_stop_order",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_client",
+				"type": "address"
+			},
+			{
+				"internalType": "bool",
+				"name": "_token0",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_coefficient",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_threshold",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "payable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint112",
+				"name": "reserve0",
+				"type": "uint112"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint112",
+				"name": "reserve1",
+				"type": "uint112"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "coefficient",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "threshold",
+				"type": "uint256"
+			}
+		],
+		"name": "AboveThreshold",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "chain_id",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "_contract",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint64",
+				"name": "gas_limit",
+				"type": "uint64"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes",
+				"name": "payload",
+				"type": "bytes"
+			}
+		],
+		"name": "Callback",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [],
+		"name": "CallbackSent",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [],
+		"name": "Done",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "service_address",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "_contract",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "topic_0",
+				"type": "uint256"
+			}
+		],
+		"name": "Subscribed",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [],
+		"name": "VM",
+		"type": "event"
+	},
+	{
+		"inputs": [],
+		"name": "coverDebt",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "pay",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "chain_id",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "_contract",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "topic_0",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "topic_1",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "topic_2",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "topic_3",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					},
+					{
+						"internalType": "uint256",
+						"name": "block_number",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "op_code",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "block_hash",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tx_hash",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "log_index",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct IReactive.LogRecord",
+				"name": "log",
+				"type": "tuple"
+			}
+		],
+		"name": "react",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"stateMutability": "payable",
+		"type": "receive"
+	}
+]
