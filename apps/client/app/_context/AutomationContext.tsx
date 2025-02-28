@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
@@ -12,6 +12,7 @@ export interface Automation {
 }
 
 export interface AutomationContextType {
+  // Original fields
   automations: Automation[];
   setAutomations: React.Dispatch<React.SetStateAction<Automation[]>>;
   triggerType: 'custom' | 'protocol' | 'blockchain';
@@ -32,6 +33,19 @@ export interface AutomationContextType {
   setIsOriginVerified: React.Dispatch<React.SetStateAction<boolean>>;
   isDestinationVerified: boolean;
   setIsDestinationVerified: React.Dispatch<React.SetStateAction<boolean>>;
+  
+  // New fields for callback sender and event/function selection
+  callbackSender: string;
+  setCallbackSender: React.Dispatch<React.SetStateAction<string>>;
+  originEvents: any[];
+  setOriginEvents: React.Dispatch<React.SetStateAction<any[]>>;
+  selectedEvent: any;
+  setSelectedEvent: React.Dispatch<React.SetStateAction<any>>;
+  destinationFunctions: any[];
+  setDestinationFunctions: React.Dispatch<React.SetStateAction<any[]>>;
+  selectedFunction: any;
+  setSelectedFunction: React.Dispatch<React.SetStateAction<any>>;
+  resetState: () => void;
 }
 
 const AutomationContext = createContext<AutomationContextType | undefined>(undefined);
@@ -52,6 +66,7 @@ export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children
     topic0: ''
   }]);
   
+  // Original state fields
   const [triggerType, setTriggerType] = useState<'custom' | 'protocol' | 'blockchain'>('custom');
   const [reactiveContract, setReactiveContract] = useState('');
   const [isPausable, setIsPausable] = useState(true);
@@ -62,8 +77,26 @@ export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children
   const [isOriginVerified, setIsOriginVerified] = useState(false);
   const [isDestinationVerified, setIsDestinationVerified] = useState(false);
 
-  // Add context value console log for debugging
+  // New state fields for callback sender and event/function selection
+  const [callbackSender, setCallbackSender] = useState('');
+  const [originEvents, setOriginEvents] = useState<any[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [destinationFunctions, setDestinationFunctions] = useState<any[]>([]);
+  const [selectedFunction, setSelectedFunction] = useState<any>(null);
+
+  // Reset function for new fields
+  const resetState = () => {
+    // Reset only new state, leave original state intact
+    setCallbackSender('');
+    setOriginEvents([]);
+    setSelectedEvent(null);
+    setDestinationFunctions([]);
+    setSelectedFunction(null);
+  };
+
+  // Combined context value
   const contextValue = {
+    // Original fields
     automations,
     setAutomations,
     triggerType,
@@ -84,9 +117,20 @@ export const AutomationProvider: React.FC<{ children: ReactNode }> = ({ children
     setIsOriginVerified,
     isDestinationVerified,
     setIsDestinationVerified,
+    
+    // New fields
+    callbackSender,
+    setCallbackSender,
+    originEvents,
+    setOriginEvents,
+    selectedEvent,
+    setSelectedEvent,
+    destinationFunctions,
+    setDestinationFunctions,
+    selectedFunction,
+    setSelectedFunction,
+    resetState,
   };
-
- 
 
   return (
     <AutomationContext.Provider value={contextValue}>

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Check, X, AlertTriangle, RefreshCcw } from 'lucide-react';
+import { Loader2, Check, X, AlertTriangle, RefreshCcw, Copy, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BASE_URL } from '@/data/constants';
+import { ethers } from 'ethers';
 
 interface DeployButtonProps {
   editedContract: string;
@@ -29,6 +30,9 @@ const DeployButton = ({
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [deployedContractAddress, setDeployedContractAddress] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const [showManualFunding, setShowManualFunding] = useState(false);
   const { toast } = useToast();
   
   const getNetworkName = async (web3: any) => {
@@ -63,6 +67,62 @@ const DeployButton = ({
     setStatus('idle');
     setError(null);
     setValidationResult(null);
+    setDeployedContractAddress(null);
+    setTransactionHash(null);
+    setShowManualFunding(false);
+  };
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: "Address copied to clipboard",
+    });
+  };
+
+  // Function to handle manual funding
+  const handleManualFunding = async () => {
+    if (!deployedContractAddress) return;
+    
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const valueToSend = ethers.parseEther('0.1');
+      
+      // Create and send transaction
+      const tx = await signer.sendTransaction({
+        to: deployedContractAddress,
+        value: valueToSend
+      });
+      
+      toast({
+        title: "Transaction Sent",
+        description: "Funding transaction has been sent.",
+      });
+      
+      // Wait for transaction to be mined
+      await tx.wait();
+      
+      setStatus('success');
+      toast({
+        title: "Funding Successful",
+        description: "Contract has been funded with 0.1 REACT.",
+      });
+      
+      // If we haven't called onDeploySuccess yet, do it now
+      if (deployedContractAddress && transactionHash) {
+        onDeploySuccess(deployedContractAddress, transactionHash);
+      }
+      
+    } catch (error: any) {
+      console.error('Manual funding error:', error);
+      toast({
+        variant: "destructive",
+        title: "Funding Failed",
+        description: error.message || "Failed to fund the contract.",
+      });
+    }
   };
 
   const handleDeploy = async () => {
@@ -78,16 +138,6 @@ const DeployButton = ({
     // Reset state when starting a new deployment
     if (status === 'error' || status === 'validation-failed') {
       resetState();
-    }
-
-
-    if (!web3 || !account) {
-      toast({
-        variant: "destructive",
-        title: "Connection Error",
-        description: "Please connect your wallet first",
-      });
-      return;
     }
 
     try {
@@ -133,15 +183,15 @@ const DeployButton = ({
 
       onCompileSuccess(abi, bytecode);
       
-      // Start deployment
-      setStatus('deploying');
-      
       // Verify network
       const networkName = await getNetworkName(web3);
       if (networkName !== 'Kopli') {
         throw new Error('Please switch to Kopli network');
       }
 
+      // STEP 1: Deploy contract using web3.js (which we know works)
+      setStatus('deploying');
+      
       // Create contract instance
       const contract = new web3.eth.Contract(abi);
       const deploy = contract.deploy({
@@ -150,21 +200,27 @@ const DeployButton = ({
       });
 
       // Estimate gas
-      const gasEstimate = await deploy.estimateGas({ from: account });
+      let gasEstimate;
+      try {
+        gasEstimate = await deploy.estimateGas({ from: account });
+      } catch (e: any) {
+        console.warn('Gas estimation failed:', e.message);
+        // Use a higher default if estimation fails
+        gasEstimate = 3000000;
+      }
+
       const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
       const gasPrice = await web3.eth.getGasPrice();
 
-      // Check balance
+      // Check balance for deployment
       const balance = await web3.eth.getBalance(account);
       const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice);
 
       if (BigInt(balance) < requiredBalance) {
-        throw new Error(`Insufficient balance for deployment`);
+        throw new Error(`Insufficient balance for deployment. Please add more REACT to your wallet.`);
       }
 
-      let transactionHash = '';
-
-      // Deploy contract with transaction hash tracking
+      // Deploy contract without sending REACT
       const deployedContract = await new Promise((resolve, reject) => {
         deploy.send({
           from: account,
@@ -172,10 +228,9 @@ const DeployButton = ({
           gasPrice: String(gasPrice)
         })
         .on('transactionHash', (hash: string) => {
-          transactionHash = hash;
+          setTransactionHash(hash);
         })
         .on('error', (error: any) => {
-          // Check for user rejection
           if (error.code === 4001 || error.message.includes('User denied')) {
             reject(new Error('Transaction cancelled by user'));
           } else {
@@ -183,7 +238,7 @@ const DeployButton = ({
           }
         })
         .then(resolve)
-        .catch(reject); // Catch any other errors
+        .catch(reject);
       });
 
       if (!deployedContract) {
@@ -191,14 +246,17 @@ const DeployButton = ({
       }
 
       const contractAddress = (deployedContract as any).options.address;
+      setDeployedContractAddress(contractAddress);
       
-      setStatus('success');
-      onDeploySuccess(contractAddress, transactionHash);
-      
+      // Notify about successful deployment
       toast({
         title: "Deployment Successful",
-        description: `Contract deployed at ${contractAddress}`,
+        description: `Contract deployed at ${contractAddress}. Now you need to fund it with 0.1 REACT.`,
       });
+      
+      // Show the manual funding option
+      setStatus('needsFunding');
+      setShowManualFunding(true);
 
     } catch (error: any) {
       console.error('Deployment error:', error);
@@ -241,7 +299,14 @@ const DeployButton = ({
         return (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Deploying to Kopli...
+            Deploying Contract...
+          </>
+        );
+      case 'needsFunding':
+        return (
+          <>
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Start Over
           </>
         );
       case 'success':
@@ -278,13 +343,61 @@ const DeployButton = ({
         className={`w-60 relative ${
           status === 'success' 
             ? 'bg-green-600 hover:bg-green-700' 
-            : status === 'error' || status === 'validation-failed'
-            ? 'bg-blue-600 hover:bg-blue-700' // Changed from red to blue for retry state
+            : status === 'error' || status === 'validation-failed' || status === 'needsFunding'
+            ? 'bg-blue-600 hover:bg-blue-700'
             : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
         } text-white`}
       >
         {getButtonContent()}
       </Button>
+
+      {/* Show manual funding option */}
+      {showManualFunding && deployedContractAddress && (
+        <Alert className="bg-blue-900/30 border-blue-700">
+          <AlertTitle className="text-blue-100 font-semibold flex items-center">
+            <Check className="h-4 w-4 mr-2" />
+            Contract Deployed Successfully
+          </AlertTitle>
+          <AlertDescription className="text-blue-200">
+            <p className="mb-2">Your contract has been deployed at:</p>
+            <div className="flex items-center space-x-2 bg-blue-950/50 p-2 rounded mb-3">
+              <code className="font-mono text-sm truncate max-w-[240px]">{deployedContractAddress}</code>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 rounded-full hover:bg-blue-800/50"
+                onClick={() => copyToClipboard(deployedContractAddress)}
+              >
+                <Copy className="h-3 w-3 text-blue-200" />
+              </Button>
+            </div>
+            
+            <p className="mb-2">Now you need to send <strong>0.1 REACT</strong> to fund it:</p>
+            
+            <div className="flex gap-2 mt-3">
+              <Button 
+                onClick={handleManualFunding}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Send 0.1 REACT Now
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="bg-transparent border-blue-500 text-blue-100 hover:bg-blue-800/30"
+                onClick={() => {
+                  if (deployedContractAddress && transactionHash) {
+                    onDeploySuccess(deployedContractAddress, transactionHash);
+                  }
+                  setStatus('success');
+                }}
+              >
+                Skip Funding
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {validationResult && !validationResult.isValid && (
         <Alert variant="destructive" className="bg-red-900/20 border-red-800">

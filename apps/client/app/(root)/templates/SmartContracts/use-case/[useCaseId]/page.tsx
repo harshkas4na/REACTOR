@@ -178,6 +178,7 @@ export default function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
                     reactiveABI={useCase.reactiveABI}
                     reactiveBytecode={useCase.reactiveBytecode}
                     helperContracts={useCase.helperContracts}
+                    
                   />
                 </div>
               </CardContent>

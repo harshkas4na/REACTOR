@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -13,9 +13,10 @@ import { preprocessOriginContract, preprocessDestinationContract } from '@/lib/c
 import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';
 import { useWeb3 } from '@/app/_context/Web3Context';
-import {useAutomationContext} from '@/app/_context/AutomationContext'
+import { useAutomationContext } from '@/app/_context/AutomationContext';
 import { useRouter } from 'next/navigation';
 import { BASE_URL } from '@/data/constants';
+import { CALLBACK_PROXIES } from '@/components/smart-contract-deployer/DeploymentHistory';
 
 export interface DeploymentRecord {
   id: number;
@@ -34,33 +35,58 @@ const NETWORK_NAMES: { [key: number]: string } = {
   5318008: 'Kopli',
   137: 'Polygon',
   80001: 'Mumbai',
+  42161: 'Arbitrum',
+  10: 'Optimism',
+  56: 'BSC',
+  43114: 'Avalanche',
+  250: 'Fantom',
   // Add other networks as needed
 }
 
 export default function SmartContractDeployer() {
-  const { theme, setTheme } = useTheme()
-  const { toast } = useToast()
-  const { web3, account } = useWeb3()
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const { web3, account } = useWeb3();
   const router = useRouter();
+  
   const [showInitialDialog, setShowInitialDialog] = useState(true);
   const [useLibraries, setUseLibraries] = useState(false);
   const [contractType, setContractType] = useState<'origin' | 'destination' | 'both' | null>(null);
   const [manualABI, setManualABI] = useState('');
   const [manualBytecode, setManualBytecode] = useState('');
   
-  const [compilationStatus, setCompilationStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle')
-  const [compilationError, setCompilationError] = useState<string | null>(null)
-  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle')
-  const [abi, setAbi] = useState<any>(null)
-  const [bytecode, setBytecode] = useState<string>('')
-  const [deployedAddress, setDeployedAddress] = useState<string>('')
-  const [deploymentError, setDeploymentError] = useState<string | null>(null)
+  const [compilationStatus, setCompilationStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
+  const [compilationError, setCompilationError] = useState<string | null>(null);
+  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
+  const [abi, setAbi] = useState<any>(null);
+  const [bytecode, setBytecode] = useState<string>('');
+  const [deployedAddress, setDeployedAddress] = useState<string>('');
+  const [deploymentError, setDeploymentError] = useState<string | null>(null);
 
-  const {setOriginAddress, setDestinationAddress} = useAutomationContext();
+  const { 
+    originAddress, 
+    setOriginAddress, 
+    destinationAddress, 
+    setDestinationAddress,
+    callbackSender,
+    setCallbackSender
+  } = useAutomationContext();
+
+  useEffect(() => {
+    // Set default callback sender when contract type changes
+    if (web3 && (contractType === 'destination' || contractType === 'both')) {
+      web3.eth.getChainId().then((chainId: bigint) => {
+        const chainIdStr = chainId.toString();
+        if (CALLBACK_PROXIES[chainIdStr]) {
+          setCallbackSender(CALLBACK_PROXIES[chainIdStr]);
+        }
+      }).catch(console.error);
+    }
+  }, [web3, contractType, setCallbackSender]);
 
   const handleCompile = async (sourceCode: string) => {
-    setCompilationStatus('compiling')
-    setCompilationError(null)
+    setCompilationStatus('compiling');
+    setCompilationError(null);
     
     try {
       // Preprocess contract based on type
@@ -75,195 +101,210 @@ export default function SmartContractDeployer() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to compile contract')
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to compile contract');
       }
 
-      const { abi, bytecode } = await response.json()
+      const { abi, bytecode } = await response.json();
       if (!abi || !bytecode) {
-        throw new Error('Compilation successful, but ABI or bytecode is missing')
+        throw new Error('Compilation successful, but ABI or bytecode is missing');
       }
       
-      setAbi(abi)
-      setBytecode(bytecode)
-      setCompilationStatus('success')
+      setAbi(abi);
+      setBytecode(bytecode);
+      setCompilationStatus('success');
       toast({
         title: "Compilation Successful",
         description: "Your contract has been compiled successfully.",
-      })
+      });
     } catch (error: any) {
-      console.error('Compilation error:', error)
-      setCompilationStatus('error')
-      setCompilationError(error.message)
+      console.error('Compilation error:', error);
+      setCompilationStatus('error');
+      setCompilationError(error.message);
       toast({
         variant: "destructive",
         title: "Compilation Failed",
         description: error.message,
-      })
+      });
     }
   }
 
   const getNetworkName = async (web3: any) => {
     try {
-      const chainId = await web3.eth.getChainId()
-      return NETWORK_NAMES[chainId] || `Chain ID: ${chainId}`
+      const chainId = await web3.eth.getChainId();
+      return NETWORK_NAMES[chainId] || `Chain ID: ${chainId}`;
     } catch (error) {
-      console.error('Error getting network name:', error)
-      return 'Unknown Network'
+      console.error('Error getting network name:', error);
+      return 'Unknown Network';
     }
   }
 
   const handleDeploy = async () => {
-      if(manualABI && manualBytecode){
-        setAbi(JSON.parse(manualABI));
-        setBytecode(manualBytecode);
+    if (manualABI && manualBytecode) {
+      setAbi(JSON.parse(manualABI));
+      setBytecode(manualBytecode);
+    }
+    
+    if (!web3 || !account || !abi || !bytecode) {
+      toast({
+        variant: "destructive",
+        title: "Deployment Error",
+        description: "Missing required deployment configuration",
+      });
+      return;
+    }
+    
+    // Check for callback sender if deploying destination contract
+    if ((contractType === 'destination' || contractType === 'both') && !callbackSender) {
+      toast({
+        variant: "destructive",
+        title: "Deployment Error",
+        description: "Callback sender address is required for destination contracts",
+      });
+      return;
+    }
+  
+    const networkName = await getNetworkName(web3);      
+  
+    setDeploymentStatus('deploying');
+    setDeploymentError(null);
+  
+    try {
+      // Create new contract instance
+      const contract = new web3.eth.Contract(abi);
+      
+      // Prepare deployment transaction
+      let deployObj: any = {
+        data: bytecode
+      };
+      
+      // For destination contracts, add callback sender as constructor parameter
+      if (contractType === 'destination' || contractType === 'both') {
+        deployObj.arguments = [callbackSender];
       }
-      if (!web3 || !account || !abi || !bytecode) {
-        toast({
-          variant: "destructive",
-          title: "Deployment Error",
-          description: "Missing required deployment configuration",
-        });
-        return;
+      
+      // Set value for destination contracts (0.1 native currency)
+      let value = '0';
+      if (contractType === 'destination' || contractType === 'both') {
+        value = web3.utils.toWei('0.1', 'ether');
       }
-    
-      const networkName = await getNetworkName(web3);      
-    
-      setDeploymentStatus('deploying');
-      setDeploymentError(null);
-    
-      try {
-        // Create new contract instance
-        const contract = new web3.eth.Contract(abi);
-        
-        // Prepare deployment transaction
-        let value = '0';
-        let deployObj = {
-          data: bytecode
-        };
-        
-        if (contractType === 'destination' || contractType === 'both') {
-          // Add 0.1 native currency as value for destination contract deployment
-          value = web3.utils.toWei('0.1', 'ether');
-        }
-    
-        const deploy = contract.deploy(deployObj);
+  
+      const deploy = contract.deploy(deployObj);
 
-        // Estimate gas
-        const gasEstimate = await deploy.estimateGas({ 
+      // Estimate gas
+      const gasEstimate = await deploy.estimateGas({ 
+        from: account,
+        value: value
+      });
+      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
+      const gasPrice = await web3.eth.getGasPrice();
+
+      // Check balance including the deployment fee for destination contracts
+      const balance = await web3.eth.getBalance(account);
+      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(value);
+
+      if (BigInt(balance) < requiredBalance) {
+        throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`);
+      }
+
+      let transactionHash = '';
+      
+      // Deploy with event tracking
+      const deployedContract = await new Promise((resolve, reject) => {
+        deploy.send({
           from: account,
+          gas: String(gasLimit),
+          gasPrice: String(gasPrice),
           value: value
         })
-        const gasLimit = Math.ceil(Number(gasEstimate) * 1.2)
-        const gasPrice = await web3.eth.getGasPrice()
-
-        // Check balance including the deployment fee for destination contracts
-        const balance = await web3.eth.getBalance(account)
-        const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(value)
-
-        if (BigInt(balance) < requiredBalance) {
-          throw new Error(`Insufficient balance. Required: ${web3.utils.fromWei(requiredBalance.toString(), 'ether')} ETH`)
-        }
-
-        let transactionHash = ''
-        
-        // Deploy with event tracking
-        const deployedContract = await new Promise((resolve, reject) => {
-          deploy.send({
-            from: account,
-            gas: String(gasLimit),
-            gasPrice: String(gasPrice),
-            value: value
-          })
-          .on('transactionHash', (hash: string | Uint8Array) => {
-            transactionHash = hash as string
-            
-            // Save pending deployment
-            const pendingDeployment: DeploymentRecord = {
-              id: Date.now(),
-              contractName: contractType === 'origin' ? "Origin Contract" : 
-                          contractType === 'both' ? "Destination Contract" :
-                          "Destination Contract",
-              contractType: contractType as 'origin' | 'destination' | 'both',
-              address: "Deploying...",
-              network: networkName,
-              txHash: transactionHash,
-              status: 'pending',
-              timestamp: new Date().toISOString(),
-            };
-            const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
-            localStorage.setItem('deploymentHistory', JSON.stringify([...history, pendingDeployment]))
-          })
-          .on('error', (error: any) => {
-            const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]')
-            const updatedHistory = history.map((dep: DeploymentRecord) => {
-              if (dep.txHash === transactionHash) {
-                return { ...dep, status: 'error' }
-              }
-              return dep
-            })
-            localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory))
-            reject(error)
-          })
-          .then(resolve)
-        })
-
-        // Update final deployment status
-        if (deployedContract) {
-          const contractAddress = (deployedContract as any).options.address;
-          setDeployedAddress(contractAddress);
-          setDeploymentStatus('success');
+        .on('transactionHash', (hash: string | Uint8Array) => {
+          transactionHash = hash as string;
           
-          // Update contract addresses based on type
-          if (contractType === 'origin') {
-            setOriginAddress(contractAddress);
-          } else if (contractType === 'destination') {
-            setDestinationAddress(contractAddress);
-          } else if (contractType === 'both') {
-            setOriginAddress(contractAddress);
-            setDestinationAddress(contractAddress);
-          }
-        
-          // Update the deployment record
+          // Save pending deployment
+          const pendingDeployment: DeploymentRecord = {
+            id: Date.now(),
+            contractName: contractType === 'origin' ? "Origin Contract" : 
+                        contractType === 'destination' ? "Destination Contract" :
+                        "Combined Contract",
+            contractType: contractType as 'origin' | 'destination' | 'both',
+            address: "Deploying...",
+            network: networkName,
+            txHash: transactionHash,
+            status: 'pending',
+            timestamp: new Date().toISOString(),
+          };
+          const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]');
+          localStorage.setItem('deploymentHistory', JSON.stringify([...history, pendingDeployment]));
+        })
+        .on('error', (error: any) => {
           const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]');
           const updatedHistory = history.map((dep: DeploymentRecord) => {
             if (dep.txHash === transactionHash) {
-              return {
-                ...dep,
-                status: 'success',
-                address: contractAddress,
-              };
+              return { ...dep, status: 'error' };
             }
             return dep;
           });
           localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory));
-        
-          toast({
-            title: "Deployment Successful",
-            description: `Contract deployed at ${contractAddress} on ${networkName}`,
-          });
-        
-          setTimeout(() => {
-            router.back();
-          }, 1500);
-        
-          return {
-            transactionHash,
-            contractAddress,
-            networkName
-          };
-        }
-
-      } catch (error: any) {
-        console.error('Deployment error:', error)
-        setDeploymentStatus('error')
-        setDeploymentError(error.message)
-        toast({
-          variant: "destructive",
-          title: "Deployment Failed",
-          description: error.message,
+          reject(error);
         })
+        .then(resolve);
+      });
+
+      // Update final deployment status
+      if (deployedContract) {
+        const contractAddress = (deployedContract as any).options.address;
+        setDeployedAddress(contractAddress);
+        setDeploymentStatus('success');
+        
+        // Update contract addresses based on type
+        if (contractType === 'origin') {
+          setOriginAddress(contractAddress);
+        } else if (contractType === 'destination') {
+          setDestinationAddress(contractAddress);
+        } else if (contractType === 'both') {
+          setOriginAddress(contractAddress);
+          setDestinationAddress(contractAddress);
+        }
+      
+        // Update the deployment record
+        const history = JSON.parse(localStorage.getItem('deploymentHistory') || '[]');
+        const updatedHistory = history.map((dep: DeploymentRecord) => {
+          if (dep.txHash === transactionHash) {
+            return {
+              ...dep,
+              status: 'success',
+              address: contractAddress,
+            };
+          }
+          return dep;
+        });
+        localStorage.setItem('deploymentHistory', JSON.stringify(updatedHistory));
+      
+        toast({
+          title: "Deployment Successful",
+          description: `Contract deployed at ${contractAddress} on ${networkName}`,
+        });
+      
+        setTimeout(() => {
+          router.back();
+        }, 1500);
+      
+        return {
+          transactionHash,
+          contractAddress,
+          networkName
+        };
       }
+    } catch (error: any) {
+      console.error('Deployment error:', error);
+      setDeploymentStatus('error');
+      setDeploymentError(error.message);
+      toast({
+        variant: "destructive",
+        title: "Deployment Failed",
+        description: error.message,
+      });
+    }
   }
 
   if (showInitialDialog) {
@@ -339,11 +380,10 @@ export default function SmartContractDeployer() {
   }
 
   return (
-    <div className="min-h-screen  text-slate-900 dark:text-slate-50">
-      <header className=" shadow-sm">
+    <div className="min-h-screen text-slate-900 dark:text-slate-50">
+      <header className="shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold">Deploy Smart Contract</h1>
-          
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -364,7 +404,7 @@ export default function SmartContractDeployer() {
                   onDeploy={handleDeploy}
                   deploymentStatus={deploymentStatus}
                   deploymentError={deploymentError}
-                  contractType={contractType as 'origin' | 'destination'}
+                  contractType={contractType as 'origin' | 'destination' | 'both'}
                   abi={abi}
                   bytecode={bytecode}
                 />
@@ -377,15 +417,14 @@ export default function SmartContractDeployer() {
               </CardHeader>
               <CardContent>
                 <DeploymentConfig
-
                   compilationStatus={"success"}
                   compilationError={compilationError}
                   onDeploy={handleDeploy}
                   deploymentStatus={deploymentStatus}
                   deploymentError={deploymentError}
-                  abi={JSON.parse(manualABI)}
+                  abi={manualABI ? JSON.parse(manualABI) : null}
                   bytecode={manualBytecode}
-                  contractType={contractType as 'origin' | 'destination'}
+                  contractType={contractType as 'origin' | 'destination' | 'both'}
                 />
               </CardContent>
             </Card>
@@ -398,4 +437,3 @@ export default function SmartContractDeployer() {
     </div>
   );
 }
-

@@ -1,17 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, ReactElement } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
 import { useWeb3 } from '@/app/_context/Web3Context';
 import { toast } from 'react-hot-toast';
 import { useAutomationContext } from '@/app/_context/AutomationContext';
 import dynamic from 'next/dynamic';
 import ContractInteraction from './ContractInteraction';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// Define callback proxy addresses for different chains
+const CALLBACK_PROXIES: { [chainId: string]: string } = {
+  // '1': '0x0', // Ethereum Mainnet - placeholder
+  '11155111': '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8', // Sepolia
+  '5318008': '0x0000000000000000000000000000000000fffFfF', // Kopli
+  // '137': '0x0', // Polygon - placeholder
+  // '80001': '0x0', // Mumbai - placeholder
+};
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -44,10 +54,11 @@ interface DeploymentTabProps {
   destinationBytecode: string;
   reactiveABI: string;
   reactiveBytecode: string;
-  helperContracts?: HelperContract[];
+  helperContracts?: any[];
 }
 
-export default function DeploymentTab({
+
+const DeploymentTab = ({
   reactiveTemplate,
   originContract,
   originABI,
@@ -58,7 +69,7 @@ export default function DeploymentTab({
   reactiveABI,
   reactiveBytecode,
   helperContracts = []
-}: DeploymentTabProps) {
+}: DeploymentTabProps): ReactElement => {
   const areContractsIdentical = useMemo(() => 
     originContract === destinationContract &&
     originABI === destinationABI &&
@@ -69,16 +80,36 @@ export default function DeploymentTab({
   const [networkStatus, setNetworkStatus] = useState<{
     isCorrectNetwork: boolean;
     currentNetwork: string;
-  }>({ isCorrectNetwork: false, currentNetwork: '' });
+    chainId: string;
+  }>({ isCorrectNetwork: false, currentNetwork: '', chainId: '' });
   
+  // Initialize constructor args with callback proxy
   const initialConstructorArgs = useMemo(() => {
     const parseConstructorArgs = (abi: string): Record<string, string> => {
       try {
         const parsedABI = JSON.parse(abi);
         const constructor = parsedABI.find((item: any) => item.type === 'constructor');
-        return constructor?.inputs 
-          ? Object.fromEntries(constructor.inputs.map((input: any) => [input.name, '']))
-          : {};
+        
+        // For destination contract, automatically set callback_sender if it's the first parameter
+        if (constructor?.inputs && constructor.inputs.length > 0) {
+          const result: Record<string, string> = {};
+          
+          constructor.inputs.forEach((input: any, index: number) => {
+            // For destination contracts with callback_sender as first parameter
+            if (index === 0 && 
+                (input.name === 'callback_sender' || input.name === '_callback_sender') && 
+                networkStatus.chainId && 
+                CALLBACK_PROXIES[networkStatus.chainId]) {
+              result[input.name] = CALLBACK_PROXIES[networkStatus.chainId];
+            } else {
+              result[input.name] = '';
+            }
+          });
+          
+          return result;
+        }
+        
+        return {};
       } catch {
         return {};
       }
@@ -97,21 +128,21 @@ export default function DeploymentTab({
       reactive: parseConstructorArgs(reactiveABI),
       helpers: helperArgs
     };
-  }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts]);
+  }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts, networkStatus.chainId]);
 
   const [constructorArgs, setConstructorArgs] = useState(initialConstructorArgs);
 
-const [deploymentMode, setDeploymentMode] = useState(() => {
-  const modes:any = {
-    origin: 'new',
-    destination: 'new',
-    reactive: 'new',
-  };
-  helperContracts.forEach((helper:any) => {
-    modes[helper.name] = 'new';
-  }); 
-  return modes;
-});
+  const [deploymentMode, setDeploymentMode] = useState<Record<string, string>>(() => {
+    const modes: Record<string, string> = {
+      origin: 'new',
+      destination: 'new',
+      reactive: 'new',
+    };
+    helperContracts.forEach((helper) => {
+      modes[helper.name] = 'new';
+    }); 
+    return modes;
+  });
 
   const [deploymentInfo, setDeploymentInfo] = useState<DeploymentInfo>({
     origin: null,
@@ -127,7 +158,6 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     helpers: {} as Record<string, string>
   });
 
- 
   const [isDeploying, setIsDeploying] = useState({
     origin: false,
     destination: false,
@@ -157,9 +187,33 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     helpers: {} as Record<string, string>
   });
 
-  const { account, web3 } = useWeb3();
-  const { setOriginAddress, setDestinationAddress } = useAutomationContext();
+  // New state for callback sender display
+  const [showCallbackInfo, setShowCallbackInfo] = useState(false);
 
+  const { account, web3 } = useWeb3();
+  const { setOriginAddress, setDestinationAddress, callbackSender, setCallbackSender } = useAutomationContext();
+
+  // Update constructor args when network changes
+  useEffect(() => {
+    if (networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId]) {
+      const destArgs = {...constructorArgs.destination};
+      
+      // Look for callback_sender parameter
+      Object.keys(destArgs).forEach(key => {
+        if (key === 'callback_sender' || key === '_callback_sender') {
+          destArgs[key] = CALLBACK_PROXIES[networkStatus.chainId];
+        }
+      });
+      
+      setConstructorArgs(prev => ({
+        ...prev,
+        destination: destArgs
+      }));
+      
+      // Also update the callback sender in context
+      setCallbackSender(CALLBACK_PROXIES[networkStatus.chainId]);
+    }
+  }, [networkStatus.chainId, setCallbackSender]);
 
   const handleConstructorArgChange = (
     type: string,
@@ -186,6 +240,11 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
           [name]: value
         }
       }));
+      
+      // Update callback sender in context if this is the callback_sender parameter
+      if ((name === 'callback_sender' || name === '_callback_sender') && type === 'destination') {
+        setCallbackSender(value);
+      }
     }
   };
 
@@ -250,20 +309,31 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     const checkNetwork = async () => {
       if (web3) {
         const chainId = await web3.eth.getChainId();
+        const chainIdStr = chainId.toString();
         const isKopli = chainId === BigInt(5318008);
-        const networkName = chainId === BigInt(5318008) ? 'Kopli' : 
-          chainId === BigInt(1) ? 'Ethereum' :
+        const networkName = 
+          chainId === BigInt(5318008) ? 'Kopli' : 
+          chainId === BigInt(1) ? 'Ethereum Mainnet' :
+          chainId === BigInt(11155111) ? 'Sepolia' :
           chainId === BigInt(137) ? 'Polygon' :
+          chainId === BigInt(80001) ? 'Mumbai' :
           `Chain ID: ${chainId}`;
         
         setNetworkStatus({
           isCorrectNetwork: isKopli,
-          currentNetwork: networkName
+          currentNetwork: networkName,
+          chainId: chainIdStr
         });
+        
+        // Update callback sender when network changes
+        if (CALLBACK_PROXIES[chainIdStr]) {
+          setCallbackSender(CALLBACK_PROXIES[chainIdStr]);
+        }
       }
     };
+    
     checkNetwork();
-  }, [web3]);
+  }, [web3, setCallbackSender]);
 
   // Helper function to render the deploy button content
   const renderDeployButton = (type: string, isDeploying: boolean) => {
@@ -351,234 +421,260 @@ const [deploymentMode, setDeploymentMode] = useState(() => {
     );
   };
 
-// Updated handle deploy function with better error handling
-
-
-const handleDeploy = async (type: string) => {
-  if (!web3 || !account) {
-    toast.error("Please connect your wallet first");
-    return;
-  }
-
-  const deploymentToast = toast.loading(
-    "Preparing deployment...", 
-    { id: `deploy-${type}` }
-  );
-
-  try {
-    validateNativeTokenAmount(type);
-    setIsDeploying(prev => ({
-      ...prev,
-      [type]: true
-    }));
-    setError(null);
-
-    const chainId = await web3.eth.getChainId();
-    const isKopli = chainId === BigInt(5318008);
-    
-    if (type === 'reactive' && !isKopli) {
-      toast.error("Reactive contracts must be deployed on Kopli network", {
-        id: deploymentToast
-      });
+  // Updated handle deploy function with better error handling
+  const handleDeploy = async (type: string) => {
+    if (!web3 || !account) {
+      toast.error("Please connect your wallet first");
       return;
     }
 
-    let contractData;
-    let constructorParameters;
-    let deploymentValue;
-
-    try {
-      if (type.startsWith('helper_')) {
-        const helperContract = helperContracts.find(h => type === `helper_${h.name}`);
-        if (!helperContract || !helperContract.abi || !helperContract.bytecode) {
-          throw new Error('Helper contract data not found');
-        }
-        contractData = {
-          abi: JSON.parse(helperContract.abi),
-          bytecode: helperContract.bytecode
-        };
-        constructorParameters = Object.values(constructorArgs.helpers[helperContract.name] || {});
-        deploymentValue = web3.utils.toWei(nativeTokenAmount.helpers[type] || '0', 'ether');
-      } else {
-        contractData = {
-          abi: JSON.parse(
-            type === 'reactive' ? reactiveABI :
-              type === 'origin' ? originABI :
-                destinationABI
-          ),
-          bytecode: type === 'reactive' ? reactiveBytecode :
-            type === 'origin' ? originBytecode :
-              destinationBytecode
-        };
-        constructorParameters = Object.values(constructorArgs[type as keyof typeof constructorArgs]);
-        deploymentValue = type === 'reactive' ? '0' : 
-          web3.utils.toWei(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as any || '0', 'ether');
-      }
-    } catch (error) {
-      toast.error("Failed to prepare contract data. Please check your inputs.", {
-        id: deploymentToast
-      });
-      return;
-    }
-
-    // Validate constructor parameters
-    const missingParams = constructorParameters.filter(param => !param);
-    if (missingParams.length > 0) {
-      toast.error(`Please fill in all constructor parameters for ${type} contract`, {
-        id: deploymentToast
-      });
-      return;
-    }
-
-    toast.loading("Creating contract instance...", { id: deploymentToast });
-
-    const contract = new web3.eth.Contract(contractData.abi);
-    const deploy = contract.deploy({
-      data: contractData.bytecode,
-      arguments: constructorParameters
-    });
-
-    toast.loading("Estimating gas...", { id: deploymentToast });
-
-    let gasEstimate;
-    try {
-      gasEstimate = await deploy.estimateGas({
-        from: account,
-        value: deploymentValue
-      });
-    } catch (error: any) {
-      let errorMessage = error.message;
-      if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas estimation';
-      } else if (errorMessage.includes('execution reverted')) {
-        errorMessage = 'Contract deployment would fail - please check your constructor parameters';
-      }
-      toast.error(`Gas estimation failed: ${errorMessage}`, {
-        id: deploymentToast
-      });
-      return;
-    }
-
-    // Calculate gas limit with 20% buffer
-    const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
-
-    // Get current balance for validation
-    const balance = await web3.eth.getBalance(account);
-    const gasPrice = await web3.eth.getGasPrice();
-    const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(deploymentValue);
-
-    if (BigInt(balance) < requiredBalance) {
-      const required = web3.utils.fromWei(requiredBalance.toString(), 'ether');
-      const available = web3.utils.fromWei(balance.toString(), 'ether');
-      toast.error(
-        `Insufficient balance! Required: ${Number(required).toFixed(4)} ETH, Available: ${Number(available).toFixed(4)} ETH`,
-        { id: deploymentToast }
-      );
-      return;
-    }
-
-    toast.loading(
-      "Please confirm the transaction in your wallet...", 
-      { id: deploymentToast }
+    const deploymentToast = toast.loading(
+      "Preparing deployment...", 
+      { id: `deploy-${type}` }
     );
 
-    let transactionHash = '';
+    try {
+      validateNativeTokenAmount(type);
+      setIsDeploying(prev => ({
+        ...prev,
+        [type]: true
+      }));
+      setError(null);
 
-    const deployedContract = await new Promise((resolve, reject) => {
-      deploy.send({
-        from: account,
-        gas: String(gasLimit),
-        value: deploymentValue,
-        
-      })
-      .on('transactionHash', (hash: string | Uint8Array) => {
-        transactionHash = hash.toString();
-        toast.loading(
-          `Transaction submitted\nHash: ${hash.toString().slice(0, 6)}...${hash.toString().slice(-4)}`,
+      const chainId = await web3.eth.getChainId();
+      const chainIdStr = chainId.toString();
+      const isKopli = chainId === BigInt(5318008);
+      
+      if (type === 'reactive' && !isKopli) {
+        toast.error("Reactive contracts must be deployed on Kopli network", {
+          id: deploymentToast
+        });
+        return;
+      }
+
+      // For destination contracts, ensure callback sender is set
+      if ((type === 'destination' || (type === 'origin' && areContractsIdentical)) && 
+          (!callbackSender || callbackSender === '0x0')) {
+        // Set default callback proxy for this chain if available
+        if (CALLBACK_PROXIES[chainIdStr]) {
+          setCallbackSender(CALLBACK_PROXIES[chainIdStr]);
+          
+          // Update in constructor args too
+          const destArgs = {...constructorArgs.destination};
+          Object.keys(destArgs).forEach(key => {
+            if (key === 'callback_sender' || key === '_callback_sender') {
+              destArgs[key] = CALLBACK_PROXIES[chainIdStr];
+            }
+          });
+          
+          setConstructorArgs(prev => ({
+            ...prev,
+            destination: destArgs
+          }));
+        } else {
+          toast.error(`Callback sender address is not set for network ${networkStatus.currentNetwork}`, {
+            id: deploymentToast
+          });
+          return;
+        }
+      }
+
+      let contractData;
+      let constructorParameters;
+      let deploymentValue;
+
+      try {
+        if (type.startsWith('helper_')) {
+          const helperContract = helperContracts.find(h => type === `helper_${h.name}`);
+          if (!helperContract || !helperContract.abi || !helperContract.bytecode) {
+            throw new Error('Helper contract data not found');
+          }
+          contractData = {
+            abi: JSON.parse(helperContract.abi),
+            bytecode: helperContract.bytecode
+          };
+          constructorParameters = Object.values(constructorArgs.helpers[helperContract.name] || {});
+          deploymentValue = web3.utils.toWei(nativeTokenAmount.helpers[type] || '0', 'ether');
+        } else {
+          contractData = {
+            abi: JSON.parse(
+              type === 'reactive' ? reactiveABI :
+                type === 'origin' ? originABI :
+                  destinationABI
+            ),
+            bytecode: type === 'reactive' ? reactiveBytecode :
+              type === 'origin' ? originBytecode :
+                destinationBytecode
+          };
+          constructorParameters = Object.values(constructorArgs[type as keyof typeof constructorArgs]);
+          deploymentValue = type === 'reactive' ? '0' : 
+            web3.utils.toWei(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as any || '0', 'ether');
+        }
+      } catch (error) {
+        toast.error("Failed to prepare contract data. Please check your inputs.", {
+          id: deploymentToast
+        });
+        return;
+      }
+
+      // Validate constructor parameters
+      const missingParams = constructorParameters.filter(param => !param);
+      if (missingParams.length > 0) {
+        toast.error(`Please fill in all constructor parameters for ${type} contract`, {
+          id: deploymentToast
+        });
+        return;
+      }
+
+      toast.loading("Creating contract instance...", { id: deploymentToast });
+
+      const contract = new web3.eth.Contract(contractData.abi);
+      const deploy = contract.deploy({
+        data: contractData.bytecode,
+        arguments: constructorParameters
+      });
+
+      toast.loading("Estimating gas...", { id: deploymentToast });
+
+      let gasEstimate;
+      try {
+        gasEstimate = await deploy.estimateGas({
+          from: account,
+          value: deploymentValue
+        });
+      } catch (error: any) {
+        let errorMessage = error.message;
+        if (errorMessage.includes('insufficient funds')) {
+          errorMessage = 'Insufficient funds for gas estimation';
+        } else if (errorMessage.includes('execution reverted')) {
+          errorMessage = 'Contract deployment would fail - please check your constructor parameters';
+        }
+        toast.error(`Gas estimation failed: ${errorMessage}`, {
+          id: deploymentToast
+        });
+        return;
+      }
+
+      // Calculate gas limit with 20% buffer
+      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
+
+      // Get current balance for validation
+      const balance = await web3.eth.getBalance(account);
+      const gasPrice = await web3.eth.getGasPrice();
+      const requiredBalance = BigInt(gasLimit) * BigInt(gasPrice) + BigInt(deploymentValue);
+
+      if (BigInt(balance) < requiredBalance) {
+        const required = web3.utils.fromWei(requiredBalance.toString(), 'ether');
+        const available = web3.utils.fromWei(balance.toString(), 'ether');
+        toast.error(
+          `Insufficient balance! Required: ${Number(required).toFixed(4)} ETH, Available: ${Number(available).toFixed(4)} ETH`,
           { id: deploymentToast }
         );
+        return;
+      }
+
+      toast.loading(
+        "Please confirm the transaction in your wallet...", 
+        { id: deploymentToast }
+      );
+
+      let transactionHash = '';
+
+      const deployedContract = await new Promise((resolve, reject) => {
+        deploy.send({
+          from: account,
+          gas: String(gasLimit),
+          value: deploymentValue,
+          
+        })
+        .on('transactionHash', (hash: string | Uint8Array) => {
+          transactionHash = hash.toString();
+          toast.loading(
+            `Transaction submitted\nHash: ${hash.toString().slice(0, 6)}...${hash.toString().slice(-4)}`,
+            { id: deploymentToast }
+          );
+
+          if (type.startsWith('helper_')) {
+            setDeploymentInfo((prev: any) => ({
+              ...prev,
+              helpers: {
+                ...prev.helpers,
+                [type]: { address: 'Deploying...', transactionHash: hash }
+              }
+            }));
+          } else {
+            setDeploymentInfo(prev => ({
+              ...prev,
+              [type]: { address: 'Deploying...', transactionHash: hash }
+            }));
+          }
+        })
+        .on('receipt', (receipt: any) => {
+        })
+        .on('error', (error: any) => {
+          console.error('Deployment error:', error);
+          if (error.code === 4001) {
+            toast.error('Transaction was rejected by user', { id: deploymentToast });
+          } else {
+            reject(error);
+          }
+        })
+        .then(resolve);
+      });
+
+      if (deployedContract) {
+        const contractAddress = (deployedContract as any).options.address;
 
         if (type.startsWith('helper_')) {
-          setDeploymentInfo((prev: any) => ({
+          setDeploymentInfo(prev => ({
             ...prev,
             helpers: {
               ...prev.helpers,
-              [type]: { address: 'Deploying...', transactionHash: hash }
+              [type]: { address: contractAddress, transactionHash }
             }
+          }));
+          setDeployedAddresses(prev => ({
+            ...prev,
+            helpers: { ...prev.helpers, [type]: contractAddress }
           }));
         } else {
           setDeploymentInfo(prev => ({
             ...prev,
-            [type]: { address: 'Deploying...', transactionHash: hash }
-          }));
-        }
-      })
-      .on('receipt', (receipt: any) => {
-      })
-      .on('error', (error: any) => {
-        console.error('Deployment error:', error);
-        if (error.code === 4001) {
-          toast.error('Transaction was rejected by user', { id: deploymentToast });
-        } else {
-          reject(error);
-        }
-      })
-      .then(resolve);
-    });
-
-    if (deployedContract) {
-      const contractAddress = (deployedContract as any).options.address;
-
-      if (type.startsWith('helper_')) {
-        setDeploymentInfo(prev => ({
-          ...prev,
-          helpers: {
-            ...prev.helpers,
             [type]: { address: contractAddress, transactionHash }
-          }
-        }));
-        setDeployedAddresses(prev => ({
-          ...prev,
-          helpers: { ...prev.helpers, [type]: contractAddress }
-        }));
-      } else {
-        setDeploymentInfo(prev => ({
-          ...prev,
-          [type]: { address: contractAddress, transactionHash }
-        }));
-        setDeployedAddresses(prev => ({ ...prev, [type]: contractAddress }));
-        if (type === 'origin') setOriginAddress(contractAddress);
-        if (type === 'destination') setDestinationAddress(contractAddress);
-      }
+          }));
+          setDeployedAddresses(prev => ({ ...prev, [type]: contractAddress }));
+          if (type === 'origin') setOriginAddress(contractAddress);
+          if (type === 'destination') setDestinationAddress(contractAddress);
+        }
 
-      toast.success(
-        `${type.charAt(0).toUpperCase() + type.slice(1)} contract deployed successfully!\nAddress: ${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)}`,
-        { id: deploymentToast, duration: 5000 }
-      );
+        toast.success(
+          `${type.charAt(0).toUpperCase() + type.slice(1)} contract deployed successfully!\nAddress: ${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)}`,
+          { id: deploymentToast, duration: 5000 }
+        );
+      }
+    } catch (error: any) {
+      console.error('Deployment error:', error);
+      let errorMessage = error.message;
+      
+      if (error.code === 4001) {
+        errorMessage = 'Transaction rejected by user';
+      } else if (error.code === -32603) {
+        errorMessage = 'Internal JSON-RPC error. Please check your wallet and try again.';
+      } else if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for deployment';
+      } else if (errorMessage.includes('nonce too low')) {
+        errorMessage = 'Transaction nonce error. Please reset your MetaMask account.';
+      }
+      
+      toast.error(`Deployment failed: ${errorMessage}`, { id: deploymentToast });
+      setError(errorMessage);
+    } finally {
+      setIsDeploying(prev => ({
+        ...prev,
+        [type]: false
+      }));
     }
-  } catch (error: any) {
-    console.error('Deployment error:', error);
-    let errorMessage = error.message;
-    
-    if (error.code === 4001) {
-      errorMessage = 'Transaction rejected by user';
-    } else if (error.code === -32603) {
-      errorMessage = 'Internal JSON-RPC error. Please check your wallet and try again.';
-    } else if (errorMessage.includes('insufficient funds')) {
-      errorMessage = 'Insufficient funds for deployment';
-    } else if (errorMessage.includes('nonce too low')) {
-      errorMessage = 'Transaction nonce error. Please reset your MetaMask account.';
-    }
-    
-    toast.error(`Deployment failed: ${errorMessage}`, { id: deploymentToast });
-    setError(errorMessage);
-  } finally {
-    setIsDeploying(prev => ({
-      ...prev,
-      [type]: false
-    }));
-  }
-};
+  };
 
   const renderDeploymentInfo = (type: string) => {
     const info = type.startsWith('helper_')
@@ -632,6 +728,65 @@ const handleDeploy = async (type: string) => {
     );
   };
 
+  // Function to render callback sender information for destination contracts
+  const renderCallbackSenderInfo = () => {
+    if (!networkStatus.chainId) return null;
+    
+    const callbackAddress = CALLBACK_PROXIES[networkStatus.chainId] || 'Not available for this network';
+    
+    return (
+      <div className="mt-4 p-4 bg-blue-900/20 rounded-lg border border-blue-800/50">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-md font-medium text-blue-300">Callback Sender Information</h4>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowCallbackInfo(!showCallbackInfo)}
+            className="text-blue-300 hover:text-blue-100"
+          >
+            {showCallbackInfo ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+        
+        {showCallbackInfo && (
+          <div className="space-y-3 text-sm text-zinc-300">
+            <div>
+              <Label className="text-blue-200">Network</Label>
+              <div className="text-zinc-300 mt-1">{networkStatus.currentNetwork}</div>
+            </div>
+            
+            <div>
+              <Label className="text-blue-200">Callback Proxy Address</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="bg-blue-900/30 px-2 py-1 rounded text-zinc-300 font-mono text-xs break-all">
+                  {callbackAddress}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(callbackAddress);
+                    toast.success("Callback address copied to clipboard");
+                  }}
+                  className="whitespace-nowrap text-xs h-7"
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+            
+            <Alert className="bg-blue-900/10 border-blue-800/30 py-2">
+              <AlertDescription className="text-zinc-300 text-xs">
+                This address will be automatically used as the first constructor parameter for destination contracts. 
+                It ensures the validity of callback transactions by verifying they originate from the Reactive Network.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderHelperContractCard = (helper: HelperContract) => {
     const type = `helper_${helper.name}`;
     const isNew = deploymentMode[helper.name] === 'new';
@@ -649,14 +804,14 @@ const handleDeploy = async (type: string) => {
             <div className="flex gap-4">
               <Button
                 variant={isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [helper.name]: 'new' }))}
+                onClick={() => setDeploymentMode((prev) => ({ ...prev, [helper.name]: 'new' }))}
                 className={`w-1/2 ${isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
                 variant={!isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [helper.name]: 'existing' }))}
+                onClick={() => setDeploymentMode((prev) => ({ ...prev, [helper.name]: 'existing' }))}
                 className={`w-1/2 ${!isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
@@ -758,86 +913,122 @@ const handleDeploy = async (type: string) => {
     );
   };
 
-  const renderContractCard = (type: 'origin' | 'destination' | 'reactive') => {
-    const isNew = deploymentMode[type] === 'new';
-    const address = isNew ? deployedAddresses[type] : existingAddresses[type];
-    const abi = type === 'reactive' ? reactiveABI :
-      type === 'origin' ? originABI :
-        destinationABI;
-    const contract = type === 'reactive' ? reactiveTemplate :
-      type === 'origin' ? originContract :
-        destinationContract;
+  return (
+    <div className="space-y-6">
+      {/* Network Status Banner */}
+      {web3 && (
+        <Alert className={`${
+          networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId] 
+            ? 'bg-green-900/20 border-green-700/50' 
+            : 'bg-yellow-900/20 border-yellow-700/50'
+        }`}>
+          <AlertTitle className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${
+              networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId] 
+                ? 'bg-green-500 animate-pulse' 
+                : 'bg-yellow-500 animate-pulse'
+            }`}/>
+            Connected to {networkStatus.currentNetwork}
+          </AlertTitle>
+          <AlertDescription>
+            {networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId] ? (
+              <span>Callback proxy available for this network: <code className="bg-green-900/30 px-2 py-1 rounded text-xs">{CALLBACK_PROXIES[networkStatus.chainId].slice(0, 6)}...{CALLBACK_PROXIES[networkStatus.chainId].slice(-4)}</code></span>
+            ) : (
+              <span>No callback proxy configured for this network. Destination contracts may not deploy correctly.</span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
   
-    return (
-      <Card className="bg-gradient-to-br relative from-blue-900/30 to-purple-900/30 border-zinc-800  overflow-visible">
+      {/* Origin Contract Card */}
+      <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 overflow-visible">
         <CardHeader className="border-b border-zinc-800">
-          <CardTitle className="text-xl font-bold text-zinc-100">
-            {type.charAt(0).toUpperCase() + type.slice(1)} Contract
+          <CardTitle className="text-xl font-bold text-zinc-100 flex items-center">
+            Origin Contract
+            
+            {areContractsIdentical && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900/40 text-blue-200">
+                      <Info className="w-3 h-3 mr-1" />
+                      Also Destination
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">This contract serves as both Origin and Destination. It requires a callback sender address and 0.1 native tokens.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 relative">
           <div className="space-y-4 relative z-30">
             <div className="flex gap-4">
               <Button
-                variant={isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [type]: 'new' }))}
-                className={`w-1/2 ${isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                variant={deploymentMode.origin === 'new' ? "default" : "outline"}
+                onClick={() => setDeploymentMode(prev => ({ ...prev, origin: 'new' }))}
+                className={`w-1/2 ${deploymentMode.origin === 'new' ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Deploy New
               </Button>
               <Button
-                variant={!isNew ? "default" : "outline"}
-                onClick={() => setDeploymentMode((prev:any) => ({ ...prev, [type]: 'existing' }))}
-                className={`w-1/2 ${!isNew ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                variant={deploymentMode.origin === 'existing' ? "default" : "outline"}
+                onClick={() => setDeploymentMode(prev => ({ ...prev, origin: 'existing' }))}
+                className={`w-1/2 ${deploymentMode.origin === 'existing' ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
               >
                 Use Existing
               </Button>
             </div>
+            
+            {/* Show callback sender info if this is also a destination contract */}
+            {areContractsIdentical && deploymentMode.origin === 'new' && !deployedAddresses.origin && renderCallbackSenderInfo()}
   
-            {!isNew && (
+            {deploymentMode.origin === 'existing' && (
               <div className="relative z-30">
-                <Label htmlFor={`${type}-address`} className="text-zinc-300">
+                <Label htmlFor="origin-address" className="text-zinc-300">
                   Contract Address
                 </Label>
                 <Input
-                  id={`${type}-address`}
-                  value={existingAddresses[type]}
-                  onChange={(e) => handleExistingAddressChange(type, e.target.value)}
+                  id="origin-address"
+                  value={existingAddresses.origin}
+                  onChange={(e) => handleExistingAddressChange('origin', e.target.value)}
                   className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                   placeholder="Enter deployed contract address"
                 />
               </div>
             )}
   
-            {address && renderDeploymentInfo(type)}
-            {address && (
+            {(deployedAddresses.origin || existingAddresses.origin) && renderDeploymentInfo('origin')}
+            {(deployedAddresses.origin || existingAddresses.origin) && (
               <ContractInteraction
-                abi={abi}
-                contractAddress={address}
+                abi={originABI}
+                contractAddress={deploymentMode.origin === 'new' ? deployedAddresses.origin : existingAddresses.origin}
                 web3={web3}
                 account={account}
               />
             )}
   
-            {isNew && !address && (
+            {deploymentMode.origin === 'new' && !deployedAddresses.origin && (
               <>
                 <div className="flex justify-between relative z-30">
                   <Button
                     variant="outline"
-                    onClick={() => setShowCode(prev => ({ ...prev, [type]: !prev[type] }))}
+                    onClick={() => setShowCode(prev => ({ ...prev, origin: !prev.origin }))}
                     className="text-zinc-300 border-blue-500/20 hover:bg-blue-900/20"
                   >
-                    {showCode[type] ? 'Hide Code' : 'Show Code'}
+                    {showCode.origin ? 'Hide Code' : 'Show Code'}
                   </Button>
                 </div>
   
-                {showCode[type] && (
+                {showCode.origin && (
                   <div className="border border-zinc-800 rounded-lg overflow-hidden relative z-30">
                     <MonacoEditor
                       height="300px"
                       language="solidity"
                       theme="vs-dark"
-                      value={contract}
+                      value={originContract}
                       options={{
                         readOnly: true,
                         minimap: { enabled: false }
@@ -848,69 +1039,353 @@ const handleDeploy = async (type: string) => {
   
                 <div className="space-y-4 relative z-30">
                   <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
-                  {Object.entries(constructorArgs[type]).map(([argName, value]) => (
-                    <div key={argName} className="relative">
-                      <Label htmlFor={`${type}-${argName}`} className="text-zinc-300">
-                        {argName}
-                      </Label>
-                      <Input
-                        id={`${type}-${argName}`}
-                        value={value}
-                        onChange={(e) => handleConstructorArgChange(type, argName, e.target.value)}
-                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
-                        placeholder={`Enter ${argName}`}
-                      />
-                    </div>
-                  ))}
+                  {Object.entries(constructorArgs.origin).map(([argName, value]) => {
+                    // Special handling for callback sender parameter if this also serves as destination contract
+                    const isCallbackSender = areContractsIdentical && (argName === 'callback_sender' || argName === '_callback_sender');
+                    
+                    return (
+                      <div key={argName} className="relative">
+                        <Label 
+                          htmlFor={`origin-${argName}`} 
+                          className={`flex items-center ${isCallbackSender ? 'text-blue-300' : 'text-zinc-300'}`}
+                        >
+                          {argName}
+                          {isCallbackSender && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-4 h-4 ml-1 text-blue-400" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-sm">This parameter is automatically set to the callback proxy address for the current network.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </Label>
+                        <Input
+                          id={`origin-${argName}`}
+                          value={value}
+                          onChange={(e) => handleConstructorArgChange('origin', argName, e.target.value)}
+                          className={`mt-1 border-zinc-700 text-zinc-200 pointer-events-auto ${
+                            isCallbackSender ? 'bg-blue-900/30 border-blue-700/50' : 'bg-blue-900/20'
+                          }`}
+                          placeholder={`Enter ${argName}`}
+                          readOnly={isCallbackSender} // Make callback sender read-only by default
+                        />
+                        {isCallbackSender && (
+                          <div className="text-xs text-blue-400 mt-1">
+                            Callback proxy for {networkStatus.currentNetwork}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
   
-                {(type === 'destination' || (type === 'origin' && areContractsIdentical)) && (
+                {areContractsIdentical && (
                   <div className="relative z-30">
-                    <Label htmlFor={`${type}-token-amount`} className="text-zinc-300">
+                    <Label htmlFor="origin-token-amount" className="text-zinc-300">
                       Native Token Amount <span className="text-yellow-400">(min 0.1)</span>
                     </Label>
                     <Input
-                      id={`${type}-token-amount`}
-                      value={nativeTokenAmount[type]}
-                      onChange={(e) => handleNativeTokenAmountChange(type, e.target.value)}
+                      id="origin-token-amount"
+                      value={nativeTokenAmount.origin}
+                      onChange={(e) => handleNativeTokenAmountChange('origin', e.target.value)}
                       className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
                       placeholder="Enter amount in ETH"
                     />
                   </div>
                 )}
   
-                
-                {renderDeployButton(type, isDeploying[type])}
+                {renderDeployButton('origin', isDeploying.origin)}
               </>
             )}
           </div>
         </CardContent>
       </Card>
-    );
-  };
-
-  return (
-    <div className="space-y-6">
-      {areContractsIdentical ? (
-        <>
-          <Alert className="bg-blue-900/20 border-blue-500">
-            <AlertTitle>Note</AlertTitle>
-            <AlertDescription>
-              Origin and Destination contracts are identical. You can deploy once and use the same address for both.
-              Remember to include minimum 0.1 native tokens for deployment.
-            </AlertDescription>
-          </Alert>
-          {renderContractCard('origin')}
-        </>
-      ) : (
-        <>
-          {renderContractCard('origin')}
-          {renderContractCard('destination')}
-        </>
+  
+      {/* Destination Contract Card (only if not identical to origin) */}
+      {!areContractsIdentical && (
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 overflow-visible">
+          <CardHeader className="border-b border-zinc-800">
+            <CardTitle className="text-xl font-bold text-zinc-100 flex items-center">
+              Destination Contract
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900/40 text-blue-200">
+                      <Info className="w-3 h-3 mr-1" />
+                      Requires Callback
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">This contract requires a callback sender address as a constructor parameter. It will be automatically set based on the current network.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 relative">
+            <div className="space-y-4 relative z-30">
+              <div className="flex gap-4">
+                <Button
+                  variant={deploymentMode.destination === 'new' ? "default" : "outline"}
+                  onClick={() => setDeploymentMode(prev => ({ ...prev, destination: 'new' }))}
+                  className={`w-1/2 ${deploymentMode.destination === 'new' ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                >
+                  Deploy New
+                </Button>
+                <Button
+                  variant={deploymentMode.destination === 'existing' ? "default" : "outline"}
+                  onClick={() => setDeploymentMode(prev => ({ ...prev, destination: 'existing' }))}
+                  className={`w-1/2 ${deploymentMode.destination === 'existing' ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+                >
+                  Use Existing
+                </Button>
+              </div>
+              
+              {/* Show callback sender info */}
+              {deploymentMode.destination === 'new' && !deployedAddresses.destination && renderCallbackSenderInfo()}
+            
+              {deploymentMode.destination === 'existing' && (
+                <div className="relative z-30">
+                  <Label htmlFor="destination-address" className="text-zinc-300">
+                    Contract Address
+                  </Label>
+                  <Input
+                    id="destination-address"
+                    value={existingAddresses.destination}
+                    onChange={(e) => handleExistingAddressChange('destination', e.target.value)}
+                    className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
+                    placeholder="Enter deployed contract address"
+                  />
+                </div>
+              )}
+            
+              {(deployedAddresses.destination || existingAddresses.destination) && renderDeploymentInfo('destination')}
+              {(deployedAddresses.destination || existingAddresses.destination) && (
+                <ContractInteraction
+                  abi={destinationABI}
+                  contractAddress={deploymentMode.destination === 'new' ? deployedAddresses.destination : existingAddresses.destination}
+                  web3={web3}
+                  account={account}
+                />
+              )}
+            
+              {deploymentMode.destination === 'new' && !deployedAddresses.destination && (
+                <>
+                  <div className="flex justify-between relative z-30">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowCode(prev => ({ ...prev, destination: !prev.destination }))}
+                      className="text-zinc-300 border-blue-500/20 hover:bg-blue-900/20"
+                    >
+                      {showCode.destination ? 'Hide Code' : 'Show Code'}
+                    </Button>
+                  </div>
+            
+                  {showCode.destination && (
+                    <div className="border border-zinc-800 rounded-lg overflow-hidden relative z-30">
+                      <MonacoEditor
+                        height="300px"
+                        language="solidity"
+                        theme="vs-dark"
+                        value={destinationContract}
+                        options={{
+                          readOnly: true,
+                          minimap: { enabled: false }
+                        }}
+                      />
+                    </div>
+                  )}
+            
+                  <div className="space-y-4 relative z-30">
+                    <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
+                    {Object.entries(constructorArgs.destination).map(([argName, value]) => {
+                      // Special handling for callback sender parameter
+                      const isCallbackSender = argName === 'callback_sender' || argName === '_callback_sender';
+                      
+                      return (
+                        <div key={argName} className="relative">
+                          <Label 
+                            htmlFor={`destination-${argName}`} 
+                            className={`flex items-center ${isCallbackSender ? 'text-blue-300' : 'text-zinc-300'}`}
+                          >
+                            {argName}
+                            {isCallbackSender && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-4 h-4 ml-1 text-blue-400" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-sm">This parameter is automatically set to the callback proxy address for the current network.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </Label>
+                          <Input
+                            id={`destination-${argName}`}
+                            value={value}
+                            onChange={(e) => handleConstructorArgChange('destination', argName, e.target.value)}
+                            className={`mt-1 border-zinc-700 text-zinc-200 pointer-events-auto ${
+                              isCallbackSender ? 'bg-blue-900/30 border-blue-700/50' : 'bg-blue-900/20'
+                            }`}
+                            placeholder={`Enter ${argName}`}
+                            readOnly={isCallbackSender} // Make callback sender read-only by default
+                          />
+                          {isCallbackSender && (
+                            <div className="text-xs text-blue-400 mt-1">
+                              Callback proxy for {networkStatus.currentNetwork}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+            
+                  <div className="relative z-30">
+                    <Label htmlFor="destination-token-amount" className="text-zinc-300">
+                      Native Token Amount <span className="text-yellow-400">(min 0.1)</span>
+                    </Label>
+                    <Input
+                      id="destination-token-amount"
+                      value={nativeTokenAmount.destination}
+                      onChange={(e) => handleNativeTokenAmountChange('destination', e.target.value)}
+                      className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
+                      placeholder="Enter amount in ETH"
+                    />
+                  </div>
+            
+                  {renderDeployButton('destination', isDeploying.destination)}
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
-
-      {renderContractCard('reactive')}
-
+  
+      {/* Reactive Contract Card */}
+      <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 overflow-visible">
+        <CardHeader className="border-b border-zinc-800">
+          <CardTitle className="text-xl font-bold text-zinc-100 flex items-center">
+            Reactive Contract
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900/40 text-purple-200">
+                    <Info className="w-3 h-3 mr-1" />
+                    Kopli Network
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-sm">This contract must be deployed on the Kopli Network for proper event monitoring and callback functionality.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 relative">
+          <div className="space-y-4 relative z-30">
+            <div className="flex gap-4">
+              <Button
+                variant={deploymentMode.reactive === 'new' ? "default" : "outline"}
+                onClick={() => setDeploymentMode(prev => ({ ...prev, reactive: 'new' }))}
+                className={`w-1/2 ${deploymentMode.reactive === 'new' ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+              >
+                Deploy New
+              </Button>
+              <Button
+                variant={deploymentMode.reactive === 'existing' ? "default" : "outline"}
+                onClick={() => setDeploymentMode(prev => ({ ...prev, reactive: 'existing' }))}
+                className={`w-1/2 ${deploymentMode.reactive === 'existing' ? 'bg-primary hover:bg-primary/80' : 'border-blue-500/20 hover:bg-blue-900/20'}`}
+              >
+                Use Existing
+              </Button>
+            </div>
+          
+            {deploymentMode.reactive === 'existing' && (
+              <div className="relative z-30">
+                <Label htmlFor="reactive-address" className="text-zinc-300">
+                  Contract Address
+                </Label>
+                <Input
+                  id="reactive-address"
+                  value={existingAddresses.reactive}
+                  onChange={(e) => handleExistingAddressChange('reactive', e.target.value)}
+                  className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
+                  placeholder="Enter deployed contract address"
+                />
+              </div>
+            )}
+          
+            {(deployedAddresses.reactive || existingAddresses.reactive) && renderDeploymentInfo('reactive')}
+            {(deployedAddresses.reactive || existingAddresses.reactive) && (
+              <ContractInteraction
+                abi={reactiveABI}
+                contractAddress={deploymentMode.reactive === 'new' ? deployedAddresses.reactive : existingAddresses.reactive}
+                web3={web3}
+                account={account}
+              />
+            )}
+          
+            {deploymentMode.reactive === 'new' && !deployedAddresses.reactive && (
+              <>
+                <div className="flex justify-between relative z-30">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCode(prev => ({ ...prev, reactive: !prev.reactive }))}
+                    className="text-zinc-300 border-blue-500/20 hover:bg-blue-900/20"
+                  >
+                    {showCode.reactive ? 'Hide Code' : 'Show Code'}
+                  </Button>
+                </div>
+          
+                {showCode.reactive && (
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden relative z-30">
+                    <MonacoEditor
+                      height="300px"
+                      language="solidity"
+                      theme="vs-dark"
+                      value={reactiveTemplate}
+                      options={{
+                        readOnly: true,
+                        minimap: { enabled: false }
+                      }}
+                    />
+                  </div>
+                )}
+          
+                <div className="space-y-4 relative z-30">
+                  <h3 className="text-lg font-medium text-zinc-200">Constructor Arguments</h3>
+                  {Object.entries(constructorArgs.reactive).map(([argName, value]) => (
+                    <div key={argName} className="relative">
+                      <Label htmlFor={`reactive-${argName}`} className="text-zinc-300">
+                        {argName}
+                      </Label>
+                      <Input
+                        id={`reactive-${argName}`}
+                        value={value}
+                        onChange={(e) => handleConstructorArgChange('reactive', argName, e.target.value)}
+                        className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
+                        placeholder={`Enter ${argName}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+          
+                {renderDeployButton('reactive', isDeploying.reactive)}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+  
+      {/* Helper Contracts */}
       {helperContracts?.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-100 mb-4">Helper Contracts</h2>
@@ -919,7 +1394,7 @@ const handleDeploy = async (type: string) => {
           </div>
         </div>
       )}
-
+  
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
@@ -928,4 +1403,5 @@ const handleDeploy = async (type: string) => {
       )}
     </div>
   );
-}
+};
+export default DeploymentTab;

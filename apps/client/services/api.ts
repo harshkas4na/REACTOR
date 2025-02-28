@@ -1,6 +1,7 @@
 // services/api.ts
 
-const BASE_URL = 'http://BASE_URL';
+import { BASE_URL } from "@/data/constants";
+
 
 export const api = {
 

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+
 interface EventInput {
     name: string;
     type: string;
@@ -6,10 +7,8 @@ interface EventInput {
 }
 
 interface TopicFunctionPair {
-    
     function: string;
     topic0: string;
-    
 }
 
 interface ContractInput {
@@ -20,8 +19,8 @@ interface ContractInput {
     destinationContract: string;
     ownerAddress?: string;
     isPausable: boolean;
+    contractName?: string;
 }
-
 
 export default async function handleGenerateSC(req: Request, res: Response) {
     try {
@@ -37,78 +36,85 @@ export default async function handleGenerateSC(req: Request, res: Response) {
     }
 }
 
-
 function generateEventConstants(topicFunctionPairs: TopicFunctionPair[]): string {
     return topicFunctionPairs.map((pair, index) => {
-        return `uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.topic0};`;
-    }).join('\n    ');
+        return `    uint256 private constant EVENT_${index}_TOPIC_0 = ${pair.topic0};`;
+    }).join('\n');
 }
 
 function generateSubscriptions(topicFunctionPairs: TopicFunctionPair[], originChainId: number, originContract: string): string {
     return topicFunctionPairs.map((pair, index) => `
-        bytes memory payload_${index} = abi.encodeWithSignature(
-            "subscribe(uint256,address,uint256,uint256,uint256,uint256)",
+            service.subscribe(
+                ORIGIN_CHAIN_ID,
+                ORIGIN_CONTRACT,
+                EVENT_${index}_TOPIC_0,
+                REACTIVE_IGNORE,
+                REACTIVE_IGNORE,
+                REACTIVE_IGNORE
+            );`).join('\n');
+}
+
+function generatePausableSubscriptionsFunction(topicFunctionPairs: TopicFunctionPair[], originChainId: number, originContract: string): string {
+    const subscriptionsArray = topicFunctionPairs.map((pair, index) => `
+        result[${index}] = Subscription(
             ORIGIN_CHAIN_ID,
             ORIGIN_CONTRACT,
             EVENT_${index}_TOPIC_0,
             REACTIVE_IGNORE,
             REACTIVE_IGNORE,
             REACTIVE_IGNORE
-        );
-        (bool subscription_result_${index},) = address(service).call(payload_${index});
-        vm = !subscription_result_${index};`).join('\n');
+        );`).join('\n');
+    
+    return `
+    function getPausableSubscriptions() internal pure override returns (Subscription[] memory) {
+        Subscription[] memory result = new Subscription[](${topicFunctionPairs.length});${subscriptionsArray}
+        return result;
+    }`;
 }
 
 function generateReactLogic(topicFunctionPairs: TopicFunctionPair[]): string {
-    return topicFunctionPairs.map((pair, index) => {
-      const { function: functionSignature, topic0 } = pair;
-      
-      // Separate function name and input types
-      const match = functionSignature.match(/^(\w+)\((.*)\)$/);
-      if (!match) {
-        throw new Error(`Invalid function signature: ${functionSignature}`);
-      }
-      
-      const [, functionName, inputTypesString] = match;
-      const inputTypes = inputTypesString.split(',').map(type => type.trim()).filter(Boolean);
-      
-      // Generate function inputs based on input types and topics
-      const functionInputs = inputTypes.map((type, paramIndex) => {
-        // First parameter (index 0) is usually sender or special first parameter
-        if (paramIndex === 0) {
-          switch (type) {
-            case 'address':
-                return paramIndex === 0 ? 'address(0)' : `address(uint160(topic_${paramIndex + 1}))`;
-            case 'uint256':
-              return `topic_${paramIndex + 1}`;
-            default:
-              return `topic_${paramIndex + 1}`;
-          }
+    const reactCases = topicFunctionPairs.map((pair, index) => {
+        const { function: functionSignature, topic0 } = pair;
+        
+        // Separate function name and input types
+        const match = functionSignature.match(/^(\w+)\((.*)\)$/);
+        if (!match) {
+            throw new Error(`Invalid function signature: ${functionSignature}`);
         }
         
-        // Subsequent parameters
-        switch (type) {
-          case 'address':
-            return `address(uint160(topic_${paramIndex + 1}))`;
-          case 'uint256':
-            return `topic_${paramIndex }`;
-          case 'bool':
-            return `topic_${paramIndex } != 0`;
-          default:
-            return `topic_${paramIndex }`;
-        }
-      }).join(', ');
-  
-      return `
-        if (topic_0 == ${topic0}) {
-          // Call the destination contract with decoded parameters
-          bytes memory payload = abi.encodeWithSignature(
-            "${functionSignature}",
-            ${functionInputs}
-          );
-          emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
+        const [, functionName, inputTypesString] = match;
+        const inputTypes = inputTypesString.split(',').map(type => type.trim()).filter(Boolean);
+        
+        // Generate function inputs based on input types and topics
+        const functionInputs = inputTypes.map((type, paramIndex) => {
+            if (paramIndex === 0) {
+                return 'address(0)'; // Common pattern for first parameter in callbacks
+            }
+            
+            // Subsequent parameters
+            switch (type) {
+                case 'address':
+                    return `address(uint160(log.topic_${paramIndex + 1}))`;
+                case 'uint256':
+                    return `log.topic_${paramIndex + 1}`;
+                case 'bool':
+                    return `log.topic_${paramIndex + 1} != 0`;
+                default:
+                    return `log.topic_${paramIndex + 1}`;
+            }
+        }).join(', ');
+        
+        return `
+        if (log.topic_0 == EVENT_${index}_TOPIC_0) {
+            bytes memory payload = abi.encodeWithSignature(
+                "${functionSignature}",
+                ${functionInputs}
+            );
+            emit Callback(DESTINATION_CHAIN_ID, DESTINATION_CONTRACT, CALLBACK_GAS_LIMIT, payload);
         }`;
     }).join(' else ');
+    
+    return reactCases;
 }
 export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
     const { 
@@ -118,37 +124,52 @@ export const generateReactiveSmartContractTemplate = (input: ContractInput) => {
         originContract, 
         destinationContract, 
         ownerAddress, 
-        isPausable 
+        isPausable,
+        contractName = "ReactiveContract"
     } = input;
+    
     const eventConstants = generateEventConstants(topicFunctionPairs);
     const subscriptions = generateSubscriptions(topicFunctionPairs, originChainId, originContract);
     const reactLogic = generateReactLogic(topicFunctionPairs);
 
     const baseContract = isPausable ? 'AbstractPausableReactive' : 'AbstractReactive';
-    const pausableImport = isPausable ? "import '../../AbstractPausableReactive.sol';" : "import '../../AbstractReactive.sol';";
     const pausedInitialization = isPausable ? 'paused = false;' : '';
-    const getPausableSubscriptionsFunction = isPausable ? `
-    function getPausableSubscriptions() override internal pure returns (Subscription[] memory) {
-        Subscription[] memory result = new Subscription[](${topicFunctionPairs.length});
-        ${topicFunctionPairs.map((_, index) => `
-        result[${index}] = Subscription(
-            ORIGIN_CHAIN_ID,
-            ORIGIN_CONTRACT,
-            EVENT_${index}_TOPIC_0,
-            REACTIVE_IGNORE,
-            REACTIVE_IGNORE,
-            REACTIVE_IGNORE
-        );`).join('\n')}
-        return result;
-    }` : '';
+    const ownerInitialization = isPausable || ownerAddress ? `owner = ${ownerAddress || 'msg.sender'};` : '';
+    const pausableSubscriptionsFunction = isPausable ? generatePausableSubscriptionsFunction(topicFunctionPairs, originChainId, originContract) : '';
 
     const template = `
-    // SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: UNLICENSED
 
 pragma solidity >=0.8.0;
+
+interface IPayer {
+    /// @notice Method called by the system contract and/or proxies when payment is due.
+    /// @dev Make sure to check the msg.sender.
+    /// @param amount Amount owed due to reactive transactions and/or callbacks.
+    function pay(uint256 amount) external;
+
+    /// @notice Allows the reactive contracts and callback contracts to receive funds for their operational expenses.
+    receive() external payable;
+}
+
 // @title Interface for reactive contracts.
 // @notice Reactive contracts receive notifications about new events matching the criteria of their event subscriptions.
-interface IReactive {
+interface IReactive is IPayer {
+    struct LogRecord {
+        uint256 chain_id;
+        address _contract;
+        uint256 topic_0;
+        uint256 topic_1;
+        uint256 topic_2;
+        uint256 topic_3;
+        bytes data;
+        uint256 block_number;
+        uint256 op_code;
+        uint256 block_hash;
+        uint256 tx_hash;
+        uint256 log_index;
+    }
+
     event Callback(
         uint256 indexed chain_id,
         address indexed _contract,
@@ -156,64 +177,56 @@ interface IReactive {
         bytes payload
     );
 
-    // @notice Entry point for handling new event notifications.
-    // @param chain_id EIP155 origin chain ID for the event (as a uint256).
-    // @param _contract Address of the originating contract for the received event.
-    // @param topic_0 Topic 0 of the event (or 0 for LOG0).
-    // @param topic_1 Topic 1 of the event (or 0 for LOG0 and LOG1).
-    // @param topic_2 Topic 2 of the event (or 0 for LOG0 .. LOG2).
-    // @param topic_3 Topic 3 of the event (or 0 for LOG0 .. LOG3).
-    // @param data Event data as a byte array.
-    // @param block_number Block number where the log record is located in its chain of origin.
-    // @param op_code Number of topics in the log record (0 to 4).
-    function react(
-        uint256 chain_id,
-        address _contract,
-        uint256 topic_0,
-        uint256 topic_1,
-        uint256 topic_2,
-        uint256 topic_3,
-        bytes calldata data,
-        uint256 block_number,
-        uint256 op_code
-    ) external;
+    /// @notice Entry point for handling new event notifications.
+    /// @param log Data structure containing the information about the intercepted log record.
+    function react(LogRecord calldata log) external;
 }
 
-
 interface IPayable {
-    // @notice Allows contracts to pay their debts and resume subscriptions.
+    /// @notice Allows contracts to pay their debts and resume subscriptions.
     receive() external payable;
 
-    // @notice Allows reactive contracts to check their outstanding debt.
-    // @param _contract Reactive contract's address.
+    /// @notice Allows reactive contracts to check their outstanding debt.
+    /// @param _contract Reactive contract's address.
+    /// @return Reactive contract's current debt due to unpaid reactive transactions and/or callbacks.
     function debt(address _contract) external view returns (uint256);
 }
 
-interface IPayer {
-    // @dev Make sure to check the msg.sender
-    function pay(uint256 amount) external;
-}
+
+
 
 abstract contract AbstractPayer is IPayer {
     IPayable internal vendor;
 
+    /// @notice ACL for addresses allowed to make callbacks and/or request payment.
+    mapping(address => bool) senders;
+
     constructor() {
     }
 
+    /// @inheritdoc IPayer
+    receive() virtual external payable {
+    }
+
     modifier authorizedSenderOnly() {
-        require(address(vendor) == address(0) || msg.sender == address(vendor), 'Authorized sender only');
+        require(senders[msg.sender], 'Authorized sender only');
         _;
     }
 
+    /// @inheritdoc IPayer
     function pay(uint256 amount) external authorizedSenderOnly {
         _pay(payable(msg.sender), amount);
     }
 
+    /// @notice Automatically cover the outstanding debt to the system contract or callback proxy, provided the contract has sufficient funds.
     function coverDebt() external {
         uint256 amount = vendor.debt(address(this));
         _pay(payable(vendor), amount);
     }
 
+    /// @notice Attempts to safely transfer the specified sum to the given address.
+    /// @param recipient Address of the transfer's recipient.
+    /// @param amount Amount to be transferred.
     function _pay(address payable recipient, uint256 amount) internal {
         require(address(this).balance >= amount, 'Insufficient funds');
         if (amount > 0) {
@@ -221,22 +234,33 @@ abstract contract AbstractPayer is IPayer {
             require(success, 'Transfer failed');
         }
     }
+
+    /// @notice Adds the given address to the ACL.
+    /// @param sender Sender address to add.
+    function addAuthorizedSender(address sender) internal {
+        senders[sender] = true;
+    }
+
+    /// @notice Removes the given address from the ACL.
+    /// @param sender Sender address to remove.
+    function removeAuthorizedSender(address sender) internal {
+        senders[sender] = false;
+    }
 }
+
 
 
 
 // @title Interface for event subscription service.
 // @notice Reactive contracts receive notifications about new events matching the criteria of their event subscriptions.
-interface ISubscriptionService {
-    // @notice Subscribes the calling contract to receive events matching the criteria specified.
-    // @param chain_id EIP155 origin chain ID for the event (as a uint256), or 0 for all chains.
-    // @param _contract Contract address to monitor, or 0 for all contracts.
-    // @param topic_0 Topic 0 to monitor, or REACTIVE_IGNORE for all topics.
-    // @param topic_1 Topic 1 to monitor, or REACTIVE_IGNORE for all topics.
-    // @param topic_2 Topic 2 to monitor, or REACTIVE_IGNORE for all topics.
-    // @param topic_3 Topic 3 to monitor, or REACTIVE_IGNORE for all topics.
-    // @dev At least one of criteria above must be non-REACTIVE_IGNORE.
-    // @dev Will allow duplicate or overlapping subscriptions, clients must ensure idempotency.
+interface ISubscriptionService is IPayable {
+    /// @notice Subscribes the calling contract to receive events matching the criteria specified.
+    /// @param chain_id EIP155 source chain ID for the event (as a 'uint256'), or '0' for all chains.
+    /// @param _contract Contract address to monitor, or '0' for all contracts.
+    /// @param topic_0 Topic 0 to monitor, or 'REACTIVE_IGNORE' for all topics.
+    /// @param topic_1 Topic 1 to monitor, or 'REACTIVE_IGNORE' for all topics.
+    /// @param topic_2 Topic 2 to monitor, or 'REACTIVE_IGNORE' for all topics.
+    /// @param topic_3 Topic 3 to monitor, or 'REACTIVE_IGNORE' for all topics.
     function subscribe(
         uint256 chain_id,
         address _contract,
@@ -246,14 +270,13 @@ interface ISubscriptionService {
         uint256 topic_3
     ) external;
 
-    // @notice Removes active subscription of the calling contract, matching the criteria specified, if one exists.
-    // @param chain_id Chain ID criterion of the original subscription.
-    // @param _contract Contract address criterion of the original subscription.
-    // @param topic_0 Topic 0 criterion of the original subscription.
-    // @param topic_1 Topic 0 criterion of the original subscription.
-    // @param topic_2 Topic 0 criterion of the original subscription.
-    // @param topic_3 Topic 0 criterion of the original subscription.
-    // @dev This is very expensive.
+    /// @notice Removes active subscription of the calling contract, matching the criteria specified, if one exists.
+    /// @param chain_id Chain ID criterion of the original subscription.
+    /// @param _contract Contract address criterion of the original subscription.
+    /// @param topic_0 Topic 0 criterion of the original subscription.
+    /// @param topic_1 Topic 0 criterion of the original subscription.
+    /// @param topic_2 Topic 0 criterion of the original subscription.
+    /// @param topic_3 Topic 0 criterion of the original subscription.
     function unsubscribe(
         uint256 chain_id,
         address _contract,
@@ -264,6 +287,7 @@ interface ISubscriptionService {
     ) external;
 }
 
+
 interface ISystemContract is IPayable, ISubscriptionService {
 }
 
@@ -272,36 +296,33 @@ abstract contract AbstractReactive is IReactive, AbstractPayer {
     uint256 internal constant REACTIVE_IGNORE = 0xa65f96fc951c35ead38878e0f0b7a3c744a6f5ccc1476b313353ce31712313ad;
     ISystemContract internal constant SERVICE_ADDR = ISystemContract(payable(0x0000000000000000000000000000000000fffFfF));
 
-    /**
-     * Indicates whether this is a ReactVM instance of the contract.
-     */
+    /// @notice Indicates whether this is a ReactVM instance of the contract.
     bool internal vm;
 
     ISystemContract internal service;
 
     constructor() {
         vendor = service = SERVICE_ADDR;
+        addAuthorizedSender(address(SERVICE_ADDR));
+        detectVm();
     }
 
     modifier rnOnly() {
-        // require(!vm, 'Reactive Network only');
+        require(!vm, 'Reactive Network only');
         _;
     }
 
     modifier vmOnly() {
-        // require(vm, 'VM only');
+        require(vm, 'VM only');
         _;
     }
 
-    modifier sysConOnly() {
-        require(msg.sender == address(service), 'System contract only');
-        _;
-    }
-
+    /// @notice Determines whether this copy of the contract is deployed to an RVM or the top-level Reactive Network by checking for the presence of the system contract at the predetermined address.
     function detectVm() internal {
-        bytes memory payload = abi.encodeWithSignature("ping()");
-        (bool result,) = address(service).call(payload);
-        vm = !result;
+        uint256 size;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { size := extcodesize(0x0000000000000000000000000000000000fffFfF) }
+        vm = size == 0;
     }
 }
 
@@ -323,6 +344,8 @@ abstract contract AbstractPausableReactive is IReactive, AbstractReactive {
         owner = msg.sender;
     }
 
+    /// @notice This function should return the list of subscriptions to pause/resume.
+    /// @return The list of subscriptions to pause/resume.
     function getPausableSubscriptions() virtual internal view returns (Subscription[] memory);
 
     modifier onlyOwner() {
@@ -330,6 +353,7 @@ abstract contract AbstractPausableReactive is IReactive, AbstractReactive {
         _;
     }
 
+    /// @notice Pauses the reactive contract by unsubscribing from events using the criteria provided by the implementation.
     function pause() external rnOnly onlyOwner {
         require(!paused, 'Already paused');
         Subscription[] memory subscriptions = getPausableSubscriptions();
@@ -346,6 +370,7 @@ abstract contract AbstractPausableReactive is IReactive, AbstractReactive {
         paused = true;
     }
 
+    /// @notice Resumed the reactive contract by subscribing to events using the criteria provided by the implementation.
     function resume() external rnOnly onlyOwner {
         require(paused, 'Not paused');
         Subscription[] memory subscriptions = getPausableSubscriptions();
@@ -363,7 +388,8 @@ abstract contract AbstractPausableReactive is IReactive, AbstractReactive {
     }
 }
 
-contract ReactiveContract is ${baseContract} {
+
+contract ${contractName} is ${baseContract} {
     // Chain and contract constants
     uint256 private constant ORIGIN_CHAIN_ID = ${originChainId};
     uint256 private constant DESTINATION_CHAIN_ID = ${destinationChainId};
@@ -372,35 +398,27 @@ contract ReactiveContract is ${baseContract} {
     uint64 private constant CALLBACK_GAS_LIMIT = 1000000;
 
     // Event topic constants
-    ${eventConstants}
+${eventConstants}
 
-    constructor() {
-        ${ownerAddress ? `owner = ${ownerAddress};` : ''}
+    constructor() payable {
+        ${ownerInitialization}
         ${pausedInitialization}
         
-        // Subscribe to all events
-        ${subscriptions}
+        // Subscribe to events
+        if (!vm) {
+${subscriptions}
+        }
     }
 
-    receive() external payable {}
+${pausableSubscriptionsFunction}
 
-    ${getPausableSubscriptionsFunction}
-
-    function react(
-        uint256 /*chain_id*/,
-        address /*_contract*/,
-        uint256 topic_0,
-        uint256 topic_1,
-        uint256 topic_2,
-        uint256 topic_3,
-        bytes calldata data,
-        uint256 /*block_number*/,
-        uint256 /*op_code*/
-    ) external vmOnly {
-        ${reactLogic}
+    function react(LogRecord calldata log) external vmOnly {
+        // Only process logs from our target contract
+        if (log._contract == ORIGIN_CONTRACT) {
+${reactLogic}
+        }
     }
-    }
-    `;
+}`;
 
     return template;
 };
