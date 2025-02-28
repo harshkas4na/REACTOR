@@ -78,7 +78,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     id: '11155111', 
     name: 'Ethereum Sepolia',
     dexName: 'Uniswap V2',
-    routerAddress: '0xb26b2de65d07ebb5e54c7f6282424d3be670e1f0',
+    routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
     factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
     stopOrderABI: stopOrderABISepolia,
     stopOrderBytecode: stopOrderByteCodeSepolia,
@@ -338,7 +338,7 @@ export default function UniswapStopOrderPage() {
       const signer = await provider.getSigner();
       
       // Get callback sender address from environment variable or configuration
-      const callbackSenderAddress = '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8';
+      const callbackSenderAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA';
       
       if (!callbackSenderAddress || !ethers.isAddress(callbackSenderAddress)) {
         throw new Error("Invalid or missing callback sender address. Check your environment variables.");

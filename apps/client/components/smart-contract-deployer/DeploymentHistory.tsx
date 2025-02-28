@@ -33,7 +33,7 @@ const NETWORK_EXPLORERS: NetworkExplorers = {
 // Callback proxy addresses for different chains
 export const CALLBACK_PROXIES: CallbackProxies = {
   // '1': '0x0', // Ethereum Mainnet - placeholder, replace with actual address
-  '11155111': '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8', // Sepolia
+  '11155111': '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA', // Sepolia
   '5318008': '0x0000000000000000000000000000000000fffFfF', // Kopli
   // '137': '0x0', // Polygon - placeholder, replace with actual address
   // '80001': '0x0', // Mumbai - placeholder, replace with actual address

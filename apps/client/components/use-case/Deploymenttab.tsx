@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 // Define callback proxy addresses for different chains
 const CALLBACK_PROXIES: { [chainId: string]: string } = {
   // '1': '0x0', // Ethereum Mainnet - placeholder
-  '11155111': '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8', // Sepolia
+  '11155111': '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA', // Sepolia
   '5318008': '0x0000000000000000000000000000000000fffFfF', // Kopli
   // '137': '0x0', // Polygon - placeholder
   // '80001': '0x0', // Mumbai - placeholder
