@@ -83,24 +83,58 @@ const DeploymentTab = ({
     chainId: string;
   }>({ isCorrectNetwork: false, currentNetwork: '', chainId: '' });
   
+  const { account, web3 } = useWeb3();
+  const { setOriginAddress, setDestinationAddress, callbackSender, setCallbackSender } = useAutomationContext();
+
+  // Update network status when web3 is available
+  useEffect(() => {
+    const checkNetwork = async () => {
+      if (web3) {
+        const chainId = await web3.eth.getChainId();
+        const chainIdStr = chainId.toString();
+        const isKopli = chainId === BigInt(5318008);
+        const networkName = 
+          chainId === BigInt(5318008) ? 'Kopli' : 
+          chainId === BigInt(1) ? 'Ethereum Mainnet' :
+          chainId === BigInt(11155111) ? 'Sepolia' :
+          chainId === BigInt(137) ? 'Polygon' :
+          chainId === BigInt(80001) ? 'Mumbai' :
+          `Chain ID: ${chainId}`;
+        
+        setNetworkStatus({
+          isCorrectNetwork: isKopli,
+          currentNetwork: networkName,
+          chainId: chainIdStr
+        });
+        
+        // Update callback sender when network changes
+        if (CALLBACK_PROXIES[chainIdStr]) {
+          setCallbackSender(CALLBACK_PROXIES[chainIdStr]);
+        }
+      }
+    };
+    
+    checkNetwork();
+  }, [web3, setCallbackSender]);
+
   // Initialize constructor args with callback proxy
   const initialConstructorArgs = useMemo(() => {
-    const parseConstructorArgs = (abi: string): Record<string, string> => {
+    const parseConstructorArgs = (abi: string, isOriginWithCallback = false): Record<string, string> => {
       try {
         const parsedABI = JSON.parse(abi);
         const constructor = parsedABI.find((item: any) => item.type === 'constructor');
         
-        // For destination contract, automatically set callback_sender if it's the first parameter
         if (constructor?.inputs && constructor.inputs.length > 0) {
           const result: Record<string, string> = {};
           
           constructor.inputs.forEach((input: any, index: number) => {
-            // For destination contracts with callback_sender as first parameter
-            if (index === 0 && 
+            // Set callback_sender for destination contracts or origin contracts that are also destination
+            if ((index === 0 && 
                 (input.name === 'callback_sender' || input.name === '_callback_sender') && 
                 networkStatus.chainId && 
-                CALLBACK_PROXIES[networkStatus.chainId]) {
-              result[input.name] = CALLBACK_PROXIES[networkStatus.chainId];
+                CALLBACK_PROXIES[networkStatus.chainId]) ||
+                (isOriginWithCallback && (input.name === 'callback_sender' || input.name === '_callback_sender'))) {
+              result[input.name] = CALLBACK_PROXIES[networkStatus.chainId] || '';
             } else {
               result[input.name] = '';
             }
@@ -123,7 +157,8 @@ const DeploymentTab = ({
     });
   
     return {
-      origin: parseConstructorArgs(originABI),
+      // Pass true to indicate this origin contract also serves as destination when contracts are identical
+      origin: parseConstructorArgs(originABI, areContractsIdentical),
       destination: !areContractsIdentical ? parseConstructorArgs(destinationABI) : {},
       reactive: parseConstructorArgs(reactiveABI),
       helpers: helperArgs
@@ -131,6 +166,41 @@ const DeploymentTab = ({
   }, [originABI, destinationABI, reactiveABI, areContractsIdentical, helperContracts, networkStatus.chainId]);
 
   const [constructorArgs, setConstructorArgs] = useState(initialConstructorArgs);
+
+  // Update constructor args when network changes
+  useEffect(() => {
+    if (networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId]) {
+      // Start with current constructor args
+      const updatedArgs = {...constructorArgs};
+      
+      // Update destination contract callback sender
+      if (!areContractsIdentical) {
+        const destArgs = {...updatedArgs.destination};
+        Object.keys(destArgs).forEach(key => {
+          if (key === 'callback_sender' || key === '_callback_sender') {
+            destArgs[key] = CALLBACK_PROXIES[networkStatus.chainId];
+          }
+        });
+        updatedArgs.destination = destArgs;
+      }
+      
+      // Update origin contract callback sender if contracts are identical
+      if (areContractsIdentical) {
+        const originArgs = {...updatedArgs.origin};
+        Object.keys(originArgs).forEach(key => {
+          if (key === 'callback_sender' || key === '_callback_sender') {
+            originArgs[key] = CALLBACK_PROXIES[networkStatus.chainId];
+          }
+        });
+        updatedArgs.origin = originArgs;
+      }
+      
+      setConstructorArgs(updatedArgs);
+      
+      // Also update the callback sender in context
+      setCallbackSender(CALLBACK_PROXIES[networkStatus.chainId]);
+    }
+  }, [networkStatus.chainId, setCallbackSender, areContractsIdentical]);
 
   const [deploymentMode, setDeploymentMode] = useState<Record<string, string>>(() => {
     const modes: Record<string, string> = {
@@ -190,31 +260,6 @@ const DeploymentTab = ({
   // New state for callback sender display
   const [showCallbackInfo, setShowCallbackInfo] = useState(false);
 
-  const { account, web3 } = useWeb3();
-  const { setOriginAddress, setDestinationAddress, callbackSender, setCallbackSender } = useAutomationContext();
-
-  // Update constructor args when network changes
-  useEffect(() => {
-    if (networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId]) {
-      const destArgs = {...constructorArgs.destination};
-      
-      // Look for callback_sender parameter
-      Object.keys(destArgs).forEach(key => {
-        if (key === 'callback_sender' || key === '_callback_sender') {
-          destArgs[key] = CALLBACK_PROXIES[networkStatus.chainId];
-        }
-      });
-      
-      setConstructorArgs(prev => ({
-        ...prev,
-        destination: destArgs
-      }));
-      
-      // Also update the callback sender in context
-      setCallbackSender(CALLBACK_PROXIES[networkStatus.chainId]);
-    }
-  }, [networkStatus.chainId, setCallbackSender]);
-
   const handleConstructorArgChange = (
     type: string,
     name: string,
@@ -242,7 +287,8 @@ const DeploymentTab = ({
       }));
       
       // Update callback sender in context if this is the callback_sender parameter
-      if ((name === 'callback_sender' || name === '_callback_sender') && type === 'destination') {
+      if ((name === 'callback_sender' || name === '_callback_sender') && 
+          (type === 'destination' || (type === 'origin' && areContractsIdentical))) {
         setCallbackSender(value);
       }
     }
@@ -305,36 +351,64 @@ const DeploymentTab = ({
     }
   };
 
-  useEffect(() => {
-    const checkNetwork = async () => {
-      if (web3) {
-        const chainId = await web3.eth.getChainId();
-        const chainIdStr = chainId.toString();
-        const isKopli = chainId === BigInt(5318008);
-        const networkName = 
-          chainId === BigInt(5318008) ? 'Kopli' : 
-          chainId === BigInt(1) ? 'Ethereum Mainnet' :
-          chainId === BigInt(11155111) ? 'Sepolia' :
-          chainId === BigInt(137) ? 'Polygon' :
-          chainId === BigInt(80001) ? 'Mumbai' :
-          `Chain ID: ${chainId}`;
-        
-        setNetworkStatus({
-          isCorrectNetwork: isKopli,
-          currentNetwork: networkName,
-          chainId: chainIdStr
-        });
-        
-        // Update callback sender when network changes
-        if (CALLBACK_PROXIES[chainIdStr]) {
-          setCallbackSender(CALLBACK_PROXIES[chainIdStr]);
-        }
-      }
-    };
+  // Function to render the callback sender information for destination contracts
+  const renderCallbackSenderInfo = () => {
+    if (!networkStatus.chainId) return null;
     
-    checkNetwork();
-  }, [web3, setCallbackSender]);
-
+    const callbackAddress = CALLBACK_PROXIES[networkStatus.chainId] || 'Not available for this network';
+    
+    return (
+      <div className="mt-4 p-4 bg-blue-900/20 rounded-lg border border-blue-800/50">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-md font-medium text-blue-300">Callback Sender Information</h4>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowCallbackInfo(!showCallbackInfo)}
+            className="text-blue-300 hover:text-blue-100"
+          >
+            {showCallbackInfo ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+        
+        {showCallbackInfo && (
+          <div className="space-y-3 text-sm text-zinc-300">
+            <div>
+              <Label className="text-blue-200">Network</Label>
+              <div className="text-zinc-300 mt-1">{networkStatus.currentNetwork}</div>
+            </div>
+            
+            <div>
+              <Label className="text-blue-200">Callback Proxy Address</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="bg-blue-900/30 px-2 py-1 rounded text-zinc-300 font-mono text-xs break-all">
+                  {callbackAddress}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(callbackAddress);
+                    toast.success("Callback address copied to clipboard");
+                  }}
+                  className="whitespace-nowrap text-xs h-7"
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+            
+            <Alert className="bg-blue-900/10 border-blue-800/30 py-2">
+              <AlertDescription className="text-zinc-300 text-xs">
+                This address will be automatically used as the first constructor parameter for destination contracts. 
+                It ensures the validity of callback transactions by verifying they originate from the Reactive Network.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+      </div>
+    );
+  };
   // Helper function to render the deploy button content
   const renderDeployButton = (type: string, isDeploying: boolean) => {
     if (!web3 || !account) {
@@ -460,17 +534,31 @@ const DeploymentTab = ({
           setCallbackSender(CALLBACK_PROXIES[chainIdStr]);
           
           // Update in constructor args too
-          const destArgs = {...constructorArgs.destination};
-          Object.keys(destArgs).forEach(key => {
-            if (key === 'callback_sender' || key === '_callback_sender') {
-              destArgs[key] = CALLBACK_PROXIES[chainIdStr];
-            }
-          });
-          
-          setConstructorArgs(prev => ({
-            ...prev,
-            destination: destArgs
-          }));
+          if (type === 'destination') {
+            const destArgs = {...constructorArgs.destination};
+            Object.keys(destArgs).forEach(key => {
+              if (key === 'callback_sender' || key === '_callback_sender') {
+                destArgs[key] = CALLBACK_PROXIES[chainIdStr];
+              }
+            });
+            
+            setConstructorArgs(prev => ({
+              ...prev,
+              destination: destArgs
+            }));
+          } else if (type === 'origin' && areContractsIdentical) {
+            const originArgs = {...constructorArgs.origin};
+            Object.keys(originArgs).forEach(key => {
+              if (key === 'callback_sender' || key === '_callback_sender') {
+                originArgs[key] = CALLBACK_PROXIES[chainIdStr];
+              }
+            });
+            
+            setConstructorArgs(prev => ({
+              ...prev,
+              origin: originArgs
+            }));
+          }
         } else {
           toast.error(`Callback sender address is not set for network ${networkStatus.currentNetwork}`, {
             id: deploymentToast
@@ -691,7 +779,7 @@ const DeploymentTab = ({
             <Label className="text-gray-300">Contract Address</Label>
             <div className="flex items-center gap-2">
               <Input
-                value={info.address}
+                value={info.address ? info.address:"0x0"}
                 readOnly
                 className="mt-1 bg-gray-700 text-gray-200 font-mono"
               />
@@ -724,65 +812,6 @@ const DeploymentTab = ({
             </div>
           </div>
         </div>
-      </div>
-    );
-  };
-
-  // Function to render callback sender information for destination contracts
-  const renderCallbackSenderInfo = () => {
-    if (!networkStatus.chainId) return null;
-    
-    const callbackAddress = CALLBACK_PROXIES[networkStatus.chainId] || 'Not available for this network';
-    
-    return (
-      <div className="mt-4 p-4 bg-blue-900/20 rounded-lg border border-blue-800/50">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-md font-medium text-blue-300">Callback Sender Information</h4>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setShowCallbackInfo(!showCallbackInfo)}
-            className="text-blue-300 hover:text-blue-100"
-          >
-            {showCallbackInfo ? 'Hide' : 'Show'}
-          </Button>
-        </div>
-        
-        {showCallbackInfo && (
-          <div className="space-y-3 text-sm text-zinc-300">
-            <div>
-              <Label className="text-blue-200">Network</Label>
-              <div className="text-zinc-300 mt-1">{networkStatus.currentNetwork}</div>
-            </div>
-            
-            <div>
-              <Label className="text-blue-200">Callback Proxy Address</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="bg-blue-900/30 px-2 py-1 rounded text-zinc-300 font-mono text-xs break-all">
-                  {callbackAddress}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(callbackAddress);
-                    toast.success("Callback address copied to clipboard");
-                  }}
-                  className="whitespace-nowrap text-xs h-7"
-                >
-                  Copy
-                </Button>
-              </div>
-            </div>
-            
-            <Alert className="bg-blue-900/10 border-blue-800/30 py-2">
-              <AlertDescription className="text-zinc-300 text-xs">
-                This address will be automatically used as the first constructor parameter for destination contracts. 
-                It ensures the validity of callback transactions by verifying they originate from the Reactive Network.
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
       </div>
     );
   };
@@ -1404,4 +1433,5 @@ const DeploymentTab = ({
     </div>
   );
 };
+
 export default DeploymentTab;
