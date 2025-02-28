@@ -333,22 +333,49 @@ export default function UniswapStopOrderPage() {
   }
 
   async function deployDestinationContract(chain: ChainConfig) {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    
-    const factory = new ethers.ContractFactory(
-      chain.stopOrderABI,
-      chain.stopOrderBytecode,
-      signer
-    );
-
-    const contract = await factory.deploy(
-      chain.routerAddress,
-      { value: ethers.parseEther("0.1") }
-    );
-    
-    await contract.waitForDeployment();
-    return contract.target.toString();
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      // Get callback sender address from environment variable or configuration
+      const callbackSenderAddress = '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8';
+      
+      if (!callbackSenderAddress || !ethers.isAddress(callbackSenderAddress)) {
+        throw new Error("Invalid or missing callback sender address. Check your environment variables.");
+      }
+      
+      console.log("Using callback sender address:", callbackSenderAddress);
+      console.log("Using router address:", chain.routerAddress);
+      
+      // Create contract factory
+      const factory = new ethers.ContractFactory(
+        chain.stopOrderABI,
+        chain.stopOrderBytecode,
+        signer
+      );
+      
+      // Deploy with BOTH required constructor parameters
+      // The constructor expects TWO parameters, not one:
+      // 1. callback_sender (address)
+      // 2. _router (address)
+      const contract = await factory.deploy(
+        callbackSenderAddress,  // This was missing before!
+        chain.routerAddress,
+        { value: ethers.parseEther("0.1") }
+      );
+      
+      console.log("Deployment transaction sent:", contract.deploymentTransaction()?.hash);
+      
+      // Wait for deployment
+      await contract.waitForDeployment();
+      const deployedAddress = await contract.getAddress();
+      
+      console.log("Contract deployed at:", deployedAddress);
+      return deployedAddress;
+    } catch (error) {
+      console.error("Error in deployDestinationContract:", error);
+      throw error;
+    }
   }
 
   async function approveTokens(tokenAddress: string, spenderAddress: string, amount: string) {
