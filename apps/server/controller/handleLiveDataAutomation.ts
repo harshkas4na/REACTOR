@@ -445,7 +445,6 @@ ${subscriptions}
         }
     }
 
-    receive() external payable {}
 
 ${pausableSubscriptionsFunction}
 

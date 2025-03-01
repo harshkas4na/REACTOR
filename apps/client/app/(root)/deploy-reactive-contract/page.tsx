@@ -259,7 +259,7 @@ export default function AutomationPage() {
         )}
 
         {/* Deployment Success Card */}
-        {deployedAddress && (
+        {/* {deployedAddress && (
           <Card className="relative z-20 pointer-events-auto bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-zinc-800">
             <CardHeader className="bg-gradient-to-r from-green-600/10 to-teal-600/10 p-6 rounded-t-lg">
               <CardTitle className="text-2xl font-bold text-zinc-100">
@@ -286,7 +286,7 @@ export default function AutomationPage() {
               </Button>
             </CardContent>
           </Card>
-        )}
+        )} */}
       </div>
     </div>
   );

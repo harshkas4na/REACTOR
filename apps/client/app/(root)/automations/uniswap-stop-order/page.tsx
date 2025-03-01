@@ -18,7 +18,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Info, AlertCircle, Shield, Clock, Zap, Loader2 } from 'lucide-react';
+import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
 import { toast } from 'react-hot-toast';
 import PairFinder from '@/components/pair-finder'; // Import the PairFinder component
@@ -268,20 +268,42 @@ export default function UniswapStopOrderPage() {
     }
   };
 
-  const switchNetwork = async (chainId: string) => {
-    if (!window.ethereum) throw new Error('MetaMask is not installed');
+  // Enhanced network switching function with better error handling
+const switchNetwork = async (chainId: string) => {
+  if (!window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
 
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${parseInt(chainId).toString(16)}` }],
-      });
+  try {
+    // Check if already on the correct network
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const network = await provider.getNetwork();
+    const currentChainId = network.chainId.toString();
+    
+    if (currentChainId === chainId) {
+      console.log(`Already on chain ${chainId}`);
       return true;
-    } catch (error: any) {
-      if (error.code === 4902) {
-        const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
-        if (!chain) throw new Error('Chain not supported');
-        
+    }
+    
+    console.log(`Switching to chain ${chainId}`);
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: `0x${parseInt(chainId).toString(16)}` }],
+    });
+    
+    // Verify the switch was successful
+    const newNetwork = await provider.getNetwork();
+    if (newNetwork.chainId.toString() !== chainId) {
+      throw new Error('Network switch failed or was rejected');
+    }
+    
+    return true;
+  } catch (error: any) {
+    if (error.code === 4902) {
+      // Chain not added to wallet, attempt to add it
+      console.log(`Chain ${chainId} not added to wallet, attempting to add it`);
+      const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
+      if (!chain) throw new Error('Chain not supported in this application');
+      
+      try {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
@@ -292,26 +314,62 @@ export default function UniswapStopOrderPage() {
               symbol: chain.id === '43114' ? 'AVAX' : 'ETH',
               decimals: 18
             },
-            rpcUrls: [chain.rpcUrl || '']
+            rpcUrls: [chain.rpcUrl || ''],
+            blockExplorerUrls: [
+              chain.id === '1' ? 'https://etherscan.io' : 
+              chain.id === '11155111' ? 'https://sepolia.etherscan.io' :
+              chain.id === '43114' ? 'https://snowtrace.io' : ''
+            ]
           }],
         });
+        
+        // Verify the add and switch was successful
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        if (network.chainId.toString() !== chainId) {
+          throw new Error('Network add succeeded but switch failed or was rejected');
+        }
+        
         return true;
+      } catch (addError: any) {
+        throw new Error(`Failed to add chain: ${addError.message || 'User rejected the request'}`);
       }
-      throw error;
     }
-  };
+    throw new Error(`Network switch failed: ${error.message || 'User rejected the request'}`);
+  }
+};
 
-  async function switchToKopliNetwork() {
-    if (!window.ethereum) throw new Error('MetaMask is not installed');
+// Enhanced Kopli network switching with better error handling
+async function switchToKopliNetwork() {
+  if (!window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
 
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x512578' }], // Kopli chainId: 5318008
-      });
+  try {
+    // Check if already on Kopli
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const network = await provider.getNetwork();
+    if (network.chainId.toString() === '5318008') {
+      console.log('Already on Kopli network');
       return true;
-    } catch (error: any) {
-      if (error.code === 4902) {
+    }
+    
+    console.log('Switching to Kopli network...');
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x512578' }], // Kopli chainId: 5318008
+    });
+    
+    // Verify the switch was successful
+    const newNetwork = await provider.getNetwork();
+    if (newNetwork.chainId.toString() !== '5318008') {
+      throw new Error('Kopli network switch failed or was rejected');
+    }
+    
+    return true;
+  } catch (error: any) {
+    if (error.code === 4902) {
+      // Kopli not added to wallet, attempt to add it
+      console.log('Kopli network not added to wallet, attempting to add it');
+      try {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
@@ -326,11 +384,22 @@ export default function UniswapStopOrderPage() {
             blockExplorerUrls: ['https://kopli.reactscan.net']
           }],
         });
+        
+        // Verify the add and switch was successful
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        if (network.chainId.toString() !== '5318008') {
+          throw new Error('Kopli network added but switch failed or was rejected');
+        }
+        
         return true;
+      } catch (addError: any) {
+        throw new Error(`Failed to add Kopli network: ${addError.message || 'User rejected the request'}`);
       }
-      throw error;
     }
+    throw new Error(`Kopli network switch failed: ${error.message || 'User rejected the request'}`);
   }
+}
 
   async function deployDestinationContract(chain: ChainConfig) {
     try {
@@ -436,13 +505,13 @@ export default function UniswapStopOrderPage() {
       if (chainId !== 5318008) {
         throw new Error('Please switch to Kopli network for RSC deployment');
       }
-
+  
       const factory = new ethers.ContractFactory(
         chain.rscABI,
         chain.rscBytecode,
         signer
       );
-
+  
       const deploymentGas = await factory.getDeployTransaction(
         params.pair,
         params.stopOrder,
@@ -451,20 +520,21 @@ export default function UniswapStopOrderPage() {
         params.coefficient,
         params.threshold
       ).then(tx => provider.estimateGas(tx));
-
+  
       const gasLimit = (deploymentGas * BigInt(120)) / BigInt(100);
       const gasPrice = await provider.getFeeData().then(fees => fees.gasPrice);
       
       if (!gasPrice) throw new Error('Failed to get gas price');
-
+  
       const signerAddress = await signer.getAddress();
       const balance = await provider.getBalance(signerAddress);
-      const requiredBalance = gasLimit * gasPrice;
-
+      const requiredBalance = gasLimit * gasPrice + ethers.parseEther("0.1"); // Include 0.1 REACT
+  
       if (balance < requiredBalance) {
-        throw new Error('Insufficient balance for RSC deployment');
+        throw new Error('Insufficient balance for RSC deployment and funding');
       }
-
+  
+      // Deploy with 0.1 REACT
       const contract = await factory.deploy(
         params.pair,
         params.stopOrder,
@@ -474,13 +544,14 @@ export default function UniswapStopOrderPage() {
         params.threshold,
         {
           gasLimit,
-          gasPrice
+          gasPrice,
+          value: ethers.parseEther("0.1") // Adding 0.1 REACT funding
         }
       );
-
+  
       const deployedContract = await contract.waitForDeployment();
       return deployedContract.target.toString();
-
+  
     } catch (error: any) {
       console.error('Error deploying RSC:', error);
       throw new Error(`RSC deployment failed: ${error.message || 'Unknown error'}`);
@@ -490,48 +561,326 @@ export default function UniswapStopOrderPage() {
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Form validation
+      if (!formData.chainId) {
+        throw new Error('Please select a blockchain network');
+      }
+      if (!formData.pairAddress || !ethers.isAddress(formData.pairAddress)) {
+        throw new Error('Please enter a valid pair address');
+      }
+      if (!formData.clientAddress || !ethers.isAddress(formData.clientAddress)) {
+        throw new Error('Please enter a valid client address');
+      }
+      if (!formData.threshold) {
+        throw new Error('Please enter a threshold value');
+      }
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        throw new Error('Please enter a valid amount to sell');
+      }
+      
       // Get selected chain configuration
       const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
       if (!selectedChain) throw new Error('Invalid chain selected');
-
+  
+      // Check if user is on the correct network
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+      const currentChainId = network.chainId.toString();
+      
+      if (currentChainId !== formData.chainId) {
+        throw new Error(`Please switch to ${selectedChain.name} network before proceeding`);
+      }
+  
+      // Check if user has enough balance for destination contract deployment
+      const signer = await provider.getSigner();
+      const signerAddress = await signer.getAddress();
+      const balance = await provider.getBalance(signerAddress);
+      const estimatedCost = ethers.parseEther("0.11"); // 0.1 ETH + gas
+  
+      if (balance < estimatedCost) {
+        throw new Error(`Insufficient balance for deployment. You need at least 0.11 ${selectedChain.id === '43114' ? 'AVAX' : 'ETH'} on ${selectedChain.name}`);
+      }
+  
       // Step 1: Deploy Destination Contract
       setDeploymentStep('deploying-destination');
-      const destinationAddress = await deployDestinationContract(selectedChain);
-
+      let destinationAddress;
+      try {
+        destinationAddress = await deployDestinationContract(selectedChain);
+      } catch (error: any) {
+        console.error("Destination contract deployment failed:", error);
+        throw new Error(`Failed to deploy destination contract: ${error.message || 'Unknown error'}`);
+      }
+  
       // Step 2: Approve Token Spending
       setDeploymentStep('approving');
       const tokenToApprove = formData.sellToken0 ? pairInfo?.token0 : pairInfo?.token1;
       if (!tokenToApprove) throw new Error('Token address not found');
       
-      await approveTokens(
-        tokenToApprove,
-        destinationAddress,
-        formData.amount
-      );
-
+      try {
+        await approveTokens(
+          tokenToApprove,
+          destinationAddress,
+          formData.amount
+        );
+      } catch (error: any) {
+        if (error.message.includes("insufficient allowance")) {
+          throw new Error(`Token approval failed: You don't have enough ${formData.sellToken0 ? pairInfo?.token0Symbol : pairInfo?.token1Symbol} tokens`);
+        } else {
+          throw new Error(`Token approval failed: ${error.message}`);
+        }
+      }
+  
       // Step 3: Switch to Kopli network
       setDeploymentStep('switching-network');
-      await switchToKopliNetwork();
-
+      try {
+        await switchToKopliNetwork();
+      } catch (error: any) {
+        throw new Error(`Failed to switch to Kopli network: ${error.message}. Please add Kopli network to your wallet manually.`);
+      }
+  
+      // Check if user has enough REACT for RSC deployment
+      const kopliProvider = new ethers.BrowserProvider(window.ethereum);
+      const kopliBalance = await kopliProvider.getBalance(signerAddress);
+      const reactEstimatedCost = ethers.parseEther("0.12"); // 0.1 REACT + gas
+  
+      if (kopliBalance < reactEstimatedCost) {
+        throw new Error(`Insufficient REACT balance. You need at least 0.12 REACT on Kopli network. Please obtain some REACT from the faucet.`);
+      }
+  
       // Step 4: Deploy RSC
       setDeploymentStep('deploying-rsc');
-      await deployRSC({
-        pair: formData.pairAddress,
-        stopOrder: destinationAddress,
-        client: formData.clientAddress,
-        token0: formData.sellToken0,
-        coefficient: formData.coefficient,
-        threshold: formData.threshold
-      }, selectedChain);
-
+      try {
+        await deployRSC({
+          pair: formData.pairAddress,
+          stopOrder: destinationAddress,
+          client: formData.clientAddress,
+          token0: formData.sellToken0,
+          coefficient: formData.coefficient,
+          threshold: formData.threshold
+        }, selectedChain);
+      } catch (error: any) {
+        console.error("RSC deployment failed:", error);
+        if (error.message.includes("insufficient funds")) {
+          throw new Error(`RSC deployment failed: Insufficient REACT. You need at least 0.1 REACT plus gas.`);
+        } else {
+          throw new Error(`RSC deployment failed: ${error.message}`);
+        }
+      }
+  
       setDeploymentStep('complete');
       toast.success('Stop order created successfully!');
+      
+      // Add a helpful message about what to expect
+      setTimeout(() => {
+        toast.success('Your stop order is now active and monitoring prices 24/7');
+      }, 1000);
+      
     } catch (error: any) {
       console.error('Error creating stop order:', error);
-      toast.error(error.message || 'Failed to create stop order');
+      
+      // Clear the deployment step to allow retrying
       setDeploymentStep('idle');
+      
+      // Show detailed error message
+      toast.error(error.message || 'Failed to create stop order');
+      
+      // Provide guidance based on error type
+      if (error.message.includes("Insufficient balance") || error.message.includes("insufficient funds")) {
+        toast.error('Please make sure you have enough funds for both deployment and gas fees');
+      } else if (error.message.includes("approval") || error.message.includes("allowance")) {
+        toast.error('Please ensure you have enough tokens and have granted approval');
+      } else if (error.message.includes("switch")) {
+        toast.error('Please add Kopli network to your wallet if not already added');
+      }
     }
   };
+
+  // Helper function to check if user has sufficient balance for operations
+async function checkBalances() {
+  if (!window.ethereum) throw new Error('No wallet detected');
+  
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const userAddress = await signer.getAddress();
+    
+    // Check balance on current chain
+    const currentNetwork = await provider.getNetwork();
+    const currentChainId = currentNetwork.chainId.toString();
+    const nativeBalance = await provider.getBalance(userAddress);
+    
+    const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
+    if (!selectedChain) return null;
+    
+    // If we're on the source chain
+    if (currentChainId === formData.chainId) {
+      const requiredBalance = ethers.parseEther("0.11"); // 0.1 ETH/AVAX + gas
+      const hasEnoughForDestination = nativeBalance >= requiredBalance;
+      
+      // Check token balance if pair info is available
+      let tokenBalance = null;
+      let hasEnoughTokens = false;
+      
+      if (pairInfo) {
+        const tokenToSell = formData.sellToken0 ? pairInfo.token0 : pairInfo.token1;
+        const tokenSymbol = formData.sellToken0 ? pairInfo.token0Symbol : pairInfo.token1Symbol;
+        
+        try {
+          const tokenContract = new ethers.Contract(
+            tokenToSell,
+            ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'],
+            provider
+          );
+          
+          const decimals = await tokenContract.decimals();
+          tokenBalance = await tokenContract.balanceOf(userAddress);
+          const requiredTokenAmount = ethers.parseUnits(formData.amount || '0', decimals);
+          
+          hasEnoughTokens = tokenBalance >= requiredTokenAmount;
+        } catch (error) {
+          console.error("Error checking token balance:", error);
+        }
+      }
+      
+      return {
+        isSourceChain: true,
+        nativeBalance: ethers.formatEther(nativeBalance),
+        requiredNativeBalance: "0.11",
+        nativeSymbol: selectedChain.id === '43114' ? 'AVAX' : 'ETH',
+        hasEnoughForDestination,
+        tokenBalance: tokenBalance ? ethers.formatUnits(tokenBalance, 18) : null,
+        hasEnoughTokens,
+        tokenSymbol: formData.sellToken0 ? pairInfo?.token0Symbol : pairInfo?.token1Symbol
+      };
+    }
+    
+    // If we're on Kopli
+    if (currentChainId === '5318008') {
+      const requiredBalance = ethers.parseEther("0.11"); // 0.1 REACT + gas
+      const hasEnoughForRSC = nativeBalance >= requiredBalance;
+      
+      return {
+        isSourceChain: false,
+        nativeBalance: ethers.formatEther(nativeBalance),
+        requiredNativeBalance: "0.11",
+        nativeSymbol: "REACT",
+        hasEnoughForRSC
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error checking balances:", error);
+    return null;
+  }
+}
+
+// Function to show balance warnings
+// Function to show balance warnings and return validation state
+// Function to show balance warnings and return validation state
+function BalanceWarnings() {
+  const [balanceInfo, setBalanceInfo] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isValid, setIsValid] = useState(false);
+  
+  // Function to refresh balance data
+  const refreshBalances = async () => {
+    if (!formData.chainId || !connectedAccount) {
+      setIsValid(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const info = await checkBalances();
+      setBalanceInfo(info);
+      
+      // Check if all conditions are met
+      if (info) {
+        const hasRequiredBalances = info.isSourceChain ? 
+          (info.hasEnoughForDestination && (!info.tokenBalance || info.hasEnoughTokens)) : 
+          info.hasEnoughForRSC;
+          
+        const formIsValid = 
+          !!formData.chainId && 
+          !!formData.pairAddress && 
+          !!formData.clientAddress && 
+          !!formData.threshold && 
+          !!formData.amount && 
+          parseFloat(formData.amount) > 0 &&
+          !!pairInfo &&
+          hasRequiredBalances;
+          
+        setIsValid(formIsValid as boolean);
+      } else {
+        setIsValid(false);
+      }
+    } catch (error) {
+      console.error("Error refreshing balances:", error);
+      setIsValid(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Check balances when relevant form data changes
+  useEffect(() => {
+    refreshBalances();
+  }, [formData.chainId, formData.pairAddress, formData.clientAddress, formData.amount, formData.threshold, formData.sellToken0, connectedAccount, pairInfo]);
+  
+  // Return both the UI and validation state
+  return {
+    isValid,
+    warningsUI: (
+      <div className="space-y-2">
+        {balanceInfo?.isSourceChain && (
+          <>
+            {!balanceInfo.hasEnoughForDestination && (
+              <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-200">
+                  You need at least {balanceInfo.requiredNativeBalance} {balanceInfo.nativeSymbol} on {
+                    SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId)?.name
+                  } for the destination contract.
+                  Current balance: {balanceInfo.nativeBalance} {balanceInfo.nativeSymbol}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {balanceInfo.tokenBalance !== null && !balanceInfo.hasEnoughTokens && (
+              <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-200">
+                  You don't have enough {balanceInfo.tokenSymbol} tokens to sell {formData.amount || '0'}.
+                  Current balance: {balanceInfo.tokenBalance}
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
+        )}
+        
+        {balanceInfo && !balanceInfo.isSourceChain && balanceInfo.hasEnoughForRSC === false && (
+          <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
+            <AlertCircle className="h-4 w-4 text-red-400" />
+            <AlertDescription className="text-red-200">
+              You need at least {balanceInfo.requiredNativeBalance || "0.11"} REACT on Kopli network for the RSC contract.
+              Current balance: {balanceInfo.nativeBalance || "0"} REACT
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full bg-blue-900/20 border-blue-500/20 text-blue-400 hover:bg-blue-800/30"
+          onClick={refreshBalances}
+        >
+          <RefreshCw className="h-3 w-3 mr-2" /> Refresh Balance Info
+        </Button>
+      </div>
+    )
+  };
+}
 
   // Get current price ratio if pair info is available
   const currentPriceRatio = pairInfo && pairInfo.reserve0 && pairInfo.reserve1 
@@ -539,6 +888,8 @@ export default function UniswapStopOrderPage() {
       ? (parseFloat(pairInfo.reserve1) / parseFloat(pairInfo.reserve0)).toFixed(8) 
       : (parseFloat(pairInfo.reserve0) / parseFloat(pairInfo.reserve1)).toFixed(8)
     : 'Not available';
+
+  const { isValid, warningsUI } = BalanceWarnings();
 
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -875,24 +1226,92 @@ export default function UniswapStopOrderPage() {
                   className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
                 />
               </div>
+
+              {warningsUI}
               
+              {/* Enhanced Error Alert Component */}
               {deploymentStep !== 'idle' && (
-                <Alert className="bg-blue-900/20 border-blue-500/50">
-                  <AlertCircle className="h-4 w-4 text-blue-400" />
+                <Alert className={
+                  deploymentStep === 'complete' 
+                    ? "bg-green-900/20 border-green-500/50" 
+                    : "bg-blue-900/20 border-blue-500/50"
+                }>
+                  {deploymentStep === 'complete' 
+                    ? <CheckCircle className="h-4 w-4 text-green-400" /> 
+                    : <Clock className="h-4 w-4 text-blue-400 animate-pulse" />
+                  }
                   <AlertDescription className="text-zinc-200">
-                    {deploymentStep === 'deploying-destination' && 'Deploying destination contract...'}
-                    {deploymentStep === 'switching-network' && 'Switching to Kopli network...'}
-                    {deploymentStep === 'deploying-rsc' && 'Deploying reactive smart contract...'}
-                    {deploymentStep === 'approving' && 'Approving token spending...'}
-                    {deploymentStep === 'complete' && 'Stop order created successfully!'}
+                    {deploymentStep === 'deploying-destination' && (
+                      <div className="flex flex-col gap-1">
+                        <span>Deploying destination contract...</span>
+                        <span className="text-xs text-zinc-400">This will require approximately 0.1 {selectedChain?.id === '43114' ? 'AVAX' : 'ETH'} plus gas fees</span>
+                      </div>
+                    )}
+                    {deploymentStep === 'switching-network' && (
+                      <div className="flex flex-col gap-1">
+                        <span>Switching to Kopli network...</span>
+                        <span className="text-xs text-zinc-400">Please confirm the network change in your wallet</span>
+                      </div>
+                    )}
+                    {deploymentStep === 'deploying-rsc' && (
+                      <div className="flex flex-col gap-1">
+                        <span>Deploying reactive smart contract...</span>
+                        <span className="text-xs text-zinc-400">This will require 0.1 REACT plus gas fees</span>
+                      </div>
+                    )}
+                    {deploymentStep === 'approving' && (
+                      <div className="flex flex-col gap-1">
+                        <span>Approving token spending...</span>
+                        <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
+                      </div>
+                    )}
+                    {deploymentStep === 'complete' && (
+                      <div className="flex flex-col gap-1">
+                        <span>Stop order created successfully!</span>
+                        <span className="text-xs text-zinc-400">Your order is now active and monitoring prices 24/7</span>
+                      </div>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
 
+              {/* Requirements/Prerequisites Info Card */}
+              <Card className="bg-blue-900/20 border-blue-500/20 mb-4">
+                <CardContent className="pt-4">
+                  <h3 className="text-sm font-medium text-zinc-100 mb-2">Requirements to create a stop order:</h3>
+                  <ul className="text-xs text-zinc-300 space-y-1">
+                    <li className="flex items-center">
+                      <div className={`w-3 h-3 rounded-full mr-2 ${connectedAccount ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                      Connected wallet {connectedAccount ? '✓' : '- Please connect your wallet'}
+                    </li>
+                    <li className="flex items-center">
+                      <div className={`w-3 h-3 rounded-full mr-2 ${selectedChain ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                      Selected chain {selectedChain ? '✓' : '- Please select a chain'}
+                    </li>
+                    <li className="flex items-center">
+                      <div className={`w-3 h-3 rounded-full mr-2 ${pairInfo ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                      Valid pair address {pairInfo ? '✓' : '- Please enter a valid pair address'}
+                    </li>
+                    <li className="flex items-center">
+                      <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
+                      Minimum 0.1 {selectedChain?.id === '43114' ? 'AVAX' : 'ETH'} on {selectedChain?.name || 'selected chain'}
+                    </li>
+                    <li className="flex items-center">
+                      <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
+                      Minimum 0.1 REACT on Kopli network
+                    </li>
+                    <li className="flex items-center">
+                      <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
+                      Sufficient token balance for selling
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
               <Button 
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                disabled={deploymentStep !== 'idle'}
+                disabled={deploymentStep !== 'idle' || !isValid}
               >
                 Create Stop Order
               </Button>
