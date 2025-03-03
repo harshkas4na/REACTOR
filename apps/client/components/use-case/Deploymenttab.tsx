@@ -14,14 +14,19 @@ import dynamic from 'next/dynamic';
 import ContractInteraction from './ContractInteraction';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// Define callback proxy addresses for different chains
-const CALLBACK_PROXIES: { [chainId: string]: string } = {
-  // '1': '0x0', // Ethereum Mainnet - placeholder
+type CallbackProxies = {
+  [chainId: string]: string;
+}
+
+// Callback proxy addresses for different chains
+export const CALLBACK_PROXIES: CallbackProxies = {
+  '1': '0x1D5267C1bb7D8bA68964dDF3990601BDB7902D76', // Ethereum Mainnet 
   '11155111': '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA', // Sepolia
   '5318008': '0x0000000000000000000000000000000000fffFfF', // Kopli
-  // '137': '0x0', // Polygon - placeholder
-  // '80001': '0x0', // Mumbai - placeholder
-};
+  '137': '0x42458259d5c85fB2bf117f197f1Fef8C3b7dCBfe', // Polygon 
+  '8453': '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', // Base 
+  '43114': '0x934Ea75496562D4e83E80865c33dbA600644fCDa',// Avalanche C-Chain
+}
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
