@@ -38,7 +38,7 @@ const slides = [
     image: "/Uniswap-stop-order.jpg",
     primaryButton: {
       text: "Create Stop Order",
-      href: "/automations/uniswap-stop-order"
+      href: "/automations/stop-order"
     }
   },
 ];

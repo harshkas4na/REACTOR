@@ -42,7 +42,7 @@ const userTypes = [
     ],
     cta: {
       text: "Try Automations",
-      link: "/automations/uniswap-stop-order"
+      link: "/automations/stop-order"
     }
   },
   {
@@ -296,7 +296,7 @@ export default function AboutPage() {
               </div>
             </div>
             <div className="mt-6 text-center">
-              <Link href="/automations/uniswap-stop-order">
+              <Link href="/automations/stop-order">
                 <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8">
                   Try Stop Orders
                 </Button>

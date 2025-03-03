@@ -24,20 +24,20 @@ import { toast } from 'react-hot-toast';
 import PairFinder from '@/components/pair-finder'; // Import the PairFinder component
 
 // Import all contract artifacts
-import { stopOrderByteCodeSepolia } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
-import stopOrderABISepolia from '@/data/automations/uniswap-stop-order/stopOrderABISeploia.json';
-import { rscByteCodeSepolia } from '@/data/automations/uniswap-stop-order/RSCByteCode';
-import rscABISepolia from '@/data/automations/uniswap-stop-order/RSCABISepolia.json';
+import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrderByteCode';
+import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
+import { rscByteCodeSepolia } from '@/data/automations/stop-order/RSCByteCode';
+import rscABISepolia from '@/data/automations/stop-order/RSCABISepolia.json';
 
-import { stopOrderByteCodeMainnet } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
-import stopOrderABIMainnet from '@/data/automations/uniswap-stop-order/stopOrderABIMainnet.json';
-import { rscByteCodeMainnet } from '@/data/automations/uniswap-stop-order/RSCByteCode';
-import rscABIMainnet from '@/data/automations/uniswap-stop-order/RSCABIMainnet.json';
+import { stopOrderByteCodeMainnet } from '@/data/automations/stop-order/stopOrderByteCode';
+import stopOrderABIMainnet from '@/data/automations/stop-order/stopOrderABIMainnet.json';
+import { rscByteCodeMainnet } from '@/data/automations/stop-order/RSCByteCode';
+import rscABIMainnet from '@/data/automations/stop-order/RSCABIMainnet.json';
 
-import { stopOrderByteCodeAvalancheCChain } from '@/data/automations/uniswap-stop-order/stopOrderByteCode';
-import stopOrderABIAvalancheCChain from '@/data/automations/uniswap-stop-order/stopOrderABIAvalancheCChain.json';
-import { rscByteCodeAvalancheCChain } from '@/data/automations/uniswap-stop-order/RSCByteCode';
-import rscABIAvalancheCChain from '@/data/automations/uniswap-stop-order/RSCABIAvalancheCChain.json';
+import { stopOrderByteCodeAvalancheCChain } from '@/data/automations/stop-order/stopOrderByteCode';
+import stopOrderABIAvalancheCChain from '@/data/automations/stop-order/stopOrderABIAvalancheCChain.json';
+import { rscByteCodeAvalancheCChain } from '@/data/automations/stop-order/RSCByteCode';
+import rscABIAvalancheCChain from '@/data/automations/stop-order/RSCABIAvalancheCChain.json';
 
 // Define types for form data and pair info
 interface StopOrderFormData {
@@ -401,51 +401,75 @@ async function switchToKopliNetwork() {
   }
 }
 
-  async function deployDestinationContract(chain: ChainConfig) {
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      // Get callback sender address from environment variable or configuration
-      const callbackSenderAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA';
-      
-      if (!callbackSenderAddress || !ethers.isAddress(callbackSenderAddress)) {
-        throw new Error("Invalid or missing callback sender address. Check your environment variables.");
-      }
-      
-      console.log("Using callback sender address:", callbackSenderAddress);
-      console.log("Using router address:", chain.routerAddress);
-      
-      // Create contract factory
-      const factory = new ethers.ContractFactory(
-        chain.stopOrderABI,
-        chain.stopOrderBytecode,
-        signer
-      );
-      
-      // Deploy with BOTH required constructor parameters
-      // The constructor expects TWO parameters, not one:
-      // 1. callback_sender (address)
-      // 2. _router (address)
-      const contract = await factory.deploy(
-        callbackSenderAddress,  // This was missing before!
-        chain.routerAddress,
-        { value: ethers.parseEther("0.1") }
-      );
-      
-      console.log("Deployment transaction sent:", contract.deploymentTransaction()?.hash);
-      
-      // Wait for deployment
-      await contract.waitForDeployment();
-      const deployedAddress = await contract.getAddress();
-      
-      console.log("Contract deployed at:", deployedAddress);
-      return deployedAddress;
-    } catch (error) {
-      console.error("Error in deployDestinationContract:", error);
-      throw error;
+  // Function to get the correct callback sender address based on chain ID
+function getCallbackSenderAddress(chainId: string): string {
+  // Map of chain IDs to callback sender addresses
+  const callbackAddresses: Record<string, string> = {
+    // Ethereum Mainnet
+    '1': '0x1D5267C1bb7D8bA68964dDF3990601BDB7902D76',
+    // BNB Smart Chain
+    '56': '0xdb81A196A0dF9Ef974C9430495a09B6d535fAc48',
+    // Base
+    '8453': '0x0D3E76De6bC44309083cAAFdB49A088B8a250947',
+    // Polygon PoS
+    '137': '0x42458259d5c85fB2bf117f197f1Fef8C3b7dCBfe',
+    // Avalanche C-Chain
+    '43114': '0x934Ea75496562D4e83E80865c33dbA600644fCDa',
+    // Sepolia (using the existing address from your code)
+    '11155111': '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA'
+  };
+
+  // Return the correct address or default to Sepolia if not found
+  return callbackAddresses[chainId] || '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA';
+}
+
+async function deployDestinationContract(chain: ChainConfig): Promise<string> {
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    
+    // Get the current network to ensure we're using the right callback address
+    const network = await provider.getNetwork();
+    const currentChainId = network.chainId.toString();
+    
+    // Get the correct callback sender address for this chain
+    const callbackSenderAddress = getCallbackSenderAddress(currentChainId);
+    
+    if (!callbackSenderAddress || !ethers.isAddress(callbackSenderAddress)) {
+      throw new Error("Invalid callback sender address for this chain.");
     }
+    
+    console.log("Chain ID:", currentChainId);
+    console.log("Using callback sender address:", callbackSenderAddress);
+    console.log("Using router address:", chain.routerAddress);
+    
+    // Create contract factory
+    const factory = new ethers.ContractFactory(
+      chain.stopOrderABI,
+      chain.stopOrderBytecode,
+      signer
+    );
+    
+    // Deploy with both required constructor parameters
+    const contract = await factory.deploy(
+      callbackSenderAddress,  // Now using the chain-specific address
+      chain.routerAddress,
+      { value: ethers.parseEther("0.1") }
+    );
+    
+    console.log("Deployment transaction sent:", contract.deploymentTransaction()?.hash);
+    
+    // Wait for deployment
+    await contract.waitForDeployment();
+    const deployedAddress = await contract.getAddress();
+    
+    console.log("Contract deployed at:", deployedAddress);
+    return deployedAddress;
+  } catch (error) {
+    console.log("Error in deployDestinationContract:", error);
+    throw error;
   }
+}
 
   async function approveTokens(tokenAddress: string, spenderAddress: string, amount: string) {
     try {

@@ -49,7 +49,7 @@ const AutomationCard = ({ automation, index }: { automation: any, index: number 
                 </p>
               </div>
               <div className="pt-6 sm:pt-8">
-                <Link href="/automations/uniswap-stop-order">
+                <Link href="/automations/stop-order">
                 <Button 
                   className="w-full hover:bg-primary/80 rounded-md sm:w-48 h-10 sm:h-12 text-base sm:text-lg"
                   color="primary"
