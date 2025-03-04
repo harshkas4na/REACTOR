@@ -13,6 +13,7 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import { useAuth } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
+import AlphaBanner from './AlphaBanner'
 
 
 
@@ -46,6 +47,9 @@ export default function Navigation() {
   
 
   return (
+    <>
+    <AlphaBanner />
+
     <motion.nav 
       className="sticky top-0 z-50 w-full border-b border-border "
       initial={{ opacity: 0, y: -50 }}
@@ -189,5 +193,7 @@ export default function Navigation() {
   onClose={() => setIsMenuOpen(false)} 
   />
     </motion.nav>
+
+    </>
   );
 }

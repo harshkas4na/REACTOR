@@ -28,6 +28,15 @@ export const CALLBACK_PROXIES: CallbackProxies = {
   '43114': '0x934Ea75496562D4e83E80865c33dbA600644fCDa',// Avalanche C-Chain
 }
 
+// Add constant for chain-specific callback requirements
+const CALLBACK_FUNDING_REQUIREMENTS: { [chainId: string]: { amount: string, currency: string } } = {
+  '1': { amount: '0.03', currency: 'ETH' }, // Ethereum Mainnet requires 0.03 ETH
+  '43114': { amount: '0.01', currency: 'AVAX' }, // Avalanche requires 0.01 AVAX
+  '5318008': { amount: '0.05', currency: 'REACT' }, // Kopli requires 0.05 REACT for Reactive contracts
+  // Default for other chains
+  'default': { amount: '0.01', currency: 'native token' }
+};
+
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 interface DeploymentResult {
@@ -90,6 +99,7 @@ const DeploymentTab = ({
   
   const { account, web3 } = useWeb3();
   const { setOriginAddress, setDestinationAddress, callbackSender, setCallbackSender } = useAutomationContext();
+  
 
   // Update network status when web3 is available
   useEffect(() => {
@@ -172,6 +182,23 @@ const DeploymentTab = ({
 
   const [constructorArgs, setConstructorArgs] = useState(initialConstructorArgs);
 
+  // Add effect to update funding requirements when network changes
+useEffect(() => {
+  if (networkStatus.chainId) {
+    // Only update destination contracts (including origin when it's also destination)
+    const chainRequirement = CALLBACK_FUNDING_REQUIREMENTS[networkStatus.chainId] || 
+                             CALLBACK_FUNDING_REQUIREMENTS['default'];
+    
+    // Only set destination amount (and origin if identical)
+    setNativeTokenAmount(prev => ({
+      ...prev,
+      destination: chainRequirement.amount,
+      ...(areContractsIdentical ? { origin: chainRequirement.amount } : { origin: '0.0' }),
+      // If we're on Kopli, ensure reactive has proper funding
+      ...(networkStatus.chainId === '5318008' ? { reactive: '0.05' } : {})
+    }));
+  }
+}, [networkStatus.chainId, areContractsIdentical]);
   // Update constructor args when network changes
   useEffect(() => {
     if (networkStatus.chainId && CALLBACK_PROXIES[networkStatus.chainId]) {
@@ -255,11 +282,13 @@ const DeploymentTab = ({
   });
 
   const [error, setError] = useState<string | null>(null);
-  const [nativeTokenAmount, setNativeTokenAmount] = useState({
-    origin: '0.1',
-    destination: '0.1',
-    reactive: '0',
-    helpers: {} as Record<string, string>
+  const [nativeTokenAmount, setNativeTokenAmount] = useState(() => {
+    return {
+      origin: '0.0', // No funding needed for origin unless it's also destination
+      destination: '0.01', // Default, will be updated based on chain
+      reactive: '0.05', // Default for Reactive contracts
+      helpers: {} as Record<string, string>
+    };
   });
 
   // New state for callback sender display
@@ -338,21 +367,36 @@ const DeploymentTab = ({
     let amount;
     if (type.startsWith('helper_')) {
       amount = parseFloat(nativeTokenAmount.helpers[type] || '0');
+      // Helpers don't need funding for callbacks
+      return;
     } else {
       amount = parseFloat(nativeTokenAmount[type as keyof typeof nativeTokenAmount] as string);
     }
   
-    // For reactive contracts, no native token is needed
-    if (type === 'reactive') return;
-  
-    const isDestination = type === 'destination' || (type === 'origin' && areContractsIdentical);
-    if (isDestination && (isNaN(amount) || amount < 0.1)) {
-      throw new Error(`Minimum 0.1 native tokens required for ${type} contract`);
+    // Normal origin contracts don't need funding
+    if (type === 'origin' && !areContractsIdentical) {
+      return;
     }
   
-    // Maximum safety check
-    if (amount > 1000) {
-      throw new Error('Maximum native token amount exceeded (1000 ETH limit)');
+    // For reactive contracts on Kopli
+    if (type === 'reactive') {
+      if (isNaN(amount) || amount < 0.05) {
+        throw new Error(`Minimum 0.05 REACT required for monitoring events on Reactive network`);
+      }
+      return;
+    }
+  
+    // For destination contracts (including origin when it's also destination)
+    const isDestination = type === 'destination' || (type === 'origin' && areContractsIdentical);
+    if (isDestination) {
+      const requirement = CALLBACK_FUNDING_REQUIREMENTS[networkStatus.chainId] || 
+                          CALLBACK_FUNDING_REQUIREMENTS['default'];
+      
+      if (isNaN(amount) || amount < parseFloat(requirement.amount)) {
+        throw new Error(
+          `Minimum ${requirement.amount} ${requirement.currency} required for ${type} contract on ${networkStatus.currentNetwork} to process callbacks`
+        );
+      }
     }
   };
 
@@ -990,7 +1034,7 @@ const DeploymentTab = ({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p className="text-sm">This contract serves as both Origin and Destination. It requires a callback sender address and 0.1 native tokens.</p>
+                    <p className="text-sm">This contract serves as both Origin and Destination. It requires a callback sender address and funding for callbacks.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -1119,16 +1163,43 @@ const DeploymentTab = ({
   
                 {areContractsIdentical && (
                   <div className="relative z-30">
-                    <Label htmlFor="origin-token-amount" className="text-zinc-300">
-                      Native Token Amount <span className="text-yellow-400">(min 0.1)</span>
+                    <Label htmlFor="origin-token-amount" className="text-zinc-300 flex items-center">
+                      {networkStatus.currentNetwork === 'Ethereum Mainnet' ? 'ETH' : 
+                       networkStatus.currentNetwork === 'Avalanche C-Chain' ? 'AVAX' : 
+                       'Native Token'} Funding Amount 
+                      <span className="text-yellow-400 ml-1">
+                        (min {CALLBACK_FUNDING_REQUIREMENTS[networkStatus.chainId]?.amount || '0.01'})
+                      </span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 ml-1 text-zinc-400" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-sm max-w-xs">
+                              This amount will be used to fund callback executions.
+                              {networkStatus.currentNetwork === 'Ethereum Mainnet' ? 
+                                ' Ethereum mainnet requires at least 0.03 ETH due to higher gas costs.' : 
+                                networkStatus.currentNetwork === 'Avalanche C-Chain' ? 
+                                ' Avalanche requires at least 0.01 AVAX for callbacks.' : 
+                                ' This network requires at least 0.01 native tokens.'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </Label>
                     <Input
                       id="origin-token-amount"
                       value={nativeTokenAmount.origin}
                       onChange={(e) => handleNativeTokenAmountChange('origin', e.target.value)}
                       className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
-                      placeholder="Enter amount in ETH"
+                      placeholder={`Enter amount in ${networkStatus.currentNetwork === 'Ethereum Mainnet' ? 'ETH' : 
+                                   networkStatus.currentNetwork === 'Avalanche C-Chain' ? 'AVAX' : 
+                                   'native currency'}`}
                     />
+                    <p className="text-xs text-blue-300 mt-1">
+                      Destination contracts need funding to execute callback functions
+                    </p>
                   </div>
                 )}
   
@@ -1282,16 +1353,43 @@ const DeploymentTab = ({
                   </div>
             
                   <div className="relative z-30">
-                    <Label htmlFor="destination-token-amount" className="text-zinc-300">
-                      Native Token Amount <span className="text-yellow-400">(min 0.1)</span>
+                    <Label htmlFor="destination-token-amount" className="text-zinc-300 flex items-center">
+                      {networkStatus.currentNetwork === 'Ethereum Mainnet' ? 'ETH' : 
+                       networkStatus.currentNetwork === 'Avalanche C-Chain' ? 'AVAX' : 
+                       'Native Token'} Funding Amount 
+                      <span className="text-yellow-400 ml-1">
+                        (min {CALLBACK_FUNDING_REQUIREMENTS[networkStatus.chainId]?.amount || '0.01'})
+                      </span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 ml-1 text-zinc-400" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-sm max-w-xs">
+                              This amount will be used to fund callback executions.
+                              {networkStatus.currentNetwork === 'Ethereum Mainnet' ? 
+                                ' Ethereum mainnet requires at least 0.03 ETH due to higher gas costs.' : 
+                                networkStatus.currentNetwork === 'Avalanche C-Chain' ? 
+                                ' Avalanche requires at least 0.01 AVAX for callbacks.' : 
+                                ' This network requires at least 0.01 native tokens.'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </Label>
                     <Input
                       id="destination-token-amount"
                       value={nativeTokenAmount.destination}
                       onChange={(e) => handleNativeTokenAmountChange('destination', e.target.value)}
                       className="mt-1 bg-blue-900/20 border-zinc-700 text-zinc-200 pointer-events-auto"
-                      placeholder="Enter amount in ETH"
+                      placeholder={`Enter amount in ${networkStatus.currentNetwork === 'Ethereum Mainnet' ? 'ETH' : 
+                                   networkStatus.currentNetwork === 'Avalanche C-Chain' ? 'AVAX' : 
+                                   'native currency'}`}
                     />
+                    <p className="text-xs text-blue-300 mt-1">
+                      Destination contracts need funding to execute callback functions
+                    </p>
                   </div>
             
                   {renderDeployButton('destination', isDeploying.destination)}
@@ -1410,6 +1508,35 @@ const DeploymentTab = ({
                       />
                     </div>
                   ))}
+                </div>
+                
+                <div className="relative z-30">
+                  <Label htmlFor="reactive-token-amount" className="text-zinc-300 flex items-center">
+                    REACT Funding Amount <span className="text-yellow-400 ml-1">(min 0.05)</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 text-zinc-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-sm max-w-xs">
+                            This amount will be used to fund your RSC for monitoring events.
+                            0.05 REACT is required for event monitoring on the Reactive Network.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Input
+                    id="reactive-token-amount"
+                    value={nativeTokenAmount.reactive}
+                    onChange={(e) => handleNativeTokenAmountChange('reactive', e.target.value)}
+                    className="mt-1 bg-purple-900/20 border-purple-700/50 text-zinc-200 pointer-events-auto"
+                    placeholder="Enter amount in REACT"
+                  />
+                  <p className="text-xs text-purple-300 mt-1">
+                    Reactive contracts require funding to monitor events and trigger callbacks
+                  </p>
                 </div>
           
                 {renderDeployButton('reactive', isDeploying.reactive)}

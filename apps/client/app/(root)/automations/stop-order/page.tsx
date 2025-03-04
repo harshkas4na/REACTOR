@@ -48,6 +48,8 @@ interface StopOrderFormData {
   coefficient: string;
   threshold: string;
   amount: string;
+  destinationFunding: string;
+  rscFunding: string;
 }
 
 interface PairInfo {
@@ -70,6 +72,8 @@ interface ChainConfig {
   rscABI: any;
   rscBytecode: any;
   rpcUrl?: string;
+  nativeCurrency: string;
+  defaultFunding: string;
 }
 
 // Configuration constants
@@ -84,7 +88,9 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     stopOrderBytecode: stopOrderByteCodeSepolia,
     rscABI: rscABISepolia,
     rscBytecode: rscByteCodeSepolia,
-    rpcUrl: 'https://rpc.sepolia.org'
+    rpcUrl: 'https://rpc.sepolia.org',
+    nativeCurrency: 'ETH',
+    defaultFunding: '0.03'
   },
   {
     id: '1',
@@ -96,7 +102,9 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     stopOrderBytecode: stopOrderByteCodeMainnet,
     rscABI: rscABIMainnet,
     rscBytecode: rscByteCodeMainnet,
-    rpcUrl: 'https://ethereum.publicnode.com'
+    rpcUrl: 'https://ethereum.publicnode.com',
+    nativeCurrency: 'ETH',
+    defaultFunding: '0.03'
   },
   {
     id: '43114',
@@ -108,7 +116,9 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     stopOrderBytecode: stopOrderByteCodeAvalancheCChain,
     rscABI: rscABIAvalancheCChain,
     rscBytecode: rscByteCodeAvalancheCChain,
-    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc'
+    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
+    nativeCurrency: 'AVAX',
+    defaultFunding: '0.01'
   }
 ];
 
@@ -122,7 +132,9 @@ export default function UniswapStopOrderPage() {
     clientAddress: '',
     coefficient: '1000',
     threshold: '',
-    amount: ''
+    amount: '',
+    destinationFunding: '',
+    rscFunding: '0.05'
   });
 
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -135,6 +147,16 @@ export default function UniswapStopOrderPage() {
   const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
   // Set default DEX name to display if no chain is selected
   const dexName = selectedChain?.dexName || 'Uniswap V2';
+
+  // Update destination funding when chain changes
+  useEffect(() => {
+    if (selectedChain) {
+      setFormData(prev => ({
+        ...prev,
+        destinationFunding: selectedChain.defaultFunding
+      }));
+    }
+  }, [formData.chainId]);
 
   useEffect(() => {
     const getConnectedAccount = async () => {
@@ -181,10 +203,13 @@ export default function UniswapStopOrderPage() {
 
   // Handle pair selection from the PairFinder component
   const handlePairSelected = (pairAddress: string, chainId: string) => {
+    const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
+    
     setFormData(prev => ({
       ...prev,
       pairAddress,
-      chainId
+      chainId,
+      destinationFunding: chain ? chain.defaultFunding : prev.destinationFunding
     }));
     
     // Fetch pair info for the selected pair
@@ -423,7 +448,7 @@ function getCallbackSenderAddress(chainId: string): string {
   return callbackAddresses[chainId] || '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA';
 }
 
-async function deployDestinationContract(chain: ChainConfig): Promise<string> {
+async function deployDestinationContract(chain: ChainConfig, fundingAmount: string): Promise<string> {
   try {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
@@ -442,6 +467,7 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
     console.log("Chain ID:", currentChainId);
     console.log("Using callback sender address:", callbackSenderAddress);
     console.log("Using router address:", chain.routerAddress);
+    console.log("Funding amount:", fundingAmount);
     
     // Create contract factory
     const factory = new ethers.ContractFactory(
@@ -450,11 +476,11 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
       signer
     );
     
-    // Deploy with both required constructor parameters
+    // Deploy with both required constructor parameters and user-defined funding
     const contract = await factory.deploy(
       callbackSenderAddress,  // Now using the chain-specific address
       chain.routerAddress,
-      { value: ethers.parseEther("0.1") }
+      { value: ethers.parseEther(fundingAmount) }
     );
     
     console.log("Deployment transaction sent:", contract.deploymentTransaction()?.hash);
@@ -518,7 +544,7 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
     threshold: string;
   }
 
-  async function deployRSC(params: RSCParams, chain: ChainConfig) {
+  async function deployRSC(params: RSCParams, chain: ChainConfig, fundingAmount: string) {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
@@ -552,13 +578,14 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
   
       const signerAddress = await signer.getAddress();
       const balance = await provider.getBalance(signerAddress);
-      const requiredBalance = gasLimit * gasPrice + ethers.parseEther("0.1"); // Include 0.1 REACT
+      const fundingValue = ethers.parseEther(fundingAmount);
+      const requiredBalance = gasLimit * gasPrice + fundingValue;
   
       if (balance < requiredBalance) {
-        throw new Error('Insufficient balance for RSC deployment and funding');
+        throw new Error(`Insufficient balance for RSC deployment and funding. Need at least ${ethers.formatEther(requiredBalance)} REACT`);
       }
   
-      // Deploy with 0.1 REACT
+      // Deploy with user-defined REACT funding
       const contract = await factory.deploy(
         params.pair,
         params.stopOrder,
@@ -569,7 +596,7 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
         {
           gasLimit,
           gasPrice,
-          value: ethers.parseEther("0.1") // Adding 0.1 REACT funding
+          value: fundingValue // Using user-defined REACT funding
         }
       );
   
@@ -601,6 +628,12 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
       if (!formData.amount || parseFloat(formData.amount) <= 0) {
         throw new Error('Please enter a valid amount to sell');
       }
+      if (!formData.destinationFunding || parseFloat(formData.destinationFunding) <= 0) {
+        throw new Error('Please enter a valid destination funding amount');
+      }
+      if (!formData.rscFunding || parseFloat(formData.rscFunding) <= 0) {
+        throw new Error('Please enter a valid RSC funding amount');
+      }
       
       // Get selected chain configuration
       const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
@@ -619,17 +652,20 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
       const balance = await provider.getBalance(signerAddress);
-      const estimatedCost = ethers.parseEther("0.11"); // 0.1 ETH + gas
+      
+      // Add 10% to account for gas
+      const destinationFunding = ethers.parseEther(formData.destinationFunding);
+      const estimatedCost = destinationFunding + (destinationFunding * BigInt(10)) / BigInt(100);
   
       if (balance < estimatedCost) {
-        throw new Error(`Insufficient balance for deployment. You need at least 0.11 ${selectedChain.id === '43114' ? 'AVAX' : 'ETH'} on ${selectedChain.name}`);
+        throw new Error(`Insufficient balance for deployment. You need at least ${ethers.formatEther(estimatedCost)} ${selectedChain.nativeCurrency} on ${selectedChain.name}`);
       }
   
       // Step 1: Deploy Destination Contract
       setDeploymentStep('deploying-destination');
       let destinationAddress;
       try {
-        destinationAddress = await deployDestinationContract(selectedChain);
+        destinationAddress = await deployDestinationContract(selectedChain, formData.destinationFunding);
       } catch (error: any) {
         console.error("Destination contract deployment failed:", error);
         throw new Error(`Failed to deploy destination contract: ${error.message || 'Unknown error'}`);
@@ -665,10 +701,13 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
       // Check if user has enough REACT for RSC deployment
       const kopliProvider = new ethers.BrowserProvider(window.ethereum);
       const kopliBalance = await kopliProvider.getBalance(signerAddress);
-      const reactEstimatedCost = ethers.parseEther("0.12"); // 0.1 REACT + gas
+      
+      // Add 10% to account for gas
+      const rscFunding = ethers.parseEther(formData.rscFunding);
+      const reactEstimatedCost = rscFunding + (rscFunding * BigInt(10)) / BigInt(100);
   
       if (kopliBalance < reactEstimatedCost) {
-        throw new Error(`Insufficient REACT balance. You need at least 0.12 REACT on Kopli network. Please obtain some REACT from the faucet.`);
+        throw new Error(`Insufficient REACT balance. You need at least ${ethers.formatEther(reactEstimatedCost)} REACT on Kopli network. Please obtain some REACT from the faucet.`);
       }
   
       // Step 4: Deploy RSC
@@ -681,11 +720,11 @@ async function deployDestinationContract(chain: ChainConfig): Promise<string> {
           token0: formData.sellToken0,
           coefficient: formData.coefficient,
           threshold: formData.threshold
-        }, selectedChain);
+        }, selectedChain, formData.rscFunding);
       } catch (error: any) {
         console.error("RSC deployment failed:", error);
         if (error.message.includes("insufficient funds")) {
-          throw new Error(`RSC deployment failed: Insufficient REACT. You need at least 0.1 REACT plus gas.`);
+          throw new Error(`RSC deployment failed: Insufficient REACT. You need at least ${formData.rscFunding} REACT plus gas.`);
         } else {
           throw new Error(`RSC deployment failed: ${error.message}`);
         }
@@ -738,7 +777,9 @@ async function checkBalances() {
     
     // If we're on the source chain
     if (currentChainId === formData.chainId) {
-      const requiredBalance = ethers.parseEther("0.11"); // 0.1 ETH/AVAX + gas
+      // Add 10% to account for gas
+      const destinationFunding = ethers.parseEther(formData.destinationFunding || selectedChain.defaultFunding);
+      const requiredBalance = destinationFunding + (destinationFunding * BigInt(10)) / BigInt(100);
       const hasEnoughForDestination = nativeBalance >= requiredBalance;
       
       // Check token balance if pair info is available
@@ -769,8 +810,8 @@ async function checkBalances() {
       return {
         isSourceChain: true,
         nativeBalance: ethers.formatEther(nativeBalance),
-        requiredNativeBalance: "0.11",
-        nativeSymbol: selectedChain.id === '43114' ? 'AVAX' : 'ETH',
+        requiredNativeBalance: ethers.formatEther(requiredBalance),
+        nativeSymbol: selectedChain.nativeCurrency,
         hasEnoughForDestination,
         tokenBalance: tokenBalance ? ethers.formatUnits(tokenBalance, 18) : null,
         hasEnoughTokens,
@@ -780,13 +821,15 @@ async function checkBalances() {
     
     // If we're on Kopli
     if (currentChainId === '5318008') {
-      const requiredBalance = ethers.parseEther("0.11"); // 0.1 REACT + gas
+      // Add 10% to account for gas
+      const rscFunding = ethers.parseEther(formData.rscFunding || "0.05");
+      const requiredBalance = rscFunding + (rscFunding * BigInt(10)) / BigInt(100);
       const hasEnoughForRSC = nativeBalance >= requiredBalance;
       
       return {
         isSourceChain: false,
         nativeBalance: ethers.formatEther(nativeBalance),
-        requiredNativeBalance: "0.11",
+        requiredNativeBalance: ethers.formatEther(requiredBalance),
         nativeSymbol: "REACT",
         hasEnoughForRSC
       };
@@ -799,8 +842,6 @@ async function checkBalances() {
   }
 }
 
-// Function to show balance warnings
-// Function to show balance warnings and return validation state
 // Function to show balance warnings and return validation state
 function BalanceWarnings() {
   const [balanceInfo, setBalanceInfo] = useState<any>(null);
@@ -832,6 +873,10 @@ function BalanceWarnings() {
           !!formData.threshold && 
           !!formData.amount && 
           parseFloat(formData.amount) > 0 &&
+          !!formData.destinationFunding &&
+          parseFloat(formData.destinationFunding) > 0 &&
+          !!formData.rscFunding &&
+          parseFloat(formData.rscFunding) > 0 &&
           !!pairInfo &&
           hasRequiredBalances;
           
@@ -850,7 +895,7 @@ function BalanceWarnings() {
   // Check balances when relevant form data changes
   useEffect(() => {
     refreshBalances();
-  }, [formData.chainId, formData.pairAddress, formData.clientAddress, formData.amount, formData.threshold, formData.sellToken0, connectedAccount, pairInfo]);
+  }, [formData.chainId, formData.pairAddress, formData.clientAddress, formData.amount, formData.threshold, formData.sellToken0, formData.destinationFunding, formData.rscFunding, connectedAccount, pairInfo]);
   
   // Return both the UI and validation state
   return {
@@ -887,7 +932,7 @@ function BalanceWarnings() {
           <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
             <AlertCircle className="h-4 w-4 text-red-400" />
             <AlertDescription className="text-red-200">
-              You need at least {balanceInfo.requiredNativeBalance || "0.11"} REACT on Kopli network for the RSC contract.
+              You need at least {balanceInfo.requiredNativeBalance || "0.05"} REACT on Kopli network for the RSC contract.
               Current balance: {balanceInfo.nativeBalance || "0"} REACT
             </AlertDescription>
           </Alert>
@@ -1001,8 +1046,12 @@ function BalanceWarnings() {
                 <Select
                   value={formData.chainId}
                   onValueChange={(value) => {
-                    setFormData({ ...formData, chainId: value });
                     const chain = SUPPORTED_CHAINS.find(c => c.id === value);
+                    setFormData({ 
+                      ...formData, 
+                      chainId: value,
+                      destinationFunding: chain ? chain.defaultFunding : formData.destinationFunding
+                    });
                     if (chain) switchNetwork(chain.id);
                   }}
                 >
@@ -1251,6 +1300,69 @@ function BalanceWarnings() {
                 />
               </div>
 
+              {/* Funding Configuration */}
+              <div className="space-y-4 p-4 bg-blue-900/20 rounded-lg border border-blue-500/20">
+                <h3 className="text-sm font-medium text-zinc-100">Contract Funding</h3>
+                
+                {/* Destination Contract Funding */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-zinc-200">
+                      Destination Contract Funding ({selectedChain?.nativeCurrency || 'ETH'})
+                    </label>
+                    <HoverCard>
+                      <HoverCardTrigger>
+                        <Info className="h-4 w-4 text-zinc-400" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 text-zinc-200">
+                        <p className="text-sm">
+                          Amount of {selectedChain?.nativeCurrency || 'ETH'} to fund the destination contract.
+                          This is used to pay for transaction fees when your stop order executes.
+                          Recommended: {selectedChain?.defaultFunding || '0.03'} {selectedChain?.nativeCurrency || 'ETH'}
+                        </p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <Input 
+                    type="number"
+                    step="0.001"
+                    placeholder={`Enter amount (${selectedChain?.nativeCurrency || 'ETH'})`}
+                    value={formData.destinationFunding}
+                    onChange={(e) => setFormData({...formData, destinationFunding: e.target.value})}
+                    className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                  />
+                </div>
+                
+                {/* RSC Contract Funding */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-zinc-200">
+                      RSC Contract Funding (REACT)
+                    </label>
+                    <HoverCard>
+                      <HoverCardTrigger>
+                        <Info className="h-4 w-4 text-zinc-400" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 text-zinc-200">
+                        <p className="text-sm">
+                          Amount of REACT to fund the Reactive Smart Contract.
+                          This is used to monitor for price changes and trigger the stop order.
+                          Recommended: 0.05 REACT
+                        </p>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <Input 
+                    type="number"
+                    step="0.001"
+                    placeholder="Enter amount (REACT)"
+                    value={formData.rscFunding}
+                    onChange={(e) => setFormData({...formData, rscFunding: e.target.value})}
+                    className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                  />
+                </div>
+              </div>
+
               {warningsUI}
               
               {/* Enhanced Error Alert Component */}
@@ -1268,7 +1380,7 @@ function BalanceWarnings() {
                     {deploymentStep === 'deploying-destination' && (
                       <div className="flex flex-col gap-1">
                         <span>Deploying destination contract...</span>
-                        <span className="text-xs text-zinc-400">This will require approximately 0.1 {selectedChain?.id === '43114' ? 'AVAX' : 'ETH'} plus gas fees</span>
+                        <span className="text-xs text-zinc-400">This will require approximately {formData.destinationFunding} {selectedChain?.nativeCurrency || 'ETH'} plus gas fees</span>
                       </div>
                     )}
                     {deploymentStep === 'switching-network' && (
@@ -1280,7 +1392,7 @@ function BalanceWarnings() {
                     {deploymentStep === 'deploying-rsc' && (
                       <div className="flex flex-col gap-1">
                         <span>Deploying reactive smart contract...</span>
-                        <span className="text-xs text-zinc-400">This will require 0.1 REACT plus gas fees</span>
+                        <span className="text-xs text-zinc-400">This will require {formData.rscFunding} REACT plus gas fees</span>
                       </div>
                     )}
                     {deploymentStep === 'approving' && (
@@ -1318,11 +1430,11 @@ function BalanceWarnings() {
                     </li>
                     <li className="flex items-center">
                       <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
-                      Minimum 0.1 {selectedChain?.id === '43114' ? 'AVAX' : 'ETH'} on {selectedChain?.name || 'selected chain'}
+                      Minimum {formData.destinationFunding || (selectedChain?.defaultFunding || '0.03')} {selectedChain?.nativeCurrency || 'ETH'} on {selectedChain?.name || 'selected chain'}
                     </li>
                     <li className="flex items-center">
                       <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
-                      Minimum 0.1 REACT on Kopli network
+                      Minimum {formData.rscFunding || '0.05'} REACT on Kopli network
                     </li>
                     <li className="flex items-center">
                       <div className="w-3 h-3 rounded-full mr-2 bg-blue-500"></div>
@@ -1486,4 +1598,3 @@ function BalanceWarnings() {
     </div>
   );
 }
-
