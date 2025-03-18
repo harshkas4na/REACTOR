@@ -290,7 +290,7 @@ export default function CrossDAppAutomation() {
                 account={account}
               />
 
-              {deployedAddress && (
+              {/* {deployedAddress && (
                 <Alert className="bg-green-900/20 border-green-500/50 p-3 sm:p-4">
                   <CheckCircle2 className="h-4 w-4 text-green-400" />
                   <AlertTitle className="text-sm sm:text-base text-green-300">
@@ -313,7 +313,7 @@ export default function CrossDAppAutomation() {
                     </div>
                   </AlertDescription>
                 </Alert>
-              )}
+              )} */}
             </>
           )}
         </div>

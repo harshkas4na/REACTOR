@@ -313,7 +313,7 @@ export default function CrossChainBridge() {
                       />
                     )}
 
-                    {deployedAddress && (
+                    {/* {deployedAddress && (
                       <Alert className="bg-green-900/20 border-green-500/50">
                         <CheckCircle2 className="h-4 w-4 text-green-400" />
                         <AlertTitle className="text-green-300">Contract Deployed Successfully</AlertTitle>
@@ -334,7 +334,7 @@ export default function CrossChainBridge() {
                           </div>
                         </AlertDescription>
                       </Alert>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </TabsContent>
