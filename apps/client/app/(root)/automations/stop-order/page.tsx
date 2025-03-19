@@ -365,6 +365,7 @@ const switchNetwork = async (chainId: string) => {
 };
 
 // Enhanced Kopli network switching with better error handling
+// Enhanced Kopli network switching with better error handling and verification
 async function switchToKopliNetwork() {
   if (!window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
 
@@ -378,23 +379,18 @@ async function switchToKopliNetwork() {
     }
     
     console.log('Switching to Kopli network...');
-    await window.ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: '0x512578' }], // Kopli chainId: 5318008
-    });
     
-    // Verify the switch was successful
-    const newNetwork = await provider.getNetwork();
-    if (newNetwork.chainId.toString() !== '5318008') {
-      throw new Error('Kopli network switch failed or was rejected');
-    }
-    
-    return true;
-  } catch (error: any) {
-    if (error.code === 4902) {
-      // Kopli not added to wallet, attempt to add it
-      console.log('Kopli network not added to wallet, attempting to add it');
-      try {
+    // Try to switch to Kopli
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x512578' }], // Kopli chainId: 5318008
+      });
+    } catch (switchError: any) {
+      // If the chain hasn't been added to MetaMask
+      if (switchError.code === 4902) {
+        console.log('Kopli network not added to wallet, attempting to add it');
+        
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
@@ -409,20 +405,40 @@ async function switchToKopliNetwork() {
             blockExplorerUrls: ['https://kopli.reactscan.net']
           }],
         });
-        
-        // Verify the add and switch was successful
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const network = await provider.getNetwork();
-        if (network.chainId.toString() !== '5318008') {
-          throw new Error('Kopli network added but switch failed or was rejected');
-        }
-        
-        return true;
-      } catch (addError: any) {
-        throw new Error(`Failed to add Kopli network: ${addError.message || 'User rejected the request'}`);
+      } else {
+        throw switchError;
       }
     }
-    throw new Error(`Kopli network switch failed: ${error.message || 'User rejected the request'}`);
+    
+    // Add a small delay to allow the network change to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Verify the network after switching
+    // Create a new provider instance to get fresh network data
+    const updatedProvider = new ethers.BrowserProvider(window.ethereum);
+    const updatedNetwork = await updatedProvider.getNetwork();
+    const updatedChainId = updatedNetwork.chainId.toString();
+    
+    console.log(`After switch, current chain ID: ${updatedChainId}`);
+    
+    if (updatedChainId !== '5318008') {
+      throw new Error(`Network switch verification failed. Expected Kopli (5318008) but got ${updatedChainId}`);
+    }
+    
+    return true;
+  } catch (error: any) {
+    // If the error message indicates the network actually changed successfully
+    if (error.message && error.message.includes('network changed') && error.message.includes('=> 5318008')) {
+      console.log('Network changed to Kopli despite error, proceeding...');
+      return true;
+    }
+    
+    // For other specific common errors, provide better messages
+    if (error.code === 4001) {
+      throw new Error('User rejected the request to switch networks');
+    }
+    
+    throw new Error(`Failed to switch to Kopli network: ${error.message || 'Unknown error'}`);
   }
 }
 
@@ -448,6 +464,7 @@ function getCallbackSenderAddress(chainId: string): string {
   return callbackAddresses[chainId] || '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA';
 }
 
+// Fix for the deployDestinationContract function
 async function deployDestinationContract(chain: ChainConfig, fundingAmount: string): Promise<string> {
   try {
     const provider = new ethers.BrowserProvider(window.ethereum);
@@ -469,16 +486,58 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
     console.log("Using router address:", chain.routerAddress);
     console.log("Funding amount:", fundingAmount);
     
-    // Create contract factory
+    // Process the ABI to make sure it's usable
+    let processedABI = chain.stopOrderABI;
+    console.log("Stop Order ABI type:", typeof processedABI);
+    
+    // If it's a JSON string, parse it
+    if (typeof processedABI === 'string') {
+      try {
+        processedABI = JSON.parse(processedABI);
+        console.log("Parsed Stop Order ABI from string");
+      } catch (e) {
+        console.error("Failed to parse Stop Order ABI string:", e);
+      }
+    }
+    
+    // Handle case when ABI is in an object with 'abi' property
+    if (processedABI && typeof processedABI === 'object' && !Array.isArray(processedABI)) {
+      if ('abi' in processedABI) {
+        console.log("Extracted Stop Order ABI from object.abi property");
+        processedABI = processedABI.abi;
+      }
+    }
+    
+    
+    
+    // Verify that we now have an array
+    if (!Array.isArray(processedABI)) {
+      console.error("Stop Order ABI is not an array:", processedABI);
+      // Use hardcoded ABI as a fallback
+      processedABI = [
+        {"type":"constructor","inputs":[{"name":"callback_sender","type":"address","internalType":"address"},{"name":"_router","type":"address","internalType":"address"}],"stateMutability":"payable"},
+        {"type":"receive","stateMutability":"payable"},
+        {"type":"function","name":"coverDebt","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+        {"type":"function","name":"pay","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+        {"type":"function","name":"stop","inputs":[{"name":"","type":"address","internalType":"address"},{"name":"pair","type":"address","internalType":"address"},{"name":"client","type":"address","internalType":"address"},{"name":"is_token0","type":"bool","internalType":"bool"},{"name":"coefficient","type":"uint256","internalType":"uint256"},{"name":"threshold","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+        {"type":"event","name":"EthRefunded","inputs":[{"name":"client","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
+        {"type":"event","name":"Stop","inputs":[{"name":"pair","type":"address","indexed":true,"internalType":"address"},{"name":"client","type":"address","indexed":true,"internalType":"address"},{"name":"token","type":"address","indexed":true,"internalType":"address"},{"name":"tokens","type":"uint256[]","indexed":false,"internalType":"uint256[]"}],"anonymous":false}
+      ];
+      console.log("Using hardcoded Stop Order ABI");
+    }
+    
+    console.log("Final Stop Order ABI is array:", Array.isArray(processedABI), "with length:", processedABI.length);
+    
+    // Create contract factory with processed ABI
     const factory = new ethers.ContractFactory(
-      chain.stopOrderABI,
+      processedABI,
       chain.stopOrderBytecode,
       signer
     );
     
     // Deploy with both required constructor parameters and user-defined funding
     const contract = await factory.deploy(
-      callbackSenderAddress,  // Now using the chain-specific address
+      callbackSenderAddress,
       chain.routerAddress,
       { value: ethers.parseEther(fundingAmount) }
     );
@@ -492,8 +551,14 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
     console.log("Contract deployed at:", deployedAddress);
     return deployedAddress;
   } catch (error) {
-    console.log("Error in deployDestinationContract:", error);
-    throw error;
+    console.error("Detailed error in deployDestinationContract:", error);
+    
+    // Add more context to the error for debugging
+    if (error instanceof Error) {
+      throw new Error(`Contract deployment failed: ${error.message}`);
+    } else {
+      throw new Error(`Contract deployment failed with unknown error: ${String(error)}`);
+    }
   }
 }
 
@@ -545,69 +610,121 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
   }
 
   async function deployRSC(params: RSCParams, chain: ChainConfig, fundingAmount: string) {
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      const currentNetwork = await provider.getNetwork();
-      const chainId = Number(currentNetwork.chainId);
-      
-      if (chainId !== 5318008) {
-        throw new Error('Please switch to Kopli network for RSC deployment');
-      }
-  
-      const factory = new ethers.ContractFactory(
-        chain.rscABI,
-        chain.rscBytecode,
-        signer
-      );
-  
-      const deploymentGas = await factory.getDeployTransaction(
-        params.pair,
-        params.stopOrder,
-        params.client,
-        params.token0,
-        params.coefficient,
-        params.threshold
-      ).then(tx => provider.estimateGas(tx));
-  
-      const gasLimit = (deploymentGas * BigInt(120)) / BigInt(100);
-      const gasPrice = await provider.getFeeData().then(fees => fees.gasPrice);
-      
-      if (!gasPrice) throw new Error('Failed to get gas price');
-  
-      const signerAddress = await signer.getAddress();
-      const balance = await provider.getBalance(signerAddress);
-      const fundingValue = ethers.parseEther(fundingAmount);
-      const requiredBalance = gasLimit * gasPrice + fundingValue;
-  
-      if (balance < requiredBalance) {
-        throw new Error(`Insufficient balance for RSC deployment and funding. Need at least ${ethers.formatEther(requiredBalance)} REACT`);
-      }
-  
-      // Deploy with user-defined REACT funding
-      const contract = await factory.deploy(
-        params.pair,
-        params.stopOrder,
-        params.client,
-        params.token0,
-        params.coefficient,
-        params.threshold,
-        {
-          gasLimit,
-          gasPrice,
-          value: fundingValue // Using user-defined REACT funding
-        }
-      );
-  
-      const deployedContract = await contract.waitForDeployment();
-      return deployedContract.target.toString();
-  
-    } catch (error: any) {
-      console.error('Error deploying RSC:', error);
-      throw new Error(`RSC deployment failed: ${error.message || 'Unknown error'}`);
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    
+    const currentNetwork = await provider.getNetwork();
+    const chainId = Number(currentNetwork.chainId);
+    
+    if (chainId !== 5318008) {
+      throw new Error('Please switch to Kopli network for RSC deployment');
     }
+
+    // Process the ABI to make sure it's usable
+    let processedABI = chain.rscABI;
+    console.log("RSC ABI type:", typeof processedABI);
+    
+    // If it's a JSON string, parse it
+    if (typeof processedABI === 'string') {
+      try {
+        processedABI = JSON.parse(processedABI);
+        console.log("Parsed RSC ABI from string");
+      } catch (e) {
+        console.error("Failed to parse RSC ABI string:", e);
+      }
+    }
+    
+    // Handle case when ABI is in an object with 'abi' property
+    if (processedABI && typeof processedABI === 'object' && !Array.isArray(processedABI)) {
+      if ('abi' in processedABI) {
+        console.log("Extracted RSC ABI from object.abi property");
+        processedABI = processedABI.abi;
+      }
+    }
+    
+    
+    // Verify that we now have an array
+    if (!Array.isArray(processedABI)) {
+      console.error("RSC ABI is not an array:", processedABI);
+      // Try using the parsed ABI data from the document you shared
+      const parsedData = {
+        "abi":[
+          {"type":"constructor","inputs":[{"name":"_pair","type":"address","internalType":"address"},{"name":"_stop_order","type":"address","internalType":"address"},{"name":"_client","type":"address","internalType":"address"},{"name":"_token0","type":"bool","internalType":"bool"},{"name":"_coefficient","type":"uint256","internalType":"uint256"},{"name":"_threshold","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},
+          {"type":"receive","stateMutability":"payable"},
+          {"type":"function","name":"coverDebt","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+          {"type":"function","name":"pay","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+          {"type":"function","name":"react","inputs":[{"name":"log","type":"tuple","internalType":"struct IReactive.LogRecord","components":[{"name":"chain_id","type":"uint256","internalType":"uint256"},{"name":"_contract","type":"address","internalType":"address"},{"name":"topic_0","type":"uint256","internalType":"uint256"},{"name":"topic_1","type":"uint256","internalType":"uint256"},{"name":"topic_2","type":"uint256","internalType":"uint256"},{"name":"topic_3","type":"uint256","internalType":"uint256"},{"name":"data","type":"bytes","internalType":"bytes"},{"name":"block_number","type":"uint256","internalType":"uint256"},{"name":"op_code","type":"uint256","internalType":"uint256"},{"name":"block_hash","type":"uint256","internalType":"uint256"},{"name":"tx_hash","type":"uint256","internalType":"uint256"},{"name":"log_index","type":"uint256","internalType":"uint256"}]}],"outputs":[],"stateMutability":"nonpayable"},
+          {"type":"event","name":"AboveThreshold","inputs":[{"name":"reserve0","type":"uint112","indexed":true,"internalType":"uint112"},{"name":"reserve1","type":"uint112","indexed":true,"internalType":"uint112"},{"name":"coefficient","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"threshold","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
+          {"type":"event","name":"Callback","inputs":[{"name":"chain_id","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"_contract","type":"address","indexed":true,"internalType":"address"},{"name":"gas_limit","type":"uint64","indexed":true,"internalType":"uint64"},{"name":"payload","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},
+          {"type":"event","name":"CallbackSent","inputs":[],"anonymous":false},
+          {"type":"event","name":"Done","inputs":[],"anonymous":false},
+          {"type":"event","name":"ReactRefunded","inputs":[{"name":"client","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
+          {"type":"event","name":"Subscribed","inputs":[{"name":"service_address","type":"address","indexed":true,"internalType":"address"},{"name":"_contract","type":"address","indexed":true,"internalType":"address"},{"name":"topic_0","type":"uint256","indexed":true,"internalType":"uint256"}],"anonymous":false},
+          {"type":"event","name":"VM","inputs":[],"anonymous":false}
+        ],
+        "bytecode": chain.rscBytecode
+      };
+      
+      processedABI = parsedData.abi;
+      console.log("Using hardcoded ABI from shared document");
+    }
+    
+    console.log("Final RSC ABI is array:", Array.isArray(processedABI), "with length:", processedABI.length);
+
+    // Create contract factory with proper error handling
+    const factory = new ethers.ContractFactory(
+      processedABI,
+      chain.rscBytecode,
+      signer
+    );
+
+    const deploymentGas = await factory.getDeployTransaction(
+      params.pair,
+      params.stopOrder,
+      params.client,
+      params.token0,
+      params.coefficient,
+      params.threshold
+    ).then(tx => provider.estimateGas(tx));
+
+    const gasLimit = (deploymentGas * BigInt(120)) / BigInt(100);
+    const gasPrice = await provider.getFeeData().then(fees => fees.gasPrice);
+    
+    if (!gasPrice) throw new Error('Failed to get gas price');
+
+    const signerAddress = await signer.getAddress();
+    const balance = await provider.getBalance(signerAddress);
+    const fundingValue = ethers.parseEther(fundingAmount);
+    const requiredBalance = gasLimit * gasPrice + fundingValue;
+
+    if (balance < requiredBalance) {
+      throw new Error(`Insufficient balance for RSC deployment and funding. Need at least ${ethers.formatEther(requiredBalance)} REACT`);
+    }
+
+    // Deploy with user-defined REACT funding
+    const contract = await factory.deploy(
+      params.pair,
+      params.stopOrder,
+      params.client,
+      params.token0,
+      params.coefficient,
+      params.threshold,
+      {
+        gasLimit,
+        gasPrice,
+        value: fundingValue // Using user-defined REACT funding
+      }
+    );
+
+    const deployedContract = await contract.waitForDeployment();
+    return deployedContract.target.toString();
+
+  } catch (error: any) {
+    console.error('Error deploying RSC:', error);
+    throw new Error(`RSC deployment failed: ${error.message || 'Unknown error'}`);
   }
+}
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -671,7 +788,7 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
         throw new Error(`Failed to deploy destination contract: ${error.message || 'Unknown error'}`);
       }
   
-      // Step 2: Approve Token Spending
+      //Step 2: Approve Token Spending
       setDeploymentStep('approving');
       const tokenToApprove = formData.sellToken0 ? pairInfo?.token0 : pairInfo?.token1;
       if (!tokenToApprove) throw new Error('Token address not found');
