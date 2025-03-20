@@ -15,6 +15,7 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import { BASE_URL } from '@/data/constants'
 import DeployButton from '@/components/DeployButton'
 import ContractPreview from '@/components/contract-preview'
+import { useRouter } from 'next/navigation';
 
 const steps = ['Contract Input', 'Event Selection', 'Input Selection', 'Template Preview']
 
@@ -35,6 +36,8 @@ export default function LiveDataIntegration() {
   const [deploymentError, setDeploymentError] = useState('')
   const [deploymentTxHash, setDeploymentTxHash] = useState('')
   const { account, web3 } = useWeb3()
+
+  const router = useRouter();
 
   const validateContract = async () => {
     setIsValidating(true)
@@ -383,22 +386,30 @@ export default function LiveDataIntegration() {
           </CardContent>
 
           <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 p-4 sm:p-6 border-t border-zinc-800">
+          <Button 
+            onClick={prevStep} 
+            disabled={currentStep === 0} 
+            variant="outline"
+            className="w-full sm:w-auto border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
+          >
+            Previous
+          </Button>
+          {currentStep === steps.length - 1 ? (
             <Button 
-              onClick={prevStep} 
-              disabled={currentStep === 0} 
-              variant="outline"
-              className="w-full sm:w-auto border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
-            >
-              Previous
-            </Button>
-            <Button 
-              onClick={nextStep} 
-              disabled={currentStep === steps.length - 1}
+              onClick={() => router.push('/dapp-automation')}
               className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white"
             >
-              {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+              Finish
             </Button>
-          </CardFooter>
+          ) : (
+            <Button 
+              onClick={nextStep} 
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white"
+            >
+              Next
+            </Button>
+          )}
+        </CardFooter>
         </Card>
       </div>
     </div>

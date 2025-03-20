@@ -289,11 +289,11 @@ export default function AddDappTemplatesPage() {
                     >
                       <SelectTrigger 
                         id="category" 
-                        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1"
+                        className=" bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1"
                       >
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
-                      <SelectContent className="relative z-30 bg-zinc-800 border-zinc-700">
+                      <SelectContent className="absolute bg-zinc-800 border-zinc-700 overflow-auto">
                         <SelectItem value="token" className="text-zinc-200 focus:bg-primary/20">Token</SelectItem>
                         <SelectItem value="defi" className="text-zinc-200 focus:bg-primary/20">DeFi</SelectItem>
                         <SelectItem value="nft" className="text-zinc-200 focus:bg-primary/20">NFT</SelectItem>
@@ -319,7 +319,7 @@ export default function AddDappTemplatesPage() {
                         className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
                       />
                       {tagsInput && (
-                        <div className="absolute z-30 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className=" z-30 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg max-h-60 overflow-auto">
                           {tagSuggestions
                             .filter(tag => 
                               tag.toLowerCase().includes(tagsInput.toLowerCase()) && 

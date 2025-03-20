@@ -225,130 +225,123 @@
               </div>
     
               <div className="relative z-20">
-                {currentStep === 0 && (
-                  <div className="space-y-4 sm:space-y-6">
-                    <div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <HelpCircle className="h-4 w-4 text-zinc-400" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs bg-black">
-                            <p>Give your use case a clear, descriptive title that indicates its main functionality</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={handleInputChange('title')}
-                      required
-                      className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                      <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
-                      <Input
-                        id="title"
-                        value={formData.title}
-                        onChange={handleInputChange('title')}
-                        required
-                        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                      />
-                    </div>
-    
-                    <div>
-                      <Label htmlFor="shortDescription" className="text-zinc-200 text-base sm:text-lg">
-                        Short Description
-                      </Label>
-                      <Textarea
-                        id="shortDescription"
-                        value={formData.shortDescription}
-                        onChange={handleInputChange('shortDescription')}
-                        required
-                        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                      />
-                    </div>
-    
-                    <div>
-                      <Label htmlFor="category" className="text-zinc-200 text-base sm:text-lg">Category</Label>
-                      <Select 
-                        value={formData.category} 
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                      >
-                        <SelectTrigger 
-                          id="category" 
-                          className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1"
-                        >
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent className="relative z-30 bg-zinc-800 border-zinc-700">
-                          <SelectItem value="token" className="text-zinc-200 focus:bg-primary/20">Token</SelectItem>
-                          <SelectItem value="defi" className="text-zinc-200 focus:bg-primary/20">DeFi</SelectItem>
-                          <SelectItem value="nft" className="text-zinc-200 focus:bg-primary/20">NFT</SelectItem>
-                          <SelectItem value="dao" className="text-zinc-200 focus:bg-primary/20">DAO</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-    
-                    <div>
-                      <Label htmlFor="tags" className="text-zinc-200 text-base sm:text-lg">Tags</Label>
-                      <div className="relative">
-                        <Input
-                          id="tags"
-                          value={tagsInput}
-                          onChange={handleTagsChange}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && tagsInput.trim()) {
-                              e.preventDefault();
-                              addTag(tagsInput.trim());
-                            }
-                          }}
-                          placeholder="Type a tag and press Enter"
-                          className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                        />
-                        {tagsInput && (
-                          <div className="absolute z-30 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg max-h-60 overflow-auto">
-                            {tagSuggestions
-                              .filter(tag => 
-                                tag.toLowerCase().includes(tagsInput.toLowerCase()) && 
-                                !formData.tags.includes(tag)
-                              )
-                              .map((tag, index) => (
-                                <div
-                                  key={index}
-                                  className="px-4 py-2 cursor-pointer hover:bg-primary/20 text-zinc-200"
-                                  onClick={() => addTag(tag)}
-                                >
-                                  {tag}
-                                </div>
-                              ))
-                            }
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {formData.tags.map((tag, index) => (
-                          <span 
-                            key={index} 
-                            className="relative z-20 bg-primary/20 text-blue-300 px-2 py-1 rounded-full text-sm flex items-center border border-blue-500/20"
-                          >
-                            {tag}
-                            <button
-                              onClick={() => removeTag(tag)}
-                              className="ml-2 focus:outline-none hover:text-blue-200"
-                            >
-                              <X size={14} />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+              {currentStep === 0 && (
+  <div className="space-y-4 sm:space-y-6">
+    <div>
+      <div className="flex items-center gap-2">
+        <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <HelpCircle className="h-4 w-4 text-zinc-400" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs bg-black">
+              <p>Give your use case a clear, descriptive title that indicates its main functionality</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      <Input
+        id="title"
+        value={formData.title}
+        onChange={handleInputChange('title')}
+        required
+        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+      />
+    </div>
+
+    <div>
+      <Label htmlFor="shortDescription" className="text-zinc-200 text-base sm:text-lg">
+        Short Description
+      </Label>
+      <Textarea
+        id="shortDescription"
+        value={formData.shortDescription}
+        onChange={handleInputChange('shortDescription')}
+        required
+        className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Category section with improved positioning */}
+    <div className="relative" style={{ zIndex: 30 }}>
+      <Label htmlFor="category" className="text-zinc-200 text-base sm:text-lg">Category</Label>
+      <Select 
+        value={formData.category} 
+        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+      >
+        <SelectTrigger 
+          id="category" 
+          className="bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1"
+        >
+          <SelectValue placeholder="Select category" />
+        </SelectTrigger>
+        <SelectContent position="popper" className="bg-zinc-800 border-zinc-700 z-50">
+          <SelectItem value="token" className="text-zinc-200 focus:bg-primary/20">Token</SelectItem>
+          <SelectItem value="defi" className="text-zinc-200 focus:bg-primary/20">DeFi</SelectItem>
+          <SelectItem value="nft" className="text-zinc-200 focus:bg-primary/20">NFT</SelectItem>
+          <SelectItem value="dao" className="text-zinc-200 focus:bg-primary/20">DAO</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Tags section with lower z-index */}
+    <div className="relative" style={{ zIndex: 20 }}>
+      <Label htmlFor="tags" className="text-zinc-200 text-base sm:text-lg">Tags</Label>
+      <div className="relative">
+        <Input
+          id="tags"
+          value={tagsInput}
+          onChange={handleTagsChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && tagsInput.trim()) {
+              e.preventDefault();
+              addTag(tagsInput.trim());
+            }
+          }}
+          placeholder="Type a tag and press Enter"
+          className="bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
+        />
+        {tagsInput && (
+          <div className=" w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg max-h-60 overflow-auto" style={{ zIndex: 25 }}>
+            {tagSuggestions
+              .filter(tag => 
+                tag.toLowerCase().includes(tagsInput.toLowerCase()) && 
+                !formData.tags.includes(tag)
+              )
+              .map((tag, index) => (
+                <div
+                  key={index}
+                  className="px-4 py-2 cursor-pointer hover:bg-primary/20 text-zinc-200"
+                  onClick={() => addTag(tag)}
+                >
+                  {tag}
+                </div>
+              ))
+            }
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {formData.tags.map((tag, index) => (
+          <span 
+            key={index} 
+            className="bg-primary/20 text-blue-300 px-2 py-1 rounded-full text-sm flex items-center border border-blue-500/20"
+          >
+            {tag}
+            <button
+              onClick={() => removeTag(tag)}
+              className="ml-2 focus:outline-none hover:text-blue-200"
+            >
+              <X size={14} />
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+  
     
                 {currentStep === 1 && (
                   <div className="space-y-6 sm:space-y-8">

@@ -16,6 +16,7 @@ import AutomationForm2 from '@/components/automation/SCAutomation/AutomationForm
 import DeployButton from '@/components/DeployButton'
 import { useWeb3 } from '@/app/_context/Web3Context'
 import ContractPreview from '@/components/contract-preview'
+import { useRouter } from 'next/navigation';
 
 const steps = [
   "Chain Selection",
@@ -49,6 +50,7 @@ export default function CrossChainBridge() {
   } = useAutomationContext();
 
   const { account, web3 } = useWeb3();
+  const router = useRouter();
 
   const chains = [
     { name: 'Ethereum', id: '1' },
@@ -349,14 +351,23 @@ export default function CrossChainBridge() {
                 className="border-blue-500/20 hover:bg-blue-900/20 text-zinc-200"
               >
                 Previous
-                </Button>
-              <Button 
-                onClick={nextStep} 
-                disabled={currentStep === steps.length - 1 || !canProceedToNext()}
-                className="bg-primary hover:bg-primary/90 text-white"
-              >
-                {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
               </Button>
+              {currentStep === steps.length - 1 ? (
+                <Button 
+                  onClick={() => router.push('/dapp-automation')}
+                  className="bg-primary hover:bg-primary/90 text-white"
+                >
+                  Finish
+                </Button>
+              ) : (
+                <Button 
+                  onClick={nextStep} 
+                  disabled={!canProceedToNext()}
+                  className="bg-primary hover:bg-primary/90 text-white"
+                >
+                  Next
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
