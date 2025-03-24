@@ -634,122 +634,128 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
   }
 
   async function deployRSC(params: RSCParams, chain: ChainConfig, fundingAmount: string) {
-  try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    
-    const currentNetwork = await provider.getNetwork();
-    const chainId = Number(currentNetwork.chainId);
-    const rscNetwork = getRSCNetworkForChain(chain.id);
-
-    if (chainId.toString() !== rscNetwork.chainId) {
-      throw new Error(`Please switch to ${rscNetwork.name} for RSC deployment`);
-    }
-
-    // Process the ABI to make sure it's usable
-    let processedABI = chain.rscABI;
-    console.log("RSC ABI type:", typeof processedABI);
-    
-    // If it's a JSON string, parse it
-    if (typeof processedABI === 'string') {
-      try {
-        processedABI = JSON.parse(processedABI);
-        console.log("Parsed RSC ABI from string");
-      } catch (e) {
-        console.error("Failed to parse RSC ABI string:", e);
-      }
-    }
-    
-    // Handle case when ABI is in an object with 'abi' property
-    if (processedABI && typeof processedABI === 'object' && !Array.isArray(processedABI)) {
-      if ('abi' in processedABI) {
-        console.log("Extracted RSC ABI from object.abi property");
-        processedABI = processedABI.abi;
-      }
-    }
-    
-    
-    // Verify that we now have an array
-    if (!Array.isArray(processedABI)) {
-      console.error("RSC ABI is not an array:", processedABI);
-      // Try using the parsed ABI data from the document you shared
-      const parsedData = {
-        "abi":[
-          {"type":"constructor","inputs":[{"name":"_pair","type":"address","internalType":"address"},{"name":"_stop_order","type":"address","internalType":"address"},{"name":"_client","type":"address","internalType":"address"},{"name":"_token0","type":"bool","internalType":"bool"},{"name":"_coefficient","type":"uint256","internalType":"uint256"},{"name":"_threshold","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},
-          {"type":"receive","stateMutability":"payable"},
-          {"type":"function","name":"coverDebt","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
-          {"type":"function","name":"pay","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
-          {"type":"function","name":"react","inputs":[{"name":"log","type":"tuple","internalType":"struct IReactive.LogRecord","components":[{"name":"chain_id","type":"uint256","internalType":"uint256"},{"name":"_contract","type":"address","internalType":"address"},{"name":"topic_0","type":"uint256","internalType":"uint256"},{"name":"topic_1","type":"uint256","internalType":"uint256"},{"name":"topic_2","type":"uint256","internalType":"uint256"},{"name":"topic_3","type":"uint256","internalType":"uint256"},{"name":"data","type":"bytes","internalType":"bytes"},{"name":"block_number","type":"uint256","internalType":"uint256"},{"name":"data","type":"bytes","internalType":"bytes"},{"name":"block_number","type":"uint256","internalType":"uint256"},{"name":"op_code","type":"uint256","internalType":"uint256"},{"name":"block_hash","type":"uint256","internalType":"uint256"},{"name":"tx_hash","type":"uint256","internalType":"uint256"},{"name":"log_index","type":"uint256","internalType":"uint256"}]}],"outputs":[],"stateMutability":"nonpayable"},
-          {"type":"event","name":"AboveThreshold","inputs":[{"name":"reserve0","type":"uint112","indexed":true,"internalType":"uint112"},{"name":"reserve1","type":"uint112","indexed":true,"internalType":"uint112"},{"name":"coefficient","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"threshold","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
-          {"type":"event","name":"Callback","inputs":[{"name":"chain_id","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"_contract","type":"address","indexed":true,"internalType":"address"},{"name":"gas_limit","type":"uint64","indexed":true,"internalType":"uint64"},{"name":"payload","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},
-          {"type":"event","name":"CallbackSent","inputs":[],"anonymous":false},
-          {"type":"event","name":"Done","inputs":[],"anonymous":false},
-          {"type":"event","name":"ReactRefunded","inputs":[{"name":"client","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
-          {"type":"event","name":"Subscribed","inputs":[{"name":"service_address","type":"address","indexed":true,"internalType":"address"},{"name":"_contract","type":"address","indexed":true,"internalType":"address"},{"name":"topic_0","type":"uint256","indexed":true,"internalType":"uint256"}],"anonymous":false},
-          {"type":"event","name":"VM","inputs":[],"anonymous":false}
-        ],
-        "bytecode": chain.rscBytecode
-      };
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       
-      processedABI = parsedData.abi;
-      console.log("Using hardcoded ABI from shared document");
-    }
-    
-    console.log("Final RSC ABI is array:", Array.isArray(processedABI), "with length:", processedABI.length);
-
-    // Create contract factory with proper error handling
-    const factory = new ethers.ContractFactory(
-      processedABI,
-      chain.rscBytecode,
-      signer
-    );
-
-    const deploymentGas = await factory.getDeployTransaction(
-      params.pair,
-      params.stopOrder,
-      params.client,
-      params.token0,
-      params.coefficient,
-      params.threshold
-    ).then(tx => provider.estimateGas(tx));
-
-    const gasLimit = (deploymentGas * BigInt(120)) / BigInt(100);
-    const gasPrice = await provider.getFeeData().then(fees => fees.gasPrice);
-    
-    if (!gasPrice) throw new Error('Failed to get gas price');
-
-    const signerAddress = await signer.getAddress();
-    const balance = await provider.getBalance(signerAddress);
-    const fundingValue = ethers.parseEther(fundingAmount);
-    const requiredBalance = gasLimit * gasPrice + fundingValue;
-
-    if (balance < requiredBalance) {
-      throw new Error(`Insufficient balance for RSC deployment and funding. Need at least ${ethers.formatEther(requiredBalance)} ${rscNetwork.currencySymbol}`);
-    }
-
-    // Deploy with user-defined REACT funding
-    const contract = await factory.deploy(
-      params.pair,
-      params.stopOrder,
-      params.client,
-      params.token0,
-      params.coefficient,
-      params.threshold,
-      {
-        gasLimit,
-        gasPrice,
-        value: fundingValue // Using user-defined REACT funding
+      const currentNetwork = await provider.getNetwork();
+      const chainId = Number(currentNetwork.chainId);
+      const rscNetwork = getRSCNetworkForChain(chain.id);
+  
+      if (chainId.toString() !== rscNetwork.chainId) {
+        throw new Error(`Please switch to ${rscNetwork.name} for RSC deployment`);
       }
-    );
-
-    const deployedContract = await contract.waitForDeployment();
-    return deployedContract.target.toString();
-
-  } catch (error: any) {
-    console.error('Error deploying RSC:', error);
-    throw new Error(`RSC deployment failed: ${error.message || 'Unknown error'}`);
+  
+      // Process the ABI to make sure it's usable
+      let processedABI = chain.rscABI;
+      console.log("RSC ABI type:", typeof processedABI);
+      
+      // If it's a JSON string, parse it
+      if (typeof processedABI === 'string') {
+        try {
+          processedABI = JSON.parse(processedABI);
+          console.log("Parsed RSC ABI from string");
+        } catch (e) {
+          console.error("Failed to parse RSC ABI string:", e);
+        }
+      }
+      
+      // Handle case when ABI is in an object with 'abi' property
+      if (processedABI && typeof processedABI === 'object' && !Array.isArray(processedABI)) {
+        if ('abi' in processedABI) {
+          console.log("Extracted RSC ABI from object.abi property");
+          processedABI = processedABI.abi;
+        }
+      }
+      
+      // Verify that we now have an array
+      if (!Array.isArray(processedABI)) {
+        console.error("RSC ABI is not an array:", processedABI);
+        // Try using the parsed ABI data from the document you shared
+        const parsedData = {
+          "abi":[
+            {"type":"constructor","inputs":[{"name":"_pair","type":"address","internalType":"address"},{"name":"_stop_order","type":"address","internalType":"address"},{"name":"_client","type":"address","internalType":"address"},{"name":"_token0","type":"bool","internalType":"bool"},{"name":"_coefficient","type":"uint256","internalType":"uint256"},{"name":"_threshold","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},
+            {"type":"receive","stateMutability":"payable"},
+            {"type":"function","name":"coverDebt","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+            {"type":"function","name":"pay","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+            {"type":"function","name":"react","inputs":[{"name":"log","type":"tuple","internalType":"struct IReactive.LogRecord","components":[{"name":"chain_id","type":"uint256","internalType":"uint256"},{"name":"_contract","type":"address","internalType":"address"},{"name":"topic_0","type":"uint256","internalType":"uint256"},{"name":"topic_1","type":"uint256","internalType":"uint256"},{"name":"topic_2","type":"uint256","internalType":"uint256"},{"name":"topic_3","type":"uint256","internalType":"uint256"},{"name":"data","type":"bytes","internalType":"bytes"},{"name":"block_number","type":"uint256","internalType":"uint256"},{"name":"op_code","type":"uint256","internalType":"uint256"},{"name":"block_hash","type":"uint256","internalType":"uint256"},{"name":"tx_hash","type":"uint256","internalType":"uint256"},{"name":"log_index","type":"uint256","internalType":"uint256"}]}],"outputs":[],"stateMutability":"nonpayable"},
+            {"type":"event","name":"AboveThreshold","inputs":[{"name":"reserve0","type":"uint112","indexed":true,"internalType":"uint112"},{"name":"reserve1","type":"uint112","indexed":true,"internalType":"uint112"},{"name":"coefficient","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"threshold","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
+            {"type":"event","name":"Callback","inputs":[{"name":"chain_id","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"_contract","type":"address","indexed":true,"internalType":"address"},{"name":"gas_limit","type":"uint64","indexed":true,"internalType":"uint64"},{"name":"payload","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},
+            {"type":"event","name":"CallbackSent","inputs":[],"anonymous":false},
+            {"type":"event","name":"Done","inputs":[],"anonymous":false},
+            {"type":"event","name":"ReactRefunded","inputs":[{"name":"client","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},
+            {"type":"event","name":"Subscribed","inputs":[{"name":"service_address","type":"address","indexed":true,"internalType":"address"},{"name":"_contract","type":"address","indexed":true,"internalType":"address"},{"name":"topic_0","type":"uint256","indexed":true,"internalType":"uint256"}],"anonymous":false},
+            {"type":"event","name":"VM","inputs":[],"anonymous":false}
+          ],
+          "bytecode": chain.rscBytecode
+        };
+        
+        processedABI = parsedData.abi;
+        console.log("Using hardcoded ABI from shared document");
+      }
+      
+      console.log("Final RSC ABI is array:", Array.isArray(processedABI), "with length:", processedABI.length);
+  
+      // Create contract factory with proper error handling
+      const factory = new ethers.ContractFactory(
+        processedABI,
+        chain.rscBytecode,
+        signer
+      );
+  
+      // FIX: Ensure all addresses are valid by checking format and converting 
+      // to checksummed addresses to avoid ENS lookups
+      const pairAddress = ethers.getAddress(params.pair);
+      const stopOrderAddress = ethers.getAddress(params.stopOrder);
+      const clientAddress = ethers.getAddress(params.client);
+  
+      // Now use the validated addresses for deployment
+      const deploymentGas = await factory.getDeployTransaction(
+        pairAddress,
+        stopOrderAddress,
+        clientAddress,
+        params.token0,
+        params.coefficient,
+        params.threshold
+      ).then(tx => provider.estimateGas(tx));
+  
+      const gasLimit = (deploymentGas * BigInt(120)) / BigInt(100);
+      const gasPrice = await provider.getFeeData().then(fees => fees.gasPrice);
+      
+      if (!gasPrice) throw new Error('Failed to get gas price');
+  
+      const signerAddress = await signer.getAddress();
+      const balance = await provider.getBalance(signerAddress);
+      const fundingValue = ethers.parseEther(fundingAmount);
+      const requiredBalance = gasLimit * gasPrice + fundingValue;
+  
+      if (balance < requiredBalance) {
+        throw new Error(`Insufficient balance for RSC deployment and funding. Need at least ${ethers.formatEther(requiredBalance)} ${rscNetwork.currencySymbol}`);
+      }
+  
+      // Deploy with user-defined funding
+      const contract = await factory.deploy(
+        pairAddress,
+        stopOrderAddress,
+        clientAddress,
+        params.token0,
+        params.coefficient,
+        params.threshold,
+        {
+          gasLimit,
+          gasPrice,
+          value: fundingValue
+        }
+      );
+  
+      const deployedContract = await contract.waitForDeployment();
+      return deployedContract.target.toString();
+  
+    } catch (error: any) {
+      console.error('Error deploying RSC:', error);
+      throw new Error(`RSC deployment failed: ${error.message || 'Unknown error'}`);
+    }
   }
-}
 
  // Update the handleCreateOrder function to use the correct RSC network based on source chain
 const handleCreateOrder = async (e: React.FormEvent) => {
