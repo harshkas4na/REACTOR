@@ -120,6 +120,7 @@ export default function Navigation() {
                 
                 {/* Mainnets */}
                 <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
+                <SelectItem value="REACT">Reactive Mainnet</SelectItem>
                 <SelectItem value="AVALANCHE">Avalanche C-Chain</SelectItem>
                 <SelectItem value="ARBITRUM">Arbitrum One</SelectItem>
                 <SelectItem value="MANTA">Manta Pacific</SelectItem>

@@ -35,22 +35,59 @@ const DeployButton = ({
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [gasCost, setGasCost] = useState<bigint>(BigInt(0));
   const [fundingAmount, setFundingAmount] = useState<string>('0.05');
+  const [currentRscNetwork, setCurrentRscNetwork] = useState<{
+    chainId: string;
+    name: string;
+    currencySymbol: string;
+    explorerBaseUrl: string;
+    isMainnet: boolean;
+  } | null>(null);
   const { toast } = useToast();
   
   // Constants for deployment
   const DEFAULT_GAS_LIMIT = 3000000;
   const GAS_BUFFER = 1.2; // 20% buffer on gas estimate
   
-  const getNetworkName = async (web3: any) => {
+  // Check current network on component mount and when web3 changes
+  useEffect(() => {
+    if (web3) {
+      checkCurrentNetwork();
+    }
+  }, [web3]);
+
+  // Function to check which RSC network the user is connected to
+  const checkCurrentNetwork = async () => {
+    if (!web3) return;
+    
     try {
       const chainId = await web3.eth.getChainId();
-      const NETWORK_NAMES = {
-        5318008: 'Kopli'
-      };
-      return NETWORK_NAMES[chainId as keyof typeof NETWORK_NAMES] || `Chain ID: ${chainId}`;
-    } catch (error: any) {
-      console.error('Error getting network name:', error);
-      return 'Unknown Network';
+      const chainIdStr = chainId.toString();
+      
+      if (chainIdStr === '5318008') {
+        // Kopli Testnet
+        setCurrentRscNetwork({
+          chainId: '5318008',
+          name: 'Kopli Testnet',
+          currencySymbol: 'KOPLI',
+          explorerBaseUrl: 'https://kopli.reactscan.net',
+          isMainnet: false
+        });
+      } else if (chainIdStr === '1597') {
+        // Reactive Mainnet
+        setCurrentRscNetwork({
+          chainId: '1597',
+          name: 'Reactive Mainnet',
+          currencySymbol: 'REACT',
+          explorerBaseUrl: 'https://reactscan.net',
+          isMainnet: true
+        });
+      } else {
+        // Not on an RSC network
+        setCurrentRscNetwork(null);
+      }
+    } catch (error) {
+      console.error('Error checking current network:', error);
+      setCurrentRscNetwork(null);
     }
   };
 
@@ -140,6 +177,19 @@ const DeployButton = ({
       return;
     }
 
+    // Refresh network status
+    await checkCurrentNetwork();
+
+    // Check if connected to a supported RSC network
+    if (!currentRscNetwork) {
+      toast({
+        variant: "destructive",
+        title: "Network Error",
+        description: "Please connect to either Kopli Testnet or Reactive Mainnet",
+      });
+      return;
+    }
+
     // Validate funding amount
     if (!fundingAmount || parseFloat(fundingAmount) <= 0) {
       toast({
@@ -156,6 +206,15 @@ const DeployButton = ({
     }
 
     try {
+      // Show warning if on mainnet
+      if (currentRscNetwork.isMainnet) {
+        toast({
+          title: "Mainnet Deployment",
+          description: "You are about to deploy on Reactive Mainnet using real REACT tokens!",
+          variant: "destructive",
+        });
+      }
+
       // Convert funding amount to wei
       const fundingWei = web3.utils.toWei(fundingAmount, 'ether');
       
@@ -200,12 +259,6 @@ const DeployButton = ({
       }
 
       onCompileSuccess(abi, bytecode);
-      
-      // Verify network
-      const networkName = await getNetworkName(web3);
-      if (networkName !== 'Kopli') {
-        throw new Error('Please switch to Kopli network');
-      }
 
       // Calculate deployment costs
       const { gasLimit, gasPrice, estimatedGasCost } = await calculateCosts(abi, bytecode);
@@ -215,11 +268,11 @@ const DeployButton = ({
       const totalRequired = estimatedGasCost + BigInt(fundingWei);
 
       if (BigInt(balance) < totalRequired) {
-        const requiredREACT = web3.utils.fromWei(totalRequired.toString(), 'ether');
-        const gasInREACT = web3.utils.fromWei(estimatedGasCost.toString(), 'ether');
+        const requiredAmount = web3.utils.fromWei(totalRequired.toString(), 'ether');
+        const gasAmount = web3.utils.fromWei(estimatedGasCost.toString(), 'ether');
         
         throw new Error(
-          `Insufficient balance for deployment and funding. You need at least ${requiredREACT} REACT (${gasInREACT} for gas + ${fundingAmount} for RSC funding). Your current balance is ${web3.utils.fromWei(balance, 'ether')} REACT.`
+          `Insufficient balance for deployment and funding. You need at least ${requiredAmount} ${currentRscNetwork.currencySymbol} (${gasAmount} for gas + ${fundingAmount} for RSC funding). Your current balance is ${web3.utils.fromWei(balance, 'ether')} ${currentRscNetwork.currencySymbol}.`
         );
       }
 
@@ -266,7 +319,7 @@ const DeployButton = ({
       // Notify about successful deployment with funding
       toast({
         title: "Success!",
-        description: `RSC deployed and funded with ${fundingAmount} REACT`,
+        description: `RSC deployed and funded with ${fundingAmount} ${currentRscNetwork.currencySymbol}`,
         variant: "default",
       });
       
@@ -316,7 +369,7 @@ const DeployButton = ({
         return (
           <span className="flex items-center">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            <span>Deploying & Funding ({fundingAmount} REACT)...</span>
+            <span>Deploying & Funding ({fundingAmount} {currentRscNetwork?.currencySymbol})...</span>
           </span>
         );
       case 'success':
@@ -345,24 +398,62 @@ const DeployButton = ({
 
   // Get explorer URL for transaction
   const getExplorerUrl = (hash: string) => {
-    return `https://kopli.reactscan.net/tx/${hash}`;
+    return currentRscNetwork ? `${currentRscNetwork.explorerBaseUrl}/tx/${hash}` : `https://kopli.reactscan.net/tx/${hash}`;
   };
 
   return (
     <div className="space-y-4">
+      {/* Network information alert */}
+      {currentRscNetwork && status === 'idle' && (
+        <Alert className={currentRscNetwork.isMainnet ? "bg-amber-900/20 border-amber-600/50" : "bg-blue-900/20 border-blue-600/50"}>
+          <AlertTitle className={`${currentRscNetwork.isMainnet ? 'text-amber-100' : 'text-blue-100'} font-semibold flex items-center`}>
+            {currentRscNetwork.isMainnet ? 
+              <AlertTriangle className="h-4 w-4 mr-2" /> : 
+              <Info className="h-4 w-4 mr-2" />
+            }
+            {currentRscNetwork.isMainnet ? "Mainnet Deployment" : "Network Information"}
+          </AlertTitle>
+          <AlertDescription className={currentRscNetwork.isMainnet ? "text-amber-200 text-sm" : "text-blue-200 text-sm"}>
+            <p>You are connected to <strong>{currentRscNetwork.name}</strong>.</p>
+            {currentRscNetwork.isMainnet && (
+              <p className="mt-1 font-medium">
+                This is a production network. Deployment will use real {currentRscNetwork.currencySymbol} tokens.
+              </p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* No RSC network connected alert */}
+      {!currentRscNetwork && status === 'idle' && (
+        <Alert className="bg-red-900/20 border-red-600/50">
+          <AlertTitle className="text-red-100 font-semibold flex items-center">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Network Error
+          </AlertTitle>
+          <AlertDescription className="text-red-200 text-sm">
+            <p>You are not connected to an RSC network. Please connect to either:</p>
+            <ul className="list-disc list-inside mt-1 ml-2">
+              <li>Kopli Testnet (for testing)</li>
+              <li>Reactive Mainnet (for production)</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Funding information section */}
-      {status === 'idle' && (
+      {currentRscNetwork && status === 'idle' && (
         <Alert className="bg-blue-900/20 border-blue-600/50">
           <AlertTitle className="text-blue-100 font-semibold flex items-center">
             <Info className="h-4 w-4 mr-2" />
             RSC Funding Information
           </AlertTitle>
           <AlertDescription className="text-blue-200 text-sm">
-            <p>Your RSC requires REACT tokens to monitor events on the blockchain.</p>
-            <p className="mt-1">We recommend at least 0.05 REACT for approximately one week of monitoring.</p>
+            <p>Your RSC requires {currentRscNetwork.currencySymbol} tokens to monitor events on the blockchain.</p>
+            <p className="mt-1">We recommend at least 0.05 {currentRscNetwork.currencySymbol} for approximately one week of monitoring.</p>
             
             <div className="mt-3">
-              <Label htmlFor="fundingAmount" className="text-blue-100">Funding Amount (REACT)</Label>
+              <Label htmlFor="fundingAmount" className="text-blue-100">Funding Amount ({currentRscNetwork.currencySymbol})</Label>
               <div className="flex items-center mt-1 space-x-2">
                 <Input
                   id="fundingAmount"
@@ -371,7 +462,7 @@ const DeployButton = ({
                   className="bg-blue-950/40 border-blue-800 text-blue-100 w-36"
                   placeholder="0.05"
                 />
-                <span className="text-xs text-blue-300">REACT</span>
+                <span className="text-xs text-blue-300">{currentRscNetwork.currencySymbol}</span>
               </div>
             </div>
           </AlertDescription>
@@ -380,12 +471,14 @@ const DeployButton = ({
 
       <Button
         onClick={handleDeploy}
-        disabled={status === 'validating' || status === 'compiling' || status === 'deploying'}
+        disabled={status === 'validating' || status === 'compiling' || status === 'deploying' || !currentRscNetwork}
         className={`w-full md:w-auto relative overflow-hidden ${
           status === 'success' 
             ? 'bg-green-600 hover:bg-green-700' 
             : status === 'error' || status === 'validation-failed'
             ? 'bg-blue-600 hover:bg-blue-700'
+            : currentRscNetwork?.isMainnet
+            ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700'
             : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
         } text-white font-medium px-6 py-2`}
       >
@@ -393,9 +486,9 @@ const DeployButton = ({
       </Button>
 
       {/* Gas estimation display */}
-      {gasCost > 0 && status !== 'success' && status !== 'error' && (
+      {gasCost > 0 && currentRscNetwork && status !== 'success' && status !== 'error' && (
         <div className="text-xs text-blue-300 mt-2">
-          <span>Estimated gas: {web3?.utils.fromWei(gasCost.toString(), 'ether')} REACT + {fundingAmount} REACT funding</span>
+          <span>Estimated gas: {web3?.utils.fromWei(gasCost.toString(), 'ether')} {currentRscNetwork.currencySymbol} + {fundingAmount} {currentRscNetwork.currencySymbol} funding</span>
         </div>
       )}
 
@@ -435,14 +528,14 @@ const DeployButton = ({
       )}
 
       {/* Show success message */}
-      {status === 'success' && deployedContractAddress && (
+      {status === 'success' && deployedContractAddress && currentRscNetwork && (
         <Alert className="bg-green-900/30 border-green-700">
           <AlertTitle className="text-green-100 font-semibold flex items-center">
             <Check className="h-4 w-4 mr-2" />
             RSC Deployed and Funded Successfully
           </AlertTitle>
           <AlertDescription className="text-green-200">
-            <p className="mb-2">Your Reactive Smart Contract has been deployed and funded with {fundingAmount} REACT:</p>
+            <p className="mb-2">Your Reactive Smart Contract has been deployed and funded with {fundingAmount} {currentRscNetwork.currencySymbol}:</p>
             <div className="flex items-center space-x-2 bg-green-950/50 p-2 rounded mb-3">
               <code className="font-mono text-sm truncate max-w-[240px]">{deployedContractAddress}</code>
               <Button 
@@ -479,7 +572,7 @@ const DeployButton = ({
                 </div>
               </>
             )}
-            <p className="text-xs text-green-300 mt-1">Your RSC will monitor events according to its configuration for as long as its REACT funds allow.</p>
+            <p className="text-xs text-green-300 mt-1">Your RSC will monitor events according to its configuration for as long as its {currentRscNetwork.currencySymbol} funds allow.</p>
           </AlertDescription>
         </Alert>
       )}

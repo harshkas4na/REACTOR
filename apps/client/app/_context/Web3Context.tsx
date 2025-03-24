@@ -67,6 +67,14 @@ export const SUPPORTED_NETWORKS: SupportedNetworks = {
     hasCallback: true,
     isDestination: false
   },
+  REACT: {
+    chainId: 1597,
+    name: 'Reactive Mainnet',
+    rpcUrl: 'https://mainnet-rpc.rnk.dev/',
+    hasCallback: true,
+    isDestination: true,
+    callbackProxy: '0x0000000000000000000000000000000000FFFFFF'
+  },
   AVALANCHE: {
     chainId: 43114,
     name: 'Avalanche C-Chain',
