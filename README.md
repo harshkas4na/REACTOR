@@ -2,128 +2,99 @@
 
 ## Overview
 
-REACTOR is a revolutionary platform designed to make DeFi automation accessible to everyone, regardless of their technical background. Our primary mission is to enable non-technical users to leverage the power of blockchain automation without requiring coding knowledge.
+REACTOR is a revolutionary platform designed to make DeFi automation accessible to everyone, regardless of technical background. Our primary mission is to enable both non-technical users and blockchain developers to leverage the power of blockchain automation through Reactive Smart Contracts (RSCs).
 
-### Core Philosophy
+Visit REACTOR: [https://app.thereactor.in/](https://app.thereactor.in/)
+
+## Core Philosophy
 
 - **Accessibility First**: Making DeFi automation available to non-programmers
 - **User-Centric Design**: Focus on practical benefits rather than technical complexity
 - **Guided Experience**: Step-by-step flows and clear instructions
 - **Safety & Security**: Built-in protections and validations
+- **Cross-Chain Operations**: Seamless automation across multiple blockchains
 
 ## Key Features
 
-### 1. Smart Contract Automation (SCAutomation)
+### 1. Ready-Made Automations
 
-A no-code solution for deploying and managing automated DeFi operations.
+Pre-built DeFi automation tools requiring zero coding knowledge.
 
-### Features
+#### Stop Order Automation
 
-- Template-based automation deployment
-- Visual configuration interface
-- Built-in safety checks
-- Real-time monitoring
-- Gas optimization
+Our flagship automation that protects token investments across multiple chains:
 
-### User Flow
+- **Supported Networks**: Ethereum Mainnet, Sepolia testnet, Avalanche C-Chain
+- **Compatible DEXes**: Uniswap V2 (Ethereum), Pangolin (Avalanche)
+- **Key Functionality**: Automatically sells tokens when prices drop below user-defined thresholds
+- **Benefits**: 24/7 price monitoring without manual intervention
 
-1. **Select Automation Type**
-    - Choose from pre-built templates
-    - View clear descriptions of functionality
-    - See expected outcomes
-2. **Configure Parameters**
-    - User-friendly input forms
-    - Clear explanations of each setting
-    - Real-time validation
-    - Cost estimates
-3. **Deploy & Monitor**
-    - One-click deployment
-    - Clear success/failure indicators
-    - Simple monitoring interface
-    - Easy management tools
+**User Flow**:
+1. Select blockchain network and token pair
+2. Configure stop price threshold using coefficient and threshold values
+3. Specify token to sell and amount
+4. Deploy with one-click operation
+5. Receive purchased tokens and unused funds automatically when triggered
 
 ### 2. DApp Automation
 
-Enables users to create automated workflows between their favorite DeFi applications.
+Tools for creating automated workflows between DeFi applications.
 
-### Components
+#### Components
 
-### A. Live Data Integration
-
+**A. Live Data Integration**
 - Real-time price feeds
 - Portfolio value tracking
 - Market condition monitoring
 - Custom alert setup
 
-### B. Cross-DApp Automation
-
+**B. Cross-DApp Automation**
 - Inter-protocol transactions
 - Automated portfolio rebalancing
 - Yield farming optimization
 - Risk management strategies
 
-### C. Cross-Chain Automation
+**C. Cross-Chain Automation**
+- Select origin chain
+- Choose destination chain
+- Configure cross-chain automations
+- Generate implementation
 
-- Chose the chain for origin.
-- Chose the chain for destination.
-- Chose the automations.
-- Genrate the template.
-
-### D. External DApp Integration
-
+**D. External DApp Integration**
 - Popular DeFi protocol support
 - Standardized interaction patterns
 - Secure connection handling
 - Error recovery mechanisms
 
-### Features
+### 3. Developer Tools
 
-- Visual workflow builder
-- Pre-built integration templates
-- Custom trigger configuration
-- Cross-chain compatibility
+Advanced options for blockchain developers to create custom RSCs.
 
-### 3. Smart Contract Library (SCLibrary)
+#### Features
+- Custom RSC deployment interface
+- Event-driven automation templates
+- Cross-chain communication configuration
+- Protocol integration tools
+
+### 4. Smart Contract Library (SCLibrary)
 
 A comprehensive collection of verified automation templates ready for immediate use.
 
-### 1. Uniswap-v2-history-tracker
+#### Categories
+1. Stop Orders
+2. Portfolio Protection
+3. Yield Optimization
+4. Cross-Chain Operations
 
-### 2. ERC20-turnover
-
-### 3. ERC721-ownership-tracker
-
-### Features
-
+#### Features
 - Detailed template documentation
 - Risk level indicators
 - Gas efficiency metrics
 - Usage statistics and reviews
 
-### 4. DApp Library
-
-A curated collection of pre-built automations for popular DeFi protocols.
-
-### 1. Uniswap-Stop-Order
-
-### Categories
-
-- Live-Data
-- Cross-DApp
-- Cross-Chain Bridge
-- External DApp Automation
-
-### Features
-
-- One-click integration
-- Protocol-specific optimizations
-- Cross-protocol automation
-- Security audited templates
-
 ## User Interface
 
 ### Design Philosophy
-
 - Clean, intuitive interface
 - Clear call-to-actions
 - Step-by-step guidance
@@ -131,58 +102,73 @@ A curated collection of pre-built automations for popular DeFi protocols.
 
 ### Key Components
 
-### 1. Navigation
-
+**1. Navigation**
 - Simplified menu structure
 - Clear categorization
 - Quick access to common functions
 - Contextual help
 
-### 2. Dashboard
-
+**2. Dashboard**
 - Portfolio overview
 - Active automations
 - Performance metrics
 - Alert notifications
 
-### 3. Automation Builder
-
+**3. Automation Builder**
 - Visual configuration
 - Real-time previews
 - Parameter validation
 - Cost estimation
 
+## Technology Stack
+
+### Frontend
+- React/Next.js
+- Ethers.js for blockchain interactions
+- Framer Motion for animations
+- Tailwind CSS for styling
+
+### Smart Contracts
+- Solidity for contract development
+- Reactive Network libraries for RSC functionality
+- OpenZeppelin for security patterns
+
+### Supported Blockchains
+- Ethereum Mainnet
+- Sepolia Testnet
+- Avalanche C-Chain
+- Reactive Mainnet & Kopli Testnet
+
 ## Best Practices
 
 ### For Users
+- **Start Small**
+  - Begin with simple automations
+  - Test with small amounts
+  - Monitor performance
+  - Gradually increase complexity
 
-1. **Start Small**
-    - Begin with simple automations
-    - Test with small amounts
-    - Monitor performance
-    - Gradually increase complexity
-2. **Risk Management**
-    - Understand automation behavior
-    - Set appropriate limits
-    - Monitor regularly
-    - Have backup plans
-3. **Portfolio Protection**
-    - Use stop-loss orders
-    - Implement safety checks
-    - Monitor health factors
-    - Maintain reserves
+- **Risk Management**
+  - Understand automation behavior
+  - Set appropriate thresholds
+  - Monitor regularly
+  - Have backup plans
+
+- **Portfolio Protection**
+  - Use stop-loss orders
+  - Implement safety checks
+  - Monitor health factors
+  - Maintain reserves
 
 ## Technical Implementation
 
 ### Architecture
-
 - Modular design
 - Scalable infrastructure
 - Cross-chain compatibility
 - Performance optimized
 
 ### Safety Measures
-
 - Smart contract audits
 - Parameter validation
 - Gas optimization
@@ -191,14 +177,12 @@ A curated collection of pre-built automations for popular DeFi protocols.
 ## Future Development
 
 ### Planned Features
-
-1. Additional protocol integrations
-2. Enhanced automation templates
-3. Advanced monitoring tools
-4. Mobile application
+- Additional protocol integrations
+- Enhanced automation templates
+- Advanced monitoring tools
+- Mobile application support
 
 ### Community Involvement
-
 - Template submission
 - Feature requests
 - Bug reporting
@@ -207,14 +191,12 @@ A curated collection of pre-built automations for popular DeFi protocols.
 ## Support & Resources
 
 ### Documentation
-
 - Getting started guides
 - Template documentation
 - Best practices
 - FAQs
 
 ### Community Support
-
 - Discord community
 - Help desk
 - Video tutorials
@@ -222,4 +204,6 @@ A curated collection of pre-built automations for popular DeFi protocols.
 
 ## Conclusion
 
-REACTOR represents a paradigm shift in DeFi automation, making powerful blockchain functionality accessible to everyone. By focusing on user experience and practical applications, we're democratizing access to sophisticated DeFi strategies while maintaining the highest standards of security and reliability.
+REACTOR represents a paradigm shift in DeFi automation, making powerful blockchain functionality accessible to everyone. By leveraging the unique capabilities of Reactive Smart Contracts, we're democratizing access to sophisticated DeFi strategies while maintaining the highest standards of security and reliability.
+
+Visit us today at [https://app.thereactor.in/](https://app.thereactor.in/) to start automating your DeFi operations!
