@@ -6,6 +6,9 @@ REACTOR is a revolutionary platform designed to make DeFi automation accessible 
 
 Visit REACTOR: [https://app.thereactor.in/](https://app.thereactor.in/)
 
+<img width="1470" alt="image" src="https://github.com/user-attachments/assets/b4536305-b6dc-4d66-93bd-6e841c4f7c18" />
+
+
 ## Core Philosophy
 
 - **Accessibility First**: Making DeFi automation available to non-programmers
