@@ -257,16 +257,7 @@ export default function AddDappTemplatesPage() {
                     className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                    <Label htmlFor="title" className="text-zinc-200 text-base sm:text-lg">Title</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={handleInputChange('title')}
-                      required
-                      className="relative z-20 bg-zinc-800/50 text-zinc-200 border-zinc-700 mt-1 focus:ring-blue-500"
-                    />
-                  </div>
+                
   
                   <div>
                     <Label htmlFor="shortDescription" className="text-zinc-200 text-base sm:text-lg">

@@ -32,14 +32,16 @@ export default function AutomationCard({
 }: AutomationCardProps) {
   const { automations, setAutomations } = useAutomationContext();
   
-  // Validation functions
+  // Validation functions - FIXED to allow empty parameter events
   const validateEventInput = useCallback((input: string): boolean => {
-    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\((address|uint256|string|bool|bytes32|uint8)(,(address|uint256|string|bool|bytes32|uint8))*\)$/;
+    // This regex allows events with no parameters like Event()
+    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\((|(address|uint256|string|bool|bytes32|uint8)(,(address|uint256|string|bool|bytes32|uint8))*)\)$/;
     return eventRegex.test(input);
   }, []);
 
   const validateFunctionInput = useCallback((input: string): boolean => {
-    const functionRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\(address(,(address|uint256|string|bool|bytes32|uint8))*\)$/;
+    // Function must have at least the address parameter for ReactVM
+    const functionRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\(address(|(,(address|uint256|string|bool|bytes32|uint8))+)\)$/;
     return functionRegex.test(input);
   }, []);
 
@@ -94,7 +96,7 @@ export default function AutomationCard({
                   <h4 className="font-medium text-zinc-100">Event Format</h4>
                   <p className="text-sm text-zinc-300">
                     The event signature from your origin contract that you want to monitor.
-                    Format: EventName(type1,type2,...)
+                    Format: EventName(type1,type2,...) or EventName() for no parameters.
                   </p>
                   <p className="text-sm text-zinc-300 mt-2">
                     Supported types:
@@ -106,7 +108,9 @@ export default function AutomationCard({
                     • uint8
                   </p>
                   <p className="text-sm text-zinc-400 mt-2">
-                    Example: Transfer(address,address,uint256)
+                    Examples: 
+                    • Transfer(address,address,uint256)
+                    • Approval()
                   </p>
                 </div>
               </HoverCardContent>
@@ -115,15 +119,17 @@ export default function AutomationCard({
           <Input
             value={automation.event}
             onChange={(e) => handleAutomationChange('event', e.target.value)}
-            placeholder="Event(address,uint256)"
+            placeholder="Event() or Event(address,uint256)"
             required
             className={`bg-gray-900/50 border ${
-              validateEventInput(automation.event) 
+              automation.event && validateEventInput(automation.event) 
                 ? 'border-green-500' 
-                : 'border-red-500'
+                : automation.event 
+                  ? 'border-red-500'
+                  : 'border-zinc-700'
             } text-zinc-100 placeholder-zinc-500`}
           />
-          {!validateEventInput(automation.event) && (
+          {automation.event && !validateEventInput(automation.event) && (
             <p className="text-red-400 text-sm">
               Invalid event signature format
             </p>
@@ -161,15 +167,17 @@ export default function AutomationCard({
           <Input
             value={automation.function}
             onChange={(e) => handleAutomationChange('function', e.target.value)}
-            placeholder="functionName(address,uint256)"
+            placeholder="functionName(address) or functionName(address,uint256)"
             required
             className={`bg-gray-900/50 border ${
-              validateFunctionInput(automation.function) 
+              automation.function && validateFunctionInput(automation.function) 
                 ? 'border-green-500' 
-                : 'border-red-500'
+                : automation.function 
+                  ? 'border-red-500'
+                  : 'border-zinc-700'
             } text-zinc-100 placeholder-zinc-500`}
           />
-          {!validateFunctionInput(automation.function) && (
+          {automation.function && !validateFunctionInput(automation.function) && (
             <p className="text-red-400 text-sm">
               First parameter must be address
             </p>

@@ -45,7 +45,7 @@ const Footer = () => {
               <Link href="https://x.com/HarshKasan89518" className="text-gray-400 hover:text-primary transition-colors duration-300">
                 <FaTwitter size={24} />
               </Link>
-              <Link href="https://www.linkedin.com/feed/" className="text-gray-400 hover:text-primary transition-colors duration-300">
+              <Link href="https://www.linkedin.com/in/harsh-kasana-8b6a79258/" className="text-gray-400 hover:text-primary transition-colors duration-300">
                 <FaLinkedin size={24} />
               </Link>
               <Link href="https://github.com/harshkas4na" className="text-gray-400 hover:text-primary transition-colors duration-300">
