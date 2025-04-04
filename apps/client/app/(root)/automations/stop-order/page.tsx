@@ -22,6 +22,7 @@ import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw 
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
 import { toast } from 'react-hot-toast';
 import PairFinder from '@/components/pair-finder'; // Import the PairFinder component
+import BalanceInfoComponent from '@/components/automation/BalanceInfoComponent';
 
 // Import all contract artifacts
 import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrderByteCode';
@@ -138,10 +139,13 @@ export default function UniswapStopOrderPage() {
   });
 
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isFormValid, setIsFormValid] = useState(false);
   const [connectedAccount, setConnectedAccount] = useState<string>('');
   const [deploymentStep, setDeploymentStep] = useState<DeploymentStep>('idle');
   const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
   const [isLoadingPair, setIsLoadingPair] = useState<boolean>(false);
+  
+
   
   // Find the currently selected chain configuration
   const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
@@ -1143,116 +1147,7 @@ const handleCreateOrder = async (e: React.FormEvent) => {
   };
 
 // Function to show balance warnings and return validation state
-function BalanceWarnings() {
-  const [balanceInfo, setBalanceInfo] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isValid, setIsValid] = useState(false);
-  
-  // Function to refresh balance data
-  const refreshBalances = async () => {
-    if (!formData.chainId || !connectedAccount) {
-      setIsValid(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const info = await checkBalances();
-      setBalanceInfo(info);
-      
-      // Check if all conditions are met
-      if (info) {
-        const hasRequiredBalances = info.isSourceChain ? 
-          (info.hasEnoughForDestination && (!info.tokenBalance || info.hasEnoughTokens)) : 
-          info.hasEnoughForRSC;
-          
-        const formIsValid = 
-          !!formData.chainId && 
-          !!formData.pairAddress && 
-          !!formData.clientAddress && 
-          !!formData.threshold && 
-          !!formData.amount && 
-          parseFloat(formData.amount) > 0 &&
-          !!formData.destinationFunding &&
-          parseFloat(formData.destinationFunding) > 0 &&
-          !!formData.rscFunding &&
-          parseFloat(formData.rscFunding) > 0 &&
-          !!pairInfo &&
-          hasRequiredBalances;
-          
-        setIsValid(formIsValid as boolean);
-      } else {
-        setIsValid(false);
-      }
-    } catch (error) {
-      console.error("Error refreshing balances:", error);
-      setIsValid(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Determine RSC network details based on source chain
-  const rscNetwork = getRSCNetworkForChain(formData.chainId);
-  
-  // Check balances when relevant form data changes
-  useEffect(() => {
-    refreshBalances();
-  }, [formData.chainId, formData.pairAddress, formData.clientAddress, formData.amount, formData.threshold, formData.sellToken0, formData.destinationFunding, formData.rscFunding, connectedAccount, pairInfo]);
-  
-  // Return both the UI and validation state
-  return {
-    isValid,
-    warningsUI: (
-      <div className="space-y-2">
-        {balanceInfo?.isSourceChain && (
-          <>
-            {!balanceInfo.hasEnoughForDestination && (
-              <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-200">
-                  You need at least {balanceInfo.requiredNativeBalance} {balanceInfo.nativeSymbol} on {
-                    SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId)?.name
-                  } for the destination contract.
-                  Current balance: {balanceInfo.nativeBalance} {balanceInfo.nativeSymbol}
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {balanceInfo.tokenBalance !== null && !balanceInfo.hasEnoughTokens && (
-              <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-200">
-                  You don't have enough {balanceInfo.tokenSymbol} tokens to sell {formData.amount || '0'}.
-                  Current balance: {balanceInfo.tokenBalance}
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
-        
-        {balanceInfo && !balanceInfo.isSourceChain && balanceInfo.hasEnoughForRSC === false && (
-          <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
-            <AlertCircle className="h-4 w-4 text-red-400" />
-            <AlertDescription className="text-red-200">
-              You need at least {balanceInfo.requiredNativeBalance || "0.05"} {rscNetwork.currencySymbol} on {rscNetwork.name} for the RSC contract.
-              Current balance: {balanceInfo.nativeBalance || "0"} {rscNetwork.currencySymbol}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="w-full bg-blue-900/20 border-blue-500/20 text-blue-400 hover:bg-blue-800/30"
-          onClick={refreshBalances}
-        >
-          <RefreshCw className="h-3 w-3 mr-2" /> Refresh Balance Info
-        </Button>
-      </div>
-    )
-  };
-}
+
 
   // Get current price ratio if pair info is available
   const currentPriceRatio = pairInfo && pairInfo.reserve0 && pairInfo.reserve1 
@@ -1261,7 +1156,6 @@ function BalanceWarnings() {
       : (parseFloat(pairInfo.reserve0) / parseFloat(pairInfo.reserve1)).toFixed(8)
     : 'Not available';
 
-  const { isValid, warningsUI } = BalanceWarnings();
 
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -1605,8 +1499,13 @@ function BalanceWarnings() {
 
               {/* Funding Configuration */}
               {FundingConfigurationUI()}
-
-              {warningsUI}
+              <BalanceInfoComponent 
+                formData={formData}
+                connectedAccount={connectedAccount}
+                pairInfo={pairInfo}
+                setIsValid={setIsFormValid}
+                selectedChain={selectedChain}
+              />
               
               {/* Enhanced Error Alert Component */}
               {DeploymentStatusUI()}
@@ -1645,12 +1544,12 @@ function BalanceWarnings() {
               </Card>
 
               <Button 
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                disabled={deploymentStep !== 'idle' || !isValid}
-              >
-                Create Stop Order
-              </Button>
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              disabled={deploymentStep !== 'idle' || !isFormValid}
+            >
+              Create Stop Order
+            </Button>
             </form>
           </CardContent>
         </Card>

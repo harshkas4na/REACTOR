@@ -32,17 +32,27 @@ export default function AutomationCard({
 }: AutomationCardProps) {
   const { automations, setAutomations } = useAutomationContext();
   
-  // Validation functions - FIXED to allow empty parameter events
+  // Improved validation functions with broader type support
   const validateEventInput = useCallback((input: string): boolean => {
-    // This regex allows events with no parameters like Event()
-    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\((|(address|uint256|string|bool|bytes32|uint8)(,(address|uint256|string|bool|bytes32|uint8))*)\)$/;
+    // More comprehensive regex that supports various Solidity types including int, uint with different bit sizes
+    const eventRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\(([a-zA-Z0-9\[\]]+)(\,[a-zA-Z0-9\[\]]+)*\)$/;
     return eventRegex.test(input);
   }, []);
 
   const validateFunctionInput = useCallback((input: string): boolean => {
-    // Function must have at least the address parameter for ReactVM
-    const functionRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*\(address(|(,(address|uint256|string|bool|bytes32|uint8))+)\)$/;
-    return functionRegex.test(input);
+    // Check if input follows basic function signature pattern
+    const basicPattern = /^[a-zA-Z_$][a-zA-Z0-9_$]*\(([a-zA-Z0-9\[\]]+)(\,[a-zA-Z0-9\[\]]+)*\)$/;
+    
+    // If it doesn't match the basic pattern, it's invalid
+    if (!basicPattern.test(input)) return false;
+    
+    // Extract parameters from the function signature
+    const paramsMatch = input.match(/\((.*)\)/);
+    if (!paramsMatch || !paramsMatch[1]) return false;
+    
+    // Split parameters and check if the first one is 'address'
+    const params = paramsMatch[1].split(',');
+    return params.length > 0 && params[0].trim() === 'address';
   }, []);
 
   // Automation change handler
@@ -96,21 +106,20 @@ export default function AutomationCard({
                   <h4 className="font-medium text-zinc-100">Event Format</h4>
                   <p className="text-sm text-zinc-300">
                     The event signature from your origin contract that you want to monitor.
-                    Format: EventName(type1,type2,...) or EventName() for no parameters.
+                    Format: EventName(type1,type2,...)
                   </p>
                   <p className="text-sm text-zinc-300 mt-2">
-                    Supported types:
+                    Supports all Solidity types including:
                     • address
-                    • uint256
+                    • uint/int (any bit size)
                     • string
                     • bool
-                    • bytes32
-                    • uint8
+                    • bytes (fixed and dynamic)
+                    • arrays
                   </p>
                   <p className="text-sm text-zinc-400 mt-2">
-                    Examples: 
-                    • Transfer(address,address,uint256)
-                    • Approval()
+                    Example: Transfer(address,address,uint256) or
+                    PositionRegistered(address,uint256,address,int24,int24,int24)
                   </p>
                 </div>
               </HoverCardContent>
@@ -119,14 +128,14 @@ export default function AutomationCard({
           <Input
             value={automation.event}
             onChange={(e) => handleAutomationChange('event', e.target.value)}
-            placeholder="Event() or Event(address,uint256)"
+            placeholder="Event(type1,type2,...)"
             required
             className={`bg-gray-900/50 border ${
-              automation.event && validateEventInput(automation.event) 
-                ? 'border-green-500' 
+              automation.event && !validateEventInput(automation.event) 
+                ? 'border-red-500'
                 : automation.event 
-                  ? 'border-red-500'
-                  : 'border-zinc-700'
+                ? 'border-green-500' 
+                : 'border-zinc-700'
             } text-zinc-100 placeholder-zinc-500`}
           />
           {automation.event && !validateEventInput(automation.event) && (
@@ -167,14 +176,14 @@ export default function AutomationCard({
           <Input
             value={automation.function}
             onChange={(e) => handleAutomationChange('function', e.target.value)}
-            placeholder="functionName(address) or functionName(address,uint256)"
+            placeholder="functionName(address,type1,type2,...)"
             required
             className={`bg-gray-900/50 border ${
-              automation.function && validateFunctionInput(automation.function) 
-                ? 'border-green-500' 
+              automation.function && !validateFunctionInput(automation.function) 
+                ? 'border-red-500'
                 : automation.function 
-                  ? 'border-red-500'
-                  : 'border-zinc-700'
+                ? 'border-green-500' 
+                : 'border-zinc-700'
             } text-zinc-100 placeholder-zinc-500`}
           />
           {automation.function && !validateFunctionInput(automation.function) && (
