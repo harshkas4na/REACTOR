@@ -66,7 +66,7 @@ const Footer = () => {
               />
               <Button 
                 color="primary"
-                className="w-full sm:w-auto hover:bg-primary/80 rounded-md"
+                className="w-full px-6 sm:w-auto hover:bg-primary/80 rounded-md"
               >
                 Subscribe
               </Button>
