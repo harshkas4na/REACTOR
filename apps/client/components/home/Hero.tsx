@@ -3,7 +3,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@nextui-org/react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { RocketLaunchIcon, SparklesIcon } from "@heroicons/react/24/solid";
+import { 
+  RocketLaunchIcon, 
+  SparklesIcon,
+  ShieldExclamationIcon,
+  CurrencyDollarIcon,
+  ChartBarIcon
+} from "@heroicons/react/24/solid";
 import Image from "next/image";
 
 const slides = [
@@ -21,7 +27,8 @@ const slides = [
     image: "/Background2.jpg",
     primaryButton: {
       text: "Use Automations",
-      href: "/templates"
+      href: "/templates",
+      icon: RocketLaunchIcon
     }
   },
   {
@@ -38,9 +45,46 @@ const slides = [
     image: "/Uniswap-stop-order.jpg",
     primaryButton: {
       text: "Create Stop Order",
-      href: "/automations/stop-order"
+      href: "/automations/stop-order",
+      icon: ShieldExclamationIcon
     }
   },
+  {
+    id: 2,
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
+          Collect Fees Without Effort
+        </span>{" "}
+        
+      </>
+    ),
+    subtitle: "Automatically collect earned fees from your Uniswap V3 positions 24/7",
+    image: "/fee-collector-9.jpg",
+    primaryButton: {
+      text: "Setup Fee Collector",
+      href: "/automations/fee-collector",
+      icon: CurrencyDollarIcon
+    }
+  },
+  {
+    id: 3,
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
+          Optimize Your Liquidity {" "} Positions
+        </span>{" "}
+        
+      </>
+    ),
+    subtitle: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
+    image: "/range-manager-7.jpg",
+    primaryButton: {
+      text: "Setup Range Manager",
+      href: "/automations/range-manager",
+      icon: ChartBarIcon
+    }
+  }
 ];
 
 const Hero = () => {
@@ -60,6 +104,9 @@ const Hero = () => {
     }, 6000);
     return () => clearInterval(interval);
   }, [isFirstLoad]);
+
+  // Get current icon component
+  const CurrentIcon = slides[currentSlide].primaryButton.icon;
 
   return (
     <section className="relative py-20 sm:py-32 overflow-hidden">
@@ -111,7 +158,7 @@ const Hero = () => {
                         color="primary"
                         variant="shadow"
                         size="lg"
-                        startContent={<RocketLaunchIcon className="h-5 w-5" />}
+                        startContent={<CurrentIcon className="h-5 w-5" />}
                         className="w-full sm:w-auto hover:bg-primary/80 rounded-md"
                       >
                         {slides[currentSlide].primaryButton.text}

@@ -17,20 +17,20 @@ const automations = [
     link: "/automations/stop-order"
   },
   {
-    title: "Fee Collector",
-    description: "Automatically collect and deposit earned fees from your Uniswap V3 liquidity positions.",
-    icon: "💰",
-    tooltipContent: "Register your liquidity positions once, and our system will monitor and collect fees for you, depositing them directly to your wallet without manual intervention.",
-    available: false,
-    link: "/automations/v3-fee-collector"
-  },
-  {
     title: "Range Manager",
     description: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically.",
     icon: "⚙️",
     tooltipContent: "Automatically adjusts your liquidity position ranges when prices move, maintaining optimal fee generation without constant manual rebalancing.",
-    available: false,
-    link: "/automations/v3-range-manager"
+    available: true,
+    link: "/automations/range-manager"
+  },
+  {
+    title: "Fee Collector",
+    description: "Automatically collect and deposit earned fees from your Uniswap V3 liquidity positions.",
+    icon: "💰",
+    tooltipContent: "Register your liquidity positions once, and our system will monitor and collect fees for you, depositing them directly to your wallet without manual intervention.",
+    available: true,
+    link: "/automations/fee-collector"
   },
   {
     title: "Portfolio Rebalancer",
@@ -44,7 +44,7 @@ const automations = [
 
 const AutomationCard = ({ automation }:any) => {
   return (
-    <Card className="relative bg-[#111827] border-none overflow-hidden shadow-md hover:shadow-lg hover:shadow-blue-900/20 transition-all duration-200">
+    <Card className="relative bg-[#111827] border-none overflow-hidden shadow-md hover:shadow-lg hover:shadow-blue-900/20 transition-all duration-200 flex flex-col h-full">
       <CardHeader className="flex-none pt-6 pb-2 px-6">
         <div className="text-4xl mb-3">{automation.icon}</div>
         <CardTitle className="text-zinc-100 text-xl font-medium">
@@ -67,18 +67,16 @@ const AutomationCard = ({ automation }:any) => {
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="px-6 py-4 mb-6">
+      <CardContent className="px-6 py-4 flex-grow">
         <p className="text-zinc-400 text-base">
           {automation.description}
         </p>
-        
-        
       </CardContent>
       
-      <CardFooter className="px-6 py-4 pt-6">
+      <CardFooter className="px-6 py-4 mt-auto">
         <Link href={automation.available ? automation.link : "#"} className="w-full">
           <Button 
-            className={`w-full ${automation.available ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' : 'bg-zinc-700/50 hover:bg-zinc-700'} text-white`}
+            className={`w-full ${automation.available ? 'bg-primary' : 'bg-zinc-700/50 hover:bg-zinc-700'} text-white`}
             disabled={!automation.available}
           >
             {automation.available ? (
