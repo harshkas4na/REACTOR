@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"tsc -w\" \"nodemon dist/index.js --turbo --port 5000\"",
+    "dev": "concurrently \"tsc -w\" \"nodemon dist/index.js --turbo --port 8000\"",
     "start": "node dist/index.js"
   },
   "keywords": [],
@@ -13,14 +13,19 @@
     "@prisma/client": "^5.20.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
     "axios": "^1.7.7",
+    "body-parser": "^2.2.0",
     "concurrently": "^9.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.2",
     "express": "^4.21.0",
+    "jest": "^29.7.0",
     "psql": "^0.0.1",
     "solc": "^0.8.28",
+    "ts-jest": "^29.3.4",
+    "ts-node-dev": "^2.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

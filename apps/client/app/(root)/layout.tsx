@@ -1,4 +1,3 @@
-import Footer from "@/components/home/Footer";
 import { ReactorBackground } from "@/components/ReactorBackground";
 
 // layout.tsx

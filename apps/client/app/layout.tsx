@@ -6,6 +6,7 @@ import ConvexClerkProvider from "./ConvexClerkProvider";
 import Navigation from "@/components/navigation/Navigation";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Web3Provider } from "@/app/_context/Web3Context";
+import ReactorAI from "@/components/ai/ReactorAI";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -44,7 +45,7 @@ export default function RootLayout({
                 
                   {children}
                 </main>
-                
+                <ReactorAI />
               </div>
             </ConvexClerkProvider>
           </AutomationProvider>

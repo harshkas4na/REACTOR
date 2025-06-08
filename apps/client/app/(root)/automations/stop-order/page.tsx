@@ -18,11 +18,12 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw } from 'lucide-react';
+import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw, Bot } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
 import { toast } from 'react-hot-toast';
 import PairFinder from '@/components/pair-finder'; // Import the PairFinder component
 import BalanceInfoComponent from '@/components/automation/BalanceInfoComponent';
+import { AIUtils } from '@/utils/ai';
 
 // Import all contract artifacts
 import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrderByteCode';
@@ -144,9 +145,67 @@ export default function UniswapStopOrderPage() {
   const [deploymentStep, setDeploymentStep] = useState<DeploymentStep>('idle');
   const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
   const [isLoadingPair, setIsLoadingPair] = useState<boolean>(false);
-  
+  const [showAIStatus, setShowAIStatus] = useState(false);
 
-  
+  // AI Integration - Handle pre-filled config from AI chat
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromAI = urlParams.get('from_ai');
+    
+    if (fromAI === 'true') {
+      // Check for AI config in localStorage
+      const aiConfig = AIUtils.ConfigManager.retrieveAndClearConfig();
+      
+      if (aiConfig) {
+        console.log('Loading AI configuration:', aiConfig);
+        
+        // Pre-fill the form with AI configuration
+        setFormData({
+          chainId: aiConfig.chainId,
+          pairAddress: aiConfig.pairAddress,
+          sellToken0: aiConfig.sellToken0,
+          clientAddress: aiConfig.clientAddress,
+          coefficient: aiConfig.coefficient,
+          threshold: aiConfig.threshold,
+          amount: aiConfig.amount,
+          destinationFunding: aiConfig.destinationFunding,
+          rscFunding: aiConfig.rscFunding
+        });
+        
+        // If we have pair address, fetch pair info
+        if (aiConfig.pairAddress) {
+          handleFetchPairInfo(aiConfig.pairAddress);
+        }
+        
+        // Show success message
+        toast.success('✨ Configuration loaded from AI assistant!');
+        
+        // Show AI status card
+        setShowAIStatus(true);
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+          setShowAIStatus(false);
+        }, 5000);
+        
+        // Scroll to form or show some indication
+        setTimeout(() => {
+          const formElement = document.querySelector('form');
+          if (formElement) {
+            formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 500);
+        
+        // Clean up URL
+        window.history.replaceState({}, '', '/automations/stop-order');
+        
+      } else {
+        console.warn('No AI configuration found in localStorage');
+        toast.error('No AI configuration found');
+      }
+    }
+  }, []); // Run once on component mount
+
   // Find the currently selected chain configuration
   const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
   // Set default DEX name to display if no chain is selected
@@ -1156,6 +1215,33 @@ const handleCreateOrder = async (e: React.FormEvent) => {
       : (parseFloat(pairInfo.reserve0) / parseFloat(pairInfo.reserve1)).toFixed(8)
     : 'Not available';
 
+  // Add AI Integration Status component
+  const AIIntegrationStatus = () => {
+    if (!showAIStatus) return null;
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="mb-6"
+      >
+        <Card className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-500/50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-zinc-100 font-medium">Configuration Loaded from AI Assistant</p>
+                <p className="text-zinc-300 text-sm">Your stop order parameters have been pre-filled. Review and deploy when ready!</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -1209,6 +1295,9 @@ const handleCreateOrder = async (e: React.FormEvent) => {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* AI Integration Status */}
+        <AIIntegrationStatus />
 
         {/* Pair Finder Tool */}
         <PairFinder 
