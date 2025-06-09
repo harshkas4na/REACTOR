@@ -18,13 +18,17 @@ export default async function handleAutomation(req: Request, res: Response) {
     }
     
     const etherscanDataORG = await etherscanResponseORG.json();
-
     // Check if the contract is verified
-    if (etherscanDataORG.status !== '1') {
+    if (typeof etherscanDataORG === 'object' && etherscanDataORG !== null && 'status' in etherscanDataORG && etherscanDataORG.status !== '1') {
       return res.status(400).json({ message: 'Contract is not verified' });
     }
-
-    const abi = JSON.parse(etherscanDataORG.result);
+    const abi = JSON.parse(
+      typeof etherscanDataORG === 'object' && 
+      etherscanDataORG !== null && 
+      'result' in etherscanDataORG ? 
+      String(etherscanDataORG.result) : 
+      '[]'
+    );
 
     // Extract and format events, including full event ABIs
     const events = abi

@@ -27,168 +27,295 @@ export interface ConversationState {
   missingData: string[];
   confidence: number;
   lastUpdated: number;
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+interface GeminiResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
 }
 
 export class AIAgent {
   private conversations = new Map<string, ConversationState>();
   private blockchainService: BlockchainService;
   private validationService: ValidationService;
+  private geminiApiKey: string;
+  private geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-  // Knowledge base for educational responses
-  private knowledgeBase = {
-    'stop orders': {
-      explanation: 'Stop orders automatically sell your tokens when the price drops below a certain threshold, protecting you from further losses. Think of it as an automated safety net for your investments.',
-      examples: ['Sell ETH if it drops 10%', 'Protect my USDC position if it loses its peg'],
-      docLink: 'https://docs.reactor.network/stop-orders'
-    },
-    'reactive smart contracts': {
-      explanation: 'Reactive Smart Contracts (RSCs) are automated blockchain programs that watch for specific events and execute actions automatically. They work 24/7 without manual intervention.',
-      examples: ['Monitor price changes', 'Collect fees automatically', 'Rebalance positions'],
-      docLink: 'https://dev.reactive.network/'
-    },
-    'fee collectors': {
-      explanation: 'Fee Collectors automatically harvest trading fees from your Uniswap V3 positions and send them to your wallet. No more manual fee collection!',
-      examples: ['Collect fees from ETH/USDC position', 'Harvest all V3 position fees'],
-      docLink: 'https://docs.reactor.network/fee-collectors'
-    }
-  };
+  // Enhanced knowledge base and system prompts
+  private systemPrompt = `You are Reactor AI, an intelligent assistant for the REACTOR DeFi automation platform. 
+
+ABOUT REACTOR:
+- REACTOR creates Reactive Smart Contracts (RSCs) that automatically execute DeFi actions
+- RSCs monitor blockchain events and trigger actions without manual intervention
+- Main automation types: Stop Orders, Fee Collectors, Range Managers
+
+STOP ORDERS:
+- Automatically sell tokens when price drops below a threshold
+- Protects investments from market crashes
+- Requires: token to sell, token to buy, amount, drop percentage, network
+- Works 24/7 without manual monitoring
+- Costs small gas fees + REACT tokens for RSC operation
+
+YOUR ROLE:
+1. Help users create stop orders through natural conversation
+2. Extract key information: token to sell, amount, drop percentage, target token, network
+3. Validate that trading pairs exist and have liquidity
+4. Guide users step-by-step without overwhelming them
+5. Answer questions about DeFi automation and RSCs
+
+CONVERSATION STYLE:
+- Be conversational and helpful, not robotic
+- Ask for one piece of information at a time
+- Provide clear options when possible
+- Explain why information is needed
+- Use emojis sparingly but effectively
+- Don't repeat information unnecessarily
+
+IMPORTANT TECHNICAL DETAILS:
+- Networks supported: Ethereum, Avalanche, Sepolia testnet
+- We can auto-detect user's connected network but should confirm
+- Must verify trading pairs exist with sufficient liquidity
+- Amount can be specific number, percentage of holdings, or "all"
+- Drop percentage is how much price drop triggers the sale
+- We handle all technical details (pair addresses, coefficients, etc.)
+
+When a user wants to create a stop order, collect information in this order:
+1. Confirm intent and network
+2. What token to protect/sell
+3. How much of that token
+4. What token to sell it for
+5. At what percentage drop to trigger
+6. Final confirmation with summary
+
+Be intelligent about extracting information from user messages. If they say "sell my ETH if it drops 10%", you can extract token=ETH and percentage=10%.`;
 
   constructor(blockchainService: BlockchainService, validationService: ValidationService) {
     this.blockchainService = blockchainService;
     this.validationService = validationService;
+    this.geminiApiKey = process.env.GEMINI_API_KEY || 'AIzaSyCDzON2jSa6JRPKyjdMrDEzg0O5xFDrCWg';
   }
 
   async processMessage(context: MessageContext) {
     const conversation = this.getOrCreateConversation(context.conversationId);
     
-    // Update wallet info if provided
+    // Update context
     if (context.connectedWallet) {
       conversation.collectedData.connectedWallet = context.connectedWallet;
     }
-
-    // Determine intent if not already set
-    if (conversation.intent === 'UNKNOWN') {
-      conversation.intent = this.classifyIntent(context.message);
-      conversation.confidence = this.calculateConfidence(context.message, conversation.intent);
+    if (context.currentNetwork) {
+      conversation.collectedData.selectedNetwork = context.currentNetwork;
     }
 
-    // Process based on intent
-    switch (conversation.intent) {
-      case 'CREATE_STOP_ORDER':
-        return await this.handleStopOrderCreation(context, conversation);
+    // Add user message to history
+    conversation.conversationHistory.push({
+      role: 'user',
+      content: context.message
+    });
+
+    try {
+      // Call Gemini API for intelligent response
+      const aiResponse = await this.callGeminiAPI(conversation, context);
       
-      case 'CREATE_FEE_COLLECTOR':
-        return await this.handleFeeCollectorCreation(context, conversation);
+      // Extract structured data from AI response
+      const structuredResponse = await this.extractStructuredData(aiResponse, conversation);
       
-      case 'CREATE_RANGE_MANAGER':
-        return await this.handleRangeManagerCreation(context, conversation);
-      
-      case 'ANSWER_QUESTION':
-        return await this.handleQuestionAnswer(context, conversation);
-      
-      default:
-        return this.handleUnknownIntent(context);
+      // Add AI response to history
+      conversation.conversationHistory.push({
+        role: 'assistant',
+        content: structuredResponse.message
+      });
+
+      return structuredResponse;
+    } catch (error: any) {
+      console.error('Gemini API Error:', error);
+      return this.fallbackResponse(context, conversation);
     }
   }
 
-  private classifyIntent(message: string): ConversationState['intent'] {
-    const lowerMessage = message.toLowerCase();
+  private async callGeminiAPI(conversation: ConversationState, context: MessageContext): Promise<string> {
+    // Prepare context for Gemini
+    const userContext = this.buildUserContext(conversation, context);
+    const conversationHistory = this.formatConversationHistory(conversation);
     
-    // Stop order keywords
-    if (lowerMessage.includes('stop order') || 
-        lowerMessage.includes('stop loss') || 
-        lowerMessage.includes('sell') && (lowerMessage.includes('drop') || lowerMessage.includes('falls'))) {
-      return 'CREATE_STOP_ORDER';
+    const prompt = `${this.systemPrompt}
+
+CURRENT USER CONTEXT:
+${userContext}
+
+CONVERSATION HISTORY:
+${conversationHistory}
+
+CURRENT USER MESSAGE: "${context.message}"
+
+INSTRUCTIONS:
+1. Analyze the user's message in context of creating a stop order
+2. Determine what information we still need
+3. Respond naturally and helpfully
+4. If ready for final configuration, respond with "READY_FOR_DEPLOYMENT" at the start
+5. If extracting new information, include it in your response naturally
+
+Respond as Reactor AI:`;
+
+    try {
+      const response = await fetch(`${this.geminiBaseUrl}?key=${this.geminiApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.9,
+            maxOutputTokens: 1000,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+      
+      const data = await response.json() as GeminiResponse;
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response format from Gemini API');
+      }
+      return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+      console.error('Gemini API call failed:', error);
+      throw error;
     }
-    
-    // Fee collector keywords
-    if (lowerMessage.includes('fee') && (lowerMessage.includes('collect') || lowerMessage.includes('harvest'))) {
-      return 'CREATE_FEE_COLLECTOR';
-    }
-    
-    // Range manager keywords
-    if (lowerMessage.includes('range') && (lowerMessage.includes('manage') || lowerMessage.includes('adjust'))) {
-      return 'CREATE_RANGE_MANAGER';
-    }
-    
-    // Question keywords
-    if (lowerMessage.includes('what') || lowerMessage.includes('how') || lowerMessage.includes('explain')) {
-      return 'ANSWER_QUESTION';
-    }
-    
-    return 'UNKNOWN';
   }
 
-  private calculateConfidence(message: string, intent: ConversationState['intent']): number {
-    // Simple confidence calculation - can be enhanced with ML models
-    const lowerMessage = message.toLowerCase();
-    let confidence = 0.5; // Base confidence
+  private buildUserContext(conversation: ConversationState, context: MessageContext): string {
+    const data = conversation.collectedData;
+    let contextStr = '';
     
-    switch (intent) {
-      case 'CREATE_STOP_ORDER':
-        if (lowerMessage.includes('stop order')) confidence += 0.4;
-        if (lowerMessage.includes('sell') && lowerMessage.includes('drop')) confidence += 0.3;
-        if (lowerMessage.includes('%')) confidence += 0.2;
-        break;
-      // Add other cases...
+    if (context.connectedWallet) {
+      contextStr += `- Wallet: ${context.connectedWallet}\n`;
+    } else {
+      contextStr += `- Wallet: Not connected\n`;
     }
     
-    return Math.min(confidence, 1.0);
+    if (context.currentNetwork) {
+      const networkName = this.getNetworkName(context.currentNetwork);
+      contextStr += `- Current Network: ${networkName} (ID: ${context.currentNetwork})\n`;
+    }
+    
+    if (data.tokenToSell) contextStr += `- Token to sell: ${data.tokenToSell}\n`;
+    if (data.tokenToBuy) contextStr += `- Token to buy: ${data.tokenToBuy}\n`;
+    if (data.amount) contextStr += `- Amount: ${data.amount}\n`;
+    if (data.dropPercentage) contextStr += `- Drop percentage: ${data.dropPercentage}%\n`;
+    if (data.selectedNetwork) contextStr += `- Selected network: ${this.getNetworkName(data.selectedNetwork)}\n`;
+    
+    return contextStr || '- No previous context';
   }
 
-  private async handleStopOrderCreation(context: MessageContext, conversation: ConversationState) {
-    // Extract entities from the message
-    this.extractStopOrderEntities(context.message, conversation);
+  private formatConversationHistory(conversation: ConversationState): string {
+    if (conversation.conversationHistory.length === 0) {
+      return 'No previous conversation';
+    }
+    
+    return conversation.conversationHistory
+      .slice(-6) // Last 6 messages to keep context manageable
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n');
+  }
+
+  private async extractStructuredData(aiResponse: string, conversation: ConversationState) {
+    // Check if ready for deployment
+    const isReadyForDeployment = aiResponse.startsWith('READY_FOR_DEPLOYMENT');
+    
+    if (isReadyForDeployment) {
+      // Remove the flag from the response
+      const cleanResponse = aiResponse.replace('READY_FOR_DEPLOYMENT', '').trim();
+      
+      // Prepare final configuration
+      const automationConfig = await this.prepareFinalConfiguration(conversation);
+      
+      return {
+        message: cleanResponse,
+        intent: 'CREATE_STOP_ORDER',
+        needsUserInput: true,
+        inputType: 'confirmation' as const,
+        automationConfig,
+        nextStep: 'final_confirmation'
+      };
+    }
+
+    // Extract entities from AI response using regex patterns
+    await this.extractEntitiesFromResponse(aiResponse, conversation);
     
     // Determine what we still need
     const missingData = this.identifyMissingStopOrderData(conversation);
     conversation.missingData = missingData;
     
-    if (missingData.length === 0) {
-      // All data collected, prepare final configuration
-      return await this.prepareStopOrderConfiguration(conversation);
-    } else {
-      // Ask for missing data
-      return await this.requestMissingStopOrderData(conversation, missingData[0]);
-    }
+    // Generate appropriate options based on missing data
+    const options = await this.generateOptionsForMissingData(conversation, missingData[0]);
+    
+    return {
+      message: aiResponse,
+      intent: conversation.intent || 'CREATE_STOP_ORDER',
+      needsUserInput: missingData.length > 0,
+      inputType: this.getInputTypeForMissingData(missingData[0]),
+      options,
+      collectedData: conversation.collectedData,
+      nextStep: missingData[0] || 'complete'
+    };
   }
 
-  private extractStopOrderEntities(message: string, conversation: ConversationState) {
-    const lowerMessage = message.toLowerCase();
+  private async extractEntitiesFromResponse(response: string, conversation: ConversationState) {
+    const lowerResponse = response.toLowerCase();
+    const data = conversation.collectedData;
     
-    // Extract token to sell
-    const sellTokens = ['eth', 'btc', 'usdc', 'usdt', 'dai'];
-    for (const token of sellTokens) {
-      if (lowerMessage.includes(token)) {
-        conversation.collectedData.tokenToSell = token.toUpperCase();
-        break;
+    // Extract token mentions
+    const tokens = ['eth', 'btc', 'usdc', 'usdt', 'dai', 'wbtc'];
+    tokens.forEach(token => {
+      if (lowerResponse.includes(token) && !data.tokenToSell) {
+        data.tokenToSell = token.toUpperCase();
       }
+    });
+    
+    // Extract percentages
+    const percentMatch = response.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (percentMatch && !data.dropPercentage) {
+      data.dropPercentage = parseFloat(percentMatch[1]);
     }
     
-    // Extract percentage
-    const percentageMatch = message.match(/(\d+(?:\.\d+)?)\s*%/);
-    if (percentageMatch) {
-      conversation.collectedData.dropPercentage = parseFloat(percentageMatch[1]);
-    }
-    
-    // Extract amount patterns
+    // Extract amounts
     const amountPatterns = [
-      /(\d+(?:\.\d+)?)\s*eth/i,
-      /(\d+(?:\.\d+)?)\s*usdc/i,
+      /(\d+(?:\.\d+)?)\s*(eth|usdc|usdt|dai)/i,
+      /all\s+of\s+it/i,
       /all\s+my/i,
+      /everything/i,
       /half/i,
       /50%/i
     ];
     
     for (const pattern of amountPatterns) {
-      const match = message.match(pattern);
-      if (match) {
-        if (match[0].toLowerCase().includes('all')) {
-          conversation.collectedData.amount = 'all';
+      const match = response.match(pattern);
+      if (match && !data.amount) {
+        if (match[0].toLowerCase().includes('all') || match[0].toLowerCase().includes('everything')) {
+          data.amount = 'all';
         } else if (match[0].toLowerCase().includes('half') || match[0].includes('50%')) {
-          conversation.collectedData.amount = '50%';
+          data.amount = '50%';
         } else if (match[1]) {
-          conversation.collectedData.amount = match[1];
+          data.amount = match[1];
         }
         break;
       }
@@ -200,134 +327,92 @@ export class AIAgent {
     const data = conversation.collectedData;
     
     if (!data.connectedWallet) missing.push('wallet');
-    if (!data.tokenToSell) missing.push('tokenToSell');
-    if (!data.tokenToBuy) missing.push('tokenToBuy');
-    if (!data.amount) missing.push('amount');
-    if (!data.dropPercentage) missing.push('dropPercentage');
     if (!data.selectedNetwork) missing.push('network');
+    if (!data.tokenToSell) missing.push('tokenToSell');
+    if (!data.amount) missing.push('amount');
+    if (!data.tokenToBuy) missing.push('tokenToBuy');
+    if (!data.dropPercentage) missing.push('dropPercentage');
     
     return missing;
   }
 
-  private async requestMissingStopOrderData(conversation: ConversationState, missingField: string) {
+  private async generateOptionsForMissingData(conversation: ConversationState, missingField: string) {
     const data = conversation.collectedData;
     
     switch (missingField) {
-      case 'wallet':
-        return {
-          message: "I need to know your wallet address to check balances and create the stop order. Please connect your wallet first.",
-          intent: conversation.intent,
-          needsUserInput: false,
-          nextStep: 'connect_wallet'
-        };
-      
       case 'tokenToSell':
-        return {
-          message: "Which token would you like to protect with a stop order?",
-          intent: conversation.intent,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          options: [
-            { value: 'ETH', label: 'Ethereum (ETH)' },
-            { value: 'USDC', label: 'USD Coin (USDC)' },
-            { value: 'USDT', label: 'Tether (USDT)' },
-            { value: 'DAI', label: 'Dai (DAI)' }
-          ],
-          nextStep: 'collect_token_to_sell'
-        };
+        return [
+          { value: 'ETH', label: 'Ethereum (ETH)' },
+          { value: 'USDC', label: 'USD Coin (USDC)' },
+          { value: 'USDT', label: 'Tether (USDT)' },
+          { value: 'DAI', label: 'Dai (DAI)' }
+        ];
       
       case 'tokenToBuy':
-        return {
-          message: `Got it! You want to protect your ${data.tokenToSell}. What token should I sell it for when the stop order triggers?`,
-          intent: conversation.intent,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          options: this.getTokenToBuyOptions(data.tokenToSell || ''),
-          nextStep: 'collect_token_to_buy'
-        };
+        const allTokens = ['ETH', 'USDC', 'USDT', 'DAI'];
+        return allTokens
+          .filter(token => token !== data.tokenToSell)
+          .map(token => ({ value: token, label: token }));
       
       case 'amount':
-        if (!data.connectedWallet || !data.tokenToSell) {
-          return {
-            message: "I need your wallet connected and token selected before asking about amounts.",
-            intent: conversation.intent,
-            needsUserInput: false,
-            nextStep: 'prerequisites_missing'
-          };
+        if (data.connectedWallet && data.tokenToSell) {
+          try {
+            const balance = await this.blockchainService.getTokenBalance(
+              data.connectedWallet,
+              data.tokenToSell,
+              data.selectedNetwork || 1
+            );
+            return [
+              { value: 'all', label: `All of it (${balance} ${data.tokenToSell})` },
+              { value: '50%', label: `Half (${parseFloat(balance) / 2} ${data.tokenToSell})` },
+              { value: 'custom', label: 'Custom amount' }
+            ];
+          } catch (error) {
+            return [
+              { value: 'all', label: 'All of my tokens' },
+              { value: '50%', label: 'Half of my tokens' },
+              { value: 'custom', label: 'Custom amount' }
+            ];
+          }
         }
-        
-        // Get balance and suggest options
-        const balance = await this.blockchainService.getTokenBalance(
-          data.connectedWallet,
-          data.tokenToSell,
-          data.selectedNetwork || 1
-        );
-        
-        return {
-          message: `How much ${data.tokenToSell} would you like to protect? You currently have ${balance} ${data.tokenToSell}.`,
-          intent: conversation.intent,
-          needsUserInput: true,
-          inputType: 'amount' as const,
-          options: [
-            { value: 'all', label: `All of it (${balance} ${data.tokenToSell})` },
-            { value: '50%', label: `Half (${parseFloat(balance) / 2} ${data.tokenToSell})` },
-            { value: 'custom', label: 'Custom amount' }
-          ],
-          nextStep: 'collect_amount'
-        };
+        return [];
       
       case 'dropPercentage':
-        return {
-          message: "At what percentage drop should the stop order trigger?",
-          intent: conversation.intent,
-          needsUserInput: true,
-          inputType: 'amount' as const,
-          options: [
-            { value: '5', label: '5% drop' },
-            { value: '10', label: '10% drop' },
-            { value: '15', label: '15% drop' },
-            { value: '20', label: '20% drop' },
-            { value: 'custom', label: 'Custom percentage' }
-          ],
-          nextStep: 'collect_drop_percentage'
-        };
+        return [
+          { value: '5', label: '5% drop' },
+          { value: '10', label: '10% drop' },
+          { value: '15', label: '15% drop' },
+          { value: '20', label: '20% drop' }
+        ];
       
       case 'network':
-        return {
-          message: "Which blockchain network should I use for your stop order?",
-          intent: conversation.intent,
-          needsUserInput: true,
-          inputType: 'network' as const,
-          options: [
-            { value: '1', label: 'Ethereum Mainnet (recommended)' },
-            { value: '43114', label: 'Avalanche C-Chain' },
-            { value: '11155111', label: 'Sepolia Testnet' }
-          ],
-          nextStep: 'collect_network'
-        };
+        return [
+          { value: '1', label: 'Ethereum Mainnet' },
+          { value: '43114', label: 'Avalanche C-Chain' },
+          { value: '11155111', label: 'Sepolia Testnet' }
+        ];
       
       default:
-        return {
-          message: "I need some additional information to continue.",
-          intent: conversation.intent,
-          needsUserInput: false,
-          nextStep: 'unknown_missing_data'
-        };
+        return [];
     }
   }
 
-  private getTokenToBuyOptions(tokenToSell: string) {
-    const allTokens = ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC'];
-    return allTokens
-      .filter(token => token !== tokenToSell)
-      .map(token => ({ value: token, label: token }));
+  private getInputTypeForMissingData(missingField: string): 'amount' | 'token' | 'network' | 'confirmation' | undefined {
+    const typeMap: { [key: string]: 'amount' | 'token' | 'network' | 'confirmation' } = {
+      'tokenToSell': 'token',
+      'tokenToBuy': 'token',
+      'amount': 'amount',
+      'dropPercentage': 'amount',
+      'network': 'network'
+    };
+    return typeMap[missingField];
   }
 
-  private async prepareStopOrderConfiguration(conversation: ConversationState) {
+  private async prepareFinalConfiguration(conversation: ConversationState) {
     const data = conversation.collectedData;
     
     try {
-      // Validate pair exists
+      // Find and validate pair
       const pairAddress = await this.blockchainService.findPairAddress(
         data.tokenToSell!,
         data.tokenToBuy!,
@@ -335,22 +420,15 @@ export class AIAgent {
       );
       
       if (!pairAddress) {
-        return {
-          message: `Sorry, I couldn't find a ${data.tokenToSell}/${data.tokenToBuy} pair on the selected network. Would you like to try a different token pair or network?`,
-          intent: conversation.intent,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          nextStep: 'pair_not_found'
-        };
+        throw new Error(`Trading pair ${data.tokenToSell}/${data.tokenToBuy} not found`);
       }
       
-      // Calculate threshold values
+      // Get current price and calculate threshold
       const currentPrice = await this.blockchainService.getCurrentPrice(pairAddress, data.selectedNetwork!);
       const thresholdPrice = currentPrice * (1 - data.dropPercentage! / 100);
       const { coefficient, threshold } = this.calculateThresholdValues(currentPrice, thresholdPrice);
       
-      // Prepare final configuration
-      const automationConfig = {
+      return {
         chainId: data.selectedNetwork!.toString(),
         pairAddress,
         sellToken0: await this.blockchainService.isToken0(pairAddress, data.tokenToSell!, data.selectedNetwork!),
@@ -361,41 +439,8 @@ export class AIAgent {
         destinationFunding: this.getDefaultFunding(data.selectedNetwork!),
         rscFunding: "0.05"
       };
-      
-      // Final confirmation message
-      const confirmationMessage = `Perfect! Here's your stop order configuration:
-
-💰 **Amount**: ${data.amount} ${data.tokenToSell}
-📉 **Trigger**: When ${data.tokenToSell} drops ${data.dropPercentage}% (to ~$${thresholdPrice.toFixed(2)})
-🔄 **Trade**: ${data.tokenToSell} → ${data.tokenToBuy}
-🌐 **Network**: ${this.getNetworkName(data.selectedNetwork!)}
-💸 **Estimated Cost**: ${automationConfig.destinationFunding} ${this.getNativeCurrency(data.selectedNetwork!)} + 0.05 ${this.getRSCCurrency(data.selectedNetwork!)}
-
-This will protect your ${data.tokenToSell} by automatically selling when the price drops to your threshold. The automation runs 24/7 until triggered.
-
-Ready to deploy? This will require signing a few transactions.`;
-      
-      return {
-        message: confirmationMessage,
-        intent: conversation.intent,
-        needsUserInput: true,
-        inputType: 'confirmation' as const,
-        options: [
-          { value: 'yes', label: 'Yes, deploy my stop order' },
-          { value: 'no', label: 'Cancel' },
-          { value: 'edit', label: 'Edit parameters' }
-        ],
-        automationConfig,
-        nextStep: 'final_confirmation'
-      };
-      
     } catch (error: any) {
-      return {
-        message: `I encountered an error preparing your stop order: ${error.message}. Would you like to try again?`,
-        intent: conversation.intent,
-        needsUserInput: false,
-        nextStep: 'error_occurred'
-      };
+      throw new Error(`Failed to prepare configuration: ${error.message}`);
     }
   }
 
@@ -403,15 +448,14 @@ Ready to deploy? This will require signing a few transactions.`;
     const coefficient = 1000;
     const ratio = targetPrice / currentPrice;
     const threshold = Math.floor(ratio * coefficient);
-    
     return { coefficient, threshold };
   }
 
   private getDefaultFunding(chainId: number): string {
     const fundingMap: { [key: number]: string } = {
-      1: "0.03",      // Ethereum
-      11155111: "0.03", // Sepolia
-      43114: "0.01"   // Avalanche
+      1: "0.03",
+      11155111: "0.03",
+      43114: "0.01"
     };
     return fundingMap[chainId] || "0.03";
   }
@@ -425,65 +469,18 @@ Ready to deploy? This will require signing a few transactions.`;
     return networkNames[chainId] || `Chain ${chainId}`;
   }
 
-  private getNativeCurrency(chainId: number): string {
-    return chainId === 43114 ? "AVAX" : "ETH";
-  }
-
-  private getRSCCurrency(chainId: number): string {
-    // Production chains use REACT, testnets use KOPLI
-    return (chainId === 1 || chainId === 43114) ? "REACT" : "KOPLI";
-  }
-
-  private async handleQuestionAnswer(context: MessageContext, conversation: ConversationState) {
-    const lowerMessage = context.message.toLowerCase();
-    
-    // Search knowledge base
-    for (const [topic, info] of Object.entries(this.knowledgeBase)) {
-      if (lowerMessage.includes(topic) || lowerMessage.includes(topic.replace(' ', ''))) {
-        return {
-          message: `**${topic.charAt(0).toUpperCase() + topic.slice(1)}**\n\n${info.explanation}\n\n**Examples:**\n${info.examples.map(ex => `• ${ex}`).join('\n')}\n\n📚 [Learn more](${info.docLink})\n\nWould you like me to help you create one of these automations?`,
-          intent: conversation.intent,
-          needsUserInput: false,
-          nextStep: 'educational_response'
-        };
-      }
-    }
-    
-    // Fallback response
+  private fallbackResponse(context: MessageContext, conversation: ConversationState) {
     return {
-      message: "I can help you with creating stop orders, fee collectors, range managers, or answer questions about reactive smart contracts. What would you like to know?",
-      intent: conversation.intent,
-      needsUserInput: false,
-      nextStep: 'general_help'
-    };
-  }
-
-  private handleUnknownIntent(context: MessageContext) {
-    return {
-      message: "I'm Reactor AI! I can help you:\n\n🛡️ **Create Stop Orders** - Protect your tokens from price drops\n💰 **Set up Fee Collectors** - Automatically harvest Uniswap V3 fees\n📊 **Manage Position Ranges** - Keep your V3 positions optimized\n❓ **Answer Questions** - Learn about DeFi automation\n\nWhat would you like to do?",
-      intent: 'UNKNOWN' as const,
-      needsUserInput: false,
-      nextStep: 'initial_greeting'
-    };
-  }
-
-  private async handleFeeCollectorCreation(context: MessageContext, conversation: ConversationState) {
-    // Similar implementation for fee collectors
-    return {
-      message: "Fee collector creation is coming soon! For now, I can help you create stop orders.",
-      intent: conversation.intent,
-      needsUserInput: false,
-      nextStep: 'feature_not_ready'
-    };
-  }
-
-  private async handleRangeManagerCreation(context: MessageContext, conversation: ConversationState) {
-    // Similar implementation for range managers
-    return {
-      message: "Range manager creation is coming soon! For now, I can help you create stop orders.",
-      intent: conversation.intent,
-      needsUserInput: false,
-      nextStep: 'feature_not_ready'
+      message: "I'm having trouble connecting to my AI services right now. Let me help you with a basic flow. What token would you like to protect with a stop order?",
+      intent: 'CREATE_STOP_ORDER' as const,
+      needsUserInput: true,
+      inputType: 'token' as const,
+      options: [
+        { value: 'ETH', label: 'Ethereum (ETH)' },
+        { value: 'USDC', label: 'USD Coin (USDC)' },
+        { value: 'USDT', label: 'Tether (USDT)' }
+      ],
+      nextStep: 'fallback_mode'
     };
   }
 
@@ -495,7 +492,8 @@ Ready to deploy? This will require signing a few transactions.`;
         collectedData: {},
         missingData: [],
         confidence: 0,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        conversationHistory: []
       });
     }
     
@@ -505,13 +503,16 @@ Ready to deploy? This will require signing a few transactions.`;
     return conversation;
   }
 
-  // Clean up old conversations periodically
-  public cleanupOldConversations(maxAgeMs: number = 30 * 60 * 1000) { // 30 minutes default
+  public cleanupOldConversations(maxAgeMs: number = 30 * 60 * 1000) {
     const now = Date.now();
     for (const [id, conversation] of this.conversations) {
       if (now - conversation.lastUpdated > maxAgeMs) {
         this.conversations.delete(id);
       }
     }
+  }
+
+  public getConversationCount(): number {
+    return this.conversations.size;
   }
 } 

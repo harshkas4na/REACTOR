@@ -1,5 +1,54 @@
 import { ethers } from 'ethers';
 
+// Import ABIs
+const ERC20_ABI = [
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 amount)',
+  'event Approval(address indexed owner, address indexed spender, uint256 amount)'
+];
+
+const PAIR_ABI = [
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+  'function token0() view returns (address)',
+  'function token1() view returns (address)',
+  'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
+  'function price0CumulativeLast() view returns (uint256)',
+  'function price1CumulativeLast() view returns (uint256)',
+  'function kLast() view returns (uint256)',
+  'function mint(address to) returns (uint256 liquidity)',
+  'function burn(address to) returns (uint256 amount0, uint256 amount1)',
+  'function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes data)',
+  'function sync()',
+  'event Mint(address indexed sender, uint256 amount0, uint256 amount1)',
+  'event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to)',
+  'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
+  'event Sync(uint112 reserve0, uint112 reserve1)'
+];
+
+const FACTORY_ABI = [
+  'function feeTo() view returns (address)',
+  'function feeToSetter() view returns (address)',
+  'function getPair(address tokenA, address tokenB) view returns (address pair)',
+  'function allPairs(uint256) view returns (address pair)',
+  'function allPairsLength() view returns (uint256)',
+  'function createPair(address tokenA, address tokenB) returns (address pair)',
+  'function setFeeTo(address)',
+  'function setFeeToSetter(address)',
+  'event PairCreated(address indexed token0, address indexed token1, address pair, uint256)'
+];
+
 interface ChainConfig {
   id: number;
   name: string;
@@ -56,139 +105,146 @@ export class BlockchainService {
   };
 
   private providers: { [chainId: number]: ethers.JsonRpcProvider } = {};
+  private factoryAddresses: { [chainId: number]: string } = {
+    1: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', // Ethereum Mainnet
+    43114: '0xefa94DE7a4656D787667C749f7E1223D71E9FD88', // Avalanche
+    11155111: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' // Sepolia
+  };
 
-  private getProvider(chainId: number): ethers.JsonRpcProvider {
-    if (!this.providers[chainId]) {
-      const config = this.chainConfigs[chainId];
-      if (!config) {
-        throw new Error(`Unsupported chain ID: ${chainId}`);
-      }
-      this.providers[chainId] = new ethers.JsonRpcProvider(config.rpcUrl);
-    }
-    return this.providers[chainId];
+  constructor() {
+    // Initialize providers
+    this.providers[1] = new ethers.JsonRpcProvider(process.env.ETH_MAINNET_RPC || 'https://ethereum.publicnode.com');
+    this.providers[43114] = new ethers.JsonRpcProvider(process.env.AVAX_MAINNET_RPC || 'https://api.avax.network/ext/bc/C/rpc');
+    this.providers[11155111] = new ethers.JsonRpcProvider(process.env.ETH_SEPOLIA_RPC || 'https://rpc.sepolia.org');
   }
 
-  private getTokenAddress(symbol: string, chainId: number): string {
-    const chainTokens = this.tokenAddresses[chainId];
-    if (!chainTokens || !chainTokens[symbol.toUpperCase()]) {
-      throw new Error(`Token ${symbol} not supported on chain ${chainId}`);
+  public getProvider(chainId: number): ethers.JsonRpcProvider {
+    const provider = this.providers[chainId];
+    if (!provider) {
+      throw new Error(`Unsupported chain ID: ${chainId}`);
     }
-    return chainTokens[symbol.toUpperCase()];
+    return provider;
+  }
+
+  private getTokenAddress(tokenSymbol: string, chainId: number): string | null {
+    const tokenAddresses: { [key: string]: { [chainId: number]: string } } = {
+      'ETH': {
+        1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+        11155111: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9' // WETH Sepolia
+      },
+      'USDC': {
+        1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        43114: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+        11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
+      },
+      'USDT': {
+        1: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        43114: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+        11155111: '0x6f14C02Fc1F78322cFd7d707aB90f18baD3B54f5'
+      },
+      'DAI': {
+        1: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+        43114: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70',
+        11155111: '0x68194a729C2450ad26072b3D33ADaCbcef39D574'
+      }
+    };
+
+    return tokenAddresses[tokenSymbol]?.[chainId] || null;
   }
 
   async getTokenBalance(walletAddress: string, tokenSymbol: string, chainId: number): Promise<string> {
     try {
       const provider = this.getProvider(chainId);
+      const tokenAddress = this.getTokenAddress(tokenSymbol, chainId);
       
-      if (tokenSymbol.toUpperCase() === 'ETH' || tokenSymbol.toUpperCase() === 'AVAX') {
-        // Native token balance
-        const balance = await provider.getBalance(walletAddress);
-        return ethers.formatEther(balance);
-      } else {
-        // ERC20 token balance
-        const tokenAddress = this.getTokenAddress(tokenSymbol, chainId);
-        const tokenContract = new ethers.Contract(
-          tokenAddress,
-          ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'],
-          provider
-        );
-        
-        const [balance, decimals] = await Promise.all([
-          tokenContract.balanceOf(walletAddress),
-          tokenContract.decimals()
-        ]);
-        
-        return ethers.formatUnits(balance, decimals);
+      if (!tokenAddress) {
+        throw new Error(`Token ${tokenSymbol} not supported on chain ${chainId}`);
       }
+
+      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+      const balance = await tokenContract.balanceOf(walletAddress);
+      
+      return ethers.formatUnits(balance, await tokenContract.decimals());
     } catch (error: any) {
-      console.error(`Error fetching balance for ${tokenSymbol}:`, error);
-      throw new Error(`Failed to fetch ${tokenSymbol} balance: ${error.message}`);
+      console.error('Error getting token balance:', error);
+      throw new Error(`Failed to get balance: ${error.message}`);
     }
   }
 
-  async findPairAddress(token0Symbol: string, token1Symbol: string, chainId: number): Promise<string | null> {
+  async findPairAddress(token0: string, token1: string, chainId: number): Promise<string | null> {
     try {
       const provider = this.getProvider(chainId);
-      const config = this.chainConfigs[chainId];
+      const factoryAddress = this.factoryAddresses[chainId];
       
-      const token0Address = this.getTokenAddress(token0Symbol, chainId);
-      const token1Address = this.getTokenAddress(token1Symbol, chainId);
+      if (!factoryAddress) {
+        throw new Error(`Unsupported chain ID: ${chainId}`);
+      }
+
+      const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, provider);
+      const token0Address = this.getTokenAddress(token0, chainId);
+      const token1Address = this.getTokenAddress(token1, chainId);
       
-      // Uniswap V2 Factory interface
-      const factoryContract = new ethers.Contract(
-        config.factoryAddress,
-        ['function getPair(address tokenA, address tokenB) view returns (address pair)'],
-        provider
-      );
+      if (!token0Address || !token1Address) {
+        throw new Error('Invalid token addresses');
+      }
+
+      const pairAddress = await factory.getPair(token0Address, token1Address);
       
-      const pairAddress = await factoryContract.getPair(token0Address, token1Address);
-      
-      // Check if pair exists (address(0) means no pair)
       if (pairAddress === ethers.ZeroAddress) {
         return null;
       }
-      
-      // Verify the pair has liquidity
-      const pairContract = new ethers.Contract(
-        pairAddress,
-        ['function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)'],
-        provider
-      );
-      
-      const reserves = await pairContract.getReserves();
-      if (reserves.reserve0 === 0n && reserves.reserve1 === 0n) {
-        return null; // No liquidity
-      }
-      
+
       return pairAddress;
     } catch (error: any) {
-      console.error(`Error finding pair ${token0Symbol}/${token1Symbol}:`, error);
-      return null;
+      console.error('Error finding pair address:', error);
+      throw new Error(`Failed to find pair: ${error.message}`);
     }
   }
 
   async getCurrentPrice(pairAddress: string, chainId: number): Promise<number> {
     try {
       const provider = this.getProvider(chainId);
+      const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
       
-      const pairContract = new ethers.Contract(
-        pairAddress,
-        [
-          'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
-          'function token0() view returns (address)',
-          'function token1() view returns (address)'
-        ],
-        provider
-      );
+      const [reserves0, reserves1] = await pair.getReserves();
+      const token0 = await pair.token0();
+      const token1 = await pair.token1();
       
-      const reserves = await pairContract.getReserves();
+      const token0Contract = new ethers.Contract(token0, ERC20_ABI, provider);
+      const token1Contract = new ethers.Contract(token1, ERC20_ABI, provider);
       
-      // Calculate price as reserve1/reserve0 (token1 per token0)
-      const price = Number(reserves.reserve1) / Number(reserves.reserve0);
+      const decimals0 = await token0Contract.decimals();
+      const decimals1 = await token1Contract.decimals();
       
-      return price;
+      const reserve0 = Number(ethers.formatUnits(reserves0, decimals0));
+      const reserve1 = Number(ethers.formatUnits(reserves1, decimals1));
+      
+      return reserve1 / reserve0;
     } catch (error: any) {
-      console.error(`Error fetching price for pair ${pairAddress}:`, error);
-      throw new Error(`Failed to fetch current price: ${error.message}`);
+      console.error('Error getting current price:', error);
+      throw new Error(`Failed to get price: ${error.message}`);
     }
   }
 
   async isToken0(pairAddress: string, tokenSymbol: string, chainId: number): Promise<boolean> {
     try {
       const provider = this.getProvider(chainId);
+      const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+      const token0 = await pair.token0();
       const tokenAddress = this.getTokenAddress(tokenSymbol, chainId);
       
-      const pairContract = new ethers.Contract(
-        pairAddress,
-        ['function token0() view returns (address)'],
-        provider
-      );
+      if (!tokenAddress) {
+        throw new Error(`Token ${tokenSymbol} not supported on chain ${chainId}`);
+      }
       
-      const token0Address = await pairContract.token0();
-      return token0Address.toLowerCase() === tokenAddress.toLowerCase();
+      // Convert both addresses to lowercase for comparison
+      const token0Lower = token0.toLowerCase();
+      const tokenAddressLower = tokenAddress.toLowerCase();
+      
+      return token0Lower === tokenAddressLower;
     } catch (error: any) {
-      console.error(`Error checking token0 status:`, error);
-      throw new Error(`Failed to determine token order: ${error.message}`);
+      console.error('Error checking token0:', error);
+      throw new Error(`Failed to check token0: ${error.message}`);
     }
   }
 
@@ -239,7 +295,7 @@ export class BlockchainService {
       const tokenAddress = this.getTokenAddress(tokenSymbol, chainId);
       
       const tokenContract = new ethers.Contract(
-        tokenAddress,
+        tokenAddress as string,
         ['function decimals() view returns (uint8)'],
         provider
       );

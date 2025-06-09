@@ -8,103 +8,30 @@ export interface ValidationResult {
 
 export class ValidationService {
   
-  validateWalletAddress(address: string): ValidationResult {
+  validateWalletAddress(address: string): boolean {
     try {
-      if (!address || typeof address !== 'string') {
-        return { isValid: false, error: 'Address is required' };
-      }
-      
-      if (!ethers.isAddress(address)) {
-        return { isValid: false, error: 'Invalid Ethereum address format' };
-      }
-      
-      // Convert to checksummed address
-      const checksummedAddress = ethers.getAddress(address);
-      
-      return { 
-        isValid: true, 
-        sanitizedValue: checksummedAddress 
-      };
-    } catch (error) {
-      return { isValid: false, error: 'Invalid address format' };
+      return ethers.isAddress(address);
+    } catch {
+      return false;
     }
   }
 
-  validateTokenSymbol(symbol: string): ValidationResult {
-    if (!symbol || typeof symbol !== 'string') {
-      return { isValid: false, error: 'Token symbol is required' };
-    }
-    
-    const cleanSymbol = symbol.trim().toUpperCase();
-    
-    if (cleanSymbol.length < 2 || cleanSymbol.length > 10) {
-      return { isValid: false, error: 'Token symbol must be 2-10 characters' };
-    }
-    
-    if (!/^[A-Z0-9]+$/.test(cleanSymbol)) {
-      return { isValid: false, error: 'Token symbol can only contain letters and numbers' };
-    }
-    
-    return { 
-      isValid: true, 
-      sanitizedValue: cleanSymbol 
-    };
+  validateTokenSymbol(symbol: string): boolean {
+    const supportedTokens = ['ETH', 'USDC', 'USDT', 'DAI'];
+    return supportedTokens.includes(symbol.toUpperCase());
   }
 
-  validateAmount(amount: string, balance?: string): ValidationResult {
-    if (!amount || typeof amount !== 'string') {
-      return { isValid: false, error: 'Amount is required' };
+  validateAmount(amount: string): boolean {
+    if (amount === 'all' || amount === '50%') {
+      return true;
     }
     
-    const cleanAmount = amount.trim();
-    
-    // Handle percentage amounts
-    if (cleanAmount.includes('%')) {
-      const percentMatch = cleanAmount.match(/^(\d+(?:\.\d+)?)\s*%$/);
-      if (!percentMatch) {
-        return { isValid: false, error: 'Invalid percentage format. Use format like "50%"' };
-      }
-      
-      const percentage = parseFloat(percentMatch[1]);
-      if (percentage <= 0 || percentage > 100) {
-        return { isValid: false, error: 'Percentage must be between 0 and 100' };
-      }
-      
-      return { 
-        isValid: true, 
-        sanitizedValue: { type: 'percentage', value: percentage }
-      };
+    try {
+      const num = parseFloat(amount);
+      return !isNaN(num) && num > 0;
+    } catch {
+      return false;
     }
-    
-    // Handle "all" keyword
-    if (cleanAmount.toLowerCase() === 'all') {
-      return { 
-        isValid: true, 
-        sanitizedValue: { type: 'all', value: 'all' }
-      };
-    }
-    
-    // Handle numeric amounts
-    const numericAmount = parseFloat(cleanAmount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      return { isValid: false, error: 'Amount must be a positive number' };
-    }
-    
-    // Check against balance if provided
-    if (balance) {
-      const balanceNum = parseFloat(balance);
-      if (numericAmount > balanceNum) {
-        return { 
-          isValid: false, 
-          error: `Amount (${numericAmount}) exceeds available balance (${balanceNum})` 
-        };
-      }
-    }
-    
-    return { 
-      isValid: true, 
-      sanitizedValue: { type: 'fixed', value: numericAmount }
-    };
   }
 
   validatePercentage(percentage: string | number): ValidationResult {
@@ -174,30 +101,30 @@ export class ValidationService {
     // Validate wallet address
     if (params.walletAddress) {
       const walletValidation = this.validateWalletAddress(params.walletAddress);
-      if (!walletValidation.isValid) {
-        errors.push(`Wallet: ${walletValidation.error}`);
+      if (!walletValidation) {
+        errors.push(`Wallet: Invalid address`);
       } else {
-        sanitizedParams.walletAddress = walletValidation.sanitizedValue;
+        sanitizedParams.walletAddress = params.walletAddress;
       }
     }
     
     // Validate token to sell
     if (params.tokenToSell) {
       const tokenValidation = this.validateTokenSymbol(params.tokenToSell);
-      if (!tokenValidation.isValid) {
-        errors.push(`Token to sell: ${tokenValidation.error}`);
+      if (!tokenValidation) {
+        errors.push(`Token to sell: Invalid token symbol`);
       } else {
-        sanitizedParams.tokenToSell = tokenValidation.sanitizedValue;
+        sanitizedParams.tokenToSell = params.tokenToSell;
       }
     }
     
     // Validate token to buy
     if (params.tokenToBuy) {
       const tokenValidation = this.validateTokenSymbol(params.tokenToBuy);
-      if (!tokenValidation.isValid) {
-        errors.push(`Token to buy: ${tokenValidation.error}`);
+      if (!tokenValidation) {
+        errors.push(`Token to buy: Invalid token symbol`);
       } else {
-        sanitizedParams.tokenToBuy = tokenValidation.sanitizedValue;
+        sanitizedParams.tokenToBuy = params.tokenToBuy;
       }
     }
     
@@ -209,11 +136,11 @@ export class ValidationService {
     
     // Validate amount
     if (params.amount) {
-      const amountValidation = this.validateAmount(params.amount, params.balance);
-      if (!amountValidation.isValid) {
-        errors.push(`Amount: ${amountValidation.error}`);
+      const amountValidation = this.validateAmount(params.amount);
+      if (!amountValidation) {
+        errors.push(`Amount: Invalid amount format`);
       } else {
-        sanitizedParams.amount = amountValidation.sanitizedValue;
+        sanitizedParams.amount = params.amount;
       }
     }
     
@@ -244,52 +171,13 @@ export class ValidationService {
     };
   }
 
-  validateFundingAmount(amount: string, currency: string): ValidationResult {
-    const amountValidation = this.validateAmount(amount);
-    if (!amountValidation.isValid) {
-      return amountValidation;
+  validateFundingAmount(amount: string): boolean {
+    try {
+      const num = parseFloat(amount);
+      return !isNaN(num) && num >= 0;
+    } catch {
+      return false;
     }
-    
-    const numericAmount = amountValidation.sanitizedValue.value;
-    
-    // Set minimum funding requirements based on currency
-    const minimumAmounts: { [currency: string]: number } = {
-      'ETH': 0.001,
-      'AVAX': 0.01,
-      'REACT': 0.001,
-      'KOPLI': 0.001
-    };
-    
-    const minimum = minimumAmounts[currency.toUpperCase()] || 0.001;
-    
-    if (numericAmount < minimum) {
-      return {
-        isValid: false,
-        error: `Minimum funding amount is ${minimum} ${currency}`
-      };
-    }
-    
-    // Set maximum reasonable amounts to prevent accidents
-    const maximumAmounts: { [currency: string]: number } = {
-      'ETH': 1.0,
-      'AVAX': 10.0,
-      'REACT': 1.0,
-      'KOPLI': 1.0
-    };
-    
-    const maximum = maximumAmounts[currency.toUpperCase()] || 1.0;
-    
-    if (numericAmount > maximum) {
-      return {
-        isValid: false,
-        error: `Maximum recommended funding amount is ${maximum} ${currency}. Are you sure you want to use ${numericAmount} ${currency}?`
-      };
-    }
-    
-    return {
-      isValid: true,
-      sanitizedValue: numericAmount
-    };
   }
 
   validateConversationMessage(message: string): ValidationResult {
@@ -358,13 +246,13 @@ export class ValidationService {
     
     // Validate specific fields
     const walletValidation = this.validateWalletAddress(config.clientAddress);
-    if (!walletValidation.isValid) {
-      return { isValid: false, error: `Invalid client address: ${walletValidation.error}` };
+    if (!walletValidation) {
+      return { isValid: false, error: `Invalid client address` };
     }
     
     const pairValidation = this.validateWalletAddress(config.pairAddress);
-    if (!pairValidation.isValid) {
-      return { isValid: false, error: `Invalid pair address: ${pairValidation.error}` };
+    if (!pairValidation) {
+      return { isValid: false, error: `Invalid pair address` };
     }
     
     // Validate coefficient and threshold are numbers
@@ -373,5 +261,67 @@ export class ValidationService {
     }
     
     return { isValid: true };
+  }
+
+  validateNetworkId(chainId: number): boolean {
+    const supportedNetworks = [1, 43114, 11155111]; // Ethereum, Avalanche, Sepolia
+    return supportedNetworks.includes(chainId);
+  }
+
+  validateDropPercentage(percentage: number): boolean {
+    return percentage > 0 && percentage <= 100;
+  }
+
+  validatePairAddress(address: string): boolean {
+    try {
+      return ethers.isAddress(address);
+    } catch {
+      return false;
+    }
+  }
+
+  validateAutomationConfig(config: any): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!config.chainId || !this.validateNetworkId(Number(config.chainId))) {
+      errors.push('Invalid chain ID');
+    }
+
+    if (!config.pairAddress || !this.validatePairAddress(config.pairAddress)) {
+      errors.push('Invalid pair address');
+    }
+
+    if (typeof config.sellToken0 !== 'boolean') {
+      errors.push('Invalid sellToken0 flag');
+    }
+
+    if (!config.clientAddress || !this.validateWalletAddress(config.clientAddress)) {
+      errors.push('Invalid client address');
+    }
+
+    if (!config.coefficient || isNaN(Number(config.coefficient))) {
+      errors.push('Invalid coefficient');
+    }
+
+    if (!config.threshold || isNaN(Number(config.threshold))) {
+      errors.push('Invalid threshold');
+    }
+
+    if (!config.amount || !this.validateAmount(config.amount)) {
+      errors.push('Invalid amount');
+    }
+
+    if (!config.destinationFunding || !this.validateFundingAmount(config.destinationFunding)) {
+      errors.push('Invalid destination funding amount');
+    }
+
+    if (!config.rscFunding || !this.validateFundingAmount(config.rscFunding)) {
+      errors.push('Invalid RSC funding amount');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   }
 } 
