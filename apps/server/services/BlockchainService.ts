@@ -51,6 +51,7 @@ interface ChainConfig {
   rpcUrl: string;
   factoryAddress: string;
   nativeCurrency: string;
+  nativeDecimals: number;
 }
 
 export class BlockchainService {
@@ -59,59 +60,103 @@ export class BlockchainService {
       id: 1,
       name: 'Ethereum Mainnet',
       rpcUrl: 'https://ethereum.publicnode.com',
-      factoryAddress: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
-      nativeCurrency: 'ETH'
+      factoryAddress: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', // Uniswap V2
+      nativeCurrency: 'ETH',
+      nativeDecimals: 18
     },
     11155111: {
       id: 11155111,
       name: 'Ethereum Sepolia',
       rpcUrl: 'https://sepolia.infura.io/v3/a4f144f3378f4e70821b6f28a428e429',
-      factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
-      nativeCurrency: 'ETH'
+      factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6', // Uniswap V2 on Sepolia
+      nativeCurrency: 'ETH',
+      nativeDecimals: 18
     },
     43114: {
       id: 43114,
       name: 'Avalanche C-Chain',
       rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
-      factoryAddress: '0xefa94DE7a4656D787667C749f7E1223D71E9FD88',
-      nativeCurrency: 'AVAX'
+      factoryAddress: '0xefa94DE7a4656D787667C749f7E1223D71E9FD88', // Pangolin
+      nativeCurrency: 'AVAX',
+      nativeDecimals: 18
     }
   };
 
   private providers: { [chainId: number]: ethers.JsonRpcProvider } = {};
 
-  // Updated token addresses with correct mappings
-  private getTokenAddress(tokenSymbol: string, chainId: number): string | null {
-    const tokenAddresses: { [key: string]: { [chainId: number]: string } } = {
-      'ETH': {
-        1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH Mainnet
-        11155111: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9', // WETH Sepolia
-        43114: '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB' // WETH Avalanche
-      },
-      'USDC': {
-        1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC Mainnet
-        11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // USDC Sepolia
-        43114: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E' // USDC Avalanche
-      },
-      'USDT': {
-        1: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT Mainnet
-        11155111: '0x6f14C02Fc1F78322cFd7d707aB90f18baD3B54f5', // USDT Sepolia
-        43114: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7' // USDT Avalanche
-      },
-      'DAI': {
-        1: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI Mainnet
-        11155111: '0x68194a729C2450ad26072b3D33ADaCbcef39D574', // DAI Sepolia
-        43114: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70' // DAI Avalanche
-      },
-      'WBTC': {
-        1: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // WBTC Mainnet
-        43114: '0x50b7545627a5162F82A992c33b87aDc75187B218' // WBTC Avalanche
-      }
-    };
-
-    const tokenSymbolUpper = tokenSymbol.toUpperCase();
-    return tokenAddresses[tokenSymbolUpper]?.[chainId] || null;
-  }
+  // Extended token addresses with more tokens and correct addresses
+  private tokenAddresses: { [key: string]: { [chainId: number]: string } } = {
+    // Wrapped native tokens
+    'WETH': {
+      1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH Mainnet
+      11155111: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9', // WETH Sepolia (verified)
+      43114: '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB' // WETH.e on Avalanche
+    },
+    'WAVAX': {
+      43114: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7' // WAVAX on Avalanche
+    },
+    // Stablecoins
+    'USDC': {
+      1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC Mainnet
+      11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // USDC Sepolia (Circle official)
+      43114: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E' // Native USDC on Avalanche
+    },
+    'USDC.e': {
+      43114: '0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664' // Bridged USDC on Avalanche
+    },
+    'USDT': {
+      1: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT Mainnet
+      11155111: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // USDT Sepolia (custom)
+      43114: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7' // USDT on Avalanche
+    },
+    'USDT.e': {
+      43114: '0xc7198437980c041c805A1EDcbA50c1Ce5db95118' // Bridged USDT on Avalanche
+    },
+    'DAI': {
+      1: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI Mainnet
+      11155111: '0x68194a729C2450ad26072b3D33ADaCbcef39D574', // DAI Sepolia (custom)
+      43114: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70' // DAI.e on Avalanche
+    },
+    // Bitcoin representations
+    'WBTC': {
+      1: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // WBTC Mainnet
+      43114: '0x50b7545627a5162F82A992c33b87aDc75187B218' // WBTC.e on Avalanche
+    },
+    'BTC.b': {
+      43114: '0x152b9d0FdC40C096757F570A51E494bd4b943E50' // Bitcoin on Avalanche
+    },
+    // Additional DeFi tokens
+    'LINK': {
+      1: '0x514910771AF9Ca656af840dff83E8264EcF986CA', // Chainlink Mainnet
+      43114: '0x5947BB275c521040051D82396192181b413227A3' // LINK.e on Avalanche
+    },
+    'AAVE': {
+      1: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', // AAVE Mainnet
+      43114: '0x63a72806098Bd3D9520cC43356dD78afe5D386D9' // AAVE.e on Avalanche
+    },
+    'UNI': {
+      1: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', // UNI Mainnet
+    },
+    'MKR': {
+      1: '0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2', // MKR Mainnet
+    },
+    'SNX': {
+      1: '0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F', // SNX Mainnet
+    },
+    'CRV': {
+      1: '0xD533a949740bb3306d119CC777fa900bA034cd52', // CRV Mainnet
+    },
+    // Avalanche ecosystem tokens
+    'PNG': {
+      43114: '0x60781C2586D68229fde47564546784ab3fACA982' // Pangolin token
+    },
+    'JOE': {
+      43114: '0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd' // TraderJoe token
+    },
+    'QI': {
+      43114: '0x8729438EB15e2C8B576fCc6AeCdA6A148776C0F5' // BENQI token
+    }
+  };
 
   constructor() {
     // Initialize providers with better error handling
@@ -138,6 +183,66 @@ export class BlockchainService {
     return provider;
   }
 
+  public getChainConfig(chainId: number): ChainConfig | null {
+    return this.chainConfigs[chainId] || null;
+  }
+
+  // Get token address with fallback for native currency
+  private getTokenAddress(tokenSymbol: string, chainId: number): string | null {
+    const tokenSymbolUpper = tokenSymbol.toUpperCase();
+    
+    // Check direct match first
+    if (this.tokenAddresses[tokenSymbolUpper]?.[chainId]) {
+      return this.tokenAddresses[tokenSymbolUpper][chainId];
+    }
+    
+    // Handle wrapped native tokens
+    const config = this.chainConfigs[chainId];
+    if (config) {
+      // ETH -> WETH mapping
+      if (tokenSymbolUpper === 'ETH' && config.nativeCurrency === 'ETH') {
+        return this.tokenAddresses['WETH']?.[chainId] || null;
+      }
+      // AVAX -> WAVAX mapping
+      if (tokenSymbolUpper === 'AVAX' && config.nativeCurrency === 'AVAX') {
+        return this.tokenAddresses['WAVAX']?.[chainId] || null;
+      }
+    }
+    
+    return null;
+  }
+
+  private isNativeToken(tokenSymbol: string, chainId: number): boolean {
+    const config = this.chainConfigs[chainId];
+    if (!config) return false;
+    
+    const tokenUpper = tokenSymbol.toUpperCase();
+    return tokenUpper === config.nativeCurrency.toUpperCase();
+  }
+
+  async getNativeBalance(walletAddress: string, chainId: number): Promise<string> {
+    try {
+      // Validate inputs
+      if (!ethers.isAddress(walletAddress)) {
+        throw new Error('Invalid wallet address');
+      }
+
+      const provider = this.getProvider(chainId);
+      const balance = await provider.getBalance(walletAddress);
+      const formattedBalance = ethers.formatEther(balance);
+      
+      const config = this.chainConfigs[chainId];
+      const nativeCurrency = config?.nativeCurrency || 'ETH';
+      
+      console.log(`Native ${nativeCurrency} balance fetched: ${formattedBalance}`);
+      
+      return formattedBalance;
+    } catch (error: any) {
+      console.error('Error getting native balance:', error);
+      throw new Error(`Failed to get native balance: ${error.message}`);
+    }
+  }
+
   async getTokenBalance(walletAddress: string, tokenSymbol: string, chainId: number): Promise<string> {
     try {
       // Validate inputs
@@ -149,14 +254,29 @@ export class BlockchainService {
         throw new Error('Invalid token symbol');
       }
 
-      const provider = this.getProvider(chainId);
-      const tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
-      
-      if (!tokenAddress) {
-        throw new Error(`Token ${tokenSymbol.toUpperCase()} not supported on chain ${chainId}`);
+      const tokenSymbolUpper = tokenSymbol.toUpperCase();
+
+      // Handle native tokens (ETH on Ethereum, AVAX on Avalanche)
+      if (this.isNativeToken(tokenSymbolUpper, chainId)) {
+        console.log(`Fetching native ${tokenSymbolUpper} balance on chain ${chainId}`);
+        return await this.getNativeBalance(walletAddress, chainId);
       }
 
-      console.log(`Fetching balance for ${tokenSymbol} at ${tokenAddress} on chain ${chainId}`);
+      // Handle ERC-20 tokens
+      const provider = this.getProvider(chainId);
+      const tokenAddress = this.getTokenAddress(tokenSymbolUpper, chainId);
+      
+      if (!tokenAddress) {
+        // Return a more helpful error message
+        const supportedTokens = this.getSupportedTokens(chainId);
+        throw new Error(
+          `Token ${tokenSymbolUpper} not found on chain ${chainId}. ` +
+          `Supported tokens: ${supportedTokens.join(', ')}. ` +
+          `For other tokens, please provide the contract address.`
+        );
+      }
+
+      console.log(`Fetching ERC-20 ${tokenSymbol} balance at ${tokenAddress} on chain ${chainId}`);
 
       const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
       
@@ -167,12 +287,52 @@ export class BlockchainService {
       ]);
       
       const formattedBalance = ethers.formatUnits(balance, decimals);
-      console.log(`Balance fetched: ${formattedBalance} ${tokenSymbol}`);
+      console.log(`ERC-20 balance fetched: ${formattedBalance} ${tokenSymbol}`);
       
       return formattedBalance;
     } catch (error: any) {
       console.error('Error getting token balance:', error);
       throw new Error(`Failed to get ${tokenSymbol} balance: ${error.message}`);
+    }
+  }
+
+  // New method to get balance using custom token address
+  async getTokenBalanceByAddress(
+    walletAddress: string, 
+    tokenAddress: string, 
+    chainId: number
+  ): Promise<{ balance: string; symbol: string; decimals: number }> {
+    try {
+      if (!ethers.isAddress(walletAddress)) {
+        throw new Error('Invalid wallet address');
+      }
+      
+      if (!ethers.isAddress(tokenAddress)) {
+        throw new Error('Invalid token address');
+      }
+
+      const provider = this.getProvider(chainId);
+      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+      
+      // Get token info and balance
+      const [balance, decimals, symbol] = await Promise.all([
+        tokenContract.balanceOf(walletAddress),
+        tokenContract.decimals(),
+        tokenContract.symbol().catch(() => 'UNKNOWN')
+      ]);
+      
+      const formattedBalance = ethers.formatUnits(balance, decimals);
+      
+      console.log(`Custom token balance fetched: ${formattedBalance} ${symbol} at ${tokenAddress}`);
+      
+      return {
+        balance: formattedBalance,
+        symbol,
+        decimals: Number(decimals)
+      };
+    } catch (error: any) {
+      console.error('Error getting custom token balance:', error);
+      throw new Error(`Failed to get token balance at ${tokenAddress}: ${error.message}`);
     }
   }
 
@@ -192,15 +352,24 @@ export class BlockchainService {
 
       const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, provider);
       
-      const token0Address = this.getTokenAddress(token0.toUpperCase(), chainId);
-      const token1Address = this.getTokenAddress(token1.toUpperCase(), chainId);
+      // Get token addresses
+      let token0Address = this.getTokenAddress(token0.toUpperCase(), chainId);
+      let token1Address = this.getTokenAddress(token1.toUpperCase(), chainId);
+      
+      // Check if addresses are provided directly (for custom tokens)
+      if (!token0Address && ethers.isAddress(token0)) {
+        token0Address = token0;
+      }
+      if (!token1Address && ethers.isAddress(token1)) {
+        token1Address = token1;
+      }
       
       if (!token0Address) {
-        throw new Error(`Token ${token0.toUpperCase()} not supported on chain ${chainId}`);
+        throw new Error(`Token ${token0.toUpperCase()} not supported on chain ${chainId}. Please provide the contract address.`);
       }
       
       if (!token1Address) {
-        throw new Error(`Token ${token1.toUpperCase()} not supported on chain ${chainId}`);
+        throw new Error(`Token ${token1.toUpperCase()} not supported on chain ${chainId}. Please provide the contract address.`);
       }
 
       console.log(`Finding pair for ${token0}/${token1} on chain ${chainId}`);
@@ -258,7 +427,7 @@ export class BlockchainService {
         throw new Error('Insufficient liquidity in pair');
       }
       
-      // Price of token1 in terms of token0
+      // Price of token0 in terms of token1
       const price = reserve1 / reserve0;
       
       console.log(`Current price: ${price} (reserve0: ${reserve0}, reserve1: ${reserve1})`);
@@ -283,7 +452,13 @@ export class BlockchainService {
       const provider = this.getProvider(chainId);
       const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
       const token0 = await pair.token0();
-      const tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      
+      let tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      
+      // Check if it's a custom address
+      if (!tokenAddress && ethers.isAddress(tokenSymbol)) {
+        tokenAddress = tokenSymbol;
+      }
       
       if (!tokenAddress) {
         throw new Error(`Token ${tokenSymbol.toUpperCase()} not supported on chain ${chainId}`);
@@ -342,14 +517,23 @@ export class BlockchainService {
       
       const currentPrice = await this.getCurrentPrice(pairAddress, chainId);
       
+      // Get decimals for proper formatting
+      const token0Contract = new ethers.Contract(token0Address, ERC20_ABI, provider);
+      const token1Contract = new ethers.Contract(token1Address, ERC20_ABI, provider);
+      
+      const [decimals0, decimals1] = await Promise.all([
+        token0Contract.decimals(),
+        token1Contract.decimals()
+      ]);
+      
       console.log(`Pair validation successful for ${token0Symbol}/${token1Symbol}`);
       
       return {
         exists: true,
         pairAddress,
         currentPrice,
-        reserve0: ethers.formatUnits(reserves0, 18),
-        reserve1: ethers.formatUnits(reserves1, 18),
+        reserve0: ethers.formatUnits(reserves0, decimals0),
+        reserve1: ethers.formatUnits(reserves1, decimals1),
         token0Address,
         token1Address
       };
@@ -357,7 +541,6 @@ export class BlockchainService {
       console.error(`Error validating pair ${token0Symbol}/${token1Symbol}:`, error);
       return { 
         exists: false,
-        // Include error info for debugging
         error: error.message 
       };
     }
@@ -365,12 +548,20 @@ export class BlockchainService {
 
   async getTokenDecimals(tokenSymbol: string, chainId: number): Promise<number> {
     try {
-      if (tokenSymbol.toUpperCase() === 'ETH' || tokenSymbol.toUpperCase() === 'AVAX') {
-        return 18; // Native tokens have 18 decimals
+      const config = this.chainConfigs[chainId];
+      
+      // Native tokens have 18 decimals
+      if (this.isNativeToken(tokenSymbol, chainId)) {
+        return config?.nativeDecimals || 18;
       }
       
       const provider = this.getProvider(chainId);
-      const tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      let tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      
+      // Check if it's a custom address
+      if (!tokenAddress && ethers.isAddress(tokenSymbol)) {
+        tokenAddress = tokenSymbol;
+      }
       
       if (!tokenAddress) {
         throw new Error(`Token ${tokenSymbol.toUpperCase()} not supported on chain ${chainId}`);
@@ -399,7 +590,12 @@ export class BlockchainService {
     name?: string;
   } | null> {
     try {
-      const tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      let tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      
+      // Check if it's a custom address
+      if (!tokenAddress && ethers.isAddress(tokenSymbol)) {
+        tokenAddress = tokenSymbol;
+      }
       
       if (!tokenAddress) {
         return null;
@@ -427,13 +623,23 @@ export class BlockchainService {
   }
 
   getSupportedTokens(chainId: number): string[] {
-    const tokensByChain: { [chainId: number]: string[] } = {
-      1: ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC'],
-      11155111: ['ETH', 'USDC', 'USDT', 'DAI'],
-      43114: ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC']
-    };
+    const config = this.chainConfigs[chainId];
+    if (!config) return [];
     
-    return tokensByChain[chainId] || [];
+    // Get all tokens that have addresses for this chain
+    const supportedTokens = new Set<string>();
+    
+    // Add native currency
+    supportedTokens.add(config.nativeCurrency);
+    
+    // Add all tokens with addresses on this chain
+    for (const [tokenSymbol, addresses] of Object.entries(this.tokenAddresses)) {
+      if (addresses[chainId]) {
+        supportedTokens.add(tokenSymbol);
+      }
+    }
+    
+    return Array.from(supportedTokens).sort();
   }
 
   getSupportedChains(): ChainConfig[] {
@@ -444,8 +650,22 @@ export class BlockchainService {
     return chainId in this.chainConfigs;
   }
 
-  getChainConfig(chainId: number): ChainConfig | null {
-    return this.chainConfigs[chainId] || null;
+  // Helper method to register a custom token address (for runtime additions)
+  registerCustomToken(tokenSymbol: string, tokenAddress: string, chainId: number): void {
+    if (!ethers.isAddress(tokenAddress)) {
+      throw new Error('Invalid token address');
+    }
+    
+    if (!this.isChainSupported(chainId)) {
+      throw new Error(`Chain ${chainId} is not supported`);
+    }
+    
+    if (!this.tokenAddresses[tokenSymbol]) {
+      this.tokenAddresses[tokenSymbol] = {};
+    }
+    
+    this.tokenAddresses[tokenSymbol][chainId] = tokenAddress;
+    console.log(`Registered custom token ${tokenSymbol} at ${tokenAddress} on chain ${chainId}`);
   }
 
   // Helper method to convert percentage to basis points for threshold calculation
@@ -490,7 +710,7 @@ export class BlockchainService {
     }
   }
 
-  // New method to get comprehensive pair information
+  // Get comprehensive pair information
   async getPairInfo(token0Symbol: string, token1Symbol: string, chainId: number): Promise<{
     exists: boolean;
     pairAddress?: string;

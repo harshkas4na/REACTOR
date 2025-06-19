@@ -18,7 +18,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw, Bot } from 'lucide-react';
+import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw, Bot, X } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
 import { toast } from 'react-hot-toast';
 import PairFinder from '@/components/pair-finder'; // Import the PairFinder component
@@ -147,7 +147,7 @@ export default function UniswapStopOrderPage() {
   const [isLoadingPair, setIsLoadingPair] = useState<boolean>(false);
   const [showAIStatus, setShowAIStatus] = useState(false);
 
-  // AI Integration - Handle pre-filled config from AI chat
+  // Enhanced AI Integration - Handle pre-filled config from AI chat
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const fromAI = urlParams.get('from_ai');
@@ -159,42 +159,51 @@ export default function UniswapStopOrderPage() {
       if (aiConfig) {
         console.log('Loading AI configuration:', aiConfig);
         
-        // Pre-fill the form with AI configuration
-        setFormData({
-          chainId: aiConfig.chainId,
-          pairAddress: aiConfig.pairAddress,
-          sellToken0: aiConfig.sellToken0,
-          clientAddress: aiConfig.clientAddress,
-          coefficient: aiConfig.coefficient,
-          threshold: aiConfig.threshold,
-          amount: aiConfig.amount,
-          destinationFunding: aiConfig.destinationFunding,
-          rscFunding: aiConfig.rscFunding
-        });
+        // Validate config before applying
+        const validationResult = validateAIConfig(aiConfig);
         
-        // If we have pair address, fetch pair info
-        if (aiConfig.pairAddress) {
-          handleFetchPairInfo(aiConfig.pairAddress);
-        }
-        
-        // Show success message
-        toast.success('✨ Configuration loaded from AI assistant!');
-        
-        // Show AI status card
-        setShowAIStatus(true);
-        
-        // Hide after 5 seconds
-        setTimeout(() => {
-          setShowAIStatus(false);
-        }, 5000);
-        
-        // Scroll to form or show some indication
-        setTimeout(() => {
-          const formElement = document.querySelector('form');
-          if (formElement) {
-            formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (validationResult.isValid) {
+          // Pre-fill the form with AI configuration
+          setFormData({
+            chainId: aiConfig.chainId || '',
+            pairAddress: aiConfig.pairAddress || '',
+            sellToken0: aiConfig.sellToken0 !== undefined ? aiConfig.sellToken0 : true,
+            clientAddress: aiConfig.clientAddress || connectedAccount || '',
+            coefficient: aiConfig.coefficient || '1000',
+            threshold: aiConfig.threshold || '',
+            amount: aiConfig.amount || '',
+            destinationFunding: aiConfig.destinationFunding || '0.03',
+            rscFunding: aiConfig.rscFunding || '0.05'
+          });
+          
+          // If we have pair address, fetch pair info
+          if (aiConfig.pairAddress && ethers.isAddress(aiConfig.pairAddress)) {
+            handleFetchPairInfo(aiConfig.pairAddress);
           }
-        }, 500);
+          
+          // Show success message
+          toast.success('✨ Configuration loaded from AI assistant!');
+          
+          // Show AI status card
+          setShowAIStatus(true);
+          
+          // Hide after 5 seconds
+          setTimeout(() => {
+            setShowAIStatus(false);
+          }, 5000);
+          
+          // Auto-scroll to form
+          setTimeout(() => {
+            const formElement = document.querySelector('form');
+            if (formElement) {
+              formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 500);
+          
+        } else {
+          console.warn('Invalid AI configuration:', validationResult.errors);
+          toast.error('Invalid AI configuration. Please try again.');
+        }
         
         // Clean up URL
         window.history.replaceState({}, '', '/automations/stop-order');
@@ -205,6 +214,151 @@ export default function UniswapStopOrderPage() {
       }
     }
   }, []); // Run once on component mount
+
+  // Add validation function
+  const validateAIConfig = (config: any) => {
+    const errors: string[] = [];
+    
+    // Validate required fields
+    if (!config.chainId) errors.push('Chain ID is required');
+    if (!config.pairAddress) errors.push('Pair address is required');
+    if (config.sellToken0 === undefined) errors.push('Sell token direction is required');
+    if (!config.clientAddress) errors.push('Client address is required');
+    if (!config.coefficient) errors.push('Coefficient is required');
+    if (!config.threshold) errors.push('Threshold is required');
+    if (!config.amount) errors.push('Amount is required');
+    if (!config.destinationFunding) errors.push('Destination funding is required');
+    if (!config.rscFunding) errors.push('RSC funding is required');
+    
+    // Validate addresses
+    if (config.pairAddress && !ethers.isAddress(config.pairAddress)) {
+      errors.push('Invalid pair address');
+    }
+    if (config.clientAddress && !ethers.isAddress(config.clientAddress)) {
+      errors.push('Invalid client address');
+    }
+    
+    // Validate numeric values
+    if (config.coefficient && isNaN(parseInt(config.coefficient))) {
+      errors.push('Coefficient must be a number');
+    }
+    if (config.threshold && isNaN(parseInt(config.threshold))) {
+      errors.push('Threshold must be a number');
+    }
+    if (config.amount && config.amount !== 'all' && config.amount !== '50%' && isNaN(parseFloat(config.amount))) {
+      errors.push('Amount must be a valid number or "all"/"50%"');
+    }
+    
+    // Validate chain ID
+    const supportedChains = ['1', '11155111', '43114'];
+    if (config.chainId && !supportedChains.includes(config.chainId)) {
+      errors.push('Unsupported chain ID');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
+
+  // Enhanced form validation to ensure Create Order button becomes active
+  useEffect(() => {
+    const validateForm = () => {
+      const errors: string[] = [];
+      
+      // Required field validation
+      if (!formData.chainId) errors.push('Chain selection required');
+      if (!formData.pairAddress || !ethers.isAddress(formData.pairAddress)) {
+        errors.push('Valid pair address required');
+      }
+      if (!formData.clientAddress || !ethers.isAddress(formData.clientAddress)) {
+        errors.push('Valid client address required');
+      }
+      if (!formData.threshold || isNaN(parseInt(formData.threshold))) {
+        errors.push('Valid threshold required');
+      }
+      if (!formData.amount || (formData.amount !== 'all' && formData.amount !== '50%' && isNaN(parseFloat(formData.amount)))) {
+        errors.push('Valid amount required');
+      }
+      if (!formData.destinationFunding || isNaN(parseFloat(formData.destinationFunding))) {
+        errors.push('Valid destination funding required');
+      }
+      if (!formData.rscFunding || isNaN(parseFloat(formData.rscFunding))) {
+        errors.push('Valid RSC funding required');
+      }
+      
+      // Additional validations
+      if (!connectedAccount) errors.push('Wallet connection required');
+      if (!pairInfo) errors.push('Valid trading pair required');
+      
+      const isValid = errors.length === 0 && deploymentStep === 'idle';
+      setIsFormValid(isValid);
+      
+      // Log validation state for debugging
+      console.log('Form validation:', {
+        isValid,
+        errors,
+        formData,
+        pairInfo: !!pairInfo,
+        connectedAccount: !!connectedAccount,
+        deploymentStep
+      });
+      
+      return isValid;
+    };
+    
+    validateForm();
+  }, [formData, connectedAccount, pairInfo, deploymentStep]);
+
+  // Enhanced AI Status Component
+  const EnhancedAIIntegrationStatus = () => {
+    if (!showAIStatus) return null;
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="mb-6"
+      >
+        <Card className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-500/50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-zinc-100 font-medium">✨ AI Configuration Loaded Successfully!</p>
+                <p className="text-zinc-300 text-sm">
+                  Your stop order parameters have been pre-filled. Review the details below and deploy when ready!
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAIStatus(false)}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {/* Show key config details */}
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-blue-900/20 p-2 rounded">
+                <span className="text-zinc-400">Amount: </span>
+                <span className="text-blue-300">{formData.amount}</span>
+              </div>
+              <div className="bg-blue-900/20 p-2 rounded">
+                <span className="text-zinc-400">Network: </span>
+                <span className="text-blue-300">{SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId)?.name}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
 
   // Find the currently selected chain configuration
   const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
@@ -1215,34 +1369,6 @@ const handleCreateOrder = async (e: React.FormEvent) => {
       : (parseFloat(pairInfo.reserve0) / parseFloat(pairInfo.reserve1)).toFixed(8)
     : 'Not available';
 
-  // Add AI Integration Status component
-  const AIIntegrationStatus = () => {
-    if (!showAIStatus) return null;
-    
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="mb-6"
-      >
-        <Card className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-500/50">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-zinc-100 font-medium">Configuration Loaded from AI Assistant</p>
-                <p className="text-zinc-300 text-sm">Your stop order parameters have been pre-filled. Review and deploy when ready!</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    );
-  };
-
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="relative z-20 max-w-4xl mx-auto">
@@ -1297,7 +1423,7 @@ const handleCreateOrder = async (e: React.FormEvent) => {
         </motion.div>
 
         {/* AI Integration Status */}
-        <AIIntegrationStatus />
+        <EnhancedAIIntegrationStatus />
 
         {/* Pair Finder Tool */}
         <PairFinder 

@@ -4,6 +4,15 @@ export interface ValidationResult {
   isValid: boolean;
   error?: string;
   sanitizedValue?: any;
+  warnings?: string[];
+}
+
+export interface ConversationValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  sanitizedData?: any;
+  confidence: number;
 }
 
 export class ValidationService {
@@ -17,12 +26,12 @@ export class ValidationService {
   }
 
   validateTokenSymbol(symbol: string): boolean {
-    const supportedTokens = ['ETH', 'USDC', 'USDT', 'DAI'];
+    const supportedTokens = ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC', 'AVAX'];
     return supportedTokens.includes(symbol.toUpperCase());
   }
 
   validateAmount(amount: string): boolean {
-    if (amount === 'all' || amount === '50%') {
+    if (amount === 'all' || amount === '50%' || amount.includes('%')) {
       return true;
     }
     
@@ -52,9 +61,18 @@ export class ValidationService {
       return { isValid: false, error: 'Percentage must be between 0 and 100' };
     }
     
+    // Add warnings for extreme values
+    const warnings: string[] = [];
+    if (numericPercentage < 1) {
+      warnings.push('Very small percentage - consider if this is intentional');
+    } else if (numericPercentage > 50) {
+      warnings.push('Large percentage drop - high risk of triggering');
+    }
+    
     return { 
       isValid: true, 
-      sanitizedValue: numericPercentage 
+      sanitizedValue: numericPercentage,
+      warnings
     };
   }
 
@@ -94,15 +112,16 @@ export class ValidationService {
     dropPercentage?: number;
     chainId?: number;
     balance?: string;
-  }): { isValid: boolean; errors: string[]; sanitizedParams?: any } {
+  }): { isValid: boolean; errors: string[]; warnings: string[]; sanitizedParams?: any } {
     const errors: string[] = [];
+    const warnings: string[] = [];
     const sanitizedParams: any = {};
     
     // Validate wallet address
     if (params.walletAddress) {
       const walletValidation = this.validateWalletAddress(params.walletAddress);
       if (!walletValidation) {
-        errors.push(`Wallet: Invalid address`);
+        errors.push(`Invalid wallet address format`);
       } else {
         sanitizedParams.walletAddress = params.walletAddress;
       }
@@ -112,9 +131,9 @@ export class ValidationService {
     if (params.tokenToSell) {
       const tokenValidation = this.validateTokenSymbol(params.tokenToSell);
       if (!tokenValidation) {
-        errors.push(`Token to sell: Invalid token symbol`);
+        errors.push(`Token to sell "${params.tokenToSell}" is not supported`);
       } else {
-        sanitizedParams.tokenToSell = params.tokenToSell;
+        sanitizedParams.tokenToSell = params.tokenToSell.toUpperCase();
       }
     }
     
@@ -122,9 +141,9 @@ export class ValidationService {
     if (params.tokenToBuy) {
       const tokenValidation = this.validateTokenSymbol(params.tokenToBuy);
       if (!tokenValidation) {
-        errors.push(`Token to buy: Invalid token symbol`);
+        errors.push(`Token to buy "${params.tokenToBuy}" is not supported`);
       } else {
-        sanitizedParams.tokenToBuy = params.tokenToBuy;
+        sanitizedParams.tokenToBuy = params.tokenToBuy.toUpperCase();
       }
     }
     
@@ -138,9 +157,14 @@ export class ValidationService {
     if (params.amount) {
       const amountValidation = this.validateAmount(params.amount);
       if (!amountValidation) {
-        errors.push(`Amount: Invalid amount format`);
+        errors.push(`Invalid amount format: "${params.amount}"`);
       } else {
         sanitizedParams.amount = params.amount;
+        
+        // Add warnings for amounts
+        if (params.amount === 'all') {
+          warnings.push('Using all tokens - ensure you want to risk your entire balance');
+        }
       }
     }
     
@@ -151,6 +175,9 @@ export class ValidationService {
         errors.push(`Drop percentage: ${percentageValidation.error}`);
       } else {
         sanitizedParams.dropPercentage = percentageValidation.sanitizedValue;
+        if (percentageValidation.warnings) {
+          warnings.push(...percentageValidation.warnings);
+        }
       }
     }
     
@@ -164,19 +191,62 @@ export class ValidationService {
       }
     }
     
+    // Validate balance if provided
+    if (params.balance) {
+      try {
+        const balance = parseFloat(params.balance);
+        if (isNaN(balance) || balance < 0) {
+          warnings.push('Invalid balance format - this may affect amount validation');
+        } else if (balance === 0) {
+          warnings.push('Zero balance detected - cannot create stop order');
+        } else if (balance < 0.001) {
+          warnings.push('Very low balance - may not be enough for gas fees');
+        }
+        sanitizedParams.balance = params.balance;
+      } catch {
+        warnings.push('Could not parse balance information');
+      }
+    }
+    
     return {
       isValid: errors.length === 0,
       errors,
+      warnings,
       sanitizedParams: errors.length === 0 ? sanitizedParams : undefined
     };
   }
 
-  validateFundingAmount(amount: string): boolean {
+  validateFundingAmount(amount: string): ValidationResult {
     try {
       const num = parseFloat(amount);
-      return !isNaN(num) && num >= 0;
+      
+      if (isNaN(num)) {
+        return { isValid: false, error: 'Funding amount must be a valid number' };
+      }
+      
+      if (num < 0) {
+        return { isValid: false, error: 'Funding amount cannot be negative' };
+      }
+      
+      if (num === 0) {
+        return { isValid: false, error: 'Funding amount must be greater than zero' };
+      }
+      
+      // Add warnings for extreme values
+      const warnings: string[] = [];
+      if (num < 0.001) {
+        warnings.push('Very low funding amount - may not cover gas costs');
+      } else if (num > 1) {
+        warnings.push('High funding amount - ensure this is intentional');
+      }
+      
+      return { 
+        isValid: true, 
+        sanitizedValue: num.toString(),
+        warnings
+      };
     } catch {
-      return false;
+      return { isValid: false, error: 'Invalid funding amount format' };
     }
   }
 
@@ -195,20 +265,159 @@ export class ValidationService {
       return { isValid: false, error: 'Message too long (max 1000 characters)' };
     }
     
-    // Basic sanitization - remove potentially harmful content
-    const sanitizedMessage = cleanMessage
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
-      .replace(/javascript:/gi, '') // Remove javascript: protocols
-      .replace(/on\w+\s*=/gi, ''); // Remove event handlers
+    // Check for potentially harmful patterns
+    const harmfulPatterns = [
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      /javascript:/gi,
+      /on\w+\s*=/gi,
+      /data:text\/html/gi,
+      /vbscript:/gi
+    ];
+    
+    let sanitizedMessage = cleanMessage;
+    const warnings: string[] = [];
+    
+    for (const pattern of harmfulPatterns) {
+      if (pattern.test(sanitizedMessage)) {
+        sanitizedMessage = sanitizedMessage.replace(pattern, '');
+        warnings.push('Potentially harmful content removed from message');
+      }
+    }
+    
+    // Check for excessive special characters (possible spam/attack)
+    const specialCharCount = (sanitizedMessage.match(/[^a-zA-Z0-9\s\.\,\!\?\-]/g) || []).length;
+    if (specialCharCount > sanitizedMessage.length * 0.3) {
+      warnings.push('Message contains many special characters');
+    }
+    
+    // Check for repetitive content (possible spam)
+    const words = sanitizedMessage.toLowerCase().split(/\s+/);
+    const uniqueWords = new Set(words);
+    if (words.length > 10 && uniqueWords.size < words.length * 0.5) {
+      warnings.push('Message appears repetitive');
+    }
     
     return {
       isValid: true,
-      sanitizedValue: sanitizedMessage
+      sanitizedValue: sanitizedMessage,
+      warnings
+    };
+  }
+
+  // Enhanced conversation validation for better flow control
+  validateConversationState(collectedData: any, processedInputs: Set<string>): ConversationValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const sanitizedData: any = {};
+    let confidence = 0;
+    
+    // Required fields for stop order
+    const requiredFields = [
+      'connectedWallet',
+      'tokenToSell', 
+      'tokenToBuy',
+      'amount',
+      'dropPercentage',
+      'selectedNetwork'
+    ];
+    
+    let completedFields = 0;
+    
+    for (const field of requiredFields) {
+      if (collectedData[field] !== undefined && collectedData[field] !== null) {
+        completedFields++;
+        
+        // Validate each field
+        switch (field) {
+          case 'connectedWallet':
+            if (!this.validateWalletAddress(collectedData[field])) {
+              errors.push('Invalid wallet address');
+            } else {
+              sanitizedData[field] = collectedData[field];
+            }
+            break;
+            
+          case 'tokenToSell':
+          case 'tokenToBuy':
+            if (!this.validateTokenSymbol(collectedData[field])) {
+              errors.push(`Invalid token: ${collectedData[field]}`);
+            } else {
+              sanitizedData[field] = collectedData[field].toUpperCase();
+            }
+            break;
+            
+          case 'amount':
+            if (!this.validateAmount(collectedData[field])) {
+              errors.push(`Invalid amount: ${collectedData[field]}`);
+            } else {
+              sanitizedData[field] = collectedData[field];
+            }
+            break;
+            
+          case 'dropPercentage':
+            const percentValidation = this.validatePercentage(collectedData[field]);
+            if (!percentValidation.isValid) {
+              errors.push(`Invalid drop percentage: ${percentValidation.error}`);
+            } else {
+              sanitizedData[field] = percentValidation.sanitizedValue;
+              if (percentValidation.warnings) {
+                warnings.push(...percentValidation.warnings);
+              }
+            }
+            break;
+            
+          case 'selectedNetwork':
+            const chainValidation = this.validateChainId(collectedData[field]);
+            if (!chainValidation.isValid) {
+              errors.push(`Invalid network: ${chainValidation.error}`);
+            } else {
+              sanitizedData[field] = chainValidation.sanitizedValue;
+            }
+            break;
+            
+          default:
+            sanitizedData[field] = collectedData[field];
+        }
+      }
+    }
+    
+    // Calculate confidence based on completion and validation
+    confidence = (completedFields / requiredFields.length) * 100;
+    
+    // Reduce confidence for errors
+    if (errors.length > 0) {
+      confidence = Math.max(0, confidence - (errors.length * 20));
+    }
+    
+    // Add contextual warnings
+    if (completedFields > 0 && completedFields < requiredFields.length) {
+      const missingFields = requiredFields.filter(field => 
+        !collectedData[field] && !processedInputs.has(`asked_${field}`)
+      );
+      
+      if (missingFields.length > 0) {
+        warnings.push(`Missing: ${missingFields.join(', ')}`);
+      }
+    }
+    
+    // Check for conflicting data
+    if (sanitizedData.tokenToSell && sanitizedData.tokenToBuy && 
+        sanitizedData.tokenToSell === sanitizedData.tokenToBuy) {
+      errors.push('Cannot trade a token for itself');
+      confidence = Math.max(0, confidence - 30);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      sanitizedData: errors.length === 0 ? sanitizedData : undefined,
+      confidence
     };
   }
 
   // Helper method to validate all required fields for stop order are present
-  validateStopOrderCompletion(collectedData: any): { isComplete: boolean; missingFields: string[] } {
+  validateStopOrderCompletion(collectedData: any): { isComplete: boolean; missingFields: string[]; confidence: number } {
     const requiredFields = [
       'connectedWallet',
       'tokenToSell', 
@@ -222,9 +431,13 @@ export class ValidationService {
       !collectedData[field] || collectedData[field] === undefined
     );
     
+    const completedFields = requiredFields.length - missingFields.length;
+    const confidence = (completedFields / requiredFields.length) * 100;
+    
     return {
       isComplete: missingFields.length === 0,
-      missingFields
+      missingFields,
+      confidence
     };
   }
 
@@ -234,6 +447,8 @@ export class ValidationService {
       'chainId', 'pairAddress', 'sellToken0', 'clientAddress', 
       'coefficient', 'threshold', 'amount', 'destinationFunding', 'rscFunding'
     ];
+    
+    const warnings: string[] = [];
     
     for (const field of required) {
       if (!config[field] && config[field] !== false) { // sellToken0 can be false
@@ -260,7 +475,37 @@ export class ValidationService {
       return { isValid: false, error: 'Coefficient and threshold must be valid numbers' };
     }
     
-    return { isValid: true };
+    // Validate funding amounts
+    const destFundingValidation = this.validateFundingAmount(config.destinationFunding);
+    if (!destFundingValidation.isValid) {
+      return { isValid: false, error: `Invalid destination funding: ${destFundingValidation.error}` };
+    }
+    
+    const rscFundingValidation = this.validateFundingAmount(config.rscFunding);
+    if (!rscFundingValidation.isValid) {
+      return { isValid: false, error: `Invalid RSC funding: ${rscFundingValidation.error}` };
+    }
+    
+    // Add warnings for funding amounts
+    if (destFundingValidation.warnings) {
+      warnings.push(...destFundingValidation.warnings.map(w => `Destination funding: ${w}`));
+    }
+    if (rscFundingValidation.warnings) {
+      warnings.push(...rscFundingValidation.warnings.map(w => `RSC funding: ${w}`));
+    }
+    
+    // Validate threshold makes sense (not too extreme)
+    const coefficient = parseInt(config.coefficient);
+    const threshold = parseInt(config.threshold);
+    
+    if (threshold <= 0 || threshold >= coefficient) {
+      warnings.push('Threshold value seems extreme - please verify configuration');
+    }
+    
+    return { 
+      isValid: true,
+      warnings: warnings.length > 0 ? warnings : undefined
+    };
   }
 
   validateNetworkId(chainId: number): boolean {
@@ -280,8 +525,9 @@ export class ValidationService {
     }
   }
 
-  validateAutomationConfig(config: any): { isValid: boolean; errors: string[] } {
+  validateAutomationConfig(config: any): { isValid: boolean; errors: string[]; warnings: string[] } {
     const errors: string[] = [];
+    const warnings: string[] = [];
 
     if (!config.chainId || !this.validateNetworkId(Number(config.chainId))) {
       errors.push('Invalid chain ID');
@@ -311,17 +557,81 @@ export class ValidationService {
       errors.push('Invalid amount');
     }
 
-    if (!config.destinationFunding || !this.validateFundingAmount(config.destinationFunding)) {
-      errors.push('Invalid destination funding amount');
+    const destFundingValidation = this.validateFundingAmount(config.destinationFunding);
+    if (!destFundingValidation.isValid) {
+      errors.push(`Invalid destination funding: ${destFundingValidation.error}`);
+    } else if (destFundingValidation.warnings) {
+      warnings.push(...destFundingValidation.warnings);
     }
 
-    if (!config.rscFunding || !this.validateFundingAmount(config.rscFunding)) {
-      errors.push('Invalid RSC funding amount');
+    const rscFundingValidation = this.validateFundingAmount(config.rscFunding);
+    if (!rscFundingValidation.isValid) {
+      errors.push(`Invalid RSC funding: ${rscFundingValidation.error}`);
+    } else if (rscFundingValidation.warnings) {
+      warnings.push(...rscFundingValidation.warnings);
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
+      warnings
     };
   }
-} 
+
+  // Utility method to check if user input suggests they already provided information
+  detectRepeatQuestion(message: string, collectedData: any): boolean {
+    const lowerMessage = message.toLowerCase();
+    
+    // Check if user is confirming already provided information
+    const confirmationPatterns = [
+      /yes,?\s*(that\'?s?\s*)?(correct|right|good)/,
+      /^(yes|yep|yeah|yup)$/,
+      /i\s*(already\s*)?(told|said|mentioned)/,
+      /like\s*i\s*said/
+    ];
+    
+    for (const pattern of confirmationPatterns) {
+      if (pattern.test(lowerMessage)) {
+        return true;
+      }
+    }
+    
+    // Check if they're repeating information they already provided
+    if (collectedData.tokenToSell && lowerMessage.includes(collectedData.tokenToSell.toLowerCase())) {
+      return true;
+    }
+    
+    if (collectedData.tokenToBuy && lowerMessage.includes(collectedData.tokenToBuy.toLowerCase())) {
+      return true;
+    }
+    
+    if (collectedData.amount && lowerMessage.includes(collectedData.amount.toString())) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Method to extract confidence level from user message
+  extractConfidenceFromMessage(message: string): number {
+    const lowerMessage = message.toLowerCase();
+    
+    // High confidence indicators
+    if (/\b(definitely|absolutely|certainly|sure|yes)\b/.test(lowerMessage)) {
+      return 90;
+    }
+    
+    // Medium confidence indicators
+    if (/\b(probably|likely|think|maybe)\b/.test(lowerMessage)) {
+      return 60;
+    }
+    
+    // Low confidence indicators
+    if (/\b(not sure|dunno|don\'t know|unclear)\b/.test(lowerMessage)) {
+      return 30;
+    }
+    
+    // Default confidence
+    return 70;
+  }
+}

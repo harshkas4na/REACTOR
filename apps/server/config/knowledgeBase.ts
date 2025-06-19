@@ -1,164 +1,257 @@
-import { KnowledgeBase } from '../types/ai';
+export interface AutomationType {
+  name: string;
+  description: string;
+  supportedChains: number[];
+  costEstimate: string;
+  features: string[];
+}
 
-export const REACTOR_KNOWLEDGE_BASE: KnowledgeBase = {
-  platform: {
-    name: "REACTOR",
-    description: "DeFi automation platform powered by Reactive Smart Contracts",
-    website: "https://app.thereactor.in",
-    documentation: "https://app.thereactor.in/about"
-  },
+export interface NetworkConfig {
+  chainId: number;
+  name: string;
+  currency: string;
+  dex: string;
+  explorerUrl: string;
+}
 
-  reactiveNetwork: {
-    name: "Reactive Network",
-    description: "The world's first event-driven blockchain for autonomous smart contracts",
-    documentation: "https://dev.reactive.network",
-    mainnet: {
-      chainId: 1597,
-      name: "Reactive Mainnet",
-      currency: "REACT",
-      explorer: "https://reactscan.net"
-    },
-    testnet: {
-      chainId: 5318008,
-      name: "Kopli Testnet", 
-      currency: "KOPLI",
-      explorer: "https://kopli.reactscan.net"
-    },
-    features: [
-      "Event-driven smart contracts",
-      "Cross-chain event monitoring",
-      "Autonomous contract execution",
-      "Inversion of Control paradigm",
-      "Gas-efficient operations"
-    ]
-  },
-
+export const REACTOR_KNOWLEDGE_BASE = {
   automations: {
-    stopOrders: {
-      name: "Stop Orders",
-      description: "Automatically sell tokens when price drops below a specified threshold",
-      status: "active",
-      features: [
-        "24/7 price monitoring",
-        "Instant execution when triggered",
-        "Cross-chain support",
-        "Gas-optimized operations"
-      ],
+    STOP_ORDER: {
+      name: 'Stop Orders',
+      description: 'Automatically sell tokens when price drops to protect from losses',
       supportedChains: [1, 11155111, 43114],
-      costEstimate: "0.03-0.05 ETH + 0.05 REACT tokens",
-      useCase: "Protect investments from market crashes and volatility"
-    },
-    
-    feeCollectors: {
-      name: "Fee Collectors", 
-      description: "Automatically collect earned fees from Uniswap V3 positions",
-      status: "inactive",
+      costEstimate: '• Ethereum: ~0.03 ETH + 0.05 REACT\n• Avalanche: ~0.01 AVAX + 0.05 REACT\n• Sepolia: ~0.03 ETH + 0.05 KOPLI',
       features: [
-        "Automatic fee collection",
-        "Direct transfer to wallet",
-        "Cooldown period optimization",
-        "Gas-efficient collection"
-      ],
-      supportedChains: [11155111],
-      costEstimate: "Minimal gas fees",
-      useCase: "Maximize earnings from Uniswap V3 liquidity provision"
+        '24/7 price monitoring',
+        'Instant execution on trigger',
+        'No manual intervention needed',
+        'Cross-chain compatible'
+      ]
     },
-
-    rangeManagers: {
-      name: "Range Managers",
-      description: "Automatically adjust Uniswap V3 position ranges for optimal fee generation", 
-      status: "inactive",
+    FEE_COLLECTOR: {
+      name: 'Fee Collectors',
+      description: 'Automatically collect and compound Uniswap V3 liquidity fees',
+      supportedChains: [1, 43114],
+      costEstimate: 'Coming soon',
       features: [
-        "Smart range calculation",
-        "Volatility-based adjustments",
-        "Fee optimization",
-        "Three-step gas-efficient process"
-      ],
-      supportedChains: [11155111],
-      costEstimate: "Gas fees for adjustment transactions",
-      useCase: "Keep Uniswap V3 positions in profit-generating ranges"
+        'Auto-harvest fees',
+        'Compound into positions',
+        'Gas-efficient batch collection',
+        'Multi-position support'
+      ]
     },
-
-    customRSCs: {
-      name: "Custom Reactive Smart Contracts",
-      description: "Create custom event-driven automation contracts",
-      status: "active", 
+    RANGE_MANAGER: {
+      name: 'Range Managers',
+      description: 'Optimize Uniswap V3 position ranges based on market conditions',
+      supportedChains: [1, 43114],
+      costEstimate: 'Coming soon',
       features: [
-        "Custom event monitoring",
-        "Flexible automation logic",
-        "Cross-chain capabilities",
-        "Advanced conditional triggers"
-      ],
-      supportedChains: [1597, 5318008],
-      costEstimate: "Variable based on complexity",
-      useCase: "Advanced users and developers creating custom automations"
+        'Dynamic range adjustment',
+        'Maximize fee collection',
+        'Risk management',
+        'Market-aware positioning'
+      ]
     }
   },
-
+  
   networks: {
     ethereum: {
       chainId: 1,
-      name: "Ethereum Mainnet",
-      currency: "ETH",
-      dex: "Uniswap V2",
-      status: "active"
+      name: 'Ethereum Mainnet',
+      currency: 'ETH',
+      dex: 'Uniswap V2',
+      explorerUrl: 'https://etherscan.io'
     },
     sepolia: {
       chainId: 11155111,
-      name: "Ethereum Sepolia",
-      currency: "ETH", 
-      dex: "Uniswap V2",
-      status: "active"
+      name: 'Ethereum Sepolia',
+      currency: 'ETH',
+      dex: 'Uniswap V2',
+      explorerUrl: 'https://sepolia.etherscan.io'
     },
     avalanche: {
       chainId: 43114,
-      name: "Avalanche C-Chain",
-      currency: "AVAX",
-      dex: "Pangolin",
-      status: "active"
+      name: 'Avalanche C-Chain',
+      currency: 'AVAX',
+      dex: 'Pangolin',
+      explorerUrl: 'https://snowtrace.io'
     }
   },
-
+  
+  reactiveNetwork: {
+    mainnet: {
+      chainId: 1597,
+      name: 'Reactive Mainnet',
+      currency: 'REACT',
+      gasPrice: '0.05',
+      explorerUrl: 'https://explorer.reactive.network'
+    },
+    testnet: {
+      chainId: 5318008,
+      name: 'Kopli Testnet',
+      currency: 'KOPLI',
+      gasPrice: '0.05',
+      explorerUrl: 'https://testnet.explorer.reactive.network'
+    }
+  },
+  
+  platform: {
+    name: 'REACTOR',
+    description: 'DeFi automation platform powered by Reactive Smart Contracts',
+    features: [
+      'Event-driven automation',
+      'Cross-chain operations',
+      'No-code interface',
+      'Community templates'
+    ],
+    website: 'https://reactor.xyz',
+    documentation: 'https://docs.reactor.xyz'
+  },
+  
   faq: {
-    "what is reactive smart contract": {
-      answer: "Reactive Smart Contracts (RSCs) are event-driven contracts that automatically monitor blockchain events and trigger actions without manual intervention. Unlike traditional smart contracts that require users to call functions, RSCs use an Inversion of Control paradigm to autonomously react to on-chain events.",
-      relatedTopics: ["reactive network", "automation", "event-driven"]
+    'what is reactor': {
+      answer: `**REACTOR** is a revolutionary DeFi automation platform that makes blockchain automation accessible to everyone! 🚀
+
+**Key Features:**
+• **Event-Driven Automation**: Smart contracts that react to blockchain events automatically
+• **Cross-Chain Operations**: Seamless automation across multiple networks
+• **User-Friendly Interface**: No coding required - just configure and deploy
+• **24/7 Monitoring**: Your automations work round the clock
+
+**Popular Use Cases:**
+• Stop Orders - Protect investments from price drops
+• Fee Collection - Auto-harvest DeFi yields
+• Portfolio Rebalancing - Maintain optimal allocations
+
+Ready to automate your DeFi strategy? Let's get started! 🎯`,
+      relatedTopics: ['How do RSCs work?', 'Create a stop order', 'View pricing']
     },
     
-    "how do stop orders work": {
-      answer: "Stop orders monitor token pair prices 24/7 and automatically sell your tokens when the price drops below your specified threshold. They deploy two contracts: a destination contract on your chosen chain and an RSC on Reactive Network kopli(for testnet) & React Mainnet(for mainnet) that monitors prices and triggers the sale.",
-      relatedTopics: ["price protection", "automation", "cross-chain"]
-    },
+    'what are rscs': {
+      answer: `**Reactive Smart Contracts (RSCs)** are the revolutionary technology powering REACTOR! 🧠
 
-    "what is reactive network": {
-      answer: "Reactive Network is the world's first event-driven blockchain designed specifically for autonomous smart contracts. It enables RSCs to monitor events across multiple chains and execute cross-chain actions automatically. Learn more at dev.reactive.network",
-      relatedTopics: ["rsc", "cross-chain", "automation"]
-    },
+**Traditional vs Reactive:**
+• **Traditional**: You → Contract (manual)
+• **Reactive**: Event → Contract → Action (automatic)
 
-    "gas costs and fees": {
-      answer: "Costs vary by automation type: Stop Orders need ~0.03-0.05 ETH for deployment plus 0.05 REACT tokens for RSC operation. Fee Collectors and Range Managers primarily use gas for transactions. All automations are optimized for gas efficiency.",
-      relatedTopics: ["costs", "gas optimization", "funding"]
+**How They Work:**
+1. **Subscribe** to blockchain events (like price changes)
+2. **Monitor** conditions 24/7 automatically
+3. **React** instantly when conditions are met
+4. **Execute** actions across different chains
+
+**Key Benefits:**
+• No manual monitoring needed
+• Instant reaction to market conditions
+• Cross-chain execution capabilities
+• Gas-efficient operation
+
+RSCs make your DeFi strategies truly autonomous! ⚡`,
+      relatedTopics: ['Technical details', 'Create an RSC', 'View examples']
+    },
+    
+    'how much does it cost': {
+      answer: `**REACTOR Pricing** is transparent and one-time only! 💰
+
+**Stop Orders:**
+• **Ethereum**: ~0.03 ETH + 0.05 REACT
+• **Avalanche**: ~0.01 AVAX + 0.05 REACT
+• **Testnet**: Minimal amounts for testing
+
+**What You're Paying For:**
+1. **Destination Contract**: Executes your trades (~0.01-0.03 native token)
+2. **RSC Deployment**: 24/7 monitoring on Reactive Network (~0.05 REACT)
+
+**Important:**
+• One-time deployment cost only
+• No recurring fees or subscriptions
+• Automation runs forever once deployed
+• Gas fees only when trades execute
+
+Get lifetime automation for less than a typical transaction fee! 🎯`,
+      relatedTopics: ['Network comparison', 'Get REACT tokens', 'Calculate costs']
+    },
+    
+    'how to get started': {
+      answer: `**Getting Started with REACTOR** is easy! 🚀
+
+**Step 1: Connect Your Wallet**
+• Use MetaMask, WalletConnect, or any Web3 wallet
+• Ensure you have funds for deployment
+
+**Step 2: Choose Your Automation**
+• **Stop Orders**: Protect against price drops
+• **Fee Collectors**: Auto-harvest yields (coming soon)
+• **Range Managers**: Optimize LP positions (coming soon)
+
+**Step 3: Configure Parameters**
+• Select tokens and amounts
+• Set trigger conditions
+• Choose your network
+
+**Step 4: Deploy**
+• Review configuration
+• Approve tokens if needed
+• Deploy contracts
+
+Your automation is now live and working 24/7! 🎉`,
+      relatedTopics: ['Create stop order', 'View templates', 'Join community']
+    },
+    
+    'what networks are supported': {
+      answer: `**REACTOR supports multiple blockchain networks!** 🌐
+
+**Production Networks:**
+• **Ethereum Mainnet** - Uniswap V2 integration
+• **Avalanche C-Chain** - Pangolin DEX integration
+
+**Test Networks:**
+• **Sepolia Testnet** - For Ethereum testing
+• **Kopli Testnet** - Reactive Network testnet
+
+**Coming Soon:**
+• Arbitrum
+• Polygon
+• Base
+• More chains based on community demand!
+
+**Each Network Offers:**
+• Native DEX integration
+• Optimized gas costs
+• Full RSC capabilities
+• Cross-chain operations
+
+Choose the network that best fits your needs! 🎯`,
+      relatedTopics: ['Network costs', 'Cross-chain guide', 'Request new network']
     }
   },
-
+  
   responseTemplates: {
-    greeting: "Hi! I'm Reactor AI 🤖\n\nI can help you with:\n• Create Stop Orders - Protect tokens from price drops\n• Deploy RSCs - Custom automation contracts\n• Setup Automations - Fee Collectors & Range Managers\n• Answer Questions - Learn about DeFi automation\n\nWhat would you like to do?",
+    welcome: "👋 Welcome to REACTOR! I'm here to help you automate your DeFi strategies. What would you like to do today?",
     
-    rscRedirect: "For custom RSC development, I'll guide you to our specialized deployment page where you can create advanced event-driven contracts. RSCs are powered by Reactive Network - check out dev.reactive.network for more details!",
-    
-    feeCollectorRedirect: "Fee Collectors automatically harvest your Uniswap V3 fees and send them directly to your wallet. They're perfect for maximizing your yield from liquidity provision!",
-    
-    rangeManagerRedirect: "Range Managers keep your Uniswap V3 positions in optimal fee-earning ranges by automatically adjusting them as prices move. Great for maximizing returns!",
+    helpMenu: `I can help you with:
+• **Create Automations** - Stop orders, fee collectors, and more
+• **Learn About REACTOR** - RSCs, features, and capabilities  
+• **Check Blockchain Data** - Balances, pairs, prices
+• **Get Technical Help** - Integration and development
 
-    networkInfo: "Reactor supports multiple networks:\n• Ethereum Mainnet - Full stop order support\n• Avalanche C-Chain - Stop orders with Pangolin DEX\n• Sepolia Testnet - All features for testing\n\nRSCs run on Reactive Network (dev.reactive.network)"
+What interests you? 🚀`,
+    
+    errorGeneric: "❌ Oops! Something went wrong. Let's try again or try a different approach.",
+    
+    notConnected: "🔗 Please connect your wallet first to access this feature!",
+    
+    comingSoon: "🚧 This feature is coming soon! Stay tuned for updates.",
+    
+    success: "✅ Success! Your automation is being deployed. You can track its progress in the dashboard."
   },
-
+  
   routes: {
-    stopOrder: "/automations/stop-order",
-    feeCollector: "/automations/fee-collector", 
-    rangeManager: "/automations/range-manager",
-    deployRSC: "/deploy-reactive-contract",
-    docs: "https://app.thereactor.in/about",
-    reactiveNetwork: "https://dev.reactive.network"
+    stopOrders: '/automations/stop-order',
+    feeCollectors: '/automations/fee-collector',
+    rangeManagers: '/automations/range-manager',
+    templates: '/templates',
+    deployRsc: '/deploy-reactive-contract',
+    getStarted: '/get-started'
   }
-}; 
+};
