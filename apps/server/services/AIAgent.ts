@@ -1,4 +1,4 @@
-import { BlockchainService } from './BlockchainService';
+import { BlockchainService, EnhancedBlockchainService } from './BlockchainService';
 import { ValidationService } from './ValidationService';
 import { ConversationUtils, MessageAnalysis } from './ConversationUtils';
 import { KnowledgeBaseHelper } from './KnowledgeBaseHelper';
@@ -55,7 +55,7 @@ interface GeminiResponse {
 
 export class AIAgent {
   private conversations = new Map<string, ConversationState>();
-  private blockchainService: BlockchainService;
+  private blockchainService: EnhancedBlockchainService;
   private validationService: ValidationService;
   private geminiApiKey: string;
   private geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
@@ -91,7 +91,7 @@ CONVERSATION INTELLIGENCE:
 - Handle interruptions gracefully
 - Be conversational but informative`;
 
-  constructor(blockchainService: BlockchainService, validationService: ValidationService) {
+  constructor(blockchainService: EnhancedBlockchainService, validationService: ValidationService) {
     this.blockchainService = blockchainService;
     this.validationService = validationService;
     this.geminiApiKey = process.env.GEMINI_API_KEY || '';
@@ -125,8 +125,27 @@ CONVERSATION INTELLIGENCE:
       
       console.log('Message analysis:', messageAnalysis);
 
-      // Check if this needs blockchain data
-      if (this.requiresBlockchainData(context.message, messageAnalysis)) {
+      // Use enhanced context-aware intent detection
+      const contextualIntent = ConversationUtils.determineIntentWithContext(
+        context.message,
+        conversation.conversationHistory,
+        conversation.collectedData
+      );
+      
+      console.log('Contextual intent determined:', contextualIntent);
+      
+      // Update conversation intent if we got a better detection
+      if (contextualIntent !== 'UNKNOWN' && contextualIntent !== messageAnalysis.intent) {
+        console.log(`Intent upgraded from ${messageAnalysis.intent} to ${contextualIntent}`);
+        console.log(`Intent upgraded from ${messageAnalysis.intent} to ${contextualIntent}`);
+        messageAnalysis.intent = contextualIntent as any;
+      } else if (conversation.intent === 'UNKNOWN') {
+        conversation.intent = contextualIntent as any;
+      }
+
+      // Check if this needs blockchain data (using contextual intent)
+      if (this.requiresBlockchainData(context.message, messageAnalysis) || 
+          ['CHECK_BALANCE', 'FIND_PAIR', 'GET_PRICE'].includes(contextualIntent)) {
         conversation.intent = 'BLOCKCHAIN_QUERY';
         const blockchainResponse = await this.handleEnhancedBlockchainQueries(context, conversation, messageAnalysis);
         if (blockchainResponse) {
@@ -139,8 +158,10 @@ CONVERSATION INTELLIGENCE:
         }
       }
 
-      // Check for interruption during stop order creation
-      if (conversation.intent === 'CREATE_STOP_ORDER' && !this.isStopOrderIntent(context.message)) {
+      // Check for interruption during stop order creation (improved detection)
+      if (conversation.intent === 'CREATE_STOP_ORDER' && 
+          contextualIntent !== 'CREATE_STOP_ORDER' && 
+          contextualIntent !== 'UNKNOWN') {
         const interruptionResponse = await this.handleInterruption(context, conversation);
         if (interruptionResponse) {
           conversation.conversationHistory.push({
@@ -156,8 +177,8 @@ CONVERSATION INTELLIGENCE:
       
       console.log('After entity extraction:', conversation.collectedData);
 
-      // Handle stop order creation
-      if (conversation.intent === 'CREATE_STOP_ORDER' || this.isStopOrderIntent(context.message)) {
+      // Handle stop order creation (using contextual intent)
+      if (conversation.intent === 'CREATE_STOP_ORDER' || contextualIntent === 'CREATE_STOP_ORDER') {
         conversation.intent = 'CREATE_STOP_ORDER';
         
         // Fetch real blockchain data if we have enough info
@@ -224,25 +245,28 @@ CONVERSATION INTELLIGENCE:
   ) {
     const lowerMessage = context.message.toLowerCase();
     const data = conversation.collectedData;
+    console.log("data", data);
+    console.log("analysis", analysis);
     
     // Handle balance queries
-    if (lowerMessage.includes('balance') || lowerMessage.includes('how much') || lowerMessage.includes('how many')) {
+    if (lowerMessage.includes('balance') || lowerMessage.includes('how much') || lowerMessage.includes('how many') || lowerMessage.includes('my balance') || lowerMessage.includes('my eth') || lowerMessage.includes('my avax') || analysis.intent === 'CHECK_BALANCE' || analysis.intent === 'BLOCKCHAIN_QUERY' || analysis.intent === 'ASK_QUESTION') {
       return await this.handleBalanceQuery(context, conversation, analysis);
     }
     
     // Handle pair queries
-    if (lowerMessage.includes('pair') && !lowerMessage.includes('explain')) {
+    if (lowerMessage.includes('pair') && !lowerMessage.includes('explain') || lowerMessage.includes('find pair') || lowerMessage.includes('trading pair') || lowerMessage.includes('liquidity pair') || lowerMessage.includes('swap pair') || analysis.intent === 'FIND_PAIR' || analysis.intent === 'BLOCKCHAIN_QUERY' || analysis.intent === 'ASK_QUESTION') {
       return await this.handlePairQuery(context, conversation, analysis);
     }
     
     // Handle price queries
-    if (lowerMessage.includes('price') && (lowerMessage.includes('current') || lowerMessage.includes('what is'))) {
-      return await this.handlePriceQuery(context, conversation, analysis);
+    if (lowerMessage.includes('price') && (lowerMessage.includes('current') || lowerMessage.includes('what is')) || analysis.intent === 'GET_PRICE' || analysis.intent === 'BLOCKCHAIN_QUERY' || analysis.intent === 'ASK_QUESTION') {
+      return await this.handlePriceQuery(context, conversation, analysis);  
     }
     
     return null;
   }
 
+  // Enhanced balance query handler with custom token support
   private async handleBalanceQuery(
     context: MessageContext, 
     conversation: ConversationState,
@@ -269,22 +293,33 @@ CONVERSATION INTELLIGENCE:
       };
     }
     
-    // Determine which token to check
+    // Enhanced token detection - check for addresses in the message
     let tokenToCheck: string | null = null;
+    let isCustomToken = false;
     
-    // Check if user is asking for native currency
-    if (context.message.includes('my eth') || context.message.includes('my avax') || 
+    // 1. Check if user provided a token address directly
+    const addressPattern = /0x[a-fA-F0-9]{40}/;
+    const addressMatch = context.message.match(addressPattern);
+    
+    if (addressMatch) {
+      tokenToCheck = addressMatch[0];
+      isCustomToken = true;
+      console.log('Found token address in message:', tokenToCheck);
+    }
+    // 2. Check if user is asking for native currency
+    else if (context.message.includes('my eth') || context.message.includes('my avax') || 
         (context.message.includes('my balance') && !analysis.entities.tokens.length)) {
-      // Get native currency for the network
       const networkConfig = this.blockchainService.getChainConfig(data.selectedNetwork);
       tokenToCheck = networkConfig?.nativeCurrency || 'ETH';
-    } else if (analysis.entities.tokens.length > 0) {
+    }
+    // 3. Check extracted tokens from analysis
+    else if (analysis.entities.tokens.length > 0) {
       tokenToCheck = analysis.entities.tokens[0];
     }
     
     if (!tokenToCheck) {
       return {
-        message: "💰 Which token balance would you like to check?\n\nSupported tokens: ETH, USDC, USDT, DAI, WBTC\n\nFor other tokens, please provide the contract address.",
+        message: "💰 Which token balance would you like to check?\n\n**Supported tokens**: ETH, USDC, USDT, DAI, WBTC\n\n**Custom tokens**: Provide the contract address (0x...)\n\n**Example**: \"Check balance of 0x1234...\" or \"How much USDC do I have?\"",
         intent: 'BLOCKCHAIN_QUERY' as const,
         needsUserInput: true,
         inputType: 'token' as const,
@@ -293,56 +328,119 @@ CONVERSATION INTELLIGENCE:
     }
     
     try {
-      // Check if token is supported
-      const supportedTokens = this.blockchainService.getSupportedTokens(data.selectedNetwork);
-      const networkConfig = this.blockchainService.getChainConfig(data.selectedNetwork);
-      const nativeCurrency = networkConfig?.nativeCurrency || 'ETH';
+      let balance: string;
+      let tokenSymbol: string = tokenToCheck;
+      let tokenInfo: any = null;
       
-      // Add native currency to supported tokens
-      if (!supportedTokens.includes(nativeCurrency)) {
-        supportedTokens.push(nativeCurrency);
+      if (isCustomToken) {
+        // Handle custom token address
+        console.log('Processing custom token address:', tokenToCheck);
+        
+        // Validate the token address first
+        const validation = await this.blockchainService.validateTokenAddress(tokenToCheck, data.selectedNetwork);
+        
+        if (!validation.isValid) {
+          return {
+            message: `❌ **Invalid Token Address**\n\n${validation.error}\n\nPlease provide a valid ERC-20 token contract address.`,
+            intent: 'BLOCKCHAIN_QUERY' as const,
+            needsUserInput: false,
+            nextStep: 'invalid_token_address'
+          };
+        }
+        
+        tokenInfo = validation.tokenInfo;
+        tokenSymbol = tokenInfo.symbol;
+        
+        // Store custom token for future use
+        if (!data.customTokenAddresses) {
+          data.customTokenAddresses = {};
+        }
+        data.customTokenAddresses[tokenSymbol] = tokenToCheck;
+        
+        // Get balance using enhanced service
+        balance = await this.blockchainService.getTokenBalanceEnhanced(
+          data.connectedWallet,
+          tokenToCheck,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+      } else {
+        // Handle predefined token or check if it's in custom tokens
+        const supportedTokens = this.blockchainService.getSupportedTokens(data.selectedNetwork);
+        const networkConfig = this.blockchainService.getChainConfig(data.selectedNetwork);
+        const nativeCurrency = networkConfig?.nativeCurrency || 'ETH';
+        
+        // Add native currency to supported tokens
+        if (!supportedTokens.includes(nativeCurrency)) {
+          supportedTokens.push(nativeCurrency);
+        }
+        
+        if (!supportedTokens.includes(tokenToCheck.toUpperCase()) && 
+            tokenToCheck.toUpperCase() !== nativeCurrency.toUpperCase()) {
+          
+          // Check if we have this token in custom addresses
+          if (data.customTokenAddresses && data.customTokenAddresses[tokenToCheck.toUpperCase()]) {
+            balance = await this.blockchainService.getTokenBalanceEnhanced(
+              data.connectedWallet,
+              data.customTokenAddresses[tokenToCheck.toUpperCase()],
+              data.selectedNetwork,
+              data.customTokenAddresses
+            );
+          } else {
+            // Ask for custom token address
+            return {
+              message: `❓ **${tokenToCheck}** is not in our predefined token list.\n\nPlease provide the contract address for ${tokenToCheck} on ${this.getNetworkName(data.selectedNetwork)}:\n\n**Example**: 0x1234567890abcdef1234567890abcdef12345678`,
+              intent: 'BLOCKCHAIN_QUERY' as const,
+              needsUserInput: true,
+              inputType: 'token' as const,
+              nextStep: 'custom_token_address',
+              metadata: { tokenSymbol: tokenToCheck }
+            };
+          }
+        } else {
+          // Use enhanced service for predefined tokens
+          balance = await this.blockchainService.getTokenBalanceEnhanced(
+            data.connectedWallet,
+            tokenToCheck,
+            data.selectedNetwork,
+            data.customTokenAddresses
+          );
+        }
       }
       
-      if (!supportedTokens.includes(tokenToCheck.toUpperCase()) && 
-          tokenToCheck.toUpperCase() !== nativeCurrency.toUpperCase()) {
-        // Ask for custom token address
-        return {
-          message: `❓ **${tokenToCheck}** is not in our predefined token list.\n\nPlease provide the contract address for ${tokenToCheck} on ${this.getNetworkName(data.selectedNetwork)}:`,
-          intent: 'BLOCKCHAIN_QUERY' as const,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          nextStep: 'custom_token_address',
-          metadata: { tokenSymbol: tokenToCheck }
-        };
-      }
-      
-      console.log(`Fetching ${tokenToCheck} balance for ${data.connectedWallet} on network ${data.selectedNetwork}`);
-      
-      const balance = await this.blockchainService.getTokenBalance(
-        data.connectedWallet,
-        tokenToCheck,
-        data.selectedNetwork
-      );
-      
-      console.log(`Balance fetched: ${balance} ${tokenToCheck}`);
+      console.log(`Balance fetched: ${balance} ${tokenSymbol}`);
       
       // Store the balance for future use
-      if (tokenToCheck === data.tokenToSell) {
+      if (tokenSymbol === data.tokenToSell) {
         data.userBalance = balance;
       }
       
       const networkName = this.getNetworkName(data.selectedNetwork);
       
+      // Enhanced response with token info for custom tokens
+      let responseMessage = `💰 **Your ${tokenSymbol} Balance**\n\n**Amount**: ${balance} ${tokenSymbol}\n**Network**: ${networkName}\n**Wallet**: \`${data.connectedWallet.slice(0, 6)}...${data.connectedWallet.slice(-4)}\``;
+      
+      if (tokenInfo) {
+        responseMessage += `\n**Token**: ${tokenInfo.name} (${tokenInfo.symbol})\n**Contract**: \`${tokenInfo.address.slice(0, 8)}...${tokenInfo.address.slice(-6)}\``;
+      }
+      
+      responseMessage += `\n\n${parseFloat(balance) > 0 ? '✅ You have funds available!' : '❌ No balance found'}`;
+      
+      if (data.tokenToSell === tokenSymbol) {
+        responseMessage += '\n\n💡 Perfect! This is the token you want to protect with a stop order.';
+      }
+      
       return {
-        message: `💰 **Your ${tokenToCheck} Balance**\n\n**Amount**: ${balance} ${tokenToCheck}\n**Network**: ${networkName}\n**Wallet**: \`${data.connectedWallet.slice(0, 6)}...${data.connectedWallet.slice(-4)}\`\n\n${parseFloat(balance) > 0 ? '✅ You have funds available!' : '❌ No balance found'}${data.tokenToSell === tokenToCheck ? '\n\n💡 Perfect! This is the token you want to protect with a stop order.' : ''}`,
+        message: responseMessage,
         intent: 'BLOCKCHAIN_QUERY' as const,
         needsUserInput: false,
         nextStep: 'balance_provided'
       };
+      
     } catch (error: any) {
       console.error('Error fetching balance:', error);
       return {
-        message: `❌ **Error Fetching Balance**\n\n${error.message}\n\n**Please check:**\n• Your wallet is connected\n• You're on the correct network\n• The token exists on this network\n\nWould you like to try a different token?`,
+        message: `❌ **Error Fetching Balance**\n\n${error.message}\n\n**Please check:**\n• Your wallet is connected\n• You're on the correct network\n• The token contract is valid\n• The token exists on this network\n\nWould you like to try a different token?`,
         intent: 'BLOCKCHAIN_QUERY' as const,
         needsUserInput: false,
         nextStep: 'balance_error'
@@ -350,6 +448,115 @@ CONVERSATION INTELLIGENCE:
     }
   }
 
+  // Enhanced entity extraction with address detection
+  private async enhancedEntityExtraction(
+    message: string, 
+    conversation: ConversationState,
+    analysis: MessageAnalysis
+  ) {
+    const lowerMessage = message.toLowerCase();
+    const data = conversation.collectedData;
+
+    console.log('Enhanced entity extraction with analysis:', analysis);
+
+    // 1. Extract token addresses first
+    const addressPattern = /0x[a-fA-F0-9]{40}/g;
+    const addresses = message.match(addressPattern) || [];
+    
+    if (addresses.length > 0) {
+      console.log('Found token addresses in message:', addresses);
+      
+      // Validate and store custom token addresses
+      for (const address of addresses) {
+        try {
+          if (data.selectedNetwork) {
+            const validation = await this.blockchainService.validateTokenAddress(address, data.selectedNetwork);
+            if (validation.isValid && validation.tokenInfo) {
+              if (!data.customTokenAddresses) {
+                data.customTokenAddresses = {};
+              }
+              data.customTokenAddresses[validation.tokenInfo.symbol] = address;
+              console.log(`Auto-stored custom token: ${validation.tokenInfo.symbol} = ${address}`);
+              
+              // If we don't have tokens set yet, use this one
+              if (!data.tokenToSell && lowerMessage.includes('sell')) {
+                data.tokenToSell = validation.tokenInfo.symbol;
+              } else if (!data.tokenToBuy && (lowerMessage.includes('for') || lowerMessage.includes('to'))) {
+                data.tokenToBuy = validation.tokenInfo.symbol;
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to validate token address:', address, error);
+        }
+      }
+    }
+
+    // 2. Handle custom token address responses in conversation flow
+    if (conversation.currentStep === 'custom_token_address' && ethers.isAddress(message.trim())) {
+      const lastMessage = conversation.conversationHistory[conversation.conversationHistory.length - 2];
+      const metadata = this.extractMetadataFromMessage(lastMessage?.content);
+      
+      if (metadata?.tokenSymbol) {
+        try {
+          const validation = await this.blockchainService.validateTokenAddress(message.trim(), data.selectedNetwork!);
+          if (validation.isValid && validation.tokenInfo) {
+            if (!data.customTokenAddresses) {
+              data.customTokenAddresses = {};
+            }
+            data.customTokenAddresses[metadata.tokenSymbol] = message.trim();
+            console.log(`Stored custom token address for ${metadata.tokenSymbol}: ${message.trim()}`);
+            
+            // Continue with balance query using the custom token
+            return;
+          }
+        } catch (error) {
+          console.error('Error validating custom token address:', error);
+        }
+      }
+    }
+
+    // 3. Use ConversationUtils analysis for standard tokens
+    if (analysis.entities.tokens.length > 0) {
+      if (!data.tokenToSell && analysis.entities.tokens[0]) {
+        data.tokenToSell = analysis.entities.tokens[0];
+      }
+      if (!data.tokenToBuy && analysis.entities.tokens[1]) {
+        data.tokenToBuy = analysis.entities.tokens[1];
+      }
+    }
+
+    // 4. Use percentage from analysis
+    if (analysis.entities.percentages.length > 0 && !data.dropPercentage) {
+      data.dropPercentage = analysis.entities.percentages[0];
+    }
+
+    // 5. Use amounts from analysis
+    if (analysis.entities.amounts.length > 0 && !data.amount) {
+      const amount = analysis.entities.amounts[0];
+      if (amount.toLowerCase().includes('all') || amount.toLowerCase().includes('everything')) {
+        data.amount = 'all';
+      } else if (amount.toLowerCase().includes('half')) {
+        data.amount = '50%';
+      } else {
+        data.amount = amount.replace(/[^\d.]/g, ''); // Extract numeric value
+      }
+    }
+
+    console.log('Enhanced extraction complete:', data);
+  }
+
+  // Helper method to extract metadata from AI messages
+  private extractMetadataFromMessage(content: string): any {
+    // This is a simple implementation - you might want to make it more robust
+    const metadataMatch = content?.match(/Please provide the contract address for (\w+)/);
+    if (metadataMatch) {
+      return { tokenSymbol: metadataMatch[1] };
+    }
+    return null;
+  }
+
+  // Enhanced pair query with custom token support
   private async handlePairQuery(
     context: MessageContext, 
     conversation: ConversationState,
@@ -367,9 +574,29 @@ CONVERSATION INTELLIGENCE:
       };
     }
     
-    if (analysis.entities.tokens.length < 2) {
+    // Enhanced token extraction including addresses
+    let tokens: string[] = [];
+    
+    // Check for token addresses in message
+    const addressPattern = /0x[a-fA-F0-9]{40}/g;
+    const addresses = context.message.match(addressPattern) || [];
+    
+    if (addresses.length >= 2) {
+      tokens = addresses.slice(0, 2);
+    } else if (addresses.length === 1) {
+      tokens.push(addresses[0]);
+      // Try to get the second token from analysis
+      if (analysis.entities.tokens.length > 0) {
+        tokens.push(analysis.entities.tokens[0]);
+      }
+    } else {
+      // Use tokens from analysis
+      tokens = analysis.entities.tokens.slice(0, 2);
+    }
+    
+    if (tokens.length < 2) {
       return {
-        message: "🔄 I need two tokens to find a trading pair.\n\nPlease specify both tokens, for example:\n• \"Find ETH/USDC pair\"\n• \"ETH and USDT pair\"\n• \"Trading pair for DAI and USDC\"",
+        message: "🔄 I need two tokens to find a trading pair.\n\nPlease specify both tokens, for example:\n• \"Find ETH/USDC pair\"\n• \"0x1234.../USDT pair\"\n• \"Trading pair for 0x1234... and 0x5678...\"",
         intent: 'BLOCKCHAIN_QUERY' as const,
         needsUserInput: true,
         inputType: 'token' as const,
@@ -377,26 +604,63 @@ CONVERSATION INTELLIGENCE:
       };
     }
     
-    const token1 = analysis.entities.tokens[0];
-    const token2 = analysis.entities.tokens[1];
-    
+    const token1 = tokens[0];
+    const token2 = tokens[1];
+
     try {
-      const pairInfo = await this.blockchainService.getPairInfo(token1, token2, data.selectedNetwork);
+      // Use enhanced pair finding with custom token support
+      const pairAddress = await this.blockchainService.findPairAddressEnhanced(
+        token1, 
+        token2, 
+        data.selectedNetwork,
+        data.customTokenAddresses
+      );
       
-      if (!pairInfo.exists) {
+      if (!pairAddress) {
         return {
-          message: `❌ **Pair Not Found**\n\nI couldn't find a ${token1}/${token2} trading pair on ${this.getNetworkName(data.selectedNetwork)}.\n\n**Possible reasons:**\n• The pair doesn't exist on this DEX\n• Insufficient liquidity\n• Tokens not supported on this network\n\n**Try:**\n• Popular pairs like ETH/USDC or ETH/USDT\n• Different network\n• Checking if both tokens exist on this network`,
+          message: `❌ **Pair Not Found**\n\nI couldn't find a ${token1}/${token2} trading pair on ${this.getNetworkName(data.selectedNetwork)}.\n\n**Possible reasons:**\n• The pair doesn't exist on this DEX\n• Insufficient liquidity\n• One or both tokens aren't supported on this network\n• Invalid token addresses\n\n**Try:**\n• Popular pairs like ETH/USDC or ETH/USDT\n• Different network\n• Verifying token addresses are correct`,
           intent: 'BLOCKCHAIN_QUERY' as const,
           needsUserInput: false,
           nextStep: 'pair_not_found'
         };
       }
       
+      // Get current price using enhanced service
+      const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
+        token1,
+        token2,
+        data.selectedNetwork,
+        data.customTokenAddresses
+      );
+      
       const networkName = this.getNetworkName(data.selectedNetwork);
       const dexName = KnowledgeBaseHelper.getNetworkDEX(data.selectedNetwork);
       
+      // Get token symbols for display
+      let token1Symbol = token1;
+      let token2Symbol = token2;
+      
+      // If they're addresses, try to get symbols
+      if (ethers.isAddress(token1)) {
+        try {
+          const tokenInfo = await this.blockchainService.getTokenInfo(token1, data.selectedNetwork);
+          token1Symbol = tokenInfo.symbol;
+        } catch (error) {
+          console.warn('Could not get token1 symbol');
+        }
+      }
+      
+      if (ethers.isAddress(token2)) {
+        try {
+          const tokenInfo = await this.blockchainService.getTokenInfo(token2, data.selectedNetwork);
+          token2Symbol = tokenInfo.symbol;
+        } catch (error) {
+          console.warn('Could not get token2 symbol');
+        }
+      }
+      
       return {
-        message: `✅ **${token1}/${token2} Trading Pair Found!**\n\n**Network**: ${networkName}\n**DEX**: ${dexName}\n**Pair Address**: \`${pairInfo.pairAddress}\`\n**Current Price**: ${pairInfo.currentPrice?.toFixed(6)} ${token2}/${token1}\n\n**Liquidity Reserves**:\n• ${token1}: ${parseFloat(pairInfo.reserves?.reserve0 || '0').toFixed(4)}\n• ${token2}: ${parseFloat(pairInfo.reserves?.reserve1 || '0').toFixed(4)}\n\n${pairInfo.currentPrice ? '💡 Ready to create a stop order for this pair?' : '⚠️ Could not fetch current price'}`,
+        message: `✅ **${token1Symbol}/${token2Symbol} Trading Pair Found!**\n\n**Network**: ${networkName}\n**DEX**: ${dexName}\n**Pair Address**: \`${pairAddress}\`\n**Current Price**: ${currentPrice.toFixed(6)} ${token2Symbol}/${token1Symbol}\n\n${ethers.isAddress(token1) ? `**Token 1**: \`${token1.slice(0, 8)}...${token1.slice(-6)}\`\n` : ''}${ethers.isAddress(token2) ? `**Token 2**: \`${token2.slice(0, 8)}...${token2.slice(-6)}\`\n` : ''}\n💡 Ready to create a stop order for this pair?`,
         intent: 'BLOCKCHAIN_QUERY' as const,
         needsUserInput: false,
         nextStep: 'pair_found',
@@ -408,11 +672,182 @@ CONVERSATION INTELLIGENCE:
     } catch (error: any) {
       console.error('Error finding pair:', error);
       return {
-        message: `❌ **Error Finding Pair**\n\n${error.message}\n\nPlease verify:\n• Both tokens are supported on ${this.getNetworkName(data.selectedNetwork)}\n• You're checking the correct network\n• The DEX has this trading pair`,
+        message: `❌ **Error Finding Pair**\n\n${error.message}\n\nPlease verify:\n• Both tokens are supported on ${this.getNetworkName(data.selectedNetwork)}\n• Token addresses are valid ERC-20 contracts\n• You're checking the correct network\n• The DEX has this trading pair`,
         intent: 'BLOCKCHAIN_QUERY' as const,
         needsUserInput: false,
         nextStep: 'pair_error'
       };
+    }
+  }
+
+  // Enhanced fetch real blockchain data with custom token support
+  private async fetchRealBlockchainData(conversation: ConversationState) {
+    const data = conversation.collectedData;
+    
+    try {
+      // Fetch token balance if we have wallet and token (including custom tokens)
+      if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
+        try {
+          console.log(`Fetching balance for ${data.tokenToSell}...`);
+          const balance = await this.blockchainService.getTokenBalanceEnhanced(
+            data.connectedWallet,
+            data.tokenToSell,
+            data.selectedNetwork,
+            data.customTokenAddresses
+          );
+          data.userBalance = balance;
+          console.log(`Balance fetched: ${balance} ${data.tokenToSell}`);
+        } catch (error) {
+          console.error('Error fetching token balance:', error);
+        }
+      }
+
+      // Fetch pair address and price if we have both tokens (enhanced with custom token support)
+      if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
+        try {
+          console.log(`Finding pair for ${data.tokenToSell}/${data.tokenToBuy}...`);
+          const pairAddress = await this.blockchainService.findPairAddressEnhanced(
+            data.tokenToSell,
+            data.tokenToBuy,
+            data.selectedNetwork,
+            data.customTokenAddresses
+          );
+          
+          if (pairAddress) {
+            data.pairAddress = pairAddress;
+            console.log(`Pair found: ${pairAddress}`);
+            
+            // Get current price using enhanced service
+            try {
+              const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
+                data.tokenToSell,
+                data.tokenToBuy,
+                data.selectedNetwork,
+                data.customTokenAddresses
+              );
+              data.currentPrice = currentPrice;
+              console.log(`Current price: ${currentPrice}`);
+              
+              // Calculate target price if we have drop percentage
+              if (data.dropPercentage) {
+                data.targetPrice = currentPrice * (1 - data.dropPercentage / 100);
+                console.log(`Target price: ${data.targetPrice}`);
+              }
+            } catch (priceError) {
+              console.error('Error fetching price:', priceError);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching pair data:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching blockchain data:', error);
+    }
+  }
+
+  // Enhanced configuration preparation with custom token support
+  private async prepareFinalConfiguration(conversation: ConversationState) {
+    const data = conversation.collectedData;
+    
+    if (!data.tokenToSell || !data.tokenToBuy || !data.selectedNetwork || !data.connectedWallet) {
+      throw new Error('Missing required information for stop order');
+    }
+
+    try {
+      let pairAddress = data.pairAddress;
+      if (!pairAddress) {
+        // Use enhanced pair finding
+        const foundPairAddress = await this.blockchainService.findPairAddressEnhanced(
+          data.tokenToSell,
+          data.tokenToBuy,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+        
+        if (!foundPairAddress) {
+          throw new Error(`Trading pair ${data.tokenToSell}/${data.tokenToBuy} not found on ${this.getNetworkName(data.selectedNetwork)}`);
+        }
+        
+        pairAddress = foundPairAddress;
+        data.pairAddress = pairAddress;
+      }
+      
+      let currentPrice = data.currentPrice;
+      if (!currentPrice) {
+        // Use enhanced price fetching
+        currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
+          data.tokenToSell,
+          data.tokenToBuy,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+        data.currentPrice = currentPrice;
+      }
+      
+      const dropPercentage = data.dropPercentage || 10;
+      const thresholdPrice = currentPrice * (1 - dropPercentage / 100);
+      const { coefficient, threshold } = this.calculateThresholdValues(currentPrice, thresholdPrice);
+      
+      // Use token order detection
+      const sellToken0 = await this.blockchainService.isToken0(
+        pairAddress, 
+        data.tokenToSell, 
+        data.selectedNetwork
+      );
+      
+      return {
+        chainId: data.selectedNetwork.toString(),
+        pairAddress,
+        sellToken0,
+        clientAddress: data.connectedWallet,
+        coefficient: coefficient.toString(),
+        threshold: threshold.toString(),
+        amount: data.amount || 'all',
+        destinationFunding: this.getDefaultFunding(data.selectedNetwork),
+        rscFunding: "0.05",
+        tokenToSell: data.tokenToSell,
+        tokenToBuy: data.tokenToBuy,
+        dropPercentage: dropPercentage,
+        currentPrice: currentPrice,
+        targetPrice: thresholdPrice,
+        userBalance: data.userBalance,
+        customTokenAddresses: data.customTokenAddresses || {},
+        deploymentReady: true
+      };
+    } catch (error: any) {
+      console.error('Error preparing final configuration:', error);
+      throw new Error(`Failed to prepare configuration: ${error.message}`);
+    }
+  }
+
+  // Add method to validate if BlockchainService has enhanced methods
+  private validateEnhancedBlockchainService(): void {
+    const requiredMethods = [
+      'getTokenBalanceEnhanced',
+      'findPairAddressEnhanced', 
+      'getCurrentPriceEnhanced',
+      'validateTokenAddress',
+      'getTokenInfo'
+    ];
+    
+    for (const method of requiredMethods) {
+      if (typeof (this.blockchainService as any)[method] !== 'function') {
+        throw new Error(`BlockchainService is missing enhanced method: ${method}`);
+      }
+    }
+    
+    console.log('✅ Enhanced BlockchainService validation passed');
+  }
+
+  // Initialize and validate enhanced blockchain service
+  public async initialize(): Promise<void> {
+    try {
+      this.validateEnhancedBlockchainService();
+      console.log('🚀 Enhanced AIAgent initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize Enhanced AIAgent:', error);
+      throw error;
     }
   }
 
@@ -489,57 +924,7 @@ CONVERSATION INTELLIGENCE:
     }
   }
 
-  private async enhancedEntityExtraction(
-    message: string, 
-    conversation: ConversationState,
-    analysis: MessageAnalysis
-  ) {
-    const lowerMessage = message.toLowerCase();
-    const data = conversation.collectedData;
-
-    console.log('Enhanced entity extraction with analysis:', analysis);
-
-    // Use ConversationUtils analysis
-    if (analysis.entities.tokens.length > 0) {
-      if (!data.tokenToSell && analysis.entities.tokens[0]) {
-        data.tokenToSell = analysis.entities.tokens[0];
-      }
-      if (!data.tokenToBuy && analysis.entities.tokens[1]) {
-        data.tokenToBuy = analysis.entities.tokens[1];
-      }
-    }
-
-    // Use percentage from analysis
-    if (analysis.entities.percentages.length > 0 && !data.dropPercentage) {
-      data.dropPercentage = analysis.entities.percentages[0];
-    }
-
-    // Use amounts from analysis
-    if (analysis.entities.amounts.length > 0 && !data.amount) {
-      const amount = analysis.entities.amounts[0];
-      if (amount.toLowerCase().includes('all') || amount.toLowerCase().includes('everything')) {
-        data.amount = 'all';
-      } else if (amount.toLowerCase().includes('half')) {
-        data.amount = '50%';
-      } else {
-        data.amount = amount.replace(/[^\d.]/g, ''); // Extract numeric value
-      }
-    }
-
-    // Handle custom token address responses
-    if (conversation.currentStep === 'custom_token_address' && ethers.isAddress(message.trim())) {
-      const metadata = (conversation.lastResponse as any)?.metadata;
-      if (metadata?.tokenSymbol) {
-        if (!data.customTokenAddresses) {
-          data.customTokenAddresses = {};
-        }
-        data.customTokenAddresses[metadata.tokenSymbol] = message.trim();
-        console.log(`Stored custom token address for ${metadata.tokenSymbol}: ${message.trim()}`);
-      }
-    }
-
-    console.log('Enhanced extraction complete:', data);
-  }
+  
 
   private async handleEnhancedEducationalQuestions(conversation: ConversationState, context: MessageContext) {
     const lowerMessage = context.message.toLowerCase();
@@ -989,69 +1374,7 @@ Ready to get started? 🎯`,
     });
   }
 
- 
-
-  private async fetchRealBlockchainData(conversation: ConversationState) {
-    const data = conversation.collectedData;
-    
-    try {
-      // Fetch token balance if we have wallet and token
-      if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
-        try {
-          console.log(`Fetching balance for ${data.tokenToSell}...`);
-          const balance = await this.blockchainService.getTokenBalance(
-            data.connectedWallet,
-            data.tokenToSell,
-            data.selectedNetwork
-          );
-          data.userBalance = balance;
-          console.log(`Balance fetched: ${balance} ${data.tokenToSell}`);
-        } catch (error) {
-          console.error('Error fetching token balance:', error);
-        }
-      }
-
-      // Fetch pair address and price if we have both tokens
-      if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
-        try {
-          console.log(`Finding pair for ${data.tokenToSell}/${data.tokenToBuy}...`);
-          const pairAddress = await this.blockchainService.findPairAddress(
-            data.tokenToSell,
-            data.tokenToBuy,
-            data.selectedNetwork
-          );
-          
-          if (pairAddress) {
-            data.pairAddress = pairAddress;
-            console.log(`Pair found: ${pairAddress}`);
-            
-            // Get current price
-            try {
-              const currentPrice = await this.blockchainService.getCurrentPrice(
-                pairAddress,
-                data.selectedNetwork
-              );
-              data.currentPrice = currentPrice;
-              console.log(`Current price: ${currentPrice}`);
-              
-              // Calculate target price if we have drop percentage
-              if (data.dropPercentage) {
-                data.targetPrice = currentPrice * (1 - data.dropPercentage / 100);
-                console.log(`Target price: ${data.targetPrice}`);
-              }
-            } catch (priceError) {
-              console.error('Error fetching price:', priceError);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching pair data:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching blockchain data:', error);
-    }
-  }
-
+  
   private async handleBlockchainQueries(message: string, conversation: ConversationState) {
     const lowerMessage = message.toLowerCase();
     const data = conversation.collectedData;
@@ -1334,69 +1657,7 @@ Ready to get started? 🎯`,
     return typeMap[missingField];
   }
 
-  private async prepareFinalConfiguration(conversation: ConversationState) {
-    const data = conversation.collectedData;
-    
-    if (!data.tokenToSell || !data.tokenToBuy || !data.selectedNetwork || !data.connectedWallet) {
-      throw new Error('Missing required information for stop order');
-    }
-
-    try {
-      let pairAddress = data.pairAddress;
-      if (!pairAddress) {
-        const foundPairAddress = await this.blockchainService.findPairAddress(
-          data.tokenToSell,
-          data.tokenToBuy,
-          data.selectedNetwork
-        );
-        
-        if (!foundPairAddress) {
-          throw new Error(`Trading pair ${data.tokenToSell}/${data.tokenToBuy} not found on ${this.getNetworkName(data.selectedNetwork)}`);
-        }
-        
-        pairAddress = foundPairAddress;
-        data.pairAddress = pairAddress;
-      }
-      
-      let currentPrice = data.currentPrice;
-      if (!currentPrice) {
-        currentPrice = await this.blockchainService.getCurrentPrice(pairAddress, data.selectedNetwork);
-        data.currentPrice = currentPrice;
-      }
-      
-      const dropPercentage = data.dropPercentage || 10;
-      const thresholdPrice = currentPrice * (1 - dropPercentage / 100);
-      const { coefficient, threshold } = this.calculateThresholdValues(currentPrice, thresholdPrice);
-      
-      const sellToken0 = await this.blockchainService.isToken0(
-        pairAddress, 
-        data.tokenToSell, 
-        data.selectedNetwork
-      );
-      
-      return {
-        chainId: data.selectedNetwork.toString(),
-        pairAddress,
-        sellToken0,
-        clientAddress: data.connectedWallet,
-        coefficient: coefficient.toString(),
-        threshold: threshold.toString(),
-        amount: data.amount || 'all',
-        destinationFunding: this.getDefaultFunding(data.selectedNetwork),
-        rscFunding: "0.05",
-        tokenToSell: data.tokenToSell,
-        tokenToBuy: data.tokenToBuy,
-        dropPercentage: dropPercentage,
-        currentPrice: currentPrice,
-        targetPrice: thresholdPrice,
-        userBalance: data.userBalance,
-        deploymentReady: true
-      };
-    } catch (error: any) {
-      console.error('Error preparing final configuration:', error);
-      throw new Error(`Failed to prepare configuration: ${error.message}`);
-    }
-  }
+ 
 
   private generateConfirmationMessage(conversation: ConversationState, config: any): string {
     const data = conversation.collectedData;
@@ -1444,8 +1705,6 @@ Ready to get started? 🎯`,
     };
     return fundingMap[chainId] || "0.03";
   }
-
-
 
   private getNetworkCurrency(chainId: number): string {
     const currencies: { [key: number]: string } = {
@@ -1616,8 +1875,6 @@ What would you like to know or do? 🚀`,
       nextStep: 'error_recovery'
     };
   }
-
- 
 
   public cleanupOldConversations(maxAgeMs: number = 30 * 60 * 1000) {
     const now = Date.now();

@@ -40,7 +40,7 @@ export interface ConversationMetrics {
       };
       
       // Determine intent
-      const intent = this.determineIntent(lowerMessage);
+      const intent = this.determineExplicitIntent(lowerMessage);
       
       // Analyze sentiment
       const sentiment = this.analyzeSentiment(lowerMessage);
@@ -68,19 +68,7 @@ export interface ConversationMetrics {
       };
     }
     
-    // Extract token symbols from message
-    private static extractTokens(message: string): string[] {
-      const tokenPattern = /\b(ETH|BTC|USDC|USDT|DAI|WBTC|AVAX|ETHEREUM|BITCOIN)\b/gi;
-      const matches = message.match(tokenPattern) || [];
-      
-      // Normalize token names
-      return matches.map(token => {
-        const normalized = token.toUpperCase();
-        if (normalized === 'ETHEREUM') return 'ETH';
-        if (normalized === 'BITCOIN') return 'BTC';
-        return normalized;
-      }).filter((token, index, array) => array.indexOf(token) === index); // Remove duplicates
-    }
+    
     
     // Extract amount values from message
     private static extractAmounts(message: string): string[] {
@@ -141,93 +129,276 @@ export interface ConversationMetrics {
       
       return networks.filter((network, index, array) => array.indexOf(network) === index);
     }
+
+    // Enhanced intent determination with better context awareness
+  static determineIntentWithContext(
+    message: string, 
+    conversationHistory: Array<{ role: string; content: string }>,
+    collectedData: any
+  ): string {
+    const lowerMessage = message.toLowerCase();
     
-    // Determine primary intent from message
-    private static determineIntent(lowerMessage: string): string {
-      const intentPatterns = [
-        { 
-          intent: 'CREATE_STOP_ORDER', 
-          patterns: [
-            'stop order', 'protect', 'sell when', 'automation', 'stop loss', 'limit order',
-            'create automation', 'set up protection', 'automate sell', 'trigger sell',
-            'sell if price drops', 'liquidate when', 'exit position', 'risk management',
-            'price alert', 'automatic sell', 'conditional sell', 'stop trading',
-            'protect my position', 'secure profits', 'cut losses', 'emergency sell',
-            'reactive contract', 'smart contract automation', 'defi automation'
-          ]
-        },
-        { 
-          intent: 'CHECK_BALANCE', 
-          patterns: [
-            'balance', 'how much', 'how many', 'now', 'current balance', 'wallet balance',
-            'token balance', 'my tokens', 'holdings', 'portfolio', 'assets',
-            'check wallet', 'show balance', 'what do i have', 'my funds',
-            'available tokens', 'token amount', 'eth balance', 'usdc balance',
-            'current holdings', 'wallet contents', 'my cryptocurrency', 'coin balance'
-          ]
-        },
-        { 
-          intent: 'FIND_PAIR', 
-          patterns: [
-            'pair', 'find pair', 'trading pair', 'and', 'liquidity pair', 'swap pair',
-            'token pair', 'dex pair', 'uniswap pair', 'exchange pair', 'market pair',
-            'trading market', 'where to trade', 'available pairs', 'pair address',
-            'pool address', 'liquidity pool', 'amm pair', 'decentralized exchange',
-            'find market', 'trading route', 'swap route', 'pair contract'
-          ]
-        },
-        { 
-          intent: 'ASK_QUESTION', 
-          patterns: [
-            'what is', 'how does', 'explain', 'tell me', 'what are', 'how do',
-            'can you explain', 'help me understand', 'what does this mean',
-            'how to', 'why', 'when should', 'which', 'where can',
-            'what happens', 'how works', 'difference between', 'benefits of',
-            'risks of', 'gas fees', 'transaction cost', 'slippage',
-            'impermanent loss', 'yield farming', 'staking', 'defi',
-            'smart contracts', 'blockchain', 'ethereum', 'avalanche'
-          ]
-        },
-        { 
-          intent: 'CONFIRM', 
-          patterns: [
-            'yes', 'yep', 'yeah', 'correct', 'right', 'yup', 'sure', 'okay',
-            'ok', 'good', 'perfect', 'exactly', 'that\'s right', 'absolutely',
-            'confirmed', 'proceed', 'continue', 'go ahead', 'sounds good',
-            'looks good', 'i agree', 'affirmative', 'true', 'correct me',
-            'deploy', 'execute', 'create it', 'do it', 'make it'
-          ]
-        },
-        { 
-          intent: 'DENY', 
-          patterns: [
-            'no', 'nope', 'wrong', 'incorrect', 'not right', 'false', 'nah',
-            'that\'s wrong', 'not correct', 'disagree', 'negative', 'not really',
-            'i don\'t think so', 'that\'s not right', 'not what i meant',
-            'different', 'change', 'modify', 'not that', 'something else',
-            'try again', 'not quite', 'close but not right'
-          ]
-        },
-        { 
-          intent: 'CANCEL', 
-          patterns: [
-            'cancel', 'stop', 'nevermind', 'abort', 'quit', 'exit', 'back',
-            'forget it', 'don\'t do it', 'halt', 'end', 'terminate',
-            'go back', 'start over', 'restart', 'reset', 'undo',
-            'don\'t proceed', 'not now', 'maybe later', 'skip this',
-            'i changed my mind', 'let\'s not do this', 'abandon'
-          ]
-        }
-      ];
-      
-      for (const { intent, patterns } of intentPatterns) {
-        if (patterns.some(pattern => lowerMessage.includes(pattern))) {
-          return intent;
-        }
+    // First check explicit intents
+    const explicitIntent = this.determineExplicitIntent(lowerMessage);
+    if (explicitIntent !== 'UNKNOWN') {
+      return explicitIntent;
+    }
+    
+    // Then check contextual intents based on conversation flow
+    const contextualIntent = this.determineContextualIntent(
+      lowerMessage, 
+      conversationHistory, 
+      collectedData
+    );
+    
+    return contextualIntent;
+  }
+
+  // Determine explicit intent from clear keywords
+  private static determineExplicitIntent(lowerMessage: string): string {
+    const intentPatterns = [
+      { 
+        intent: 'CREATE_STOP_ORDER', 
+        patterns: [
+          'stop order', 'protect', 'sell when', 'automation', 'stop loss',
+          'create automation', 'automate sell', 'trigger sell', 'liquidate when',
+          'cut losses', 'emergency sell', 'defi automation'
+        ]
+      },
+      { 
+        intent: 'CHECK_BALANCE', 
+        patterns: [
+          'balance', 'how much', 'how many', 'wallet', 'holdings', 'portfolio',
+          'my tokens', 'my eth', 'my usdc', 'my avax', 'check wallet',
+          'show balance', 'what do i have', 'my funds', 'token amount'
+        ]
+      },
+      { 
+        intent: 'FIND_PAIR', 
+        patterns: [
+          'pair', 'find pair', 'trading pair', 'pair address', 'pool address',
+          'liquidity pool', 'where to trade', 'market pair', 'swap pair'
+        ]
+      },
+      { 
+        intent: 'GET_PRICE', 
+        patterns: [
+          'price', 'current price', 'how much is', 'cost of', 'value of',
+          'price of', 'what is the price', 'market price', 'rate'
+        ]
+      }
+    ];
+    
+    for (const { intent, patterns } of intentPatterns) {
+      if (patterns.some(pattern => lowerMessage.includes(pattern))) {
+        return intent;
+      }
+    }
+    
+    return 'UNKNOWN';
+  }
+  
+  
+  // Determine intent from conversation context
+  private static determineContextualIntent(
+    message: string,
+    conversationHistory: Array<{ role: string; content: string }>,
+    collectedData: any
+  ): string {
+    const lowerMessage = message.toLowerCase();
+    
+    // Extract entities to understand what user is talking about
+    const entities = this.extractEntities(message);
+    
+    // Look at recent conversation context
+    const recentMessages = conversationHistory.slice(-6); // Last 6 messages
+    const recentContext = recentMessages.map(msg => msg.content.toLowerCase()).join(' ');
+    
+    // Context-based intent detection
+    
+    // 1. Balance inquiry context
+    if (this.isBalanceInquiryContext(lowerMessage, entities, recentContext, collectedData)) {
+      return 'CHECK_BALANCE';
+    }
+    
+    // 2. Price inquiry context  
+    if (this.isPriceInquiryContext(lowerMessage, entities, recentContext)) {
+      return 'GET_PRICE';
+    }
+    
+    // 3. Pair finding context
+    if (this.isPairInquiryContext(lowerMessage, entities, recentContext)) {
+      return 'FIND_PAIR';
+    }
+    
+    // 4. Stop order continuation context
+    if (this.isStopOrderContext(lowerMessage, recentContext, collectedData)) {
+      return 'CREATE_STOP_ORDER';
+    }
+    
+    // 5. Question/explanation context
+    if (this.isQuestionContext(lowerMessage)) {
+      return 'ASK_QUESTION';
+    }
+    
+    return 'UNKNOWN';
+  }
+    
+  // Enhanced balance inquiry detection
+  private static isBalanceInquiryContext(
+    message: string, 
+    entities: any, 
+    recentContext: string,
+    collectedData: any
+  ): boolean {
+    // Direct token mentions with possession or quantity words
+    const possessionWords = ['my', 'i have', 'do i have', 'current', 'available'];
+    const quantityWords = ['much', 'many', 'amount of'];
+    
+    const hasPossession = possessionWords.some(word => message.includes(word));
+    const hasQuantity = quantityWords.some(word => message.includes(word));
+    const hasTokens = entities.tokens.length > 0;
+    
+    // Patterns like "my ETH", "how much USDC", "do I have any DAI"
+    if ((hasPossession || hasQuantity) && hasTokens) {
+      return true;
+    }
+    
+    // Context-based detection
+    if (recentContext.includes('balance') || recentContext.includes('wallet')) {
+      if (hasTokens || message.includes('it') || message.includes('that')) {
+        return true;
+      }
+    }
+    
+    // If we're in stop order flow and user mentions a token amount
+    if (collectedData.intent === 'CREATE_STOP_ORDER' && hasTokens) {
+      const amountWords = ['all', 'half', 'everything', 'some'];
+      if (amountWords.some(word => message.includes(word))) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Enhanced price inquiry detection
+  private static isPriceInquiryContext(message: string, entities: any, recentContext: string): boolean {
+    const priceWords = ['worth', 'cost', 'value', 'trading at', 'market'];
+    const comparisonWords = ['vs', 'against', 'compared to', 'in terms of'];
+    
+    // Direct price questions
+    if (priceWords.some(word => message.includes(word)) && entities.tokens.length > 0) {
+      return true;
+    }
+    
+    // Comparison questions between tokens
+    if (comparisonWords.some(word => message.includes(word)) && entities.tokens.length >= 2) {
+      return true;
+    }
+    
+    // Context-based: if recently talking about prices/trading
+    if (recentContext.includes('price') || recentContext.includes('trading')) {
+      if (entities.tokens.length > 0) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Enhanced pair inquiry detection  
+  private static isPairInquiryContext(message: string, entities: any, recentContext: string): boolean {
+    const tradingWords = ['trade', 'swap', 'exchange', 'convert', 'sell for', 'buy with'];
+    const poolWords = ['pool', 'liquidity', 'dex', 'uniswap', 'pangolin'];
+    
+    // Trading relationship between tokens
+    if (tradingWords.some(word => message.includes(word)) && entities.tokens.length >= 2) {
+      return true;
+    }
+    
+    // Pool/liquidity context
+    if (poolWords.some(word => message.includes(word)) && entities.tokens.length > 0) {
+      return true;
+    }
+    
+    // Multiple tokens mentioned together (likely asking about pair)
+    if (entities.tokens.length >= 2) {
+      const connectors = ['and', '/', 'to', 'vs', 'with'];
+      if (connectors.some(conn => message.includes(conn))) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Enhanced stop order context detection
+  private static isStopOrderContext(message: string, recentContext: string, collectedData: any): boolean {
+    // If already in stop order flow
+    if (collectedData.intent === 'CREATE_STOP_ORDER') {
+      // Continuation indicators
+      const continuationWords = ['yes', 'continue', 'proceed', 'next', 'go ahead'];
+      if (continuationWords.some(word => message.includes(word))) {
+        return true;
       }
       
-      return 'UNKNOWN';
+      // Providing missing information
+      if (message.includes('%') || message.includes('all') || message.includes('half')) {
+        return true;
+      }
     }
+    
+    // Recent stop order context
+    if (recentContext.includes('stop order') || recentContext.includes('protect')) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  // Enhanced question context detection
+  private static isQuestionContext(message: string): boolean {
+    const questionWords = ['what', 'how', 'why', 'when', 'where', 'which', 'who'];
+    const questionPhrases = ['tell me', 'explain', 'help me understand', 'can you'];
+    
+    return message.includes('?') || 
+           questionWords.some(word => message.startsWith(word)) ||
+           questionPhrases.some(phrase => message.includes(phrase));
+  }
+  
+  // Enhanced entity extraction
+  private static extractEntities(message: string): any {
+    return {
+      tokens: this.extractTokens(message),
+      amounts: this.extractAmounts(message),
+      percentages: this.extractPercentages(message),
+      networks: this.extractNetworks(message),
+      addresses: this.extractAddresses(message)
+    };
+  }
+  
+  // Extract Ethereum addresses
+  private static extractAddresses(message: string): string[] {
+    const addressPattern = /0x[a-fA-F0-9]{40}/g;
+    return message.match(addressPattern) || [];
+  }
+  
+  // Enhanced token extraction with better patterns
+  private static extractTokens(message: string): string[] {
+    const tokenPattern = /\b(ETH|BTC|USDC|USDT|DAI|WBTC|AVAX|ETHEREUM|BITCOIN|TETHER|USD\s+COIN)\b/gi;
+    const matches = message.match(tokenPattern) || [];
+    
+    // Normalize and deduplicate
+    return [...new Set(matches.map(token => {
+      const normalized = token.toUpperCase().replace(/\s/g, '');
+      if (normalized === 'ETHEREUM') return 'ETH';
+      if (normalized === 'BITCOIN') return 'BTC';
+      if (normalized === 'TETHER') return 'USDT';
+      if (normalized === 'USDCOIN') return 'USDC';
+      return normalized;
+    }))];
+  }
     
     // Analyze sentiment of message
     private static analyzeSentiment(lowerMessage: string): 'positive' | 'negative' | 'neutral' | 'frustrated' {

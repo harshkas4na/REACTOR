@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { AIAgent } from '../services/AIAgent';
-import { BlockchainService } from '../services/BlockchainService';
+import { BlockchainService, EnhancedBlockchainService } from '../services/BlockchainService';
 import { ValidationService } from '../services/ValidationService';
 
 const router = express.Router();
@@ -34,7 +34,7 @@ const conversationRateLimit = rateLimit({
 });
 
 // Initialize services
-const blockchainService = new BlockchainService();
+const blockchainService = new EnhancedBlockchainService();
 const validationService = new ValidationService();
 const aiAgent = new AIAgent(blockchainService, validationService);
 

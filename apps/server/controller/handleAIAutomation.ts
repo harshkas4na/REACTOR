@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { AIAgent } from '../services/AIAgent';
-import { BlockchainService } from '../services/BlockchainService';
+import { BlockchainService, EnhancedBlockchainService } from '../services/BlockchainService';
 import { ValidationService } from '../services/ValidationService';
 // import { ConversationUtils } from '../services/ConversationUtils';
 
@@ -28,18 +28,18 @@ export interface AIAutomationResponse {
 
 // Singleton instances
 let aiAgent: AIAgent;
-let blockchainService: BlockchainService;
+let blockchainService: EnhancedBlockchainService;
 let validationService: ValidationService;
 
 // Initialize services
 function initializeServices() {
   if (!blockchainService) {
-    blockchainService = new BlockchainService();
+    blockchainService = new EnhancedBlockchainService();
   }
   if (!validationService) {
     validationService = new ValidationService();
   }
-  if (!aiAgent) {
+  if (!aiAgent && blockchainService && validationService) {
     aiAgent = new AIAgent(blockchainService, validationService);
   }
 }

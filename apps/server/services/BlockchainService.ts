@@ -188,7 +188,7 @@ export class BlockchainService {
   }
 
   // Get token address with fallback for native currency
-  private getTokenAddress(tokenSymbol: string, chainId: number): string | null {
+  protected getTokenAddress(tokenSymbol: string, chainId: number): string | null {
     const tokenSymbolUpper = tokenSymbol.toUpperCase();
     
     // Check direct match first
@@ -747,5 +747,240 @@ export class BlockchainService {
       console.error(`Error getting pair info:`, error);
       return { exists: false };
     }
+  }
+}
+
+// Enhanced BlockchainService with custom token support
+
+export class EnhancedBlockchainService extends BlockchainService {
+  private customTokenCache = new Map<string, any>();
+  
+  // Enhanced token balance method that handles custom addresses
+  async getTokenBalanceEnhanced(
+    walletAddress: string,
+    tokenIdentifier: string, // Can be symbol or address
+    chainId: number,
+    customTokenAddresses?: { [symbol: string]: string }
+  ): Promise<string> {
+    try {
+      // Check if it's an address
+      if (ethers.isAddress(tokenIdentifier)) {
+        const result = await this.getTokenBalanceByAddress(walletAddress, tokenIdentifier, chainId);
+        return result.balance;
+      }
+      
+      // Check if it's a custom token we have the address for
+      if (customTokenAddresses && customTokenAddresses[(tokenIdentifier as string).toUpperCase()]) {
+        const tokenAddress = customTokenAddresses[(tokenIdentifier as string).toUpperCase()];
+        const result = await this.getTokenBalanceByAddress(walletAddress, tokenAddress, chainId);
+        return result.balance;
+      }
+      
+      // Fall back to predefined tokens
+      return await this.getTokenBalance(walletAddress, tokenIdentifier, chainId);
+      
+    } catch (error: any) {
+      console.error('Error getting token balance:', error);
+      throw new Error(`Could not fetch ${tokenIdentifier} balance: ${error.message}`);
+    }
+  }
+  
+  
+  // Get token information (symbol, name, decimals)
+  async getTokenInfo(tokenAddress: string, chainId: number): Promise<{
+    symbol: string;
+    name: string;
+    decimals: number;
+    address: string;
+  }> {
+    const cacheKey = `${chainId}_${tokenAddress}`;
+    
+    // Check cache first
+    if (this.customTokenCache.has(cacheKey)) {
+      return this.customTokenCache.get(cacheKey);
+    }
+    
+    try {
+      const provider = this.getProvider(chainId);
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        [
+          'function symbol() view returns (string)',
+          'function name() view returns (string)',
+          'function decimals() view returns (uint8)'
+        ],
+        provider
+      );
+      
+      const [symbol, name, decimals] = await Promise.all([
+        tokenContract.symbol(),
+        tokenContract.name(),
+        tokenContract.decimals()
+      ]);
+      
+      const tokenInfo = {
+        symbol,
+        name,
+        decimals: Number(decimals),
+        address: tokenAddress
+      };
+      
+      // Cache the result
+      this.customTokenCache.set(cacheKey, tokenInfo);
+      
+      return tokenInfo;
+    } catch (error: any) {
+      throw new Error(`Invalid token contract at ${tokenAddress}: ${error.message}`);
+    }
+  }
+  
+  // Enhanced pair finding that works with custom tokens
+  async findPairAddressEnhanced(
+    token1: string, // Can be symbol or address
+    token2: string, // Can be symbol or address
+    chainId: number,
+    customTokenAddresses?: { [symbol: string]: string }
+  ): Promise<string | null> {
+    try {
+      // Resolve token addresses
+      // if token is a address, return it
+      let token1Address: string | null = null;
+      let token2Address: string | null = null;
+      if (ethers.isAddress(token1)) {
+        token1Address = token1;
+      }
+      else {
+        token1Address = await this.resolveTokenAddress(token1, chainId, customTokenAddresses);
+      }
+      if (ethers.isAddress(token2)) {
+        token2Address = token2;
+      }
+      else {
+        token2Address = await this.resolveTokenAddress(token2, chainId, customTokenAddresses);
+      }
+      
+      if (!token1Address || !token2Address) {
+        throw new Error('Could not resolve token addresses');
+      }
+      
+      // Find pair using addresses
+      return await this.findPairByAddresses(token1Address, token2Address, chainId);
+      
+    } catch (error: any) {
+      console.error('Error finding pair:', error);
+      return null;
+    }
+  }
+  
+  // Resolve token symbol/address to actual address
+  private async resolveTokenAddress(
+    tokenIdentifier: string,
+    chainId: number,
+    customTokenAddresses?: { [symbol: string]: string }
+  ): Promise<string | null> {
+    // If it's already an address, validate and return
+    if (ethers.isAddress(tokenIdentifier)) {
+      try {
+        await this.getTokenInfo(tokenIdentifier, chainId);
+        return tokenIdentifier;
+      } catch {
+        return null;
+      }
+    }
+    
+    // Check custom tokens first
+    if (customTokenAddresses && customTokenAddresses[(tokenIdentifier as string).toUpperCase()]) {
+      return customTokenAddresses[(tokenIdentifier as string).toUpperCase()];
+    }
+    
+    // Check predefined tokens
+    const predefinedAddress = this.getTokenAddress(tokenIdentifier as string, chainId);
+    if (predefinedAddress) {
+      return predefinedAddress;
+    }
+    
+    return null;
+  }
+  
+  // Find pair by token addresses
+  private async findPairByAddresses(
+    token1Address: string,
+    token2Address: string,
+    chainId: number
+  ): Promise<string | null> {
+    const config = this.getChainConfig(chainId);
+    if (!config) return null;
+    
+    const provider = this.getProvider(chainId);
+    const factoryContract = new ethers.Contract(
+      config.factoryAddress,
+      ['function getPair(address, address) view returns (address)'],
+      provider
+    );
+    
+    const pairAddress = await factoryContract.getPair(token1Address, token2Address);
+    
+    // Check if pair exists (not zero address)
+    if (pairAddress === ethers.ZeroAddress) {
+      return null;
+    }
+    
+    return pairAddress;
+  }
+  
+  // Enhanced current price with custom token support
+  async getCurrentPriceEnhanced(
+    token1: string,
+    token2: string,
+    chainId: number,
+    customTokenAddresses?: { [symbol: string]: string }
+  ): Promise<number> {
+    const pairAddress = await this.findPairAddressEnhanced(
+      token1, 
+      token2, 
+      chainId, 
+      customTokenAddresses
+    );
+    
+    if (!pairAddress) {
+      throw new Error(`No trading pair found for ${token1}/${token2}`);
+    }
+    
+    return await this.getCurrentPrice(pairAddress, chainId);
+  }
+  
+  // Validate token address and get basic info
+  async validateTokenAddress(address: string, chainId: number): Promise<{
+    isValid: boolean;
+    tokenInfo?: any;
+    error?: string;
+  }> {
+    try {
+      if (!ethers.isAddress(address)) {
+        return { isValid: false, error: 'Invalid address format' };
+      }
+      
+      const tokenInfo = await this.getTokenInfo(address, chainId);
+      
+      return {
+        isValid: true,
+        tokenInfo: {
+          symbol: tokenInfo.symbol,
+          name: tokenInfo.name,
+          decimals: tokenInfo.decimals,
+          address: tokenInfo.address
+        }
+      };
+    } catch (error: any) {
+      return {
+        isValid: false,
+        error: error.message || 'Token validation failed'
+      };
+    }
+  }
+  
+  // Clear custom token cache
+  clearCustomTokenCache(): void {
+    this.customTokenCache.clear();
   }
 }
