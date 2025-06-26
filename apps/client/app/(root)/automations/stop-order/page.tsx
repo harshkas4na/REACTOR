@@ -1,6 +1,6 @@
 'use client'
 import { ethers } from 'ethers';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -126,17 +126,48 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
 
 type DeploymentStep = 'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'switching-back' | 'approving' | 'complete';
 
+// CRITICAL FIX: Prevent form data from being reset
+const getInitialFormData = (): StopOrderFormData => ({
+  chainId: '',
+  pairAddress: '',
+  sellToken0: true,
+  clientAddress: '',
+  coefficient: '1000',
+  threshold: '',
+  amount: '',
+  destinationFunding: '',
+  rscFunding: '0.05'
+});
+
 export default function UniswapStopOrderPage() {
-  const [formData, setFormData] = useState<StopOrderFormData>({
-    chainId: '',
-    pairAddress: '',
-    sellToken0: true,
-    clientAddress: '',
-    coefficient: '1000',
-    threshold: '',
-    amount: '',
-    destinationFunding: '',
-    rscFunding: '0.05'
+  // AI data reference for status display
+  const aiConfigDataRef = useRef<any>(null);
+
+  // Add a flag to track if we should use initial state or not
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Use lazy initial state
+  const [formData, setFormData] = useState<StopOrderFormData>(() => {
+    // Check if we're coming from AI on initial render
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromAI = urlParams.get('from_ai');
+    
+    if (fromAI === 'true') {
+      // Don't initialize with empty values if coming from AI
+      return {
+        chainId: '',
+        pairAddress: '',
+        sellToken0: true,
+        clientAddress: '',
+        coefficient: '1000',
+        threshold: '',
+        amount: '',
+        destinationFunding: '',
+        rscFunding: '0.05'
+      };
+    }
+    
+    return getInitialFormData();
   });
 
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -146,74 +177,105 @@ export default function UniswapStopOrderPage() {
   const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
   const [isLoadingPair, setIsLoadingPair] = useState<boolean>(false);
   const [showAIStatus, setShowAIStatus] = useState(false);
+  const [isLoadingAIConfig, setIsLoadingAIConfig] = useState(false);
 
-  // Enhanced AI Integration - Handle pre-filled config from AI chat
+  // Find the currently selected chain configuration
+  const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
+  const dexName = selectedChain?.dexName || 'Uniswap V2';
+
+  // CRITICAL: Consolidate AI loading into a single effect
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const fromAI = urlParams.get('from_ai');
-    
-    if (fromAI === 'true') {
-      // Check for AI config in localStorage
-      const aiConfig = AIUtils.ConfigManager.retrieveAndClearConfig();
+    const loadAIConfig = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromAI = urlParams.get('from_ai');
       
-      if (aiConfig) {
-        console.log('Loading AI configuration:', aiConfig);
+      if (fromAI === 'true' && !isInitialized) {
+        setIsLoadingAIConfig(true);
         
-        // Validate config before applying
-        const validationResult = validateAIConfig(aiConfig);
+        // Small delay to ensure component is mounted
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        if (validationResult.isValid) {
-          // Pre-fill the form with AI configuration
-          setFormData({
-            chainId: aiConfig.chainId || '',
-            pairAddress: aiConfig.pairAddress || '',
-            sellToken0: aiConfig.sellToken0 !== undefined ? aiConfig.sellToken0 : true,
-            clientAddress: aiConfig.clientAddress || connectedAccount || '',
-            coefficient: aiConfig.coefficient || '1000',
-            threshold: aiConfig.threshold || '',
-            amount: aiConfig.amount || '',
-            destinationFunding: aiConfig.destinationFunding || '0.03',
-            rscFunding: aiConfig.rscFunding || '0.05'
-          });
+        const aiConfig = AIUtils.ConfigManager.peekConfig();
+        
+        if (aiConfig) {
+          console.log('Loading AI configuration:', aiConfig);
+          aiConfigDataRef.current = aiConfig;
           
-          // If we have pair address, fetch pair info
-          if (aiConfig.pairAddress && ethers.isAddress(aiConfig.pairAddress)) {
-            handleFetchPairInfo(aiConfig.pairAddress);
-          }
+          const validationResult = validateAIConfig(aiConfig);
           
-          // Show success message
-          toast.success('✨ Configuration loaded from AI assistant!');
-          
-          // Show AI status card
-          setShowAIStatus(true);
-          
-          // Hide after 5 seconds
-          setTimeout(() => {
-            setShowAIStatus(false);
-          }, 5000);
-          
-          // Auto-scroll to form
-          setTimeout(() => {
-            const formElement = document.querySelector('form');
-            if (formElement) {
-              formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (validationResult.isValid) {
+            // Process amount
+            let processedAmount = aiConfig.amount || '';
+            if (processedAmount === 'all' || processedAmount.includes('%')) {
+              processedAmount = '';
+              setTimeout(() => {
+                alert(`💡 Amount was set to "${aiConfig.amount}" - please enter the exact amount to sell`);
+              }, 1500);
             }
-          }, 500);
-          
+
+            console.log('parsed amount', processedAmount);
+            
+            // CRITICAL: Update all form data in ONE setState call
+            setFormData({
+              chainId: aiConfig.chainId || '',
+              pairAddress: aiConfig.pairAddress || '',
+              sellToken0: aiConfig.sellToken0 !== undefined ? aiConfig.sellToken0 : true,
+              clientAddress: aiConfig.clientAddress || '',
+              coefficient: aiConfig.coefficient || '1000',
+              threshold: aiConfig.threshold || '',
+              amount: processedAmount,
+              destinationFunding: aiConfig.destinationFunding || '0.03',
+              rscFunding: aiConfig.rscFunding || '0.05'
+            });
+            
+            // Mark as initialized AFTER setting form data
+            setIsInitialized(true);
+            
+            // Fetch pair info if available
+            if (aiConfig.pairAddress && ethers.isAddress(aiConfig.pairAddress)) {
+              // Wait a bit for state to settle
+              setTimeout(() => {
+                handleFetchPairInfo(aiConfig.pairAddress, true);
+              }, 300);
+            }
+            
+            toast.success('✨ Configuration loaded from AI assistant!');
+            setShowAIStatus(true);
+            
+            setTimeout(() => {
+              setShowAIStatus(false);
+            }, 5000);
+            
+            setTimeout(() => {
+              const formElement = document.querySelector('form');
+              if (formElement) {
+                formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 800);
+            
+            // Clear config from storage
+            AIUtils.ConfigManager.retrieveAndClearConfig();
+          } else {
+            console.warn('Invalid AI configuration:', validationResult.errors);
+            toast.error('Invalid AI configuration. Please try again.');
+            setIsInitialized(true);
+          }
         } else {
-          console.warn('Invalid AI configuration:', validationResult.errors);
-          toast.error('Invalid AI configuration. Please try again.');
+          console.warn('No AI configuration found');
+          toast.error('No AI configuration found');
+          setIsInitialized(true);
         }
         
         // Clean up URL
         window.history.replaceState({}, '', '/automations/stop-order');
-        
-      } else {
-        console.warn('No AI configuration found in localStorage');
-        toast.error('No AI configuration found');
+        setIsLoadingAIConfig(false);
+      } else if (!fromAI) {
+        setIsInitialized(true);
       }
-    }
-  }, []); // Run once on component mount
+    };
+    
+    loadAIConfig();
+  }, []); // Run only once
 
   // Add validation function
   const validateAIConfig = (config: any) => {
@@ -238,15 +300,12 @@ export default function UniswapStopOrderPage() {
       errors.push('Invalid client address');
     }
     
-    // Validate numeric values
+    // Validate numeric values (but allow special values for amount)
     if (config.coefficient && isNaN(parseInt(config.coefficient))) {
       errors.push('Coefficient must be a number');
     }
     if (config.threshold && isNaN(parseInt(config.threshold))) {
       errors.push('Threshold must be a number');
-    }
-    if (config.amount && config.amount !== 'all' && config.amount !== '50%' && isNaN(parseFloat(config.amount))) {
-      errors.push('Amount must be a valid number or "all"/"50%"');
     }
     
     // Validate chain ID
@@ -261,23 +320,29 @@ export default function UniswapStopOrderPage() {
     };
   };
 
-  // Enhanced form validation to ensure Create Order button becomes active
+  // Update form validation to skip if not initialized
   useEffect(() => {
     const validateForm = () => {
+      // Skip validation if not initialized or still loading AI config
+      if (!isInitialized || isLoadingAIConfig) {
+        setIsFormValid(false);
+        return false;
+      }
+      
       const errors: string[] = [];
       
-      // Required field validation
-      if (!formData.chainId) errors.push('Chain selection required');
-      if (!formData.pairAddress || !ethers.isAddress(formData.pairAddress)) {
+      // Your existing validation logic...
+      if (!formData.chainId || formData.chainId.trim() === '') errors.push('Chain selection required');
+      if (!formData.pairAddress || formData.pairAddress.trim() === '' || !ethers.isAddress(formData.pairAddress)) {
         errors.push('Valid pair address required');
       }
-      if (!formData.clientAddress || !ethers.isAddress(formData.clientAddress)) {
+      if (!formData.clientAddress || formData.clientAddress.trim() === '' || !ethers.isAddress(formData.clientAddress)) {
         errors.push('Valid client address required');
       }
-      if (!formData.threshold || isNaN(parseInt(formData.threshold))) {
+      if (!formData.threshold || formData.threshold.trim() === '' || isNaN(parseInt(formData.threshold))) {
         errors.push('Valid threshold required');
       }
-      if (!formData.amount || (formData.amount !== 'all' && formData.amount !== '50%' && isNaN(parseFloat(formData.amount)))) {
+      if (!formData.amount || formData.amount.trim() === '' || isNaN(parseFloat(formData.amount))) {
         errors.push('Valid amount required');
       }
       if (!formData.destinationFunding || isNaN(parseFloat(formData.destinationFunding))) {
@@ -287,32 +352,34 @@ export default function UniswapStopOrderPage() {
         errors.push('Valid RSC funding required');
       }
       
-      // Additional validations
       if (!connectedAccount) errors.push('Wallet connection required');
       if (!pairInfo) errors.push('Valid trading pair required');
       
       const isValid = errors.length === 0 && deploymentStep === 'idle';
       setIsFormValid(isValid);
       
-      // Log validation state for debugging
       console.log('Form validation:', {
         isValid,
         errors,
         formData,
         pairInfo: !!pairInfo,
         connectedAccount: !!connectedAccount,
-        deploymentStep
+        deploymentStep,
+        isLoadingAIConfig,
+        isInitialized
       });
       
       return isValid;
     };
     
     validateForm();
-  }, [formData, connectedAccount, pairInfo, deploymentStep]);
+  }, [formData, connectedAccount, pairInfo, deploymentStep, isLoadingAIConfig, isInitialized]);
 
   // Enhanced AI Status Component
   const EnhancedAIIntegrationStatus = () => {
     if (!showAIStatus) return null;
+    
+    const aiData = aiConfigDataRef.current;
     
     return (
       <motion.div
@@ -347,12 +414,20 @@ export default function UniswapStopOrderPage() {
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div className="bg-blue-900/20 p-2 rounded">
                 <span className="text-zinc-400">Amount: </span>
-                <span className="text-blue-300">{formData.amount}</span>
+                <span className="text-blue-300">
+                  {formData.amount || (aiData?.amount === 'all' ? 'All balance' : aiData?.amount || 'Not set')}
+                </span>
               </div>
               <div className="bg-blue-900/20 p-2 rounded">
                 <span className="text-zinc-400">Network: </span>
                 <span className="text-blue-300">{SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId)?.name}</span>
               </div>
+              {aiData?.dropPercentage && (
+                <div className="bg-blue-900/20 p-2 rounded col-span-2">
+                  <span className="text-zinc-400">Trigger: </span>
+                  <span className="text-blue-300">{aiData.dropPercentage}% price drop</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -360,22 +435,25 @@ export default function UniswapStopOrderPage() {
     );
   };
 
-  // Find the currently selected chain configuration
-  const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId);
-  // Set default DEX name to display if no chain is selected
-  const dexName = selectedChain?.dexName || 'Uniswap V2';
 
-  // Update destination funding when chain changes
+
+  // CRITICAL: Prevent other effects from running until initialized
   useEffect(() => {
-    if (selectedChain) {
+    if (!isInitialized) return;
+    
+    // Only update destination funding if not from AI and chain is selected
+    if (selectedChain && formData.chainId && !window.location.search.includes('from_ai')) {
       setFormData(prev => ({
         ...prev,
         destinationFunding: selectedChain.defaultFunding
       }));
     }
-  }, [formData.chainId]);
+  }, [formData.chainId, selectedChain, isInitialized]);
 
+  // CRITICAL: Update wallet connection effect
   useEffect(() => {
+    if (!isInitialized) return;
+    
     const getConnectedAccount = async () => {
       if (window.ethereum) {
         try {
@@ -384,10 +462,14 @@ export default function UniswapStopOrderPage() {
           if (accounts.length > 0) {
             const account = accounts[0].address;
             setConnectedAccount(account);
-            setFormData(prev => ({
-              ...prev,
-              clientAddress: account
-            }));
+            
+            // Only update clientAddress if it's empty
+            if (!formData.clientAddress) {
+              setFormData(prev => ({
+                ...prev,
+                clientAddress: account
+              }));
+            }
           }
         } catch (error) {
           console.error('Error getting connected account:', error);
@@ -398,28 +480,35 @@ export default function UniswapStopOrderPage() {
     getConnectedAccount();
 
     if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+      const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length > 0) {
           setConnectedAccount(accounts[0]);
-          setFormData(prev => ({
-            ...prev,
-            clientAddress: accounts[0]
-          }));
+          if (!formData.clientAddress) {
+            setFormData(prev => ({
+              ...prev,
+              clientAddress: accounts[0]
+            }));
+          }
         } else {
           setConnectedAccount('');
         }
-      });
-    }
+      };
 
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', () => {});
-      }
-    };
-  }, []);
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      
+      return () => {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      };
+    }
+  }, [isInitialized, formData.clientAddress]);
 
   // Handle pair selection from the PairFinder component
   const handlePairSelected = (pairAddress: string, chainId: string) => {
+    // Don't overwrite data if not initialized or AI config is being loaded
+    if (!isInitialized || isLoadingAIConfig) {
+      return;
+    }
+    
     const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
     
     setFormData(prev => ({
@@ -436,7 +525,7 @@ export default function UniswapStopOrderPage() {
     toast.success('Pair selected! Scroll down to continue configuring your stop order.');
   };
 
-  const handleFetchPairInfo = async (pairAddress: string) => {
+  const handleFetchPairInfo = async (pairAddress: string, skipNetworkCheck = false) => {
     setIsLoadingPair(true);
     setFetchError('');
     
@@ -449,7 +538,8 @@ export default function UniswapStopOrderPage() {
       const network = await provider.getNetwork();
       const currentChainId = network.chainId.toString();
 
-      if (formData.chainId && currentChainId !== formData.chainId) {
+      // Only check network if we have a formData.chainId set and we're not skipping the check
+      if (!skipNetworkCheck && formData.chainId && formData.chainId.trim() !== '' && currentChainId !== formData.chainId) {
         throw new Error('Please switch to the selected network');
       }
 
@@ -1361,6 +1451,18 @@ const handleCreateOrder = async (e: React.FormEvent) => {
 
 // Function to show balance warnings and return validation state
 
+
+  // Add a loading state while initializing
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-400 mx-auto mb-4" />
+          <p className="text-zinc-200">Loading configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Get current price ratio if pair info is available
   const currentPriceRatio = pairInfo && pairInfo.reserve0 && pairInfo.reserve1 

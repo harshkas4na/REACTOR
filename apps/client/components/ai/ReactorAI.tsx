@@ -41,6 +41,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { ethers } from 'ethers';
 import { AIUtils } from '@/utils/ai';
+import { AIDeploymentHandler } from './AIDeploymentHandler';
 
 interface Message {
   id: string;
@@ -56,6 +57,7 @@ interface Message {
     token0: string;
     token1: string;
   };
+  showDeploymentHandler?: boolean;
 }
 
 interface AIResponse {
@@ -180,6 +182,8 @@ export default function ReactorAI() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showDeploymentHandler, setShowDeploymentHandler] = useState(false);
+  const [currentDeploymentConfig, setCurrentDeploymentConfig] = useState<any>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -199,11 +203,23 @@ export default function ReactorAI() {
       const newConversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       setConversationId(newConversationId);
       
+      // Check for saved deployment configuration
+      const savedConfig = AIUtils.ConfigManager.peekConfig();
+      
       // Add enhanced welcome message
+      let welcomeContent = "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n• **Check Balances** - Get real-time token information\n• **Find Trading Pairs** - Discover available markets\n\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is Reactor?\"\n• \"How much USDC do I have?\"\n• \"Tell me about RSCs\"";
+      
+      if (savedConfig) {
+        welcomeContent += "\n\n🎯 **I found a saved configuration!** You can say \"deploy my stop order\" to continue with your previous setup.";
+        setCurrentDeploymentConfig(savedConfig);
+      }
+      
+      welcomeContent += "\n\n**What would you like to do today?** 🎯";
+      
       const welcomeMessage: Message = {
         id: `msg_${Date.now()}`,
         type: 'ai',
-        content: "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n• **Check Balances** - Get real-time token information\n• **Find Trading Pairs** - Discover available markets\n\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is Reactor?\"\n• \"How much USDC do I have?\"\n• \"Tell me about RSCs\"\n\n**What would you like to do today?** 🎯",
+        content: welcomeContent,
         timestamp: new Date()
       };
       
@@ -212,7 +228,8 @@ export default function ReactorAI() {
       // Track conversation started
       AIUtils.Analytics.trackEvent('ai_conversation_started', {
         hasWallet: !!account,
-        network: selectedNetwork
+        network: selectedNetwork,
+        hasSavedConfig: !!savedConfig
       });
     }
   }, [isOpen, conversationId, account, selectedNetwork]);
@@ -345,31 +362,57 @@ export default function ReactorAI() {
       // Find the message with automation config
       const configMessage = messages.find(msg => msg.automationConfig);
       if (configMessage?.automationConfig) {
-        // Store config and redirect to form
-        const stored = AIUtils.ConfigManager.storeConfig(configMessage.automationConfig);
-        
-        if (stored) {
-          // Add deployment message
+        // Validate that the config is ready for deployment
+        const config = configMessage.automationConfig;
+        if (config.deploymentReady) {
+          // Show deployment handler directly in chat
+          setCurrentDeploymentConfig(config);
+          setShowDeploymentHandler(true);
+          
+          // Add deployment starting message
           const deployMessage: Message = {
             id: `msg_${Date.now()}_deploy`,
             type: 'ai',
-            content: "🚀 **Perfect!** Redirecting you to the deployment interface...\n\nYour configuration has been saved and the form will be pre-filled with all your settings. You'll just need to sign the transactions! ✨",
-            timestamp: new Date()
+            content: "🚀 **Perfect!** Let's deploy your stop order directly here!\n\nI'll guide you through the deployment process step by step. Make sure your wallet is connected and you have enough funds for gas fees. ✨",
+            timestamp: new Date(),
+            showDeploymentHandler: true
           };
           setMessages(prev => [...prev, deployMessage]);
           
-          // Track config stored
-          AIUtils.Analytics.trackConfigLoaded(true, configMessage.automationConfig);
+          // Track deployment initiated
+          AIUtils.Analytics.trackEvent('ai_deployment_initiated', {
+            configType: 'stop_order',
+            chainId: config.chainId,
+            hasWallet: !!account
+          });
           
-          // Redirect after a short delay
-          setTimeout(() => {
-            router.push('/automations/stop-order?from_ai=true');
-            setIsOpen(false);
-          }, 1500);
-          
-          toast.success('🎯 Redirecting to deployment!');
+          toast.success('🎯 Starting deployment process!');
         } else {
-          toast.error('Failed to save configuration. Please try again.');
+          // Store config and redirect to form for manual completion
+          const stored = AIUtils.ConfigManager.storeConfig(config);
+          
+          if (stored) {
+            const deployMessage: Message = {
+              id: `msg_${Date.now()}_deploy`,
+              type: 'ai',
+              content: "🚀 **Configuration saved!** Redirecting you to complete the setup...\n\nSome parameters need manual configuration. The form will be pre-filled with your settings. ✨",
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, deployMessage]);
+            
+            // Track config stored
+            AIUtils.Analytics.trackConfigLoaded(true, config);
+            
+            // Redirect after a short delay
+            setTimeout(() => {
+              router.push('/automations/stop-order?from_ai=true');
+              setIsOpen(false);
+            }, 1500);
+            
+            toast.success('🎯 Redirecting to manual setup!');
+          } else {
+            toast.error('Failed to save configuration. Please try again.');
+          }
         }
       }
     } else {
@@ -408,6 +451,66 @@ export default function ReactorAI() {
     } catch (error) {
       toast.error('Failed to copy');
     }
+  };
+
+  const handleDeploymentComplete = (success: boolean, result?: any) => {
+    setShowDeploymentHandler(false);
+    setCurrentDeploymentConfig(null);
+    
+    if (success && result) {
+      // Add success message with deployment details
+      const successMessage: Message = {
+        id: `msg_${Date.now()}_success`,
+        type: 'ai',
+        content: `🎉 **Deployment Successful!** Your stop order is now active!\n\n✅ **Deployment Details:**\n• **Destination Contract:** \`${result.destinationAddress}\`\n• **RSC Address:** \`${result.rscAddress}\`\n• **Network:** ${result.chainName}\n\n🔍 **What happens next?**\nYour automation is now monitoring the market 24/7. When your price conditions are met, the stop order will execute automatically!\n\n💡 **Pro Tip:** You can monitor your automation in the RSC Monitor section.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, successMessage]);
+      
+      // Track successful deployment
+      AIUtils.Analytics.trackEvent('ai_deployment_success', {
+        destinationAddress: result.destinationAddress,
+        rscAddress: result.rscAddress,
+        chainId: result.chainId
+      });
+      
+      toast.success('🎉 Stop order deployed successfully!');
+    } else {
+      // Add error message
+      const errorMessage: Message = {
+        id: `msg_${Date.now()}_error`,
+        type: 'ai',
+        content: `❌ **Deployment Failed**\n\nI'm sorry, but the deployment encountered an error: ${result?.error || 'Unknown error'}\n\n🔧 **Troubleshooting:**\n• Check your wallet connection\n• Ensure you have enough gas fees\n• Verify you're on the correct network\n• Try again in a few moments\n\n💬 **Need help?** Feel free to ask me questions or try again!`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      // Track deployment failure
+      AIUtils.Analytics.trackEvent('ai_deployment_failed', {
+        error: result?.error || 'Unknown error'
+      });
+      
+      toast.error('❌ Deployment failed - please try again');
+    }
+  };
+
+  const handleDeploymentCancel = () => {
+    setShowDeploymentHandler(false);
+    setCurrentDeploymentConfig(null);
+    
+    // Add cancellation message
+    const cancelMessage: Message = {
+      id: `msg_${Date.now()}_cancel`,
+      type: 'ai',
+      content: "📝 **Deployment Cancelled**\n\nNo worries! Your configuration is still saved. You can:\n\n• **Try again** by saying \"deploy my stop order\"\n• **Modify settings** by asking me to change specific parameters\n• **Use manual interface** - I can redirect you to the form\n\nWhat would you like to do next? 🤔",
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, cancelMessage]);
+    
+    // Track deployment cancellation
+    AIUtils.Analytics.trackEvent('ai_deployment_cancelled', {});
+    
+    toast('Deployment cancelled');
   };
 
   const renderMessage = (message: Message) => {
@@ -506,6 +609,17 @@ export default function ReactorAI() {
                 </Button>
               </div>
             )}
+
+            {/* AIDeploymentHandler for deployment messages */}
+            {!isUser && message.showDeploymentHandler && showDeploymentHandler && currentDeploymentConfig && (
+              <div className="mt-4">
+                <AIDeploymentHandler
+                  automationConfig={currentDeploymentConfig}
+                  onDeploymentComplete={handleDeploymentComplete}
+                  onCancel={handleDeploymentCancel}
+                />
+              </div>
+            )}
             
             {/* Enhanced Timestamp */}
             <div className="mt-2 text-xs opacity-60 flex items-center space-x-1">
@@ -517,7 +631,7 @@ export default function ReactorAI() {
       </motion.div>
     );
   };
-
+console.log('currentDeploymentConfig', currentDeploymentConfig);
   return (
     <>
       {/* Enhanced Floating AI Button */}
@@ -769,15 +883,26 @@ export default function ReactorAI() {
                             <Shield className="w-3 h-3 mr-1" />
                             Protect
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
-                            onClick={() => setInputValue("How much ETH do I have?")}
-                          >
-                            <Coins className="w-3 h-3 mr-1" />
-                            Balance
-                          </Button>
+                                    <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
+            onClick={() => setInputValue("How much ETH do I have?")}
+          >
+            <Coins className="w-3 h-3 mr-1" />
+            Balance
+          </Button>
+          {currentDeploymentConfig && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-700/30"
+              onClick={() => setInputValue("Deploy my stop order")}
+            >
+              <Rocket className="w-3 h-3 mr-1" />
+              Deploy
+            </Button>
+          )}
                         </div>
                       </div>
                     </CardContent>
