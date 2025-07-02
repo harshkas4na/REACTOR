@@ -38,6 +38,7 @@ export interface AIResponse {
   success: boolean;
   data?: {
     message: string;
+    followUpMessage?: string; // NEW: Optional follow-up message for interruption handling
     intent: string;
     needsUserInput: boolean;
     inputType?: 'amount' | 'token' | 'network' | 'confirmation';
@@ -215,4 +216,11 @@ export interface AutomationSummary {
     slippage?: number;
     gasUsed?: string;
   };
+}
+
+// NEW: Enhanced interface for handling multiple messages from AI
+export interface AIMessageResponse {
+  success: boolean;
+  messages?: AIMessage[]; // Array of messages to add to conversation
+  error?: string;
 }

@@ -187,6 +187,77 @@ export class BlockchainService {
     return this.chainConfigs[chainId] || null;
   }
 
+  // NEW: Validate token address method
+  public async validateTokenAddress(tokenAddress: string, networkId: number): Promise<{
+    isValid: boolean;
+    error?: string;
+    tokenInfo?: {
+      address: string;
+      symbol: string;
+      name: string;
+    };
+  }> {
+    try {
+      // Step 1: Check if the address format is valid
+      if (!ethers.isAddress(tokenAddress)) {
+        console.log(`Invalid address format: ${tokenAddress}`);
+        return { 
+          isValid: false, 
+          error: 'Invalid address format.' 
+        };
+      }
+
+      // Get provider for the network
+      const provider = this.getProvider(networkId);
+      
+      // Step 2: Check if there's code at the address (i.e., it's a contract)
+      const code = await provider.getCode(tokenAddress);
+      if (code === '0x') {
+        console.log(`No contract code found at address: ${tokenAddress}`);
+        return { 
+          isValid: false, 
+          error: 'This address is not a contract.' 
+        };
+      }
+
+      // Step 3: Attempt to call symbol() and name() functions to verify it's an ERC-20 token
+      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+      
+      try {
+        const [symbol, name] = await Promise.all([
+          tokenContract.symbol(),
+          tokenContract.name()
+        ]);
+
+        console.log(`Successfully validated ERC-20 token: ${symbol} (${name}) at ${tokenAddress}`);
+        
+        // Step 4: Return success with token info
+        return {
+          isValid: true,
+          tokenInfo: {
+            address: tokenAddress,
+            symbol: symbol,
+            name: name
+          }
+        };
+
+      } catch (contractError: any) {
+        console.log(`Contract calls failed for address ${tokenAddress}:`, contractError.message);
+        return {
+          isValid: false,
+          error: 'This contract does not appear to be a valid ERC-20 token.'
+        };
+      }
+
+    } catch (error: any) {
+      console.error(`Error validating token address ${tokenAddress}:`, error);
+      return {
+        isValid: false,
+        error: `Validation failed: ${error.message}`
+      };
+    }
+  }
+
   // Get token address with fallback for native currency
   protected getTokenAddress(tokenSymbol: string, chainId: number): string | null {
     const tokenSymbolUpper = tokenSymbol.toUpperCase();
@@ -439,7 +510,13 @@ export class BlockchainService {
     }
   }
 
-  async isToken0(pairAddress: string, tokenSymbol: string, chainId: number): Promise<boolean> {
+  // FIXED: Enhanced isToken0 method that supports custom tokens
+  async isToken0(
+    pairAddress: string, 
+    tokenSymbol: string, 
+    chainId: number, 
+    customTokenAddresses?: { [symbol: string]: string }
+  ): Promise<boolean> {
     try {
       if (!ethers.isAddress(pairAddress)) {
         throw new Error('Invalid pair address');
@@ -454,6 +531,12 @@ export class BlockchainService {
       const token0 = await pair.token0();
       
       let tokenAddress = this.getTokenAddress(tokenSymbol.toUpperCase(), chainId);
+      
+      // Check custom token addresses first if provided
+      if (!tokenAddress && customTokenAddresses && customTokenAddresses[tokenSymbol.toUpperCase()]) {
+        tokenAddress = customTokenAddresses[tokenSymbol.toUpperCase()];
+        console.log(`Found custom token address for ${tokenSymbol}: ${tokenAddress}`);
+      }
       
       // Check if it's a custom address
       if (!tokenAddress && ethers.isAddress(tokenSymbol)) {
@@ -751,7 +834,6 @@ export class BlockchainService {
 }
 
 // Enhanced BlockchainService with custom token support
-
 export class EnhancedBlockchainService extends BlockchainService {
   private customTokenCache = new Map<string, any>();
   
@@ -785,8 +867,7 @@ export class EnhancedBlockchainService extends BlockchainService {
     }
   }
   
-  
-  // Get token information (symbol, name, decimals)
+  // Enhanced getTokenInfo method that accepts addresses directly
   async getTokenInfo(tokenAddress: string, chainId: number): Promise<{
     symbol: string;
     name: string;
@@ -843,19 +924,18 @@ export class EnhancedBlockchainService extends BlockchainService {
   ): Promise<string | null> {
     try {
       // Resolve token addresses
-      // if token is a address, return it
       let token1Address: string | null = null;
       let token2Address: string | null = null;
+      
       if (ethers.isAddress(token1)) {
         token1Address = token1;
-      }
-      else {
+      } else {
         token1Address = await this.resolveTokenAddress(token1, chainId, customTokenAddresses);
       }
+      
       if (ethers.isAddress(token2)) {
         token2Address = token2;
-      }
-      else {
+      } else {
         token2Address = await this.resolveTokenAddress(token2, chainId, customTokenAddresses);
       }
       
@@ -947,6 +1027,16 @@ export class EnhancedBlockchainService extends BlockchainService {
     }
     
     return await this.getCurrentPrice(pairAddress, chainId);
+  }
+  
+  // Enhanced isToken0 method with custom token support
+  async isToken0Enhanced(
+    pairAddress: string,
+    tokenSymbol: string,
+    chainId: number,
+    customTokenAddresses?: { [symbol: string]: string }
+  ): Promise<boolean> {
+    return await this.isToken0(pairAddress, tokenSymbol, chainId, customTokenAddresses);
   }
   
   // Validate token address and get basic info

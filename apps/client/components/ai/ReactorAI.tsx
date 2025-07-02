@@ -60,10 +60,18 @@ interface Message {
   showDeploymentHandler?: boolean;
 }
 
+// NEW: Updated interface to match the new hook response
+interface AIMessageResponse {
+  success: boolean;
+  messages?: Message[]; // Array of AI messages
+  error?: string;
+}
+
 interface AIResponse {
   success: boolean;
   data?: {
     message: string;
+    followUpMessage?: string; // NEW: Optional follow-up message
     intent: string;
     needsUserInput: boolean;
     inputType?: 'amount' | 'token' | 'network' | 'confirmation';
@@ -250,6 +258,25 @@ export default function ReactorAI() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const getChainIdFromNetwork = (network: string): number => {
+    const networkMap: { [key: string]: number } = {
+      'ETHEREUM': 1,
+      'SEPOLIA': 11155111,
+      'AVALANCHE': 43114,
+      'KOPLI': 5318008,
+      'REACT': 1597,
+      'ARBITRUM': 42161,
+      'MANTA': 169,
+      'BASE': 8453,
+      'BSC': 56,
+      'POLYGON': 137,
+      'POLYGON_ZKEVM': 1101,
+      'OPBNB': 204
+    };
+    return networkMap[network] || 1;
+  };
+
+  // NEW: Updated sendMessage function to handle multiple AI messages
   const sendMessage = async (content: string, isOptionSelection: boolean = false) => {
     if (!content.trim() && !isOptionSelection) return;
 
@@ -302,28 +329,55 @@ export default function ReactorAI() {
       console.log('AI Response:', data);
 
       if (data.success && data.data) {
+        // NEW: Handle multiple messages (main message + optional followUpMessage)
+        const aiMessages: Message[] = [];
+        const baseTimestamp = new Date();
+
         // Simulate typing delay for better UX
         await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const aiMessage: Message = {
-          id: `msg_${Date.now()}_ai`,
+
+        // Add the main AI message
+        const mainMessage: Message = {
+          id: `msg_${Date.now()}_ai_main`,
           type: 'ai',
           content: data.data.message,
-          timestamp: new Date(),
+          timestamp: baseTimestamp,
           options: data.data.options,
           inputType: data.data.inputType,
           automationConfig: data.data.automationConfig,
           pairInfo: data.data.pairInfo
         };
+        aiMessages.push(mainMessage);
 
-        setMessages(prev => [...prev, aiMessage]);
+        // Add main message to state first
+        setMessages(prev => [...prev, mainMessage]);
+
+        // NEW: Handle follow-up message if it exists
+        if (data.data.followUpMessage) {
+          // Add a slight delay before showing follow-up message for natural conversation flow
+          setTimeout(() => {
+            const followUpMessage: Message = {
+              id: `msg_${Date.now()}_ai_followup`,
+              type: 'ai',
+              content: data.data?.followUpMessage || '',
+              timestamp: new Date(baseTimestamp.getTime() + 1000), // 1 second later
+              // Follow-up messages typically contain continuation prompts, so they inherit interactive properties
+              options: data.data?.needsUserInput ? data.data.options : undefined,
+              inputType: data.data?.needsUserInput ? data.data.inputType : undefined,
+              automationConfig: data.data?.needsUserInput ? data.data.automationConfig : undefined
+            };
+
+            setMessages(prev => [...prev, followUpMessage]);
+          }, 1200); // 1.2 second delay for natural conversation flow
+        }
 
         // Track successful response
         AIUtils.Analytics.trackEvent('ai_response_received', {
           intent: data.data.intent,
           needsUserInput: data.data.needsUserInput,
           hasOptions: !!data.data.options?.length,
-          hasConfig: !!data.data.automationConfig
+          hasConfig: !!data.data.automationConfig,
+          hasFollowUp: !!data.data.followUpMessage // NEW: Track follow-up messages
         });
 
       } else {
@@ -424,24 +478,6 @@ export default function ReactorAI() {
     e.preventDefault();
     if (!inputValue.trim()) return;
     sendMessage(inputValue);
-  };
-
-  const getChainIdFromNetwork = (network: string): number => {
-    const networkMap: { [key: string]: number } = {
-      'ETHEREUM': 1,
-      'SEPOLIA': 11155111,
-      'AVALANCHE': 43114,
-      'KOPLI': 5318008,
-      'REACT': 1597,
-      'ARBITRUM': 42161,
-      'MANTA': 169,
-      'BASE': 8453,
-      'BSC': 56,
-      'POLYGON': 137,
-      'POLYGON_ZKEVM': 1101,
-      'OPBNB': 204
-    };
-    return networkMap[network] || 1;
   };
 
   const copyToClipboard = async (text: string) => {
@@ -631,7 +667,9 @@ export default function ReactorAI() {
       </motion.div>
     );
   };
-console.log('currentDeploymentConfig', currentDeploymentConfig);
+
+  console.log('currentDeploymentConfig', currentDeploymentConfig);
+  
   return (
     <>
       {/* Enhanced Floating AI Button */}
@@ -883,26 +921,26 @@ console.log('currentDeploymentConfig', currentDeploymentConfig);
                             <Shield className="w-3 h-3 mr-1" />
                             Protect
                           </Button>
-                                    <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
-            onClick={() => setInputValue("How much ETH do I have?")}
-          >
-            <Coins className="w-3 h-3 mr-1" />
-            Balance
-          </Button>
-          {currentDeploymentConfig && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-700/30"
-              onClick={() => setInputValue("Deploy my stop order")}
-            >
-              <Rocket className="w-3 h-3 mr-1" />
-              Deploy
-            </Button>
-          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
+                            onClick={() => setInputValue("How much ETH do I have?")}
+                          >
+                            <Coins className="w-3 h-3 mr-1" />
+                            Balance
+                          </Button>
+                          {currentDeploymentConfig && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-700/30"
+                              onClick={() => setInputValue("Deploy my stop order")}
+                            >
+                              <Rocket className="w-3 h-3 mr-1" />
+                              Deploy
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>

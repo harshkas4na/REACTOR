@@ -15,6 +15,7 @@ export interface AIResponse {
   success: boolean;
   data?: {
     message: string;
+    followUpMessage?: string; // NEW: Optional follow-up message
     intent: string;
     needsUserInput: boolean;
     inputType?: 'amount' | 'token' | 'network' | 'confirmation';
@@ -22,6 +23,13 @@ export interface AIResponse {
     automationConfig?: any;
     nextStep?: string;
   };
+  error?: string;
+}
+
+// NEW: Enhanced response interface for handling multiple messages
+export interface AIMessageResponse {
+  success: boolean;
+  messages?: AIMessage[]; // Array of AI messages to add to conversation
   error?: string;
 }
 
@@ -59,7 +67,7 @@ export const useReactorAI = () => {
   const sendMessage = useCallback(async (
     message: string,
     currentConversationId?: string
-  ): Promise<AIResponse> => {
+  ): Promise<AIMessageResponse> => {
     setIsLoading(true);
     setError(null);
 
@@ -90,7 +98,49 @@ export const useReactorAI = () => {
         throw new Error(data.error || 'Failed to get AI response');
       }
 
-      return data;
+      // NEW: Handle multiple messages (main message + optional followUpMessage)
+      if (data.data) {
+        const messages: AIMessage[] = [];
+        const baseTimestamp = new Date();
+
+        // Add the main AI message
+        const mainMessage: AIMessage = {
+          id: `msg_${Date.now()}_ai_main`,
+          type: 'ai',
+          content: data.data.message,
+          timestamp: baseTimestamp,
+          options: data.data.options,
+          inputType: data.data.inputType,
+          automationConfig: data.data.automationConfig
+        };
+        messages.push(mainMessage);
+
+        // Add follow-up message if it exists
+        if (data.data.followUpMessage) {
+          const followUpMessage: AIMessage = {
+            id: `msg_${Date.now()}_ai_followup`,
+            type: 'ai',
+            content: data.data.followUpMessage,
+            timestamp: new Date(baseTimestamp.getTime() + 100), // Slight delay for proper ordering
+            // Follow-up messages typically don't have options/configs, but inherit needsUserInput behavior
+            options: data.data.needsUserInput ? data.data.options : undefined,
+            inputType: data.data.needsUserInput ? data.data.inputType : undefined,
+            automationConfig: data.data.needsUserInput ? data.data.automationConfig : undefined
+          };
+          messages.push(followUpMessage);
+        }
+
+        return {
+          success: true,
+          messages
+        };
+      }
+
+      return {
+        success: true,
+        messages: []
+      };
+
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to communicate with AI';
       setError(errorMessage);
@@ -173,4 +223,4 @@ export const useReactorAI = () => {
     getSupportedFeatures,
     generateConversationId
   };
-}; 
+};
