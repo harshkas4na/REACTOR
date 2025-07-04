@@ -170,100 +170,559 @@ CONVERSATION INTELLIGENCE:
         return this.generateErrorResponse(error, conversation);
     }
   }
+// REQUIREMENT 1: Enhanced Invalid Address Error Handling
+// Replace the existing handleTokenAddressInput method with this enhanced version
 
-  // NEW: Dedicated handler for custom token addresses
-  private async handleTokenAddressInput(message: string, conversation: ConversationState) {
-    const addressPattern = /(0x[a-fA-F0-9]{40})/;
-    const match = message.match(addressPattern);
+private async handleTokenAddressInput(message: string, conversation: ConversationState) {
+  const addressPattern = /(0x[a-fA-F0-9]{40})/;
+  const match = message.match(addressPattern);
 
-    if (!match) {
-        return null; // Not an address, continue with normal flow
-    }
+  if (!match) {
+      return null; // Not an address, continue with normal flow
+  }
 
-    const tokenAddress = match[0];
-    const networkId = conversation.collectedData.selectedNetwork;
+  const tokenAddress = match[0];
+  const networkId = conversation.collectedData.selectedNetwork;
 
-    if (!networkId) {
-        return { message: "Please select a network before providing a custom token address.", /* ... other fields */ };
-    }
+  if (!networkId) {
+      return { 
+        message: "🌐 Please select a network before providing a custom token address.\n\nWhich network would you like to use?", 
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: true,
+        inputType: 'network' as const,
+        nextStep: 'network'
+      };
+  }
 
-    console.log(`Detected address ${tokenAddress}. Validating...`);
+  console.log(`Detected address ${tokenAddress}. Validating on network ${networkId}...`);
 
-    const validation = await this.blockchainService.validateTokenAddress(tokenAddress, networkId);
+  const validation = await this.blockchainService.validateTokenAddress(tokenAddress, networkId);
 
-    if (validation.isValid && validation.tokenInfo) {
-        const { symbol, name } = validation.tokenInfo;
-        console.log(`Validation successful: ${symbol} (${name})`);
+  if (validation.isValid && validation.tokenInfo) {
+      const { symbol, name } = validation.tokenInfo;
+      console.log(`Validation successful: ${symbol} (${name})`);
 
-        // Store the custom address and symbol
-        if (!conversation.collectedData.customTokenAddresses) {
-            conversation.collectedData.customTokenAddresses = {};
-        }
-        conversation.collectedData.customTokenAddresses[symbol] = tokenAddress;
-        
-        // Update the current step's data
-        conversation.collectedData[conversation.currentStep as 'tokenToSell' | 'tokenToBuy'] = symbol;
+      // Store the custom address and symbol
+      if (!conversation.collectedData.customTokenAddresses) {
+          conversation.collectedData.customTokenAddresses = {};
+      }
+      conversation.collectedData.customTokenAddresses[symbol] = tokenAddress;
+      
+      // Update the current step's data
+      conversation.collectedData[conversation.currentStep as 'tokenToSell' | 'tokenToBuy'] = symbol;
 
-        // Move to the next logical step
-        return this.handleStopOrderFlow(conversation, { message } as MessageContext);
+      // Move to the next logical step
+      return this.handleStopOrderFlow(conversation, { message } as MessageContext);
 
-    } else {
-        console.log(`Validation failed: ${validation.error}`);
-        return {
-            message: `❌ **Invalid Token Address**\n\n${validation.error}\n\nPlease provide a valid ERC-20 token contract address.`,
-            intent: 'CREATE_STOP_ORDER' as const,
-            needsUserInput: true,
-            nextStep: conversation.currentStep
-        };
+  } else {
+      console.log(`Validation failed: ${validation.error}`);
+      
+      // ENHANCEMENT: More detailed and helpful error message
+      const networkName = this.getNetworkName(networkId);
+      const supportedTokens = this.blockchainService.getSupportedTokens(networkId);
+      
+      return {
+          message: `❌ **Invalid Token Address for ${networkName}**\n\n**Address**: \`${tokenAddress}\`\n**Issue**: ${validation.error || 'This address does not appear to be a valid ERC-20 token contract.'}\n\n**Please verify:**\n• The contract address is correct\n• The token exists on **${networkName}** (not a different network)\n• It's a valid ERC-20 token contract\n• You copied the full address without typos\n\n**Alternative**: Use a supported token symbol instead:\n**${networkName} tokens**: ${supportedTokens.slice(0, 6).join(', ')}${supportedTokens.length > 6 ? '...' : ''}\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'token' as const,
+          nextStep: conversation.currentStep,
+          options: [
+            { value: 'try again', label: '🔄 Try a different address' },
+            { value: 'use supported', label: '📋 Use supported tokens instead' }
+          ]
+      };
+  }
+}
+
+// Enhanced handleStopOrderFlow method with all three validation checks in correct order
+private async handleStopOrderFlow(conversation: ConversationState, context: MessageContext) {
+  const data = conversation.collectedData;
+  
+  console.log('Handling stop order flow');
+  console.log('Current data:', data);
+  console.log('Current step:', conversation.currentStep);
+  
+  // Handle token address validation for tokenToSell and tokenToBuy steps
+  if ((conversation.currentStep === 'tokenToSell' || conversation.currentStep === 'tokenToBuy') &&
+      !this.isConfirmingAction(context.message)) {
+    
+    const addressValidationResult: any = await this.handleTokenAddressInput(
+      context.message,
+      conversation
+    );
+    
+    if (addressValidationResult) {
+      return addressValidationResult;
     }
   }
   
+  // Handle confirmation steps for custom tokens
+  if (conversation.currentStep.endsWith('_confirmation')) {
+    const baseStep = conversation.currentStep.replace('_confirmation', '') as 'tokenToSell' | 'tokenToBuy';
+    
+    if (this.isConfirmingAction(context.message)) {
+      conversation.currentStep = 'initial';
+      console.log(`User confirmed custom token for ${baseStep}`);
+    } else {
+      conversation.currentStep = baseStep;
+      data[baseStep] = undefined;
+      
+      const response = {
+        message: `No problem! Let's try again.\n\n${baseStep === 'tokenToSell' ? 'Which token would you like to protect?' : 'Which token should you receive when the stop order triggers?'}\n\nYou can provide:\n• A token symbol (ETH, USDC, etc.)\n• A contract address (0x...)`,
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: true,
+        inputType: 'token' as const,
+        nextStep: baseStep
+      };
+      
+      conversation.conversationHistory.push({
+        role: 'assistant',
+        content: response.message
+      });
+      
+      return response;
+    }
+  }
+  
+  // FIX #3: Handle liquidity confirmation properly - move to balance check next
+  if (conversation.currentStep === 'confirm_low_liquidity') {
+    if (this.isConfirmingAction(context.message)) {
+      console.log('User confirmed to proceed with low liquidity');
+      conversation.currentStep = 'proceed_to_balance_check'; // NEW: Explicit next step
+    } else {
+      conversation.currentStep = 'tokenToBuy';
+      data.tokenToBuy = undefined;
+      data.pairAddress = undefined;
+      
+      const response = {
+        message: `Good choice! Let's try a different token pair.\n\n🔄 **Which token** should you receive when the stop order triggers instead?\n\n💡 *Popular liquid pairs often include USDC, USDT, or ETH*`,
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: true,
+        inputType: 'token' as const,
+        nextStep: 'tokenToBuy',
+        options: this.getTokenOptionsExcluding(data.tokenToSell)
+      };
+      
+      conversation.conversationHistory.push({
+        role: 'assistant',
+        content: response.message
+      });
+      
+      return response;
+    }
+  }
+  
+  // FIX #3: Handle balance confirmation properly - move to final confirmation next
+  if (conversation.currentStep === 'confirm_insufficient_balance') {
+    if (this.isConfirmingAction(context.message)) {
+      console.log('User confirmed to proceed with insufficient balance');
+      conversation.currentStep = 'proceed_to_final_confirmation'; // NEW: Explicit next step
+    } else {
+      conversation.currentStep = 'amount';
+      data.amount = undefined;
+      
+      const response = {
+        message: `No problem! Let's adjust the amount.\n\n💰 **How much ${data.tokenToSell}** would you like to protect?\n\nYou can say "all", "half", or a specific amount:`,
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: true,
+        inputType: 'amount' as const,
+        nextStep: 'amount',
+        options: [
+          { value: 'all', label: '🎯 All of my tokens' },
+          { value: '50%', label: '⚖️ Half of my tokens' },
+          { value: 'custom', label: '✏️ Custom amount' }
+        ]
+      };
+      
+      conversation.conversationHistory.push({
+        role: 'assistant',
+        content: response.message
+      });
+      
+      return response;
+    }
+  }
+  
+  // Handle final confirmation
+  if (conversation.currentStep === 'final_confirmation' && this.isConfirmingAction(context.message)) {
+    try {
+      const automationConfig = await this.prepareFinalConfiguration(conversation);
+      
+      const response = {
+        message: "🚀 **Perfect!** Redirecting you to deploy your stop order...\n\nYour configuration has been prepared and will be loaded automatically. You'll just need to sign the transactions! ✨",
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: false,
+        automationConfig,
+        nextStep: 'deploy'
+      };
+      
+      conversation.conversationHistory.push({ role: 'assistant', content: response.message });
+      return response;
+    } catch (error: any) {
+      return this.generateErrorResponse(error, conversation);
+    }
+  }
+  
+  // Identify what's missing from basic data
+  const missingData = this.identifyMissingStopOrderData(conversation);
+  console.log('Missing data:', missingData);
+  
+  // FIX #1 & #2: Only proceed to validation IF all basic data is collected
+  if (missingData.length === 0) {
+    
+    // ✅ FIRST: Fetch real blockchain data (balance, pair, price) if not already done
+    if (!data.userBalance || !data.pairAddress || !data.currentPrice) {
+      console.log('📊 Fetching real blockchain data before validation...');
+      await this.fetchRealBlockchainData(conversation);
+    }
+    
+    // ✅ NOW: Run validation checks in correct order with proper next steps
+    
+    // STEP 1: Check liquidity (unless we already confirmed to proceed)
+    if (conversation.currentStep !== 'proceed_to_balance_check' && 
+        conversation.currentStep !== 'proceed_to_final_confirmation') {
+      
+      const liquidityCheck = await this.checkInsufficientLiquidity(conversation);
+      if (liquidityCheck.hasInsufficientLiquidity) {
+        conversation.currentStep = 'confirm_low_liquidity';
+        
+        const response = {
+          message: liquidityCheck.message!,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'confirmation' as const,
+          nextStep: 'confirm_low_liquidity',
+          options: [
+            { value: 'yes proceed', label: '⚠️ Yes, proceed with this risk' },
+            { value: 'no different', label: '🔄 No, try different tokens' }
+          ]
+        };
+        
+        conversation.conversationHistory.push({ role: 'assistant', content: response.message });
+        return response;
+      }
+    }
+    
+    // STEP 2: Check balance (unless we already confirmed to proceed)
+    if (conversation.currentStep !== 'proceed_to_final_confirmation') {
+      const balanceCheck = await this.checkInsufficientBalance(conversation);
+      if (balanceCheck.hasInsufficientBalance) {
+        conversation.currentStep = 'confirm_insufficient_balance';
+        
+        const response = {
+          message: balanceCheck.message!,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'confirmation' as const,
+          nextStep: 'confirm_insufficient_balance',
+          options: [
+            { value: 'yes proceed', label: '✅ Yes, proceed anyway' },
+            { value: 'no change', label: '❌ No, let me change the amount' }
+          ]
+        };
+        
+        conversation.conversationHistory.push({ role: 'assistant', content: response.message });
+        return response;
+      }
+    }
+    
+    // STEP 3: All validations passed or user overrode - show final confirmation
+    try {
+      const automationConfig = await this.prepareFinalConfiguration(conversation);
+      const confirmationMessage = this.generateConfirmationMessage(conversation, automationConfig);
+      
+      conversation.currentStep = 'final_confirmation';
+      
+      const response = {
+        message: confirmationMessage,
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: true,
+        inputType: 'confirmation' as const,
+        automationConfig,
+        nextStep: 'final_confirmation',
+      };
+      
+      conversation.conversationHistory.push({ role: 'assistant', content: response.message });
+      return response;
+    } catch (error: any) {
+      return this.generateErrorResponse(error, conversation);
+    }
+  }
+  
+  // Ask for the next missing piece of basic data
+  const nextMissing = missingData[0];
+  conversation.currentStep = nextMissing;
+  
+  console.log('Asking for:', nextMissing);
+  console.log('Set currentStep to:', conversation.currentStep);
+  
+  const response = await this.generateQuestionForMissingData(conversation, nextMissing, context);
+  conversation.conversationHistory.push({ role: 'assistant', content: response.message });
+  
+  return response;
+}
+
+// FIX #1: Enhanced balance check with better messaging when balance is 0
+private async checkInsufficientBalance(conversation: ConversationState): Promise<{
+  hasInsufficientBalance: boolean;
+  message?: string;
+}> {
+  const data = conversation.collectedData;
+  
+  if (!data.amount || !data.userBalance || !data.tokenToSell) {
+    return { hasInsufficientBalance: false };
+  }
+  
+  try {
+    const userBalance = parseFloat(data.userBalance);
+    
+    // FIX #1: Check if user has zero balance first
+    if (userBalance === 0) {
+      const message = `❌ **No ${data.tokenToSell} Balance Found**\n\n**Your Request**: ${data.amount} ${data.tokenToSell}\n**Your Balance**: 0 ${data.tokenToSell}\n\n**You currently don't have any ${data.tokenToSell} tokens in your wallet.**\n\n**This automation could be useful if:**\n• You're planning to acquire ${data.tokenToSell} soon\n• You want to prepare the automation in advance\n• You're expecting a transfer or purchase\n\n**Note**: The stop order will only trigger when you actually have ${data.tokenToSell} tokens in your wallet.\n\n**Do you want to proceed anyway?**`;
+      
+      return {
+        hasInsufficientBalance: true,
+        message
+      };
+    }
+    
+    let requestedAmount: number;
+    
+    // Handle different amount formats - ONLY check specific numerical amounts
+    if (data.amount === 'all') {
+      return { hasInsufficientBalance: false };
+    } else if (data.amount.includes('%')) {
+      return { hasInsufficientBalance: false };
+    } else {
+      requestedAmount = parseFloat(data.amount);
+      
+      if (isNaN(requestedAmount)) {
+        return { hasInsufficientBalance: false };
+      }
+    }
+    
+    // Check if requested amount exceeds balance
+    if (requestedAmount > userBalance) {
+      const shortfall = requestedAmount - userBalance;
+      const message = `⚠️ **Insufficient Balance Warning**\n\n**Your Request**: ${data.amount} ${data.tokenToSell}\n**Your Balance**: ${data.userBalance} ${data.tokenToSell}\n**Shortfall**: ${shortfall.toFixed(6)} ${data.tokenToSell}\n\n**This automation might be useful if:**\n• You're planning to acquire more ${data.tokenToSell} soon\n• You want to prepare the automation in advance\n• You're expecting a transfer or purchase\n\n**Note**: The stop order will only trigger if you have sufficient balance when the price condition is met.\n\n**Do you want to proceed anyway?**`;
+      
+      return {
+        hasInsufficientBalance: true,
+        message
+      };
+    }
+    
+    return { hasInsufficientBalance: false };
+    
+  } catch (error) {
+    console.error('Error checking balance:', error);
+    return { hasInsufficientBalance: false };
+  }
+}
+
+// REQUIREMENT 2: Enhanced insufficient liquidity check method
+private async checkInsufficientLiquidity(conversation: ConversationState): Promise<{
+  hasInsufficientLiquidity: boolean;
+  message?: string;
+}> {
+  const data = conversation.collectedData;
+  
+  // Must have pair address and network to check
+  if (!data.pairAddress || !data.selectedNetwork) {
+    return { hasInsufficientLiquidity: false };
+  }
+  
+  try {
+    console.log('Checking liquidity for pair:', data.pairAddress);
+    
+    // Use the BlockchainService method
+    const liquidityCheck = await this.blockchainService.checkPoolLiquidity(
+      data.pairAddress,
+      data.selectedNetwork
+    );
+    
+    if (!liquidityCheck.hasSufficientLiquidity) {
+      const enhancedMessage = `${liquidityCheck.message}\n\n**This may result in:**\n• High price impact (slippage) when your stop order triggers\n• Potential transaction failures\n• Significantly different execution price than expected\n\n**Do you still want to proceed with this ${data.tokenToSell}/${data.tokenToBuy} pair?**`;
+      
+      return {
+        hasInsufficientLiquidity: true,
+        message: enhancedMessage
+      };
+    }
+    
+    return { hasInsufficientLiquidity: false };
+    
+  } catch (error) {
+    console.error('Error checking liquidity:', error);
+    // In case of error, don't block the flow but log the issue
+    return { hasInsufficientLiquidity: false };
+  }
+}
+
+
+// Helper method to get network name
+private getNetworkName(chainId: number): string {
+  const networkNames: { [key: number]: string } = {
+    1: 'Ethereum Mainnet',
+    11155111: 'Ethereum Sepolia',
+    43114: 'Avalanche C-Chain'
+  };
+  return networkNames[chainId] || `Network ${chainId}`;
+}
+
+// Helper method to get token options excluding a specific token
+private getTokenOptionsExcluding(excludeToken?: string) {
+  const allTokens = [
+    { value: 'ETH', label: '💎 Ethereum (ETH)' },
+    { value: 'USDC', label: '💵 USD Coin (USDC) - Stablecoin' },
+    { value: 'USDT', label: '💵 Tether (USDT) - Stablecoin' },
+    { value: 'DAI', label: '💵 Dai (DAI) - Stablecoin' },
+    { value: 'WBTC', label: '₿ Wrapped Bitcoin (WBTC)' }
+  ];
+  
+  return allTokens.filter(token => token.value !== excludeToken);
+}
+
+
+
+
+  
   
 
-  // NEW: Classify the intent of the current message
+  // Fixed classifyMessageIntent method with proper priority ordering
   private classifyMessageIntent(message: string, conversation: ConversationState): string {
     const lowerMessage = message.toLowerCase().trim();
     
     console.log('Classifying intent for:', lowerMessage);
-
-    // Blockchain query intents (highest priority for interruptions)
-    if (this.isBalanceQuery(lowerMessage)) {
-      return 'CHECK_BALANCE';
-    }
+  
+    // PRIORITY 1: PRIMARY ACTION INTENTS (Check these first!)
     
-    if (this.isPairQuery(lowerMessage)) {
-      return 'FIND_PAIR';
-    }
-    
-    if (this.isPriceQuery(lowerMessage)) {
-      return 'GET_PRICE';
-    }
-    
-    if (this.isBlockchainQuery(lowerMessage)) {
-      return 'BLOCKCHAIN_QUERY';
-    }
-
-    // Educational questions
-    if (this.isEducationalQuestion(lowerMessage)) {
-      return 'ANSWER_QUESTION';
-    }
-
-    // Stop order creation
+    // Stop order creation - highest priority automation
     if (this.isStopOrderIntent(message)) {
       return 'CREATE_STOP_ORDER';
     }
-
-    // Other automation intents
-    if (lowerMessage.includes('fee collector') || lowerMessage.includes('collect fees')) {
+  
+    // ✅ FIXED: Better automation intent recognition using knowledge base
+    if (lowerMessage.includes('fee collector') || lowerMessage.includes('collect fees') || lowerMessage.includes('harvest fees')) {
       return 'CREATE_FEE_COLLECTOR';
     }
     
-    if (lowerMessage.includes('range manager') || lowerMessage.includes('manage range')) {
+    if (lowerMessage.includes('range manager') || lowerMessage.includes('manage range') || lowerMessage.includes('position management')) {
       return 'CREATE_RANGE_MANAGER';
     }
-
+  
+    // PRIORITY 2: EDUCATIONAL QUESTIONS (Enhanced with knowledge base awareness)
+    if (this.isEducationalQuestion(lowerMessage) || 
+        KnowledgeBaseHelper.isQuestionAboutAutomation(lowerMessage) ||
+        KnowledgeBaseHelper.isAskingAboutCapabilities(lowerMessage) ||
+        KnowledgeBaseHelper.isQuestionAboutReactiveNetwork(message) ||
+        KnowledgeBaseHelper.isQuestionAboutCosts(message)) {
+      return 'ANSWER_QUESTION';
+    }
+  
+    // PRIORITY 3: BLOCKCHAIN QUERIES (Secondary intents)
+    if (this.isBalanceQueryContextAware(lowerMessage)) {
+      return 'CHECK_BALANCE';
+    }
+    
+    if (this.isPairQueryContextAware(lowerMessage)) {
+      return 'FIND_PAIR';
+    }
+    
+    if (this.isPriceQueryContextAware(lowerMessage)) {
+      return 'GET_PRICE';
+    }
+    
+    if (this.isBlockchainQueryContextAware(lowerMessage)) {
+      return 'BLOCKCHAIN_QUERY';
+    }
+  
     return 'UNKNOWN';
   }
+  
+
+// Enhanced context-aware methods to avoid false positives
+
+private isBalanceQueryContextAware(message: string): boolean {
+  // Don't trigger if this is clearly a stop order or automation request
+  if (this.isStopOrderIntent(message) || 
+      message.includes('fee collector') || 
+      message.includes('range manager') ||
+      message.includes('create') && (message.includes('order') || message.includes('automation'))) {
+    return false;
+  }
+  
+  const balanceKeywords = [
+    'balance', 'how much', 'how many', 'my tokens', 'my eth', 'my usdc',  
+    'my avax', 'check wallet', 'wallet balance', 'token balance'
+  ];
+  return balanceKeywords.some(keyword => message.includes(keyword));
+}
+
+private isPairQueryContextAware(message: string): boolean {
+  // Don't trigger if this is clearly a stop order or automation request
+  if (this.isStopOrderIntent(message) || 
+      message.includes('fee collector') || 
+      message.includes('range manager') ||
+      message.includes('create') && (message.includes('order') || message.includes('automation'))) {
+    return false;
+  }
+  
+  const pairKeywords = [
+    'find pair', 'trading pair', 'liquidity pool', 'swap pair'
+  ];
+  // More specific - must include 'pair' with context, not just any mention
+  return pairKeywords.some(keyword => message.includes(keyword)) &&
+         !message.includes('explain') && !message.includes('what is');
+}
+
+private isPriceQueryContextAware(message: string): boolean {
+  // Don't trigger if this is clearly a stop order or automation request
+  if (this.isStopOrderIntent(message) || 
+      message.includes('fee collector') || 
+      message.includes('range manager') ||
+      message.includes('create') && (message.includes('order') || message.includes('automation'))) {
+    return false;
+  }
+  
+  // More specific price query keywords that indicate user wants current price info
+  const priceQueryKeywords = [
+    'current price', 'what is the price', 'how much is', 'price of', 'value of',
+    'what does', 'cost of', 'check price', 'get price', 'show price'
+  ];
+  
+  // Must be a clear price information request, not just mentioning "price" in context
+  return priceQueryKeywords.some(keyword => message.includes(keyword)) ||
+         (message.includes('price') && 
+          (message.startsWith('price') || 
+           message.includes('?') || 
+           message.includes('current') ||
+           message.includes('today'))) &&
+         // Exclude price drops/changes in automation context
+         !message.includes('drop') && 
+         !message.includes('when') && 
+         !message.includes('if') &&
+         !message.includes('trigger') &&
+         !message.includes('threshold');
+}
+
+private isBlockchainQueryContextAware(message: string): boolean {
+  // Don't trigger if this is clearly a stop order or automation request
+  if (this.isStopOrderIntent(message) || 
+      message.includes('fee collector') || 
+      message.includes('range manager') ||
+      message.includes('create') && (message.includes('order') || message.includes('automation'))) {
+    return false;
+  }
+  
+  // General blockchain data queries - be more specific
+  return (message.includes('check my') && !message.includes('create')) ||  
+         (message.includes('show me') && !message.includes('how to')) ||
+         (message.includes('get') && (message.includes('data') || message.includes('info')) && 
+          !message.includes('set up') && !message.includes('create'));
+}
+
 
   // NEW: Check if the intent is interrupting
   private isInterruptingIntent(intent: string): boolean {
@@ -437,19 +896,31 @@ CONVERSATION INTELLIGENCE:
         return await this.handleStopOrderFlow(conversation, context);
         
       case 'CREATE_FEE_COLLECTOR':
+        const feeCollectorInfo = KnowledgeBaseHelper.getAutomationInfo('FEE_COLLECTOR');
         return {
-          message: "🚧 **Fee Collector automation is coming soon!**\n\nThis feature will automatically collect your Uniswap V3 fees. Stay tuned for updates!\n\nIn the meantime, would you like to create a stop order to protect your investments?",
+          message: `🚧 **Fee Collector Automation - Coming Soon!**\n\n**What it will do:**\n${feeCollectorInfo?.description}\n\n**Key Features:**\n${feeCollectorInfo?.features.map(f => `• ${f}`).join('\n')}\n\n**This will automatically harvest your Uniswap V3 fees and can even compound them back into your positions for maximum efficiency!**\n\nStay tuned for updates! In the meantime, would you like to create a stop order to protect your investments?`,
           intent: 'CREATE_FEE_COLLECTOR' as const,
           needsUserInput: false,
-          nextStep: 'coming_soon'
+          nextStep: 'coming_soon',
+          options: [
+            { value: 'create_stop_order', label: '🛡️ Create Stop Order Instead' },
+            { value: 'notify_me', label: '🔔 Notify Me When Ready' },
+            { value: 'learn_more', label: '📚 Learn More About RSCs' }
+          ]
         };
         
       case 'CREATE_RANGE_MANAGER':
+        const rangeManagerInfo = KnowledgeBaseHelper.getAutomationInfo('RANGE_MANAGER');
         return {
-          message: "🚧 **Range Manager automation is coming soon!**\n\nThis feature will automatically optimize your Uniswap V3 position ranges. Stay tuned for updates!\n\nIn the meantime, would you like to create a stop order to protect your investments?",
+          message: `🚧 **Range Manager Automation - Coming Soon!**\n\n**What it will do:**\n${rangeManagerInfo?.description}\n\n**Key Features:**\n${rangeManagerInfo?.features.map(f => `• ${f}`).join('\n')}\n\n**This will automatically adjust your Uniswap V3 position ranges based on market conditions to maximize your fee earnings!**\n\nStay tuned for updates! In the meantime, would you like to create a stop order to protect your investments?`,
           intent: 'CREATE_RANGE_MANAGER' as const,
           needsUserInput: false,
-          nextStep: 'coming_soon'
+          nextStep: 'coming_soon',
+          options: [
+            { value: 'create_stop_order', label: '🛡️ Create Stop Order Instead' },
+            { value: 'notify_me', label: '🔔 Notify Me When Ready' },
+            { value: 'learn_more', label: '📚 Learn More About RSCs' }
+          ]
         };
         
       default:
@@ -838,123 +1309,7 @@ private extractFocusedEntity(message: string, conversation: ConversationState) {
     }
   }
 
-  // Modify the handleStopOrderFlow method to include address validation
-private async handleStopOrderFlow(conversation: ConversationState, context: MessageContext) {
-  const data = conversation.collectedData;
   
-  console.log('Handling stop order flow');
-  console.log('Current data:', data);
-  console.log('Current step:', conversation.currentStep);
-  
-  // Handle token address validation for tokenToSell and tokenToBuy steps
-  if ((conversation.currentStep === 'tokenToSell' || conversation.currentStep === 'tokenToBuy') &&
-      !this.isConfirmingAction(context.message)) {
-    
-    const addressValidationResult = await this.handleTokenAddressValidation(
-      context.message,
-      conversation.currentStep,
-      conversation
-    );
-    
-    // If we handled address validation, return the result
-    if (addressValidationResult) {
-      return addressValidationResult;
-    }
-  }
-  
-  // Handle confirmation steps for custom tokens
-  if (conversation.currentStep.endsWith('_confirmation')) {
-    const baseStep = conversation.currentStep.replace('_confirmation', '') as 'tokenToSell' | 'tokenToBuy';
-    
-    if (this.isConfirmingAction(context.message)) {
-      // User confirmed the custom token, move to next step
-      conversation.currentStep = 'initial'; // Reset to continue with normal flow
-      console.log(`User confirmed custom token for ${baseStep}`);
-    } else {
-      // User rejected the custom token, ask for it again
-      conversation.currentStep = baseStep;
-      data[baseStep] = undefined; // Clear the previously set token
-      
-      const response = {
-        message: `No problem! Let's try again.\n\n${baseStep === 'tokenToSell' ? 'Which token would you like to protect?' : 'Which token should you receive when the stop order triggers?'}\n\nYou can provide:\n• A token symbol (ETH, USDC, etc.)\n• A contract address (0x...)`,
-        intent: 'CREATE_STOP_ORDER' as const,
-        needsUserInput: true,
-        inputType: 'token' as const,
-        nextStep: baseStep
-      };
-      
-      conversation.conversationHistory.push({
-        role: 'assistant',
-        content: response.message
-      });
-      
-      return response;
-    }
-  }
-  
-  // Check for final confirmation
-  if (conversation.currentStep === 'final_confirmation' && this.isConfirmingAction(context.message)) {
-    try {
-      const automationConfig = await this.prepareFinalConfiguration(conversation);
-      
-      const response = {
-        message: "🚀 **Perfect!** Redirecting you to deploy your stop order...\n\nYour configuration has been prepared and will be loaded automatically. You'll just need to sign the transactions! ✨",
-        intent: 'CREATE_STOP_ORDER' as const,
-        needsUserInput: false,
-        automationConfig,
-        nextStep: 'deploy'
-      };
-      
-      conversation.conversationHistory.push({ role: 'assistant', content: response.message });
-      return response;
-    } catch (error: any) {
-      return this.generateErrorResponse(error, conversation);
-    }
-  }
-  
-  // Identify what's missing
-  const missingData = this.identifyMissingStopOrderData(conversation);
-  console.log('Missing data:', missingData);
-  
-  if (missingData.length === 0) {
-    // We have everything - show final confirmation
-    try {
-      const automationConfig = await this.prepareFinalConfiguration(conversation);
-      const confirmationMessage = this.generateConfirmationMessage(conversation, automationConfig);
-      
-      conversation.currentStep = 'final_confirmation';
-      
-      const response = {
-        message: confirmationMessage,
-        intent: 'CREATE_STOP_ORDER' as const,
-        needsUserInput: true,
-        inputType: 'confirmation' as const,
-        automationConfig,
-        nextStep: 'final_confirmation',
-        
-      };
-      
-      conversation.conversationHistory.push({ role: 'assistant', content: response.message });
-      return response;
-    } catch (error: any) {
-      return this.generateErrorResponse(error, conversation);
-    }
-  }
-  
-  // Ask for the next missing piece
-  const nextMissing = missingData[0];
-  
-  // IMPORTANT: Set the current step so entity extraction knows what we're asking for
-  conversation.currentStep = nextMissing;
-  
-  console.log('Asking for:', nextMissing);
-  console.log('Set currentStep to:', conversation.currentStep);
-  
-  const response = await this.generateQuestionForMissingData(conversation, nextMissing, context);
-  conversation.conversationHistory.push({ role: 'assistant', content: response.message });
-  
-  return response;
-}
 
   private isConfirmingAction(message: string): boolean {
     const confirmationWords = [
@@ -1079,16 +1434,7 @@ private async handleStopOrderFlow(conversation: ConversationState, context: Mess
     }
   }
 
-  private getTokenOptionsExcluding(excludeToken?: string) {
-    const allTokens = [
-      { value: 'ETH', label: '💎 Ethereum (ETH)' },
-      { value: 'USDC', label: '💵 USD Coin (USDC) - Stablecoin' },
-      { value: 'USDT', label: '💵 Tether (USDT) - Stablecoin' },
-      { value: 'DAI', label: '💵 Dai (DAI) - Stablecoin' }
-    ];
-    
-    return allTokens.filter(token => token.value !== excludeToken);
-  }
+  
 
   private async handleEnhancedBlockchainQueries(
     context: MessageContext,  
@@ -1496,71 +1842,74 @@ private async handleStopOrderFlow(conversation: ConversationState, context: Mess
     }
   }
 
-  // Enhanced fetch real blockchain data with custom token support
-  private async fetchRealBlockchainData(conversation: ConversationState) {
-    const data = conversation.collectedData;
-    
-    try {
-      // Fetch token balance if we have wallet and token (including custom tokens)
-      if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
-        try {
-          console.log(`Fetching balance for ${data.tokenToSell}...`);
-          const balance = await this.blockchainService.getTokenBalanceEnhanced(
-            data.connectedWallet,
-            data.tokenToSell,
-            data.selectedNetwork,
-            data.customTokenAddresses
-          );
-          data.userBalance = balance;
-          console.log(`Balance fetched: ${balance} ${data.tokenToSell}`);
-        } catch (error) {
-          console.error('Error fetching token balance:', error);
-        }
+  // FIX #1: Enhanced fetchRealBlockchainData with better error handling and user feedback
+private async fetchRealBlockchainData(conversation: ConversationState) {
+  const data = conversation.collectedData;
+  
+  try {
+    // Fetch user balance first (critical for balance validation)
+    if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
+      try {
+        console.log(`🏦 Fetching ${data.tokenToSell} balance for validation...`);
+        const balance = await this.blockchainService.getTokenBalanceEnhanced(
+          data.connectedWallet,
+          data.tokenToSell,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+        data.userBalance = balance;
+        console.log(`✅ Balance fetched: ${balance} ${data.tokenToSell}`);
+      } catch (error) {
+        console.error('❌ Error fetching user balance:', error);
+        data.userBalance = '0'; // Set to 0 if we can't fetch - balance check will catch this
       }
-
-      // Fetch pair address and price if we have both tokens (enhanced with custom token support)
-      if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
-        try {
-          console.log(`Finding pair for ${data.tokenToSell}/${data.tokenToBuy}...`);
-          const pairAddress = await this.blockchainService.findPairAddressEnhanced(
-            data.tokenToSell,
-            data.tokenToBuy,
-            data.selectedNetwork,
-            data.customTokenAddresses
-          );
-          
-          if (pairAddress) {
-            data.pairAddress = pairAddress;
-            console.log(`Pair found: ${pairAddress}`);
-            
-            // Get current price using enhanced service
-            try {
-              const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
-                data.tokenToSell,
-                data.tokenToBuy,
-                data.selectedNetwork,
-                data.customTokenAddresses
-              );
-              data.currentPrice = currentPrice;
-              console.log(`Current price: ${currentPrice}`);
-              
-              // Calculate target price if we have drop percentage
-              if (data.dropPercentage) {
-                data.targetPrice = currentPrice * (1 - data.dropPercentage / 100);
-                console.log(`Target price: ${data.targetPrice}`);
-              }
-            } catch (priceError) {
-              console.error('Error fetching price:', priceError);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching pair data:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching blockchain data:', error);
     }
+
+    // Fetch pair address and price for liquidity validation
+    if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
+      try {
+        console.log(`🔍 Finding trading pair ${data.tokenToSell}/${data.tokenToBuy}...`);
+        const pairAddress = await this.blockchainService.findPairAddressEnhanced(
+          data.tokenToSell,
+          data.tokenToBuy,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+        
+        if (pairAddress) {
+          data.pairAddress = pairAddress;
+          console.log(`✅ Pair found: ${pairAddress}`);
+          
+          // Get current price
+          try {
+            const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
+              data.tokenToSell,
+              data.tokenToBuy,
+              data.selectedNetwork,
+              data.customTokenAddresses
+            );
+            data.currentPrice = currentPrice;
+            console.log(`✅ Current price: ${currentPrice}`);
+            
+            // Calculate target price
+            if (data.dropPercentage) {
+              data.targetPrice = currentPrice * (1 - data.dropPercentage / 100);
+              console.log(`✅ Target price: ${data.targetPrice}`);
+            }
+          } catch (priceError) {
+            console.error('❌ Error fetching price:', priceError);
+          }
+        } else {
+          console.error(`❌ No trading pair found for ${data.tokenToSell}/${data.tokenToBuy}`);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching pair data:', error);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error in fetchRealBlockchainData:', error);
   }
+}
 
   // FIXED: Enhanced configuration preparation with custom token support
   private async prepareFinalConfiguration(conversation: ConversationState) {
@@ -1672,51 +2021,96 @@ private async handleStopOrderFlow(conversation: ConversationState, context: Mess
 
   private async handleEnhancedEducationalQuestions(conversation: ConversationState, context: MessageContext) {
     const lowerMessage = context.message.toLowerCase();
-
-    // First check KnowledgeBaseHelper for FAQ
-    const faqResult = KnowledgeBaseHelper.searchFAQ(context.message);
-    if (faqResult) {
+  
+    // ✅ FIRST: Check enhanced knowledge base search
+    const knowledgeResult = KnowledgeBaseHelper.enhancedSearch(context.message);
+    if (knowledgeResult) {
       return {
-        message: faqResult.answer,
+        message: knowledgeResult.answer,
         intent: 'ANSWER_QUESTION' as const,
         needsUserInput: false,
-        nextStep: 'faq_answered',
-        options: faqResult.relatedTopics.map(topic => ({
-          value: topic.toLowerCase(),
-          label: topic
-        }))
+        nextStep: `knowledge_${knowledgeResult.source}`,
+        options: this.generateRelatedTopicOptions(context.message)
       };
     }
-
-    // Check for platform-specific questions
+  
+    // ✅ SECOND: Check for specific REACTOR automation questions
+    if (KnowledgeBaseHelper.isQuestionAboutAutomation(lowerMessage)) {
+      const automationAnswer = KnowledgeBaseHelper.getAutomationAnswer(lowerMessage);
+      if (automationAnswer) {
+        return {
+          message: automationAnswer.answer,
+          intent: 'ANSWER_QUESTION' as const,
+          needsUserInput: false,
+          nextStep: 'automation_explained',
+          options: automationAnswer.relatedTopics.map(topic => ({
+            value: topic.toLowerCase().replace(/\s+/g, '_'),
+            label: topic
+          }))
+        };
+      }
+    }
+  
+    // ✅ THIRD: Check for platform capabilities questions
+    if (KnowledgeBaseHelper.isAskingAboutCapabilities(lowerMessage)) {
+      return {
+        message: KnowledgeBaseHelper.getHelpMenuResponse(),
+        intent: 'ANSWER_QUESTION' as const,
+        needsUserInput: false,
+        nextStep: 'capabilities_shown',
+        options: [
+          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+          { value: 'learn_reactor', label: '📚 Learn About REACTOR' },
+          { value: 'check_balance', label: '💰 Check Balances' },
+          { value: 'coming_soon', label: '🚀 Coming Soon Features' }
+        ]
+      };
+    }
+  
+    // ✅ FOURTH: Check for Reactive Network questions
     if (KnowledgeBaseHelper.isQuestionAboutReactiveNetwork(context.message)) {
       const reactiveInfo = KnowledgeBaseHelper.getReactiveNetworkInfo();
       return {
         message: `**Reactive Network** is the blockchain that powers REACTOR's automation! 🌐\n\n**Key Facts:**\n• **Chain ID**: ${reactiveInfo.chainId}\n• **Currency**: ${reactiveInfo.currency}\n• **Purpose**: Monitors events 24/7 and triggers cross-chain automations\n• **Gas Token**: ${reactiveInfo.currency} (needed for RSC deployment)\n\n**How it works:**\nYour RSC lives on the Reactive Network, watching for events on other chains. When conditions are met, it sends callbacks to execute actions on destination chains.\n\n**Cost**: ~${reactiveInfo.gasPrice} ${reactiveInfo.currency} to deploy an RSC\n\n💡 Think of it as the "brain" that coordinates all your automations across different blockchains!`,
         intent: 'ANSWER_QUESTION' as const,
         needsUserInput: false,
-        nextStep: 'reactive_network_explained'
+        nextStep: 'reactive_network_explained',
+        options: [
+          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+          { value: 'learn_rscs', label: '🧠 Learn About RSCs' },
+          { value: 'get_react_tokens', label: '💰 Get REACT Tokens' }
+        ]
       };
     }
-
+  
+    // ✅ FIFTH: Check for cost/pricing questions
     if (KnowledgeBaseHelper.isQuestionAboutCosts(context.message)) {
       const stopOrderInfo = KnowledgeBaseHelper.getAutomationInfo('STOP_ORDER');
       return {
         message: `💰 **REACTOR Automation Costs**\n\n**Stop Orders:**\n${stopOrderInfo?.costEstimate || 'Contact support for pricing'}\n\n**Cost Breakdown:**\n• **Destination Contract**: Deployment on your chosen network (ETH/AVAX)\n• **RSC Contract**: Deployment on Reactive Network for monitoring\n• **One-time setup**: No recurring fees!\n\n**Network Costs Vary:**\n• Ethereum: Higher gas fees (~0.03 ETH)\n• Avalanche: Lower fees (~0.01 AVAX)\n• Testnets: Minimal costs for testing\n\n💡 **Pro Tip**: Once deployed, your automation runs forever with no additional fees!`,
         intent: 'ANSWER_QUESTION' as const,
         needsUserInput: false,
-        nextStep: 'costs_explained'
+        nextStep: 'costs_explained',
+        options: [
+          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+          { value: 'network_comparison', label: '🌐 Compare Networks' },
+          { value: 'calculate_costs', label: '🧮 Calculate My Costs' }
+        ]
       };
     }
-
-    // Try enhanced Gemini response
+  
+    // ✅ SIXTH: Try Gemini API for complex questions
     try {
       const aiResponse = await this.callGeminiAPI(conversation, context);
       return {
         message: aiResponse,
-        intent: this.determineIntentFromMessage(context.message),
+        intent: 'ANSWER_QUESTION' as const,
         needsUserInput: false,
-        nextStep: 'knowledge_provided'
+        nextStep: 'gemini_response',
+        options: [
+          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+          { value: 'ask_another', label: '❓ Ask Another Question' }
+        ]
       };
     } catch (error: any) {
       console.error('Gemini API Error:', error);
@@ -1767,10 +2161,7 @@ private async handleStopOrderFlow(conversation: ConversationState, context: Mess
     return (chainId === 1 || chainId === 43114) ? "REACT" : "KOPLI";
   }
 
-  private getNetworkName(chainId: number): string {
-    return KnowledgeBaseHelper.getNetworkName(chainId);
-  }
-
+  
   private getOrCreateConversation(conversationId: string): ConversationState {
     if (!this.conversations.has(conversationId)) {
       this.conversations.set(conversationId, {
@@ -1794,12 +2185,78 @@ private async handleStopOrderFlow(conversation: ConversationState, context: Mess
   }
 
   private generateFallbackResponse(context: MessageContext, conversation: ConversationState) {
+    const lowerMessage = context.message.toLowerCase();
+    
+    // Check if this might be an automation question we should handle
+    if (KnowledgeBaseHelper.isQuestionAboutAutomation(lowerMessage)) {
+      const automationAnswer = KnowledgeBaseHelper.getAutomationAnswer(lowerMessage);
+      if (automationAnswer) {
+        return {
+          message: automationAnswer.answer,
+          intent: 'ANSWER_QUESTION' as const,
+          needsUserInput: false,
+          nextStep: 'automation_fallback'
+        };
+      }
+    }
+    
+    // Check if asking about capabilities
+    if (KnowledgeBaseHelper.isAskingAboutCapabilities(lowerMessage)) {
+      return {
+        message: KnowledgeBaseHelper.getHelpMenuResponse(),
+        intent: 'ANSWER_QUESTION' as const,
+        needsUserInput: false,
+        nextStep: 'help_menu'
+      };
+    }
+    
+    // Default fallback with better guidance
     return {
-      message: "🤔 I'm not quite sure how to help with that specific request, but I'm here to assist you with REACTOR's DeFi automation platform!\n\nI can help you:\n• **Learn** about Reactor and RSCs\n• **Create stop orders** to protect your investments\n• **Check balances** and find trading pairs\n• **Answer questions** about DeFi automation\n\nWhat would you like to know? 🚀",
+      message: "🤔 I'm not quite sure how to help with that specific request, but I'm here to assist you with REACTOR's DeFi automation platform!\n\nI can help you:\n• **Learn** about Reactor and RSCs\n• **Create stop orders** to protect your investments  \n• **Check balances** and find trading pairs\n• **Answer questions** about DeFi automation\n• **Explain coming soon features** like Fee Collectors and Range Managers\n\nWhat would you like to know? 🚀",
       intent: 'ANSWER_QUESTION' as const,
       needsUserInput: false,
-      nextStep: 'fallback_mode'
+      nextStep: 'fallback_mode',
+      options: [
+        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+        { value: 'coming_soon', label: '🚀 Coming Soon Features' },
+        { value: 'learn_reactor', label: '📚 Learn About REACTOR' },
+        { value: 'check_balance', label: '💰 Check My Balance' }
+      ]
     };
+  }
+
+  private generateRelatedTopicOptions(message: string): Array<{value: string, label: string}> {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('fee collector')) {
+      return [
+        { value: 'range_manager', label: '📊 Range Managers' },
+        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+        { value: 'uniswap_v3', label: '🦄 Uniswap V3 Info' }
+      ];
+    }
+    
+    if (lowerMessage.includes('range manager')) {
+      return [
+        { value: 'fee_collector', label: '🔧 Fee Collectors' },
+        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+        { value: 'uniswap_v3', label: '🦄 Uniswap V3 Info' }
+      ];
+    }
+    
+    if (lowerMessage.includes('reactor') || lowerMessage.includes('platform')) {
+      return [
+        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+        { value: 'learn_rscs', label: '🧠 Learn About RSCs' },
+        { value: 'coming_soon', label: '🚀 Coming Soon Features' }
+      ];
+    }
+    
+    // Default options
+    return [
+      { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
+      { value: 'learn_more', label: '📚 Learn More' }
+    ];
   }
 
   private generateErrorResponse(error: any, conversation: ConversationState) {

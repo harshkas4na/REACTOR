@@ -1028,6 +1028,190 @@ export class EnhancedBlockchainService extends BlockchainService {
     
     return await this.getCurrentPrice(pairAddress, chainId);
   }
+
+  // Add this new method to your BlockchainService.ts
+
+  // The checkPoolLiquidity method is already implemented in the BlockchainService
+// Here's the enhanced version with better thresholds and error handling
+
+/**
+ * Check if a trading pair has sufficient liquidity for safe trading
+ * @param pairAddress - The pair contract address
+ * @param networkId - The network ID
+ * @returns Object with liquidity status and warning message if needed
+ */
+async checkPoolLiquidity(pairAddress: string, networkId: number): Promise<{
+  hasSufficientLiquidity: boolean;
+  message?: string;
+  reserveData?: {
+    reserve0: string;
+    reserve1: string;
+    token0Symbol: string;
+    token1Symbol: string;
+  };
+}> {
+  try {
+    if (!ethers.isAddress(pairAddress)) {
+      throw new Error('Invalid pair address');
+    }
+
+    const provider = this.getProvider(networkId);
+    const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+    
+    console.log(`Checking liquidity for pair: ${pairAddress} on network ${networkId}`);
+
+    // Get pair data
+    const [reserves, token0Address, token1Address] = await Promise.all([
+      pairContract.getReserves(),
+      pairContract.token0(),
+      pairContract.token1()
+    ]);
+
+    const [reserves0, reserves1] = reserves;
+    
+    // Get token information
+    const token0Contract = new ethers.Contract(token0Address, ERC20_ABI, provider);
+    const token1Contract = new ethers.Contract(token1Address, ERC20_ABI, provider);
+    
+    const [decimals0, decimals1, symbol0, symbol1] = await Promise.all([
+      token0Contract.decimals(),
+      token1Contract.decimals(),
+      token0Contract.symbol().catch(() => 'TOKEN0'),
+      token1Contract.symbol().catch(() => 'TOKEN1')
+    ]);
+    
+    // Format reserves with proper decimals
+    const reserve0Formatted = ethers.formatUnits(reserves0, decimals0);
+    const reserve1Formatted = ethers.formatUnits(reserves1, decimals1);
+    
+    console.log(`Reserves: ${reserve0Formatted} ${symbol0}, ${reserve1Formatted} ${symbol1}`);
+    
+    // Enhanced liquidity check with better thresholds
+    const liquidityThresholds = this.getLiquidityThresholds(networkId, symbol0, symbol1);
+    
+    const reserve0Value = parseFloat(reserve0Formatted);
+    const reserve1Value = parseFloat(reserve1Formatted);
+    
+    // Check if either reserve is below our minimum threshold
+    const hasMinimumLiquidity = (
+      reserve0Value >= liquidityThresholds.token0Min && 
+      reserve1Value >= liquidityThresholds.token1Min
+    );
+    
+    if (!hasMinimumLiquidity) {
+      const message = `⚠️ **Low Liquidity Warning**\n\nThis ${symbol0}/${symbol1} trading pair has very low liquidity:\n• **${symbol0}**: ${reserve0Formatted}\n• **${symbol1}**: ${reserve1Formatted}\n\n**Risks of proceeding:**\n• High price impact (slippage) when your order executes\n• Potential transaction failures\n• Significantly different execution price than expected\n• May not be able to sell the full amount\n\n**Recommendation**: Consider using a more liquid trading pair like ETH/USDC or reduce the amount you're protecting.`;
+      
+      return {
+        hasSufficientLiquidity: false,
+        message,
+        reserveData: {
+          reserve0: reserve0Formatted,
+          reserve1: reserve1Formatted,
+          token0Symbol: symbol0,
+          token1Symbol: symbol1
+        }
+      };
+    }
+    
+    console.log(`✅ Liquidity check passed for ${symbol0}/${symbol1}`);
+    
+    return {
+      hasSufficientLiquidity: true,
+      reserveData: {
+        reserve0: reserve0Formatted,
+        reserve1: reserve1Formatted,
+        token0Symbol: symbol0,
+        token1Symbol: symbol1
+      }
+    };
+    
+  } catch (error: any) {
+    console.error('Error checking pool liquidity:', error);
+    
+    // In case of error, we'll be conservative and warn the user
+    return {
+      hasSufficientLiquidity: false,
+      message: `⚠️ **Unable to verify liquidity**\n\nI couldn't check the liquidity of this trading pair due to a technical issue:\n\n${error.message}\n\n**Recommendation**: Proceed with caution or try a different token pair.`
+    };
+  }
+}
+
+/**
+ * Get minimum liquidity thresholds for different token pairs
+ * Enhanced with better USD-equivalent calculations
+ */
+private getLiquidityThresholds(networkId: number, token0Symbol: string, token1Symbol: string): {
+  token0Min: number;
+  token1Min: number;
+} {
+  // Define minimum liquidity thresholds based on token types
+  const getTokenThreshold = (symbol: string): number => {
+    const upperSymbol = symbol.toUpperCase();
+    
+    // Major tokens - higher thresholds (roughly $1000 equivalent)
+    if (['ETH', 'WETH'].includes(upperSymbol)) {
+      return 0.3; // At least 0.3 ETH (~$1000 at $3300/ETH)
+    }
+    
+    if (['BTC', 'WBTC', 'BTC.B'].includes(upperSymbol)) {
+      return 0.02; // At least 0.02 BTC (~$1000 at $50000/BTC)
+    }
+    
+    // Stablecoins - direct USD equivalent thresholds
+    if (['USDC', 'USDT', 'DAI', 'USDC.E', 'USDT.E'].includes(upperSymbol)) {
+      return 1000; // At least $1000 worth
+    }
+    
+    // AVAX - network specific
+    if (['AVAX', 'WAVAX'].includes(upperSymbol)) {
+      return 25; // At least 25 AVAX (~$1000 at $40/AVAX)
+    }
+    
+    // Other major DeFi tokens (estimate ~$1000 worth)
+    if (['LINK'].includes(upperSymbol)) {
+      return 50; // ~$1000 at $20/LINK
+    }
+    
+    if (['AAVE'].includes(upperSymbol)) {
+      return 6; // ~$1000 at $160/AAVE
+    }
+    
+    if (['UNI'].includes(upperSymbol)) {
+      return 100; // ~$1000 at $10/UNI
+    }
+    
+    // Default for unknown tokens - conservative approach
+    return 1000; // Conservative default assuming it's a smaller denomination token
+  };
+  
+  const token0Threshold = getTokenThreshold(token0Symbol);
+  const token1Threshold = getTokenThreshold(token1Symbol);
+  
+  // Apply network-specific adjustments
+  const networkMultiplier = this.getNetworkLiquidityMultiplier(networkId);
+  
+  return {
+    token0Min: token0Threshold * networkMultiplier,
+    token1Min: token1Threshold * networkMultiplier
+  };
+}
+
+/**
+ * Get network-specific liquidity multipliers
+ * Testnets and smaller networks may have naturally lower liquidity
+ */
+private getNetworkLiquidityMultiplier(networkId: number): number {
+  switch (networkId) {
+    case 1: // Ethereum Mainnet
+      return 1.0; // Full threshold
+    case 43114: // Avalanche
+      return 0.8; // 80% of threshold (slightly lower liquidity expected)
+    case 11155111: // Sepolia Testnet
+      return 0.1; // 10% of threshold (testnet has much lower liquidity)
+    default:
+      return 0.5; // 50% of threshold for unknown networks
+  }
+}
   
   // Enhanced isToken0 method with custom token support
   async isToken0Enhanced(

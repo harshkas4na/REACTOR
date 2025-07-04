@@ -21,7 +21,7 @@ const automations = [
     description: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically.",
     icon: "⚙️",
     tooltipContent: "Automatically adjusts your liquidity position ranges when prices move, maintaining optimal fee generation without constant manual rebalancing.",
-    available: true,
+    available: false,
     link: "/automations/range-manager"
   },
   {
@@ -29,7 +29,7 @@ const automations = [
     description: "Automatically collect and deposit earned fees from your Uniswap V3 liquidity positions.",
     icon: "💰",
     tooltipContent: "Register your liquidity positions once, and our system will monitor and collect fees for you, depositing them directly to your wallet without manual intervention.",
-    available: true,
+    available: false,
     link: "/automations/fee-collector"
   },
   {

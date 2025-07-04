@@ -49,42 +49,42 @@ const slides = [
       icon: ShieldExclamationIcon
     }
   },
-  {
-    id: 2,
-    title: (
-      <>
-        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
-          Collect Fees Without Effort
-        </span>{" "}
+  // {
+  //   id: 2,
+  //   title: (
+  //     <>
+  //       <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
+  //         Collect Fees Without Effort
+  //       </span>{" "}
         
-      </>
-    ),
-    subtitle: "Automatically collect earned fees from your Uniswap V3 positions 24/7",
-    image: "/fee-collector-9.jpg",
-    primaryButton: {
-      text: "Setup Fee Collector",
-      href: "/automations/fee-collector",
-      icon: CurrencyDollarIcon
-    }
-  },
-  {
-    id: 3,
-    title: (
-      <>
-        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
-          Optimize Your Liquidity {" "} Positions
-        </span>{" "}
+  //     </>
+  //   ),
+  //   subtitle: "Automatically collect earned fees from your Uniswap V3 positions 24/7",
+  //   image: "/fee-collector-9.jpg",
+  //   primaryButton: {
+  //     text: "Setup Fee Collector",
+  //     href: "/automations/fee-collector",
+  //     icon: CurrencyDollarIcon
+  //   }
+  // },
+  // {
+  //   id: 3,
+  //   title: (
+  //     <>
+  //       <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
+  //         Optimize Your Liquidity {" "} Positions
+  //       </span>{" "}
         
-      </>
-    ),
-    subtitle: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
-    image: "/range-manager-7.jpg",
-    primaryButton: {
-      text: "Setup Range Manager",
-      href: "/automations/range-manager",
-      icon: ChartBarIcon
-    }
-  }
+  //     </>
+  //   ),
+  //   subtitle: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
+  //   image: "/range-manager-7.jpg",
+  //   primaryButton: {
+  //     text: "Setup Range Manager",
+  //     href: "/automations/range-manager",
+  //     icon: ChartBarIcon
+  //   }
+  // }
 ];
 
 const Hero = () => {
