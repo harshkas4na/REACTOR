@@ -357,8 +357,9 @@ interface ChainConfig {
       const response = await fetch(url.toString());
       const data = await response.json();
   
-      if (data.error) throw new Error(data.error.message);
-      return data.result;
+      const parsedData = data as any;
+      if (parsedData.error) throw new Error(parsedData.error.message);
+      return parsedData.result;
     }
   
     private async fetchTransactionLogs(
@@ -374,8 +375,9 @@ interface ChainConfig {
       const response = await fetch(url.toString());
       const data = await response.json();
   
-      if (data.error) throw new Error(data.error.message);
-      return data.result;
+      const parsedData = data as any;
+      if (parsedData.error) throw new Error(parsedData.error.message);
+      return parsedData.result;
     }
   
     // RNK RPC Helper Methods
@@ -395,11 +397,12 @@ interface ChainConfig {
   
       const data = await response.json();
   
-      if (data.error) {
-        throw new Error(data.error.message);
+      const parsedData = data as any;
+      if (parsedData.error) {
+        throw new Error(parsedData.error.message);
       }
   
-      return data.result;
+      return parsedData.result;
     }
   
     private updateStepStatus(

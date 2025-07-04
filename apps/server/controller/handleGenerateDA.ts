@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { validateContractInput } from "../zod/validateContractInput";
 import crypto from 'crypto';
 const solc = require('solc');
 

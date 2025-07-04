@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { GeminiAIService } from '../services/GeminiAIService';
 
 export const handleConversationReset = async (req: Request, res: Response) => {
   try {
@@ -11,9 +10,6 @@ export const handleConversationReset = async (req: Request, res: Response) => {
         error: 'Conversation ID is required'
       });
     }
-    
-    const aiService = new GeminiAIService();
-    await aiService.resetConversation(conversationId);
     
     res.json({
       success: true,

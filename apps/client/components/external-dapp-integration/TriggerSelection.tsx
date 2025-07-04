@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckCircle, Loader2, Plus, Trash2 } from 'lucide-react'
-import { api } from '@/services/api'
+// import { api } from '@/services/api'
 import { useAutomationContext } from '@/app/_context/AutomationContext'
 import { ethers } from 'ethers'
 import { BASE_URL } from '@/data/constants'

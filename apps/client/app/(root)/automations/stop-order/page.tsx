@@ -148,25 +148,25 @@ export default function UniswapStopOrderPage() {
   
   // Use lazy initial state
   const [formData, setFormData] = useState<StopOrderFormData>(() => {
-    // Check if we're coming from AI on initial render
-    const urlParams = new URLSearchParams(window.location.search);
-    const fromAI = urlParams.get('from_ai');
-    
-    if (fromAI === 'true') {
-      // Don't initialize with empty values if coming from AI
-      return {
-        chainId: '',
-        pairAddress: '',
-        sellToken0: true,
-        clientAddress: '',
-        coefficient: '1000',
-        threshold: '',
-        amount: '',
-        destinationFunding: '',
-        rscFunding: '0.05'
-      };
+    if (typeof window !== 'undefined') {
+      // Check if we're coming from AI on initial render
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromAI = urlParams.get('from_ai');
+      if (fromAI === 'true') {
+        // Don't initialize with empty values if coming from AI
+        return {
+          chainId: '',
+          pairAddress: '',
+          sellToken0: true,
+          clientAddress: '',
+          coefficient: '1000',
+          threshold: '',
+          amount: '',
+          destinationFunding: '',
+          rscFunding: '0.05'
+        };
+      }
     }
-    
     return getInitialFormData();
   });
 
@@ -186,6 +186,7 @@ export default function UniswapStopOrderPage() {
   // CRITICAL: Consolidate AI loading into a single effect
   useEffect(() => {
     const loadAIConfig = async () => {
+      if (typeof window === 'undefined') return;
       const urlParams = new URLSearchParams(window.location.search);
       const fromAI = urlParams.get('from_ai');
       
@@ -440,20 +441,21 @@ export default function UniswapStopOrderPage() {
   // CRITICAL: Prevent other effects from running until initialized
   useEffect(() => {
     if (!isInitialized) return;
-    
-    // Only update destination funding if not from AI and chain is selected
-    if (selectedChain && formData.chainId && !window.location.search.includes('from_ai')) {
-      setFormData(prev => ({
-        ...prev,
-        destinationFunding: selectedChain.defaultFunding
-      }));
+    if (typeof window !== 'undefined') {
+      // Only update destination funding if not from AI and chain is selected
+      if (selectedChain && formData.chainId && !window.location.search.includes('from_ai')) {
+        setFormData(prev => ({
+          ...prev,
+          destinationFunding: selectedChain.defaultFunding
+        }));
+      }
     }
   }, [formData.chainId, selectedChain, isInitialized]);
 
   // CRITICAL: Update wallet connection effect
   useEffect(() => {
     if (!isInitialized) return;
-    
+    if (typeof window === 'undefined') return;
     const getConnectedAccount = async () => {
       if (window.ethereum) {
         try {
@@ -462,7 +464,6 @@ export default function UniswapStopOrderPage() {
           if (accounts.length > 0) {
             const account = accounts[0].address;
             setConnectedAccount(account);
-            
             // Only update clientAddress if it's empty
             if (!formData.clientAddress) {
               setFormData(prev => ({
@@ -476,9 +477,7 @@ export default function UniswapStopOrderPage() {
         }
       }
     };
-
     getConnectedAccount();
-
     if (window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length > 0) {
@@ -493,9 +492,7 @@ export default function UniswapStopOrderPage() {
           setConnectedAccount('');
         }
       };
-
       window.ethereum.on('accountsChanged', handleAccountsChanged);
-      
       return () => {
         window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
       };
@@ -526,6 +523,7 @@ export default function UniswapStopOrderPage() {
   };
 
   const handleFetchPairInfo = async (pairAddress: string, skipNetworkCheck = false) => {
+    if (typeof window === 'undefined') return;
     setIsLoadingPair(true);
     setFetchError('');
     
@@ -534,6 +532,7 @@ export default function UniswapStopOrderPage() {
         throw new Error('Invalid pair address format');
       }
 
+      if (!window.ethereum) throw new Error('No wallet detected');
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
       const currentChainId = network.chainId.toString();
@@ -602,7 +601,7 @@ export default function UniswapStopOrderPage() {
 
   // Enhanced network switching function with better error handling
 const switchNetwork = async (chainId: string) => {
-  if (!window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
 
   try {
     // Check if already on the correct network
@@ -695,7 +694,7 @@ function getRSCNetworkForChain(sourceChainId:string) {
 
 // Enhanced network switching function that supports both REACT and Kopli
 async function switchToRSCNetwork(sourceChainId:string) {
-  if (!window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('MetaMask or compatible wallet not detected');
 
   try {
     // Get the appropriate RSC network based on source chain
@@ -797,6 +796,7 @@ function getCallbackSenderAddress(chainId: string): string {
 
 // Fix for the deployDestinationContract function
 async function deployDestinationContract(chain: ChainConfig, fundingAmount: string): Promise<string> {
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
   try {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
@@ -894,6 +894,7 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
 }
 
   async function approveTokens(tokenAddress: string, spenderAddress: string, amount: string) {
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
     try {
       if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(spenderAddress)) {
         throw new Error('Invalid address');
@@ -941,6 +942,7 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
   }
 
   async function deployRSC(params: RSCParams, chain: ChainConfig, fundingAmount: string) {
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
@@ -1066,6 +1068,7 @@ async function deployDestinationContract(chain: ChainConfig, fundingAmount: stri
 
  // Update the handleCreateOrder function to use the correct RSC network based on source chain
 const handleCreateOrder = async (e: React.FormEvent) => {
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
   e.preventDefault();
   try {
     // Form validation
@@ -1233,7 +1236,7 @@ const handleCreateOrder = async (e: React.FormEvent) => {
 
   // Helper function to check if user has sufficient balance for operations
   async function checkBalances() {
-    if (!window.ethereum) throw new Error('No wallet detected');
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
     
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
