@@ -104,8 +104,8 @@ export const REACTOR_KNOWLEDGE_BASE = {
       'No-code interface',
       'Community templates'
     ],
-    website: 'https://reactor.xyz',
-    documentation: 'https://docs.reactor.xyz'
+    website: 'https://thereactor.in',
+    documentation: 'https://thereactor.in/about'
   },
   
   faq: {

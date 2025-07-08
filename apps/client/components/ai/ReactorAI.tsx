@@ -42,6 +42,11 @@ import { toast } from 'react-hot-toast';
 import { ethers } from 'ethers';
 import { AIUtils } from '@/utils/ai';
 import { AIDeploymentHandler } from './AIDeploymentHandler';
+import ChatHeader from './ChatHeader';
+import MessageList from './MessageList';
+import ChatInput from './ChatInput';
+import { FormattedMessage } from './FormattedMessage';
+import { PairInfoDisplay } from './PairInfoDisplay';
 
 interface Message {
   id: string;
@@ -87,99 +92,6 @@ interface AIResponse {
   };
   error?: string;
 }
-
-// Enhanced message formatting component
-const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
-  const formatText = (text: string) => {
-    // Split by lines to preserve structure
-    const lines = text.split('\n');
-    
-    return lines.map((line, lineIndex) => {
-      // Process each line for markdown
-      const parts = line.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
-      
-      return (
-        <div key={lineIndex} className={lineIndex > 0 ? 'mt-1' : ''}>
-          {parts.map((part, partIndex) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              // Bold text
-              return (
-                <strong key={partIndex} className="font-semibold text-white">
-                  {part.slice(2, -2)}
-                </strong>
-              );
-            } else if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
-              // Italic text
-              return (
-                <em key={partIndex} className="italic">
-                  {part.slice(1, -1)}
-                </em>
-              );
-            } else if (part.startsWith('`') && part.endsWith('`')) {
-              // Code text
-              return (
-                <code key={partIndex} className="bg-gray-700 px-1 py-0.5 rounded text-blue-300 font-mono text-xs">
-                  {part.slice(1, -1)}
-                </code>
-              );
-            } else {
-              // Regular text
-              return <span key={partIndex}>{part}</span>;
-            }
-          })}
-        </div>
-      );
-    });
-  };
-
-  return <div className="text-sm leading-relaxed">{formatText(content)}</div>;
-};
-
-// Enhanced pair info component
-const PairInfoDisplay: React.FC<{ pairInfo: any }> = ({ pairInfo }) => {
-  if (!pairInfo) return null;
-  
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mt-3 p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg border border-blue-500/30"
-    >
-      <div className="flex items-center space-x-2 mb-3">
-        <Network className="w-4 h-4 text-blue-400" />
-        <span className="text-sm font-medium text-blue-300">Trading Pair Information</span>
-      </div>
-      <div className="grid grid-cols-1 gap-3 text-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-300">Pair:</span>
-          <Badge variant="secondary" className="bg-blue-600/20 text-blue-300">
-            {pairInfo.token0}/{pairInfo.token1}
-          </Badge>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-gray-300">Address:</span>
-          <div className="flex items-center space-x-1">
-            <code className="bg-gray-800 px-2 py-1 rounded text-blue-300">
-              {pairInfo.pairAddress.slice(0, 8)}...{pairInfo.pairAddress.slice(-6)}
-            </code>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 hover:bg-blue-600/20"
-              onClick={() => navigator.clipboard.writeText(pairInfo.pairAddress)}
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-gray-300">Price:</span>
-          <span className="text-green-400 font-mono">${pairInfo.currentPrice.toFixed(6)}</span>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
 
 export default function ReactorAI() {
   const [isOpen, setIsOpen] = useState(false);
@@ -279,6 +191,9 @@ export default function ReactorAI() {
   // NEW: Updated sendMessage function to handle multiple AI messages
   const sendMessage = async (content: string, isOptionSelection: boolean = false) => {
     if (!content.trim() && !isOptionSelection) return;
+    console.log('Sending content to AI:', { 
+      content
+    });
 
     const userMessage: Message = {
       id: `msg_${Date.now()}_user`,
@@ -308,7 +223,7 @@ export default function ReactorAI() {
         network: getChainIdFromNetwork(selectedNetwork) 
       });
 
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
+      const response = await fetch('http://localhost:8000/ai-automation/automate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -549,130 +464,24 @@ export default function ReactorAI() {
     toast('Deployment cancelled');
   };
 
-  const renderMessage = (message: Message) => {
-    const isUser = message.type === 'user';
-    
-    return (
-      <motion.div
-        key={message.id}
-        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
-      >
-        <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start space-x-2 ${isExpanded ? 'max-w-[90%]' : 'max-w-[85%]'}`}>
-          {/* Enhanced Avatar */}
-          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser 
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 ml-2' 
-              : 'bg-gradient-to-r from-gray-700 to-gray-600 mr-2'
-          }`}>
-            {isUser ? (
-              <User className="w-4 h-4 text-white" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-blue-300" />
-            )}
-          </div>
-          
-          {/* Enhanced Message Content */}
-          <div className={`rounded-2xl px-4 py-3 ${isUser 
-            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
-            : 'bg-gradient-to-r from-gray-800 to-gray-750 text-gray-100 border border-gray-600/50'
-          }`}>
-            <FormattedMessage content={message.content} />
-            
-            {/* Pair information */}
-            {!isUser && message.pairInfo && (
-              <PairInfoDisplay pairInfo={message.pairInfo} />
-            )}
-            
-            {/* Enhanced Options for AI messages */}
-            {!isUser && message.options && (
-              <div className="mt-4 space-y-2">
-                <div className="text-xs text-gray-400 mb-2">Choose an option:</div>
-                {message.options.map((option, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start text-left bg-gray-700/50 border-gray-600 hover:bg-gray-600/70 text-gray-100 transition-all duration-200 hover:scale-[1.02]"
-                    onClick={() => handleOptionSelect(option)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            )}
-            
-            {/* Enhanced confirmation buttons for automation config */}
-            {!isUser && message.inputType === 'confirmation' && message.automationConfig && (
-              <div className="mt-4 space-y-3">
-                <div className="text-xs text-gray-400 mb-2">Ready to proceed?</div>
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg transition-all duration-200 hover:scale-105"
-                    onClick={() => handleConfirmation(true)}
-                  >
-                    <Rocket className="w-4 h-4 mr-2" />
-                    Deploy Now
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-gray-600 hover:bg-gray-700/50 transition-all duration-200"
-                    onClick={() => handleConfirmation(false)}
-                  >
-                    <X className="w-4 w-4 mr-1" />
-                    Cancel
-                  </Button>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30 transition-all duration-200"
-                  onClick={() => {
-                    // Store config and redirect to manual interface
-                    if (message.automationConfig) {
-                      AIUtils.ConfigManager.storeConfig(message.automationConfig);
-                      router.push('/automations/stop-order?from_ai=true');
-                      setIsOpen(false);
-                    }
-                  }}
-                >
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  Use Manual Interface Instead
-                </Button>
-              </div>
-            )}
-
-            {/* AIDeploymentHandler for deployment messages */}
-            {!isUser && message.showDeploymentHandler && showDeploymentHandler && currentDeploymentConfig && (
-              <div className="mt-4">
-                <AIDeploymentHandler
-                  automationConfig={currentDeploymentConfig}
-                  onDeploymentComplete={handleDeploymentComplete}
-                  onCancel={handleDeploymentCancel}
-                />
-              </div>
-            )}
-            
-            {/* Enhanced Timestamp */}
-            <div className="mt-2 text-xs opacity-60 flex items-center space-x-1">
-              <Clock className="w-3 h-3" />
-              <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
+  // Handler for quick action buttons
+  const handleQuickAction = (text: string) => {
+    setInputValue(text);
+    // Optionally, auto-send: sendMessage(text);
   };
 
-  console.log('currentDeploymentConfig', currentDeploymentConfig);
-  
+  // Handler for manual redirect from MessageBubble
+  const handleManualRedirect = (config: any) => {
+    if (config) {
+      AIUtils.ConfigManager.storeConfig(config);
+      router.push('/automations/stop-order?from_ai=true');
+      setIsOpen(false);
+    }
+  };
+
   return (
     <>
-      {/* Enhanced Floating AI Button */}
+      {/* Floating AI Button (unchanged) */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -720,8 +529,6 @@ export default function ReactorAI() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Enhanced Chat Interface */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -737,65 +544,18 @@ export default function ReactorAI() {
             className={`fixed bottom-6 left-6 z-50 ${chatWidth} max-w-[calc(100vw-3rem)]`}
           >
             <Card className="bg-gray-900/95 backdrop-blur-md border-gray-700/50 shadow-2xl overflow-hidden h-full">
-              {/* Enhanced Header */}
-              <CardHeader className="pb-3 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/80 to-gray-750/80">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center relative">
-                      <Sparkles className="w-5 h-5 text-white" />
-                      <motion.div 
-                        className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/30 to-purple-400/30"
-                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    </div>
-                    <div>
-                      <CardTitle className="text-gray-100 text-base">Reactor AI</CardTitle>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-gray-400">
-                          {isTyping ? 'Thinking...' : 'Online'}
-                        </span>
-                        {account && (
-                          <Badge variant="secondary" className="text-xs bg-blue-600/20 text-blue-300">
-                            Connected
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-7 h-7 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-                      onClick={() => setIsExpanded(!isExpanded)}
-                      title={isExpanded ? "Shrink window" : "Expand window"}
-                    >
-                      {isExpanded ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-7 h-7 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-                      onClick={() => setIsMinimized(!isMinimized)}
-                    >
-                      {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-7 h-7 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-
-              {/* Enhanced Messages Area */}
+              {/* Chat Header */}
+              <ChatHeader
+                isTyping={isTyping}
+                account={account}
+                selectedNetwork={selectedNetwork}
+                isExpanded={isExpanded}
+                isMinimized={isMinimized}
+                onExpand={() => setIsExpanded(!isExpanded)}
+                onMinimize={() => setIsMinimized(!isMinimized)}
+                onClose={() => setIsOpen(false)}
+              />
+              {/* Messages Area */}
               <AnimatePresence>
                 {!isMinimized && (
                   <motion.div
@@ -810,9 +570,23 @@ export default function ReactorAI() {
                         ref={chatContainerRef}
                         className={`${messageAreaHeight} overflow-y-auto p-4 bg-gradient-to-b from-gray-950/50 to-gray-950 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}
                       >
-                        {messages.map(renderMessage)}
-                        
-                        {/* Enhanced loading indicator */}
+                        <MessageList
+                          messages={messages}
+                          isExpanded={isExpanded}
+                          showDeploymentHandler={showDeploymentHandler}
+                          currentDeploymentConfig={currentDeploymentConfig}
+                          onOptionSelect={handleOptionSelect}
+                          onConfirmation={handleConfirmation}
+                          onManualRedirect={handleManualRedirect}
+                          onCopy={copyToClipboard}
+                          renderDeploymentHandler={(config) => (
+                            <AIDeploymentHandler
+                              automationConfig={config}
+                              onDeploymentComplete={handleDeploymentComplete}
+                              onCancel={handleDeploymentCancel}
+                            />
+                          )}
+                        />
                         {isLoading && (
                           <motion.div
                             initial={{ opacity: 0, y: 10 }}
@@ -848,101 +622,19 @@ export default function ReactorAI() {
                             </div>
                           </motion.div>
                         )}
-                        
                         <div ref={messagesEndRef} />
                       </div>
-
-                      {/* Enhanced Input Area */}
-                      <div className="border-t border-gray-700/50 p-4 bg-gradient-to-r from-gray-900/80 to-gray-850/80">
-                        <form onSubmit={handleSubmit} className="flex space-x-3">
-                          <Input
-                            ref={inputRef}
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            placeholder="Ask me anything about DeFi automation..."
-                            className="flex-1 bg-gray-800/50 border-gray-600/50 text-gray-100 placeholder:text-gray-400 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 rounded-xl"
-                            disabled={isLoading}
-                            maxLength={500}
-                          />
-                          <Button
-                            type="submit"
-                            size="icon"
-                            disabled={isLoading || !inputValue.trim()}
-                            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl shadow-lg transition-all duration-200 hover:scale-105"
-                          >
-                            <Send className="w-4 h-4" />
-                          </Button>
-                        </form>
-                        
-                        {/* Enhanced status indicators */}
-                        <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
-                          <div className="flex items-center space-x-4">
-                            {account ? (
-                              <div className="flex items-center space-x-1">
-                                <CheckCircle className="w-3 h-3 text-green-400" />
-                                <span>Wallet connected</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-1">
-                                <AlertCircle className="w-3 h-3 text-yellow-400" />
-                                <span>Connect wallet for automations</span>
-                              </div>
-                            )}
-                            
-                            {selectedNetwork && (
-                              <Badge variant="secondary" className="text-xs bg-blue-600/20 text-blue-300">
-                                {selectedNetwork}
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <span className="text-gray-500">
-                            {inputValue.length}/500
-                          </span>
-                        </div>
-                        
-                        {/* Quick action buttons */}
-                        <div className="flex space-x-2 mt-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
-                            onClick={() => setInputValue("What is Reactor?")}
-                          >
-                            <BookOpen className="w-3 h-3 mr-1" />
-                            Learn
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
-                            onClick={() => setInputValue("Create a stop order")}
-                          >
-                            <Shield className="w-3 h-3 mr-1" />
-                            Protect
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
-                            onClick={() => setInputValue("How much ETH do I have?")}
-                          >
-                            <Coins className="w-3 h-3 mr-1" />
-                            Balance
-                          </Button>
-                          {currentDeploymentConfig && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-700/30"
-                              onClick={() => setInputValue("Deploy my stop order")}
-                            >
-                              <Rocket className="w-3 h-3 mr-1" />
-                              Deploy
-                            </Button>
-                          )}
-                        </div>
-                      </div>
+                      {/* Chat Input */}
+                      <ChatInput
+                        inputValue={inputValue}
+                        onInputChange={(e) => setInputValue(e.target.value)}
+                        onSubmit={handleSubmit}
+                        isLoading={isLoading}
+                        account={account}
+                        selectedNetwork={selectedNetwork}
+                        onQuickAction={handleQuickAction}
+                        currentDeploymentConfig={currentDeploymentConfig}
+                      />
                     </CardContent>
                   </motion.div>
                 )}

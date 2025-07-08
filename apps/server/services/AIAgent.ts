@@ -901,11 +901,11 @@ private isBlockchainQueryContextAware(message: string): boolean {
           message: `🚧 **Fee Collector Automation - Coming Soon!**\n\n**What it will do:**\n${feeCollectorInfo?.description}\n\n**Key Features:**\n${feeCollectorInfo?.features.map(f => `• ${f}`).join('\n')}\n\n**This will automatically harvest your Uniswap V3 fees and can even compound them back into your positions for maximum efficiency!**\n\nStay tuned for updates! In the meantime, would you like to create a stop order to protect your investments?`,
           intent: 'CREATE_FEE_COLLECTOR' as const,
           needsUserInput: false,
-          nextStep: 'coming_soon',
+          nextStep: 'coming soon',
           options: [
-            { value: 'create_stop_order', label: '🛡️ Create Stop Order Instead' },
-            { value: 'notify_me', label: '🔔 Notify Me When Ready' },
-            { value: 'learn_more', label: '📚 Learn More About RSCs' }
+            { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+            { value: 'notify me', label: '🔔 Notify Me When Ready' },
+            { value: 'learn more', label: '📚 Learn More About RSCs' }
           ]
         };
         
@@ -915,11 +915,10 @@ private isBlockchainQueryContextAware(message: string): boolean {
           message: `🚧 **Range Manager Automation - Coming Soon!**\n\n**What it will do:**\n${rangeManagerInfo?.description}\n\n**Key Features:**\n${rangeManagerInfo?.features.map(f => `• ${f}`).join('\n')}\n\n**This will automatically adjust your Uniswap V3 position ranges based on market conditions to maximize your fee earnings!**\n\nStay tuned for updates! In the meantime, would you like to create a stop order to protect your investments?`,
           intent: 'CREATE_RANGE_MANAGER' as const,
           needsUserInput: false,
-          nextStep: 'coming_soon',
+          nextStep: 'coming soon',
           options: [
-            { value: 'create_stop_order', label: '🛡️ Create Stop Order Instead' },
-            { value: 'notify_me', label: '🔔 Notify Me When Ready' },
-            { value: 'learn_more', label: '📚 Learn More About RSCs' }
+            { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+            { value: 'tell me about Reactive smart contracts', label: '📚 Learn More About RSCs' }
           ]
         };
         
@@ -2059,10 +2058,10 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
         needsUserInput: false,
         nextStep: 'capabilities_shown',
         options: [
-          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-          { value: 'learn_reactor', label: '📚 Learn About REACTOR' },
-          { value: 'check_balance', label: '💰 Check Balances' },
-          { value: 'coming_soon', label: '🚀 Coming Soon Features' }
+          { value: 'create stop order', label: '🛡️ Create Stop Order' },
+          { value: 'what is reactor', label: '📚 Learn About REACTOR' },
+          { value: 'check my balance', label: '💰 Check Balances' },
+          { value: 'list of coming soon features', label: '🚀 Coming Soon Features' }
         ]
       };
     }
@@ -2076,9 +2075,9 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
         needsUserInput: false,
         nextStep: 'reactive_network_explained',
         options: [
-          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-          { value: 'learn_rscs', label: '🧠 Learn About RSCs' },
-          { value: 'get_react_tokens', label: '💰 Get REACT Tokens' }
+          { value: 'create stop order', label: '🛡️ Create Stop Order' },
+          { value: 'what are rscs', label: '🧠 Learn About RSCs' },
+          { value: 'how to get react tokens', label: '💰 Get REACT Tokens' }
         ]
       };
     }
@@ -2092,9 +2091,9 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
         needsUserInput: false,
         nextStep: 'costs_explained',
         options: [
-          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-          { value: 'network_comparison', label: '🌐 Compare Networks' },
-          { value: 'calculate_costs', label: '🧮 Calculate My Costs' }
+          { value: 'create stop order', label: '🛡️ Create Stop Order' },
+          { value: 'compare networks', label: '🌐 Compare Networks' },
+          { value: 'calculate my costs', label: '🧮 Calculate My Costs' }
         ]
       };
     }
@@ -2108,8 +2107,7 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
         needsUserInput: false,
         nextStep: 'gemini_response',
         options: [
-          { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-          { value: 'ask_another', label: '❓ Ask Another Question' }
+          { value: 'create stop order', label: '🛡️ Create Stop Order' }
         ]
       };
     } catch (error: any) {
@@ -2217,10 +2215,10 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
       needsUserInput: false,
       nextStep: 'fallback_mode',
       options: [
-        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-        { value: 'coming_soon', label: '🚀 Coming Soon Features' },
-        { value: 'learn_reactor', label: '📚 Learn About REACTOR' },
-        { value: 'check_balance', label: '💰 Check My Balance' }
+        { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'What is Reactor?', label: '🚀 Coming Soon Features' },
+        { value: 'learn about reactor', label: '📚 Learn About REACTOR' },
+        { value: 'check my balance', label: '💰 Check My Balance' }
       ]
     };
   }
@@ -2230,32 +2228,32 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
     
     if (lowerMessage.includes('fee collector')) {
       return [
-        { value: 'range_manager', label: '📊 Range Managers' },
-        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-        { value: 'uniswap_v3', label: '🦄 Uniswap V3 Info' }
+        { value: 'tell me about range manager', label: '📊 Range Managers' },
+        { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'tell me about uniswap v3', label: '🦄 Uniswap V3 Info' }
       ];
     }
     
     if (lowerMessage.includes('range manager')) {
       return [
-        { value: 'fee_collector', label: '🔧 Fee Collectors' },
-        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-        { value: 'uniswap_v3', label: '🦄 Uniswap V3 Info' }
+        { value: 'fee collector', label: '🔧 Fee Collectors' },
+        { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'tell me about uniswap v3', label: '🦄 Uniswap V3 Info' }
       ];
     }
     
     if (lowerMessage.includes('reactor') || lowerMessage.includes('platform')) {
       return [
-        { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-        { value: 'learn_rscs', label: '🧠 Learn About RSCs' },
-        { value: 'coming_soon', label: '🚀 Coming Soon Features' }
+        { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'tell me about reactive smart contracts', label: '🧠 Learn About RSCs' },
+        { value: 'list of coming soon features', label: '🚀 Coming Soon Features' }
       ];
     }
     
     // Default options
     return [
-      { value: 'create_stop_order', label: '🛡️ Create Stop Order' },
-      { value: 'learn_more', label: '📚 Learn More' }
+      { value: 'create stop order', label: '🛡️ Create Stop Order' },
+      { value: 'tell me about working of Reactor', label: '📚 Learn More' }
     ];
   }
 
