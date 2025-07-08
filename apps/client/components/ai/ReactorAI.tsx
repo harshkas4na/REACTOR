@@ -223,7 +223,7 @@ export default function ReactorAI() {
         network: getChainIdFromNetwork(selectedNetwork) 
       });
 
-      const response = await fetch('http://localhost:8000/ai-automation/automate', {
+      const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
