@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Book, Workflow, Shield, Code, Users, Lightbulb, Layers, Network, DollarSign, Gauge } from 'lucide-react';
+import { Zap, Shield, DollarSign, Gauge, Users, Lightbulb } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -21,81 +21,10 @@ const features = [
     color: "bg-emerald-500"
   },
   {
-    icon: Workflow,
-    title: "Developer Tools",
-    description: "Advanced RSC deployment options for blockchain developers and engineers",
-    color: "bg-violet-500"
-  }
-];
-
-const userTypes = [
-  {
-    title: "For DeFi Users",
-    description: "No technical knowledge required",
-    icon: Users,
-    color: "bg-blue-600/20",
-    capabilities: [
-      "Pre-built automations like Stop Orders and Fee Collectors",
-      "Easy-to-use interface with step-by-step guidance",
-      "No coding required",
-      "Works with popular platforms like Uniswap V2/V3 and Pangolin"
-    ],
-    cta: {
-      text: "Try Automations",
-      link: "/"
-    }
-  },
-  {
-    title: "For Developers",
-    description: "Full control over RSC deployment",
-    icon: Code,
-    color: "bg-purple-600/20",
-    capabilities: [
-      "Custom RSC deployment",
-      "Cross-chain bridge configuration",
-      "Event-driven automation templates",
-      "Protocol integration tools"
-    ],
-    cta: {
-      text: "Explore Developer Tools",
-      link: "/get-started"
-    }
-  }
-];
-
-const tools = [
-  {
-    title: "Ready-Made Automations",
-    description: "One-click DeFi strategies for everyone",
     icon: Lightbulb,
-    capabilities: [
-      "Stop Orders for token protection",
-      "Fee Collectors for Uniswap V3 positions",
-      "Range Managers for optimal liquidity",
-      "Cross-chain operations"
-    ]
-  },
-  {
-    title: "DApp Automation Tools",
-    description: "Connect your favorite DeFi applications",
-    icon: Layers,
-    capabilities: [
-      "Live Data Integration",
-      "Cross-Chain Bridge",
-      "Cross-DApp Automation",
-      "External DApp Integration"
-    ]
-  },
-  {
-    title: "Custom RSC Deployment",
-    description: "For technical users who want complete control",
-    icon: Network,
-    capabilities: [
-      "Deploy custom RSCs",
-      "Event-driven automation",
-      "Cross-chain communication",
-      "Advanced configuration options"
-    ]
+    title: "One-Stop Solution",
+    description: "Your go-to platform for on-chain trading automations and liquidation protection.",
+    color: "bg-sky-500"
   }
 ];
 
@@ -130,10 +59,10 @@ const featuredAutomations = [
     description: "Automatically collect fees from your Uniswap V3 positions without manual intervention",
     icon: DollarSign,
     color: "from-blue-900/30 to-teal-900/30",
+    status: "Coming Soon",
     content: {
       what: "Fee Collector automatically collects trading fees that your Uniswap V3 position has earned. Unlike manual collection, our system monitors your positions 24/7 and collects fees when economically beneficial, sending them directly to your wallet.",
       platforms: [
-        { name: "Ethereum Sepolia (Uniswap V3)", color: "bg-blue-500" },
         { name: "Ethereum Mainnet (Coming Soon)", color: "bg-zinc-500" },
         { name: "Avalanche C-Chain (Coming Soon)", color: "bg-zinc-500" }
       ],
@@ -144,7 +73,7 @@ const featuredAutomations = [
         "Approve & register your position with one click",
         "Fees are automatically collected and sent to your wallet"
       ],
-      link: "/automations/fee-collector"
+      link: "#"
     }
   },
   {
@@ -153,10 +82,10 @@ const featuredAutomations = [
     description: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
     icon: Gauge,
     color: "from-purple-900/30 to-blue-900/30",
+    status: "Coming Soon",
     content: {
       what: "Range Manager automatically adjusts your Uniswap V3 position's price range to ensure your liquidity remains active and earning fees. Unlike manual management, our system monitors market conditions 24/7 and optimizes your position for maximum earnings.",
       platforms: [
-        { name: "Ethereum Sepolia (Uniswap V3)", color: "bg-blue-500" },
         { name: "Ethereum Mainnet (Coming Soon)", color: "bg-zinc-500" },
         { name: "Avalanche C-Chain (Coming Soon)", color: "bg-zinc-500" }
       ],
@@ -167,7 +96,7 @@ const featuredAutomations = [
         "Approve & register your position with one click",
         "Your position is automatically adjusted for optimal fee generation"
       ],
-      link: "/automations/range-manager"
+      link: "#"
     }
   }
 ];
@@ -186,7 +115,7 @@ export default function AboutPage() {
           About REACTOR
         </h1>
         <p className="text-xl text-zinc-300 max-w-3xl mx-auto">
-          REACTOR makes blockchain automation accessible to everyone. Whether you're a DeFi enthusiast with no coding experience or a blockchain developer, our platform provides the tools you need.
+          REACTOR is the one-stop shop for on-chain automation. We provide powerful, no-code tools like Stop Orders and Liquidation Protection to empower traders.
         </p>
       </motion.div>
 
@@ -221,74 +150,34 @@ export default function AboutPage() {
         transition={{ duration: 0.5, delay: 0.3 }}
         className="mb-16"
       >
-        <h2 className="text-3xl font-bold mb-8 text-center text-zinc-100">Who REACTOR Is For</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {userTypes.map((type, index) => (
-            <Card key={type.title} className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 relative pointer-events-auto z-10 border-zinc-800 flex flex-col h-full">
-              <CardHeader>
-                <div className={`w-12 h-12 rounded-full ${type.color} flex items-center justify-center mb-4`}>
-                  <type.icon className="w-6 h-6 text-zinc-100" />
-                </div>
-                <CardTitle className="text-zinc-100">{type.title}</CardTitle>
-                <CardDescription className="text-zinc-300">{type.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <h4 className="text-sm font-medium text-zinc-400 uppercase mb-3">Features</h4>
-                <ul className="space-y-2 mb-6">
-                  {type.capabilities.map((capability) => (
-                    <li key={capability} className="text-sm text-zinc-300 flex items-center gap-2">
-                      <div className="w-1 h-1 rounded-full bg-blue-500" />
-                      {capability}
-                    </li>
-                  ))}
-                </ul>
-                <Link href={type.cta.link}>
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                    {type.cta.text}
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Tools Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 relative pointer-events-auto z-10 border-zinc-800 mb-16">
+        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 relative pointer-events-auto z-10 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-zinc-100">Our Tools</CardTitle>
-            <CardDescription className="text-zinc-300">
-              Comprehensive suite of automation tools for all user types
-            </CardDescription>
+            <div className={`w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mb-4`}>
+              <Users className="w-6 h-6 text-zinc-100" />
+            </div>
+            <CardTitle className="text-zinc-100">For DeFi Traders</CardTitle>
+            <CardDescription className="text-zinc-300">No technical knowledge required</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {tools.map((tool, index) => (
-                <div key={tool.title} className="space-y-4 p-4 bg-blue-900/10 rounded-lg border border-blue-700/10">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center">
-                      <tool.icon className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-zinc-100">{tool.title}</h3>
-                  </div>
-                  <p className="text-sm text-zinc-300">{tool.description}</p>
-                  <ul className="space-y-2">
-                    {tool.capabilities.map((capability) => (
-                      <li key={capability} className="text-sm text-zinc-400 flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-blue-500" />
-                        {capability}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+            <h4 className="text-sm font-medium text-zinc-400 uppercase mb-3">Features</h4>
+            <ul className="space-y-2 mb-6">
+              {[
+                "Pre-built automations like Stop Orders and Fee Collectors",
+                "Easy-to-use interface with step-by-step guidance",
+                "No coding required",
+                "Works with popular platforms like Uniswap V2/V3 and Pangolin"
+              ].map((capability) => (
+                <li key={capability} className="text-sm text-zinc-300 flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-blue-500" />
+                  {capability}
+                </li>
               ))}
-            </div>
+            </ul>
+            <Link href="/">
+              <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                Try Automations
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </motion.div>
@@ -303,9 +192,12 @@ export default function AboutPage() {
           className="mb-16"
         >
           <Card className={`bg-gradient-to-br ${automation.color} relative pointer-events-auto z-10 border-zinc-800 overflow-hidden`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 z-0"></div>
+             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 z-0"></div>
             <CardHeader className="relative z-10 border-b border-zinc-800">
-              <CardTitle className="text-zinc-100">Featured Automation: {automation.title}</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-zinc-100">Featured Automation: {automation.title}</CardTitle>
+                {automation.status && <span className="text-xs font-semibold text-sky-400 bg-sky-900/50 px-2 py-1 rounded-full">{automation.status}</span>}
+              </div>
               <CardDescription className="text-zinc-300">
                 {automation.description}
               </CardDescription>
@@ -348,7 +240,7 @@ export default function AboutPage() {
               </div>
               <div className="mt-6 text-center">
                 <Link href={automation.content.link}>
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8">
+                  <Button disabled={automation.status === 'Coming Soon'} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 disabled:opacity-50">
                     Try {automation.title}
                   </Button>
                 </Link>
@@ -378,10 +270,9 @@ export default function AboutPage() {
                   What is REACTOR?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  REACTOR is a platform that makes DeFi automation accessible to everyone. We offer both ready-to-use
-                  automations like Stop Orders, Fee Collectors, and Range Managers that require zero technical knowledge, 
-                  and advanced tools for developers to build custom Reactive Smart Contracts (RSCs). Our platform bridges 
-                  the gap between complex blockchain technology and everyday users.
+                  REACTOR is a platform that makes DeFi automation accessible to everyone. We offer ready-to-use
+                  automations like Stop Orders, with Fee Collectors and Range Managers coming soon, that require zero technical knowledge. Our platform bridges 
+                  the gap between complex blockchain technology and everyday traders.
                 </AccordionContent>
               </AccordionItem>
 
@@ -390,30 +281,25 @@ export default function AboutPage() {
                   Do I need technical knowledge to use REACTOR?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  <p>Not at all! REACTOR is designed for two types of users:</p>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>Non-technical users who can use our pre-built automations with just a few clicks</li>
-                    <li>Technical users and developers who want to build custom RSCs with our advanced tools</li>
-                  </ul>
-                  <p className="mt-2">You can start using our pre-built automations like Stop Orders, Fee Collectors, and Range Managers even if you've never written a line of code.</p>
+                  <p>Not at all! REACTOR is designed for traders. You can start using our pre-built automations like Stop Orders, Fee Collectors, and Range Managers even if you've never written a line of code.</p>
                 </AccordionContent>
               </AccordionItem>
-
+              
               <AccordionItem value="how-it-works" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
                   How does REACTOR work?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  REACTOR uses Reactive Smart Contracts (RSCs) to enable event-driven automation across blockchain networks. For non-technical users, we provide simple interfaces to create automations like Stop Orders and Fee Collectors that protect your tokens and maximize your earnings. Behind the scenes, we handle all the complex blockchain interactions, including deployment, monitoring, and execution, so you don't have to.
+                  REACTOR uses Reactive Smart Contracts (RSCs) to enable event-driven automation across blockchain networks. We provide simple interfaces to create automations like Stop Orders and Fee Collectors that protect your tokens and maximize your earnings. Behind the scenes, we handle all the complex blockchain interactions, including deployment, monitoring, and execution, so you don't have to.
                 </AccordionContent>
               </AccordionItem>
-
+              
               <AccordionItem value="chains" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
                   Which blockchains does REACTOR support?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  REACTOR currently supports multiple chains including Ethereum Mainnet, Sepolia Testnet, and Avalanche C-Chain. Our Stop Order automations work with Uniswap V2 on Ethereum networks and Pangolin on Avalanche. Our Fee Collector and Range Manager automations currently work with Uniswap V3 on Sepolia Testnet, with more networks coming soon. We're continuously expanding our blockchain and protocol support.
+                  REACTOR currently supports multiple chains including Ethereum Mainnet, Sepolia Testnet, and Avalanche C-Chain. Our Stop Order automations work with Uniswap V2 on Ethereum networks and Pangolin on Avalanche. Our Fee Collector and Range Manager automations are coming soon. We're continuously expanding our blockchain and protocol support.
                 </AccordionContent>
               </AccordionItem>
 
@@ -425,29 +311,29 @@ export default function AboutPage() {
                   <p>Getting started with REACTOR is easy:</p>
                   <ol className="list-decimal pl-5 mt-2 space-y-1">
                     <li>Connect your wallet</li>
-                    <li>Choose an automation (like Stop Orders, Fee Collectors, or Range Managers) or explore our developer tools</li>
+                    <li>Choose an automation (like Stop Orders)</li>
                     <li>Follow the simple step-by-step interface to configure your automation</li>
                     <li>Deploy with one click</li>
                   </ol>
-                  <p className="mt-2">Our interface guides you through the entire process, whether you're creating a simple automation or deploying a custom RSC.</p>
+                  <p className="mt-2">Our interface guides you through the entire process.</p>
                 </AccordionContent>
               </AccordionItem>
-
+              
               <AccordionItem value="uniswap-v3" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
                   What are your Uniswap V3 automations?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  <p>We offer two powerful automations for Uniswap V3 liquidity providers:</p>
+                  <p>We are launching two powerful automations for Uniswap V3 liquidity providers soon:</p>
                   <ul className="list-disc pl-5 mt-2 space-y-2">
                     <li>
-                      <span className="font-medium">Fee Collector:</span> Automatically collects trading fees from your Uniswap V3 positions without manual intervention. The system monitors your positions 24/7 and collects fees when economically beneficial, sending them directly to your wallet.
+                      <span className="font-medium">Fee Collector:</span> Automatically collects trading fees from your Uniswap V3 positions without manual intervention.
                     </li>
                     <li>
-                      <span className="font-medium">Range Manager:</span> Automatically adjusts your Uniswap V3 position's price range to ensure your liquidity remains active and earning fees. The system monitors market conditions and optimizes your position for maximum earnings using a gas-efficient three-step process.
+                      <span className="font-medium">Range Manager:</span> Automatically adjusts your Uniswap V3 position's price range to ensure your liquidity remains active and earning fees.
                     </li>
                   </ul>
-                  <p className="mt-2">Both automations require just a one-time setup and then work continuously to maximize your earnings without any further manual intervention.</p>
+                  <p className="mt-2">Both automations will require just a one-time setup and then work continuously to maximize your earnings without any further manual intervention.</p>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

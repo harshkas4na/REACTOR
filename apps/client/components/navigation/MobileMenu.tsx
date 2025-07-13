@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useWeb3 } from '../../app/_context/Web3Context'
 import { Button } from "@/components/ui/button"
 import { UserCircle2, LogOut } from 'lucide-react'
-import { useAuth } from '@clerk/nextjs'
 import { useEffect, useRef } from 'react'
 
 interface MobileMenuProps {
@@ -17,7 +16,6 @@ interface MobileMenuProps {
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { switchNetwork, selectedNetwork } = useWeb3();
-  const { isSignedIn, signOut } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -138,7 +136,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           </Select>
         </div>
 
-        {/* Authentication */}
+        {/* Authentication
         <div className="pt-4 border-t border-gray-700">
           {isSignedIn ? (
             <Button
@@ -165,7 +163,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               Sign In
             </Button>
           )}
-        </div>
+        </div> */}
       </div>
     </motion.div>
   );

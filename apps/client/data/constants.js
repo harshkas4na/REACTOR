@@ -6,7 +6,7 @@ export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
     { label: 'Deploy RSC', path: '/deploy-reactive-contract' },
-    { label: 'Dapp-Automation', path: '/dapp-automation' }
+    // { label: 'Dapp-Automation', path: '/dapp-automation' }
   ]
 
 export const FEATURES = [

@@ -27,7 +27,7 @@ const slides = [
     image: "/Background2.jpg",
     primaryButton: {
       text: "Use Automations",
-      href: "/templates",
+      href: "/automations/stop-order",
       icon: RocketLaunchIcon
     }
   },

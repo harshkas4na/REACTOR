@@ -1,5 +1,3 @@
-import { Id } from '@/convex/_generated/dataModel';
-
 export interface HelperContract {
   name: string;
   contract: string;
@@ -11,7 +9,7 @@ export type UseCaseType = 'live-data' | 'cross-bridge' | 'cross-chain' | 'extern
 export type UseCaseCategory = 'defi' | 'nft' | 'dao';
 
 export interface UseCase {
-  _id: Id<"useCases">;
+  _id: string;
   _creationTime: number;
   title: string;
   shortDescription: string;
@@ -32,43 +30,42 @@ export interface UseCase {
   category: UseCaseCategory;
   tags: string[];
   likes: number;
-  userId: Id<"users">;
+  userId: string;
   lastUpdated?: number;
   status?: 'draft' | 'published' | 'archived';
   version?: string;
 }
 
 export interface Comment {
-  _id: Id<"comments">;
+  _id: string;
   _creationTime: number;
-  userId: Id<"users">;
-  useCaseId: Id<"useCases">;
-  user: Id<"users">;
+  userId: string;
+  useCaseId: string;
+  user: string;
   text: string;
   timestamp: string;
   editHistory?: Array<{
     text: string;
     timestamp: string;
   }>;
-  parentCommentId?: Id<"comments">;
+  parentCommentId?: string;
   isEdited: boolean;
 }
 
 export interface Like {
-  _id: Id<"likes">;
+  _id: string;
   _creationTime: number;
-  userId: Id<"users">;
-  useCaseId: Id<"useCases">;
+  userId: string;
+  useCaseId: string;
   timestamp: string;
 }
 
 export interface User {
-  _id: Id<"users">;
+  _id: string;
   _creationTime: number;
   name: string;
   email: string;
   imageUrl: string;
-  clerkId: string;
   role?: 'user' | 'admin' | 'moderator';
   bio?: string;
   website?: string;

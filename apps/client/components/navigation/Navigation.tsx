@@ -10,7 +10,6 @@ import { DesktopMenu } from './DesktopMenu'
 import { MobileMenu } from './MobileMenu'
 import { MenuToggle } from './MenuToggle'
 import { useWeb3 } from '@/app/_context/Web3Context'
-import { useAuth } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
 import AlphaBanner from './AlphaBanner'
@@ -21,7 +20,6 @@ export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   // const [isLoading, setIsLoading] = useState<boolean>(false)
   // const [error, setError] = useState<string | null>(null)
-  const { isSignedIn, signOut } = useAuth()
   
 
   
@@ -152,7 +150,7 @@ export default function Navigation() {
             )}
           </Button>
 
-            {/* Auth Button */}
+            {/* Auth Button
             <div className="hidden md:block">
               {isSignedIn ? (
                 <Button
@@ -175,7 +173,7 @@ export default function Navigation() {
                   <UserCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               )}
-            </div>
+            </div> */}
 
             {/* Menu Toggle - Always visible on screens < lg */}
             <div className="lg:hidden">

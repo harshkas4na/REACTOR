@@ -28,9 +28,9 @@ const Footer = () => {
           <div className="text-center sm:text-left">
             <h4 className="text-lg font-semibold mb-4 text-white">Quick Links</h4>
             <ul className="space-y-2">
-              {['Home', 'Automations', 'Documentation', 'Community'].map((item) => (
+              {['Home', 'Automations', 'About', 'Contact'].map((item) => (
                 <li key={item}>
-                  <Link href="#" className="text-sm hover:text-primary transition-colors duration-300">
+                  <Link href={item === 'Home' ? '/' : `/${item.toLowerCase().replace(' ', '-')}`} className="text-sm hover:text-primary transition-colors duration-300">
                     {item}
                   </Link>
                 </li>
