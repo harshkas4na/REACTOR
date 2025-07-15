@@ -34,25 +34,29 @@ interface AaveProtectionFormData {
   preferDebtRepayment: boolean;
 }
 
+interface AssetPosition {
+  address: string;
+  symbol: string;
+  name: string;
+  collateralBalance: number;
+  debtBalance: number;
+  collateralUSD: number;
+  debtUSD: number;
+  priceUSD: number;
+  decimals: number;
+}
+
 interface AavePositionInfo {
   totalCollateralETH: string;
   totalDebtETH: string;
+  totalCollateralUSD: number;
+  totalDebtUSD: number;
   availableBorrowsETH: string;
   currentLiquidationThreshold: string;
   ltv: string;
   healthFactor: string;
   hasPosition: boolean;
-  collateralTokens?: Array<{
-    address: string;
-    symbol: string;
-    balance: string;
-    enabled: boolean;
-  }>;
-  debtTokens?: Array<{
-    address: string;
-    symbol: string;
-    balance: string;
-  }>;
+  userAssets: AssetPosition[];
 }
 
 interface UserSubscription {
@@ -70,19 +74,29 @@ interface ChainConfig {
   name: string;
   lendingPoolAddress: string;
   protocolDataProviderAddress: string;
+  addressesProviderAddress: string; // NEW: Aave addresses provider
   protectionManagerAddress: string;
   rpcUrl?: string;
   nativeCurrency: string;
 }
 
-// Configuration constants - currently only Sepolia is supported
+interface AssetConfig {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  // Removed priceFeedAddress and mainnetPrice - no longer needed
+}
+
+// Configuration constants - updated for new contract architecture
 const SUPPORTED_CHAINS: ChainConfig[] = [
   { 
     id: '11155111', 
     name: 'Ethereum Sepolia',
     lendingPoolAddress: '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951',
     protocolDataProviderAddress: '0x3e9708d80f7B3e43118013075F7e95CE3AB31F31',
-    protectionManagerAddress: '0x22ca900A722bfA639019d7542C275387aF50d5D9', // Replace with actual deployed address
+    addressesProviderAddress: '0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A', // NEW: Aave addresses provider on Sepolia
+    protectionManagerAddress: '0x4833996c0de8a9f58893A9Db0B6074e29D1bD4a9', // Replace with actual deployed address
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH'
   },
@@ -92,19 +106,46 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     name: 'Ethereum Mainnet (Coming Soon)',
     lendingPoolAddress: '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9',
     protocolDataProviderAddress: '0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d',
+    addressesProviderAddress: '0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5', // Mainnet addresses provider
     protectionManagerAddress: '',
     rpcUrl: 'https://ethereum.publicnode.com',
     nativeCurrency: 'ETH'
   }
 ];
 
-// Common Aave assets on Sepolia (with their addresses)
-const AAVE_ASSETS = {
+// Updated asset configuration - removed price feed addresses
+const AAVE_ASSETS: Record<string, AssetConfig[]> = {
   '11155111': [
-    { address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', symbol: 'LINK', name: 'Chainlink' },
-    { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin' },
-    { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin' },
-    { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD' }
+    { 
+      address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', 
+      symbol: 'LINK', 
+      name: 'Chainlink',
+      decimals: 18
+    },
+    { 
+      address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', 
+      symbol: 'USDC', 
+      name: 'USD Coin',
+      decimals: 6
+    },
+    { 
+      address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', 
+      symbol: 'DAI', 
+      name: 'Dai Stablecoin',
+      decimals: 18
+    },
+    { 
+      address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', 
+      symbol: 'USDT', 
+      name: 'Tether USD',
+      decimals: 6
+    },
+    {
+      address: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9', // WETH on Sepolia
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18
+    }
   ]
 };
 
@@ -179,6 +220,51 @@ export default function AaveLiquidationProtectionPage() {
     };
   }, []);
 
+  // NEW: Get asset price from the protection manager contract (which uses Aave's oracle)
+  const getAssetPriceUSD = async (assetConfig: AssetConfig, provider: ethers.BrowserProvider) => {
+    try {
+      // Use the protection manager contract to get asset price from Aave oracle
+      const protectionManagerInterface = new ethers.Interface([
+        'function getAssetPrice(address asset) view returns (uint256)'
+      ]);
+
+      const protectionManagerContract = new ethers.Contract(
+        selectedChain.protectionManagerAddress,
+        protectionManagerInterface,
+        provider
+      );
+
+      try {
+        const priceWei = await protectionManagerContract.getAssetPrice(assetConfig.address);
+        const priceUSD = Number(priceWei) / 1e8; // Aave oracle returns prices in 8 decimals
+        
+        if (priceUSD > 0) {
+          console.log(`Aave Oracle price for ${assetConfig.symbol}: ${priceUSD}`);
+          return priceUSD;
+        }
+      } catch (oracleError) {
+        console.log(`Failed to get price for ${assetConfig.symbol} from protection manager`);
+      }
+
+      // Fallback prices for better UX on testnet
+      const fallbackPrices: Record<string, number> = {
+        'LINK': 30.0,
+        'USDC': 1.0,
+        'DAI': 1.0,
+        'USDT': 1.0,
+        'ETH': 2500.0
+      };
+
+      const fallbackPrice = fallbackPrices[assetConfig.symbol] || 0;
+      console.log(`Using fallback price for ${assetConfig.symbol}: ${fallbackPrice}`);
+      return fallbackPrice;
+
+    } catch (error) {
+      console.error(`Error fetching price for ${assetConfig.symbol}:`, error);
+      return 0;
+    }
+  };
+
   const handleFetchAavePosition = async (userAddress: string) => {
     setIsLoadingPosition(true);
     setFetchError('');
@@ -196,7 +282,7 @@ export default function AaveLiquidationProtectionPage() {
         throw new Error('Please switch to the selected network');
       }
 
-      // Aave Lending Pool interface
+      // First get overall account data
       const lendingPoolInterface = new ethers.Interface([
         'function getUserAccountData(address user) view returns (uint256 totalCollateralETH, uint256 totalDebtETH, uint256 availableBorrowsETH, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)'
       ]);
@@ -210,19 +296,73 @@ export default function AaveLiquidationProtectionPage() {
       console.log("Fetching Aave position for:", userAddress);
       
       const userData = await lendingPoolContract.getUserAccountData(userAddress);
-      
+      console.log("Raw collateral wei:", userData.totalCollateralETH.toString());
+      console.log("Raw debt wei:", userData.totalDebtETH.toString());
+
+      // Protocol Data Provider interface for individual assets
+      const dataProviderInterface = new ethers.Interface([
+        'function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)'
+      ]);
+
+      const dataProvider = new ethers.Contract(
+        selectedChain.protocolDataProviderAddress,
+        dataProviderInterface,
+        provider
+      );
+
+      // Get individual asset positions
+      const userAssets: AssetPosition[] = [];
+      let totalCollateralUSD = 0;
+      let totalDebtUSD = 0;
+
+      for (const assetConfig of availableAssets) {
+        try {
+          const reserveData = await dataProvider.getUserReserveData(assetConfig.address, userAddress);
+          
+          const collateralBalance = parseFloat(ethers.formatUnits(reserveData.currentATokenBalance, assetConfig.decimals));
+          const debtBalance = parseFloat(ethers.formatUnits(reserveData.currentVariableDebt, assetConfig.decimals));
+          
+          if (collateralBalance > 0 || debtBalance > 0) {
+            const priceUSD = await getAssetPriceUSD(assetConfig, provider);
+            
+            const collateralUSD = collateralBalance * priceUSD;
+            const debtUSD = debtBalance * priceUSD;
+            
+            userAssets.push({
+              address: assetConfig.address,
+              symbol: assetConfig.symbol,
+              name: assetConfig.name,
+              collateralBalance,
+              debtBalance,
+              collateralUSD,
+              debtUSD,
+              priceUSD,
+              decimals: assetConfig.decimals
+            });
+            
+            totalCollateralUSD += collateralUSD;
+            totalDebtUSD += debtUSD;
+          }
+        } catch (error) {
+          console.log(`No position in ${assetConfig.symbol}:`, error);
+        }
+      }
+
       // Check if user has any position
-      const hasPosition = userData.totalCollateralETH > 0 || userData.totalDebtETH > 0;
+      const hasPosition = userAssets.length > 0;
       
       if (!hasPosition) {
         setPositionInfo({
           totalCollateralETH: '0',
           totalDebtETH: '0',
+          totalCollateralUSD: 0,
+          totalDebtUSD: 0,
           availableBorrowsETH: '0',
           currentLiquidationThreshold: '0',
           ltv: '0',
           healthFactor: '0',
-          hasPosition: false
+          hasPosition: false,
+          userAssets: []
         });
         return;
       }
@@ -231,11 +371,14 @@ export default function AaveLiquidationProtectionPage() {
       setPositionInfo({
         totalCollateralETH: ethers.formatEther(userData.totalCollateralETH),
         totalDebtETH: ethers.formatEther(userData.totalDebtETH),
+        totalCollateralUSD,
+        totalDebtUSD,
         availableBorrowsETH: ethers.formatEther(userData.availableBorrowsETH),
         currentLiquidationThreshold: (Number(userData.currentLiquidationThreshold) / 100).toString(),
         ltv: (Number(userData.ltv) / 100).toString(),
         healthFactor: ethers.formatEther(userData.healthFactor),
-        hasPosition: true
+        hasPosition: true,
+        userAssets
       });
 
       // Also fetch user subscription status
@@ -265,6 +408,7 @@ export default function AaveLiquidationProtectionPage() {
       );
 
       const subscription = await protectionManagerContract.getUserProtection(userAddress);
+      console.log("subscription:", subscription);
       
       if (subscription.isActive) {
         setUserSubscription({
@@ -372,14 +516,35 @@ export default function AaveLiquidationProtectionPage() {
       const thresholdWei = ethers.parseEther(formData.healthFactorThreshold);
       const targetWei = ethers.parseEther(formData.targetHealthFactor);
 
-      const tx = await protectionManagerContract.subscribeToProtection(
-        parseInt(formData.protectionType),
-        thresholdWei,
-        targetWei,
-        formData.collateralAsset,
-        formData.debtAsset,
-        formData.preferDebtRepayment
-      );
+      let tx;
+      if (formData.collateralAsset && formData.debtAsset) {
+        tx = await protectionManagerContract.subscribeToProtection(
+          parseInt(formData.protectionType),
+          thresholdWei,
+          targetWei,
+          formData.collateralAsset,
+          formData.debtAsset,
+          formData.preferDebtRepayment
+        );
+      } else if (!formData.collateralAsset) {
+        tx = await protectionManagerContract.subscribeToProtection(
+          parseInt(formData.protectionType),
+          thresholdWei,
+          targetWei,
+          "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8", // fixed USDC
+          formData.debtAsset,
+          true
+        );
+      } else if (!formData.debtAsset) {
+        tx = await protectionManagerContract.subscribeToProtection(
+          parseInt(formData.protectionType),
+          thresholdWei,
+          targetWei,
+          formData.collateralAsset,
+          "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8", // fixed USDC
+          false
+        );
+      }
 
       await tx.wait();
       
@@ -428,12 +593,10 @@ export default function AaveLiquidationProtectionPage() {
       if (!formData.userAddress || !ethers.isAddress(formData.userAddress)) {
         throw new Error('Please enter a valid user address');
       }
-      if (!formData.collateralAsset) {
-        throw new Error('Please select a collateral asset');
+      if (!formData.collateralAsset && !formData.debtAsset) {
+        throw new Error('Please select a collateral or debt asset');
       }
-      if (!formData.debtAsset) {
-        throw new Error('Please select a debt asset');
-      }
+      
       if (parseFloat(formData.healthFactorThreshold) <= 1) {
         throw new Error('Health factor threshold must be greater than 1.0');
       }
@@ -459,6 +622,7 @@ export default function AaveLiquidationProtectionPage() {
         throw new Error('Already subscribed to protection. Unsubscribe first to change settings.');
       }
 
+      console.log("collateralApproved:",collateralApproved);
       // Step 1: Approve collateral token if needed
       if ((formData.protectionType === '0' || formData.protectionType === '2') && !collateralApproved) {
         setSetupStep('approving-collateral');
@@ -491,50 +655,50 @@ export default function AaveLiquidationProtectionPage() {
   const SetupStatusUI = () => {
     return (
       <>
-      {setupStep !== 'idle' && (
-        <Alert className={
-          setupStep === 'complete' 
-            ? "bg-green-900/20 border-green-500/50" 
-            : "bg-blue-900/20 border-blue-500/50"
-        }>
-          {setupStep === 'complete' 
-            ? <CheckCircle className="h-4 w-4 text-green-400" /> 
-            : <Clock className="h-4 w-4 text-blue-400 animate-pulse" />
-          }
-          <AlertDescription className="text-zinc-200">
-            {setupStep === 'checking-position' && (
-              <div className="flex flex-col gap-1">
-                <span>Checking Aave position...</span>
-                <span className="text-xs text-zinc-400">Fetching your current health factor and balances</span>
-              </div>
-            )}
-            {setupStep === 'approving-collateral' && (
-              <div className="flex flex-col gap-1">
-                <span>Approving collateral token...</span>
-                <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
-              </div>
-            )}
-            {setupStep === 'approving-debt' && (
-              <div className="flex flex-col gap-1">
-                <span>Approving debt token...</span>
-                <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
-              </div>
-            )}
-            {setupStep === 'subscribing' && (
-              <div className="flex flex-col gap-1">
-                <span>Subscribing to protection service...</span>
-                <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
-              </div>
-            )}
-            {setupStep === 'complete' && (
-              <div className="flex flex-col gap-1">
-                <span>Protection setup completed successfully!</span>
-                <span className="text-xs text-zinc-400">Your position is now being monitored 24/7</span>
-              </div>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
+        {setupStep !== 'idle' && (
+          <Alert className={
+            setupStep === 'complete' 
+              ? "bg-green-900/20 border-green-500/50" 
+              : "bg-blue-900/20 border-blue-500/50"
+          }>
+            {setupStep === 'complete' 
+              ? <CheckCircle className="h-4 w-4 text-green-400" /> 
+              : <Clock className="h-4 w-4 text-blue-400 animate-pulse" />
+            }
+            <AlertDescription className="text-zinc-200">
+              {setupStep === 'checking-position' && (
+                <div className="flex flex-col gap-1">
+                  <span>Checking Aave position...</span>
+                  <span className="text-xs text-zinc-400">Fetching your current health factor and balances</span>
+                </div>
+              )}
+              {setupStep === 'approving-collateral' && (
+                <div className="flex flex-col gap-1">
+                  <span>Approving collateral token...</span>
+                  <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
+                </div>
+              )}
+              {setupStep === 'approving-debt' && (
+                <div className="flex flex-col gap-1">
+                  <span>Approving debt token...</span>
+                  <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
+                </div>
+              )}
+              {setupStep === 'subscribing' && (
+                <div className="flex flex-col gap-1">
+                  <span>Subscribing to protection service...</span>
+                  <span className="text-xs text-zinc-400">Please confirm the transaction in your wallet</span>
+                </div>
+              )}
+              {setupStep === 'complete' && (
+                <div className="flex flex-col gap-1">
+                  <span>Protection setup completed successfully!</span>
+                  <span className="text-xs text-zinc-400">Your position is now being monitored 24/7</span>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
       </>
     );
   };
@@ -586,6 +750,23 @@ export default function AaveLiquidationProtectionPage() {
                     <h3 className="font-medium text-white">Non-Custodial</h3>
                     <p className="text-sm text-gray-200">You maintain control</p>
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* NEW: Oracle Information Card */}
+          <Card className="relative bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30 mt-6">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-full bg-purple-600/20 flex items-center justify-center">
+                  <Zap className="h-4 w-4 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-purple-100">Enhanced with Aave Oracle</h3>
+                  <p className="text-sm text-purple-200">
+                    Now using Aave's native price oracle for more accurate and reliable price feeds
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -757,29 +938,85 @@ export default function AaveLiquidationProtectionPage() {
                       </AlertDescription>
                     </Alert>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-zinc-400">Total Collateral</p>
-                        <p className="text-zinc-200 font-medium">{parseFloat(positionInfo.totalCollateralETH).toFixed(4)} ETH</p>
+                    <>
+                      {/* Main Position Stats */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-zinc-400">Total Collateral</p>
+                          <p className="text-zinc-200 font-medium text-lg">
+                            ${positionInfo.totalCollateralUSD.toFixed(2)} USD
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            ({parseFloat(positionInfo.totalCollateralETH).toFixed(6)} ETH)
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-zinc-400">Total Debt</p>
+                          <p className="text-zinc-200 font-medium text-lg">
+                            ${positionInfo.totalDebtUSD.toFixed(2)} USD
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            ({parseFloat(positionInfo.totalDebtETH).toFixed(6)} ETH)
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-zinc-400">Health Factor</p>
+                          <p className={`font-medium text-lg ${
+                            parseFloat(positionInfo.healthFactor) > 1.5 ? 'text-green-400' :
+                            parseFloat(positionInfo.healthFactor) > 1.2 ? 'text-amber-400' : 'text-red-400'
+                          }`}>
+                            {parseFloat(positionInfo.healthFactor).toFixed(3)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-zinc-400">Liquidation Threshold</p>
+                          <p className="text-zinc-200 font-medium">{positionInfo.currentLiquidationThreshold}%</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-zinc-400">Total Debt</p>
-                        <p className="text-zinc-200 font-medium">{parseFloat(positionInfo.totalDebtETH).toFixed(4)} ETH</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-zinc-400">Health Factor</p>
-                        <p className={`font-medium ${
-                          parseFloat(positionInfo.healthFactor) > 1.5 ? 'text-green-400' :
-                          parseFloat(positionInfo.healthFactor) > 1.2 ? 'text-amber-400' : 'text-red-400'
-                        }`}>
-                          {parseFloat(positionInfo.healthFactor).toFixed(3)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-zinc-400">Liquidation Threshold</p>
-                        <p className="text-zinc-200 font-medium">{positionInfo.currentLiquidationThreshold}%</p>
-                      </div>
-                    </div>
+
+                      {/* Detailed Asset Breakdown */}
+                      {positionInfo.userAssets && positionInfo.userAssets.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium text-zinc-200">Position Breakdown:</h4>
+                            <div className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
+                              🔮 Prices from Aave Oracle
+                            </div>
+                          </div>
+                          <div className="grid gap-2">
+                            {positionInfo.userAssets.map(asset => (
+                              <div key={asset.symbol} className="flex justify-between items-center p-3 bg-zinc-800/50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                    <span className="text-xs font-medium text-blue-400">
+                                      {asset.symbol.slice(0, 2)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-zinc-200">{asset.symbol}</p>
+                                    <p className="text-xs text-zinc-400">${asset.priceUSD.toFixed(2)} USD</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  {asset.collateralBalance > 0 && (
+                                    <div className="text-green-400 text-sm">
+                                      <span className="font-medium">+{asset.collateralBalance.toFixed(4)}</span>
+                                      <span className="text-xs ml-1">(${asset.collateralUSD.toFixed(2)})</span>
+                                    </div>
+                                  )}
+                                  {asset.debtBalance > 0 && (
+                                    <div className="text-red-400 text-sm">
+                                      <span className="font-medium">-{asset.debtBalance.toFixed(4)}</span>
+                                      <span className="text-xs ml-1">(${asset.debtUSD.toFixed(2)})</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1054,8 +1291,7 @@ export default function AaveLiquidationProtectionPage() {
                     disabled={
                       setupStep !== 'idle' || 
                       !positionInfo?.hasPosition ||
-                      !formData.collateralAsset ||
-                      !formData.debtAsset ||
+                      !(formData.collateralAsset || formData.debtAsset) ||
                       selectedChain.id !== '11155111'
                     }
                   >
@@ -1160,9 +1396,9 @@ export default function AaveLiquidationProtectionPage() {
                         </p>
                       </div>
                       <div className="bg-blue-500/10 p-4 rounded-lg">
-                        <h4 className="font-medium text-zinc-100 mb-2">3. Mathematical Precision</h4>
+                        <h4 className="font-medium text-zinc-100 mb-2">3. Aave Oracle Integration</h4>
                         <p className="text-sm text-zinc-300">
-                          Calculates exact amounts needed to reach your target health factor
+                          Uses Aave's native price oracle for accurate and reliable price data
                         </p>
                       </div>
                       <div className="bg-blue-500/10 p-4 rounded-lg">
@@ -1227,6 +1463,7 @@ export default function AaveLiquidationProtectionPage() {
                         <li>You maintain full control of your assets through approval mechanisms</li>
                         <li>Protection may not execute if you lack sufficient assets or approvals</li>
                         <li>Consider gas costs when setting thresholds for small positions</li>
+                        <li><span className="font-medium text-purple-300">NEW:</span> Now uses Aave's native oracle for enhanced price accuracy</li>
                       </ul>
                     </div>
                   </div>

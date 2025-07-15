@@ -1,13 +1,20 @@
-
-
-  //Base URL for the API
+//Base URL for the API
 export const BASE_URL = 'https://app.thereactor.in/api'
+
 export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
+    { 
+      label: 'Automations', 
+      type: 'dropdown',
+      items: [
+        { label: 'Stop Order', path: '/automations/stop-order' },
+        { label: 'Aave Protection', path: '/automations/aave-protection' }
+      ]
+    },
     { label: 'Deploy RSC', path: '/deploy-reactive-contract' },
     // { label: 'Dapp-Automation', path: '/dapp-automation' }
-  ]
+]
 
 export const FEATURES = [
     { title: "Automation", description: "Streamline your workflows with our powerful automation tools." },
@@ -21,14 +28,13 @@ export const TESTIMONIALS = [
     { name: "John Doe", role: "CEO, TechCorp", content: "This solution has revolutionized our business processes." },
     { name: "Jane Smith", role: "CTO, InnovateCo", content: "The automation capabilities are truly game-changing." },
     { name: "Alex Johnson", role: "Founder, StartupX", content: "We've seen a 50% increase in productivity since implementing this." },
-  ]
+]
 
-
-  export const API_ENDPOINTS = {
+export const API_ENDPOINTS = {
     GENERATE_CONTRACT: `${BASE_URL}/generateSC`
-  }
+}
 
-  export const TEMPLATE_CARDS = [
+export const TEMPLATE_CARDS = [
     {
       title: "Smart Contracts Library",
       description: "Explore implementation examples and use cases for Reactive Smart Contracts. Find inspiration for building your own RSC-powered solutions or contribute your ideas to help shape future no-code automations.",
@@ -82,5 +88,4 @@ export const TESTIMONIALS = [
         alt: "DApp Integration Patterns"
       }
     }
-  ];
-
+];

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Moon, Sun, Menu, UserCircle2, LogOut } from 'lucide-react'
+import { Moon, Sun, Menu, UserCircle2, LogOut, Wallet } from 'lucide-react'
 import { DesktopMenu } from './DesktopMenu'
 import { MobileMenu } from './MobileMenu'
 import { MenuToggle } from './MenuToggle'
@@ -132,24 +132,49 @@ export default function Navigation() {
           </div>
 
             
-            {/* Connect Wallet Button */}
-            <Button
-            onClick={connectWallet}
-            disabled={isLoading}
-            variant={error ? "destructive" : "default"}
-            className="text-xs sm:text-sm px-2 sm:px-3 hover:bg-primary/80 md:px-4 min-w-0 truncate max-w-[120px] sm:max-w-[150px]"
-          >
-            {isLoading ? (
-              "Connecting..."
-            ) : error ? (
-              isMobileDevice ? "Open MetaMask" : "Install MetaMask"
-            ) : account ? (
-              formatAddress(account)
-            ) : (
-              "Connect"
-            )}
-          </Button>
-
+            {/* Wallet Connection */}
+            <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button
+                  onClick={connectWallet}
+                  disabled={isLoading}
+                  variant={error ? "destructive" : account ? "secondary" : "default"}
+                  className={`
+                    relative overflow-hidden px-4 py-2 text-sm font-medium transition-all duration-300
+                    ${account 
+                      ? 'bg-gradient-to-r from-primary/20 to-secondary/20 hover:from-primary/30 hover:to-secondary/30 border border-primary/30' 
+                      : error 
+                        ? 'bg-destructive hover:bg-destructive/90' 
+                        : 'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90'
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {isLoading ? (
+                        "Connecting..."
+                      ) : error ? (
+                        isMobileDevice ? "Open MetaMask" : "Install MetaMask"
+                      ) : account ? (
+                        formatAddress(account)
+                      ) : (
+                        "Connect Wallet"
+                      )}
+                    </span>
+                    <span className="sm:hidden">
+                      {isLoading ? "..." : error ? "!" : account ? formatAddress(account) : "Connect"}
+                    </span>
+                  </div>
+                  
+                  {/* Loading animation */}
+                  {isLoading && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                  )}
+                </Button>
+              </motion.div>
             {/* Auth Button
             <div className="hidden md:block">
               {isSignedIn ? (

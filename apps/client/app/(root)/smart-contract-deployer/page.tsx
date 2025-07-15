@@ -17,6 +17,8 @@ import { useAutomationContext } from '@/app/_context/AutomationContext';
 import { useRouter } from 'next/navigation';
 import { BASE_URL } from '@/data/constants';
 import { CALLBACK_PROXIES } from '@/components/smart-contract-deployer/DeploymentHistory';
+import { motion } from 'framer-motion';
+import { Code, Network, Merge, Info } from 'lucide-react';
 
 export interface DeploymentRecord {
   id: number;
@@ -307,41 +309,65 @@ export default function SmartContractDeployer() {
     }
   }
 
+  const contractTypes = [
+    {
+      type: 'origin',
+      title: 'Origin Contract',
+      description: 'Emits events that trigger actions on other chains. These contracts generate the data that RSCs monitor.',
+      icon: Code,
+      color: 'bg-primary/10 border-primary/20'
+    },
+    {
+      type: 'destination',
+      title: 'Destination Contract',
+      description: 'Receives and executes functions triggered by events from origin contracts via RSCs.',
+      icon: Network,
+      color: 'bg-secondary/10 border-secondary/20'
+    },
+    {
+      type: 'both',
+      title: 'Combined Contract',
+      description: 'A single contract that can both emit events and receive function calls from RSCs.',
+      icon: Merge,
+      color: 'bg-accent/10 border-accent/20'
+    }
+  ];
+
   if (showInitialDialog) {
     return (
       <Dialog open={showInitialDialog} onOpenChange={setShowInitialDialog}>
-        <DialogContent>
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle>Contract Configuration</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Contract Configuration</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Please provide some information about your smart contract.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Contract Type</label>
+              <label className="text-sm font-medium text-foreground">Contract Type</label>
               <Select onValueChange={(value: 'origin' | 'destination' | 'both') => setContractType(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-input border-border text-foreground">
                   <SelectValue placeholder="Select contract type" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="origin">Origin Contract</SelectItem>
-                  <SelectItem value="destination">Destination Contract</SelectItem>
-                  <SelectItem value="both">Combined Origin & Destination Contract</SelectItem>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="origin" className="text-foreground">Origin Contract</SelectItem>
+                  <SelectItem value="destination" className="text-foreground">Destination Contract</SelectItem>
+                  <SelectItem value="both" className="text-foreground">Combined Origin & Destination Contract</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Does your contract use external libraries?</label>
+              <label className="text-sm font-medium text-foreground">Does your contract use external libraries?</label>
               <Select onValueChange={(value) => setUseLibraries(value === 'true')}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-input border-border text-foreground">
                   <SelectValue placeholder="Select an option" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">No</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="false" className="text-foreground">No</SelectItem>
+                  <SelectItem value="true" className="text-foreground">Yes</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -349,16 +375,18 @@ export default function SmartContractDeployer() {
             {useLibraries && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Contract ABI</label>
+                  <label className="text-sm font-medium text-foreground">Contract ABI</label>
                   <Textarea
+                    className="bg-input border-border text-foreground"
                     placeholder="Paste your contract ABI here"
                     value={manualABI}
                     onChange={(e) => setManualABI(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Contract Bytecode</label>
+                  <label className="text-sm font-medium text-foreground">Contract Bytecode</label>
                   <Textarea
+                    className="bg-input border-border text-foreground"
                     placeholder="Paste your contract bytecode here"
                     value={manualBytecode}
                     onChange={(e) => setManualBytecode(e.target.value)}
@@ -369,6 +397,7 @@ export default function SmartContractDeployer() {
           </div>
 
           <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => setShowInitialDialog(false)}
             disabled={!contractType || (useLibraries && (!manualABI || !manualBytecode))}
           >
@@ -380,42 +409,114 @@ export default function SmartContractDeployer() {
   }
 
   return (
-    <div className="min-h-screen text-slate-900 dark:text-slate-50">
-      <header className="shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Deploy Smart Contract</h1>
-        </div>
-      </header>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {!useLibraries ? (
-            <>
-              <Card className="p-6">
-                <ContractEditor 
-                  onCompile={handleCompile}
-                  compilationStatus={compilationStatus}
-                  contractType={contractType as 'origin' | 'destination'}
-                />
-              </Card>
-              <Card className="p-6">
-                <DeploymentConfig
-                  compilationStatus={compilationStatus}
-                  compilationError={compilationError}
-                  onDeploy={handleDeploy}
-                  deploymentStatus={deploymentStatus}
-                  deploymentError={deploymentError}
-                  contractType={contractType as 'origin' | 'destination' | 'both'}
-                  abi={abi}
-                  bytecode={bytecode}
-                />
-              </Card>
-            </>
-          ) : (
-            <Card className="p-6 col-span-2 z-100">
-              <CardHeader>
-                <CardTitle>Manual ABI & Bytecode Deployment</CardTitle>
-              </CardHeader>
-              <CardContent>
+    <div className="min-h-screen  text-foreground">
+      <div className="container mx-auto py-12 px-4">
+        {/* Hero Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <h1 className="text-4xl font-bold mb-6  bg-clip-text bg-gradient-to-r from-primary to-secondary">
+            Smart Contract Deployer
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            Deploy your smart contracts with confidence. Whether you're creating origin contracts that emit events, 
+            destination contracts that receive actions, or combined contracts that do both - we've got you covered.
+          </p>
+        </motion.div>
+
+        {/* Key Concepts Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mb-16"
+        >
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-foreground mb-4">Key Concepts</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Understanding the different types of contracts in the Reactive ecosystem
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {contractTypes.map((concept, index) => (
+              <motion.div
+                key={concept.type}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 + (index * 0.1) }}
+              >
+                <Card className={`bg-card border-border h-full ${concept.color}`}>
+                  <CardHeader>
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                        <concept.icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <CardTitle className="text-foreground">{concept.title}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">{concept.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Main Deployment Tools */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="mb-8"
+        >
+          <Card className="bg-card border-border">
+            <CardHeader className="bg-accent/10 border-b border-border">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Info className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-foreground">
+                    {contractType === 'origin' ? 'Origin Contract Deployment' :
+                     contractType === 'destination' ? 'Destination Contract Deployment' :
+                     'Combined Contract Deployment'}
+                  </CardTitle>
+                  <p className="text-muted-foreground">
+                    {contractType === 'origin' ? 'Deploy a contract that emits events for RSCs to monitor' :
+                     contractType === 'destination' ? 'Deploy a contract that receives function calls from RSCs' :
+                     'Deploy a contract that can both emit events and receive function calls'}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {!useLibraries ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div>
+                    <ContractEditor 
+                      onCompile={handleCompile}
+                      compilationStatus={compilationStatus}
+                      contractType={contractType as 'origin' | 'destination'}
+                    />
+                  </div>
+                  <div>
+                    <DeploymentConfig
+                      compilationStatus={compilationStatus}
+                      compilationError={compilationError}
+                      onDeploy={handleDeploy}
+                      deploymentStatus={deploymentStatus}
+                      deploymentError={deploymentError}
+                      contractType={contractType as 'origin' | 'destination' | 'both'}
+                      abi={abi}
+                      bytecode={bytecode}
+                    />
+                  </div>
+                </div>
+              ) : (
                 <DeploymentConfig
                   compilationStatus={"success"}
                   compilationError={compilationError}
@@ -426,14 +527,28 @@ export default function SmartContractDeployer() {
                   bytecode={manualBytecode}
                   contractType={contractType as 'origin' | 'destination' | 'both'}
                 />
-              </CardContent>
-            </Card>
-          )}
-        </div>
-        <Card className="mt-8 p-6">
-          <DeploymentHistory/>
-        </Card>
-      </main>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Deployment History */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+        >
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-foreground">Deployment History</CardTitle>
+              <p className="text-muted-foreground">Track your previous contract deployments</p>
+            </CardHeader>
+            <CardContent>
+              <DeploymentHistory/>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 }

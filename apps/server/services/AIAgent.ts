@@ -2092,7 +2092,6 @@ private async fetchRealBlockchainData(conversation: ConversationState) {
         nextStep: 'costs_explained',
         options: [
           { value: 'create stop order', label: '🛡️ Create Stop Order' },
-          { value: 'compare networks', label: '🌐 Compare Networks' },
           { value: 'calculate my costs', label: '🧮 Calculate My Costs' }
         ]
       };
@@ -2384,7 +2383,7 @@ Respond as Reactor AI:`;
 • **Range Managers** - Optimize LP ranges (coming soon)
 
 **🔍 Blockchain Queries:**
-• Check token balances: "How much ETH do I have?"
+• Check token balances: "Tell me my balance"
 • Find trading pairs: "Find ETH/USDC pair"
 • Get current prices and market data
 

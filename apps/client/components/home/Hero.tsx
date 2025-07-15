@@ -8,9 +8,11 @@ import {
   SparklesIcon,
   ShieldExclamationIcon,
   CurrencyDollarIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ClockIcon
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
+import React from "react";
 
 const slides = [
   {
@@ -20,15 +22,15 @@ const slides = [
         <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
           Automate DeFi Without Code
         </span>{" "}
-        
       </>
     ),
     subtitle: "Deploy powerful DeFi automations in minutes with ready-to-use templates",
     image: "/Background2.jpg",
     primaryButton: {
       text: "Use Automations",
-      href: "/automations/stop-order",
-      icon: RocketLaunchIcon
+      href: "#featured-automations",
+      icon: RocketLaunchIcon,
+      isAnchor: true
     }
   },
   {
@@ -38,7 +40,6 @@ const slides = [
         <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-700 ">
           Protect Your Tokens Automatically
         </span>{" "}
-        
       </>
     ),
     subtitle: "Set up Uniswap stop orders to secure your positions when prices drop",
@@ -49,42 +50,60 @@ const slides = [
       icon: ShieldExclamationIcon
     }
   },
-  // {
-  //   id: 2,
-  //   title: (
-  //     <>
-  //       <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
-  //         Collect Fees Without Effort
-  //       </span>{" "}
-        
-  //     </>
-  //   ),
-  //   subtitle: "Automatically collect earned fees from your Uniswap V3 positions 24/7",
-  //   image: "/fee-collector-9.jpg",
-  //   primaryButton: {
-  //     text: "Setup Fee Collector",
-  //     href: "/automations/fee-collector",
-  //     icon: CurrencyDollarIcon
-  //   }
-  // },
-  // {
-  //   id: 3,
-  //   title: (
-  //     <>
-  //       <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
-  //         Optimize Your Liquidity {" "} Positions
-  //       </span>{" "}
-        
-  //     </>
-  //   ),
-  //   subtitle: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
-  //   image: "/range-manager-7.jpg",
-  //   primaryButton: {
-  //     text: "Setup Range Manager",
-  //     href: "/automations/range-manager",
-  //     icon: ChartBarIcon
-  //   }
-  // }
+  {
+    id: 2,
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
+          Prevent Liquidations Automatically
+        </span>{" "}
+      </>
+    ),
+    subtitle: "Automatically manage your Aave health factor to avoid costly liquidations",
+    image: "/aave-protection.jpeg",
+    primaryButton: {
+      text: "Setup Aave Protection",
+      href: "/automations/aave-protection",
+      icon: ShieldExclamationIcon
+    },
+    
+  },
+  {
+    id: 3,
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
+          Collect Fees Without Effort
+        </span>{" "}
+      </>
+    ),
+    subtitle: "Automatically collect earned fees from your Uniswap V3 positions 24/7",
+    image: "/fee-collector-9.jpg",
+    primaryButton: {
+      text: "Setup Fee Collector",
+      href: "/automations/fee-collector",
+      icon: CurrencyDollarIcon
+    },
+    status: 'Coming Soon'
+  },
+  {
+    id: 4,
+    title: (
+      <>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
+          Optimize Your Liquidity {" "} Positions
+        </span>{" "}
+      </>
+    ),
+    subtitle: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
+    image: "/range-manager-7.jpg",
+    primaryButton: {
+      text: "Setup Range Manager",
+      href: "/automations/range-manager",
+      icon: ChartBarIcon
+    },
+    status: 'Coming Soon'
+  }
 ];
 
 const Hero = () => {
@@ -153,13 +172,14 @@ const Hero = () => {
                       className="w-full sm:w-auto"
                     >
                       <Button
-                        as={Link}
+                        as={slides[currentSlide].primaryButton.isAnchor ? "a" : Link}
                         href={slides[currentSlide].primaryButton.href}
-                        color="primary"
+                        color={slides[currentSlide].status === 'Coming Soon' ? "default" : "primary"}
                         variant="shadow"
                         size="lg"
+                        isDisabled={slides[currentSlide].status === 'Coming Soon'}
                         startContent={<CurrentIcon className="h-5 w-5" />}
-                        className="w-full sm:w-auto hover:bg-primary/80 rounded-md"
+                        className="w-full sm:w-auto hover:bg-primary/80 rounded-md scroll-smooth"
                       >
                         {slides[currentSlide].primaryButton.text}
                       </Button>
@@ -174,7 +194,7 @@ const Hero = () => {
                   size="lg"
                   startContent={<SparklesIcon className="h-5 w-5" />}
                 >
-                  Generate Automations
+                  For Developers
                 </Button>
               </motion.div>
 
@@ -217,12 +237,27 @@ const Hero = () => {
                   width={500}
                   height={500}
                   quality={100}
-                  className="object-cover w-full h-full transition-transform duration-700 hover:scale-105"
+                  className={`object-cover w-full h-full transition-transform duration-700 hover:scale-105 ${
+                    slides[currentSlide].status === 'Coming Soon' ? 'blur-sm' : ''
+                  }`}
                   priority
                   onError={(e) => {
                     console.error('Image failed to load:', slides[currentSlide].image);
                   }}
                 />
+                
+                {/* Coming Soon Overlay */}
+                {slides[currentSlide].status === 'Coming Soon' && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-full mb-4 mx-auto w-16 h-16 flex items-center justify-center">
+                        <ClockIcon className="h-8 w-8 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-white mb-2">Coming Soon</h3>
+                      <p className="text-zinc-300 text-sm">This feature is in development</p>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           </motion.div>

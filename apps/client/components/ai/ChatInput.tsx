@@ -90,7 +90,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         variant="ghost"
         size="sm"
         className="text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
-        onClick={() => onQuickAction("How much ETH do I have?")}
+        onClick={() => onQuickAction("Tell me my balance")}
       >
         <Coins className="w-3 h-3 mr-1" />
         Balance

@@ -127,7 +127,7 @@ export default function ReactorAI() {
       const savedConfig = AIUtils.ConfigManager.peekConfig();
       
       // Add enhanced welcome message
-      let welcomeContent = "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n• **Check Balances** - Get real-time token information\n• **Find Trading Pairs** - Discover available markets\n\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is Reactor?\"\n• \"How much USDC do I have?\"\n• \"Tell me about RSCs\"";
+      let welcomeContent = "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Protect Aave Positions** - Guard your loans against liquidation\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n• **Check Balances** - Get real-time token information\n• **Find Trading Pairs** - Discover available markets\n\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is Reactor?\"\n• \"How much USDC do I have?\"\n• \"Tell me about RSCs\"";
       
       if (savedConfig) {
         welcomeContent += "\n\n🎯 **I found a saved configuration!** You can say \"deploy my stop order\" to continue with your previous setup.";
@@ -481,7 +481,7 @@ export default function ReactorAI() {
 
   return (
     <>
-      {/* Floating AI Button (unchanged) */}
+      {/* Floating AI Button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -498,7 +498,7 @@ export default function ReactorAI() {
             >
               <Button
                 onClick={() => setIsOpen(true)}
-                className="w-16 h-16 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 p-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 relative overflow-hidden"
+                className="w-16 h-16 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 p-0 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 relative overflow-hidden"
               >
                 <Image 
                   src="/Symbol/Color/DarkBg.png" 
@@ -509,20 +509,20 @@ export default function ReactorAI() {
                 />
                 
                 {/* Enhanced glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full animate-pulse"></div>
               </Button>
               
               {/* Enhanced notification indicator */}
               <motion.div 
-                className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center"
+                className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center"
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                <Sparkles className="w-3 h-3 text-white" />
+                <Sparkles className="w-3 h-3 text-foreground" />
               </motion.div>
               
               {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black/80 text-white text-xs rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-popover text-popover-foreground text-xs rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 whitespace-nowrap border border-border">
                 Chat with Reactor AI
               </div>
             </motion.div>
@@ -543,7 +543,7 @@ export default function ReactorAI() {
             transition={{ duration: 0.4, ease: "easeOut" }}
             className={`fixed bottom-6 left-6 z-50 ${chatWidth} max-w-[calc(100vw-3rem)]`}
           >
-            <Card className="bg-gray-900/95 backdrop-blur-md border-gray-700/50 shadow-2xl overflow-hidden h-full">
+            <Card className="bg-card/95 backdrop-blur-md border-border shadow-2xl overflow-hidden h-full">
               {/* Chat Header */}
               <ChatHeader
                 isTyping={isTyping}
@@ -568,7 +568,7 @@ export default function ReactorAI() {
                     <CardContent className="p-0 flex-1 flex flex-col">
                       <div 
                         ref={chatContainerRef}
-                        className={`${messageAreaHeight} overflow-y-auto p-4 bg-gradient-to-b from-gray-950/50 to-gray-950 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800`}
+                        className={`${messageAreaHeight} overflow-y-auto p-4 bg-gradient-to-b from-background/50 to-background scrollbar-thin scrollbar-thumb-muted scrollbar-track-muted/50`}
                       >
                         <MessageList
                           messages={messages}
@@ -594,24 +594,24 @@ export default function ReactorAI() {
                             className="flex justify-start mb-4"
                           >
                             <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 flex items-center justify-center">
-                                <Sparkles className="w-4 h-4 text-blue-300" />
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-muted to-muted/80 flex items-center justify-center">
+                                <Sparkles className="w-4 h-4 text-primary" />
                               </div>
-                              <div className="bg-gradient-to-r from-gray-800 to-gray-750 text-gray-100 rounded-2xl px-4 py-3 border border-gray-600/50">
+                              <div className="bg-card text-foreground rounded-2xl px-4 py-3 border border-border">
                                 <div className="flex items-center space-x-3">
                                   <div className="flex space-x-1">
                                     <motion.div 
-                                      className="w-2 h-2 bg-blue-400 rounded-full"
+                                      className="w-2 h-2 bg-primary rounded-full"
                                       animate={{ scale: [1, 1.2, 1] }}
                                       transition={{ duration: 1, repeat: Infinity, delay: 0 }}
                                     />
                                     <motion.div 
-                                      className="w-2 h-2 bg-purple-400 rounded-full"
+                                      className="w-2 h-2 bg-secondary rounded-full"
                                       animate={{ scale: [1, 1.2, 1] }}
                                       transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
                                     />
                                     <motion.div 
-                                      className="w-2 h-2 bg-blue-400 rounded-full"
+                                      className="w-2 h-2 bg-primary rounded-full"
                                       animate={{ scale: [1, 1.2, 1] }}
                                       transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
                                     />

@@ -10,13 +10,13 @@ export const ReactorBackground = () => {
       {/* Enhanced cloud layers with blue tints */}
       <div className="absolute inset-0">
         {/* Primary rotating gradient with blue */}
-        <div className="absolute inset-0 bg-[conic-gradient(from_0deg_at_50%_50%,rgba(51,147,255,0.15),transparent_120deg)] animate-rotate-slow" />
+        {/* <div className="absolute inset-0 bg-[conic-gradient(from_0deg_at_50%_50%,rgba(51,147,255,0.15),transparent_120deg)] animate-rotate-slow" /> */}
         
         {/* Enhanced cloud effect with blue mix */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(92,138,252,0.2),transparent_60%)] blur-lg " />
         
         {/* Additional subtle blue gradients */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(97,123,255,0.1),transparent_50%)] " />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_80%,rgba(97, 123, 255, 0.46),transparent_50%)] " />
       </div>
 
       {/* Lightning effects with blue tint */}
