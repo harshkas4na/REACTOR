@@ -4,14 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { ActionButtons } from "./ActionButtons";
 import { UseCaseToolbar } from "./UseCaseToolbar";
 import type { UseCase, Comment, Like } from '@/types/use-case';
-import { Id } from '@/convex/_generated/dataModel';
 
 interface UseCaseCardProps {
   useCase: UseCase;
   comments: Comment[];
   likes: Like[];
-  onLike: (useCaseId: Id<"useCases">) => void;
-  onComment: (useCaseId: Id<"useCases">) => void;
+  onLike: (useCaseId: string) => void;
+  onComment: (useCaseId: string) => void;
 }
 
 export function UseCaseCard({ useCase, comments, likes, onLike, onComment }: UseCaseCardProps) {

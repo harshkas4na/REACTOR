@@ -3,14 +3,13 @@
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, MessageSquare } from "lucide-react";
 import type { Like, Comment } from '@/types/use-case';
-import { Id } from '@/convex/_generated/dataModel';
 
 interface ActionButtonsProps {
-  useCaseId: Id<"useCases">;
+  useCaseId: string;
   likes: Like[];
   comments: Comment[];
-  onLike: (useCaseId: Id<"useCases">) => void;
-  onComment: (useCaseId: Id<"useCases">) => void;
+  onLike: (useCaseId: string) => void;
+  onComment: (useCaseId: string) => void;
 }
 
 export function ActionButtons({ useCaseId, likes, comments, onLike, onComment }: ActionButtonsProps) {

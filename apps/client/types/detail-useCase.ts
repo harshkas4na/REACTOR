@@ -1,7 +1,5 @@
-import { Id } from '@/convex/_generated/dataModel';
-
 export interface UseCase {
-  _id: Id<"useCases">;
+  _id: string;
   title: string;
   overview:string;
   implementation: string;
@@ -10,15 +8,15 @@ export interface UseCase {
 }
 
 export interface Comment {
-  _id: Id<"comments">;
+  _id: string;
   useCaseId: string;
-  user: Id<"users">;
+  user: string;
   text: string;
   _creationTime: number;
 }
 
 export interface User {
-  _id: Id<"users">;
+  _id: string;
   name: string;
   email: string;
   imageUrl: string;

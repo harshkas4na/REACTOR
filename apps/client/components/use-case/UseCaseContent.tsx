@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UseCaseActions } from "./UseCaseActions";
-import { Id } from '@/convex/_generated/dataModel';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { ExpandableContent } from './ExpandableContent';
@@ -13,7 +12,7 @@ const MDMarkdown = dynamic(
 );
 
 interface UseCase {
-  _id: Id<"useCases">;
+  _id: string;
   title: string;
   shortDescription: string;
   overview: string;

@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Comment, UseCase, User } from '@/types/use-case';
-import { Id } from '@/convex/_generated/dataModel';
 
 interface CommentDialogProps {
   useCase: UseCase | undefined;
@@ -20,7 +19,7 @@ interface CommentDialogProps {
 export function CommentDialog({ useCase, comments, users, isOpen, onClose, onAddComment }: CommentDialogProps) {
   const [newComment, setNewComment] = useState("");
 
-  const getUserName = (userId: Id<"users">) => {
+  const getUserName = (userId: string) => {
     const user = users.find(u => u._id === userId);
     return user ? user.name : "Unknown User";
   };

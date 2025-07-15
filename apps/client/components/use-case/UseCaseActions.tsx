@@ -5,12 +5,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThumbsUp, MessageSquare, Code, BookOpen } from "lucide-react";
 // import { UseCase } from "@/types/detail-useCase";
 import { CodeViewDialog } from "./CodeViewDialog";
-import { Id } from "@/convex/_generated/dataModel";
 import {FaGithub } from 'react-icons/fa'
 
 
 interface UseCase {
-  _id: Id<"useCases">;
+  _id: string;
   title: string;
   shortDescription: string;
   overview: string;

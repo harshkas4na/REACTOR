@@ -3,17 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Id } from '@/convex/_generated/dataModel';
 interface Comment {
-  _id: Id<"comments">;
-  useCaseId: Id<"useCases">;
-  userId: Id<"users"> | null;  // Update to allow null
+  _id: string;
+  useCaseId: string;
+  userId: string;
   text: string;
   timestamp: string;
 }
 
 interface User {
-  _id: Id<"users">;
+  _id: string;
   name: string;
 }
 
@@ -39,7 +38,7 @@ export function CommentsDialog({
   onCommentChange,
   onSubmitComment
 }: CommentsDialogProps) {
-  const getUserName = (userId: Id<"users"> | null) => {
+  const getUserName = (userId: string | null) => {
     if (!userId) return "Unknown User";
     const user = users.find(u => u._id === userId);
     return user ? user.name : "Unknown User";

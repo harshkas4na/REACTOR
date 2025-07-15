@@ -3,10 +3,9 @@ import { Dialog,DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Code } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Id } from "@/convex/_generated/dataModel";
 
 interface UseCase {
-  _id: Id<"useCases">;
+  _id: string;
   title: string;
   shortDescription: string;
   overview: string;
