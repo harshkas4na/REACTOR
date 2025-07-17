@@ -45,6 +45,59 @@ const FACTORY_ABI = [
   'event PairCreated(address indexed token0, address indexed token1, address pair, uint256)'
 ];
 
+interface AavePositionInfo {
+  totalCollateralETH: string;
+  totalDebtETH: string;
+  totalCollateralUSD: number;
+  totalDebtUSD: number;
+  availableBorrowsETH: string;
+  currentLiquidationThreshold: string;
+  ltv: string;
+  healthFactor: string;
+  hasPosition: boolean;
+  userAssets: AssetPosition[];
+}
+
+interface AssetPosition {
+  address: string;
+  symbol: string;
+  name: string;
+  collateralBalance: number;
+  debtBalance: number;
+  collateralUSD: number;
+  debtUSD: number;
+  priceUSD: number;
+  decimals: number;
+}
+
+interface AaveChainConfig {
+  lendingPoolAddress: string;
+  protocolDataProviderAddress: string;
+  addressesProviderAddress: string;
+  protectionManagerAddress?: string;
+}
+
+interface AssetConfig {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+}
+
+interface ProtectionCalculationParams {
+  userAddress: string;
+  networkId: number;
+  protectionType: 'COLLATERAL_DEPOSIT' | 'DEBT_REPAYMENT';
+  healthFactorThreshold: number;
+  targetHealthFactor: number;
+  collateralAsset: string;
+  debtAsset: string;
+  currentHealthFactor: number;
+  totalCollateralUSD: number;
+  totalDebtUSD: number;
+  currentLiquidationThreshold: number;
+}
+
 interface ChainConfig {
   id: number;
   name: string;
@@ -55,6 +108,7 @@ interface ChainConfig {
 }
 
 export class BlockchainService {
+  
   private chainConfigs: { [key: number]: ChainConfig } = {
     1: {
       id: 1,
@@ -835,7 +889,479 @@ export class BlockchainService {
 
 // Enhanced BlockchainService with custom token support
 export class EnhancedBlockchainService extends BlockchainService {
+
   private customTokenCache = new Map<string, any>();
+  
+  // Aave V3 configurations
+  private aaveConfigs: { [chainId: number]: AaveChainConfig } = {
+    11155111: { // Sepolia
+      lendingPoolAddress: '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951',
+      protocolDataProviderAddress: '0x3e9708d80f7e95CE3AB31F31',
+      addressesProviderAddress: '0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A',
+      protectionManagerAddress: '0x4833996c0de8a9f58893A9Db0B6074e29D1bD4a9'
+    },
+    1: { // Ethereum Mainnet
+      lendingPoolAddress: '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9',
+      protocolDataProviderAddress: '0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d',
+      addressesProviderAddress: '0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5'
+    }
+  };
+
+  private aaveAssets: { [chainId: number]: AssetConfig[] } = {
+    11155111: [
+      {
+        address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5',
+        symbol: 'LINK',
+        name: 'Chainlink',
+        decimals: 18
+      },
+      {
+        address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8',
+        symbol: 'USDC',
+        name: 'USD Coin',
+        decimals: 6
+      },
+      {
+        address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357',
+        symbol: 'DAI',
+        name: 'Dai Stablecoin',
+        decimals: 18
+      },
+      {
+        address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0',
+        symbol: 'USDT',
+        name: 'Tether USD',
+        decimals: 6
+      },
+      {
+        address: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9',
+        symbol: 'ETH',
+        name: 'Ethereum',
+        decimals: 18
+      }
+    ]
+  };
+
+  // Aave contract ABIs
+  private lendingPoolABI = [
+    'function getUserAccountData(address user) view returns (uint256 totalCollateralETH, uint256 totalDebtETH, uint256 availableBorrowsETH, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)'
+  ];
+
+  private protocolDataProviderABI = [
+    'function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)',
+    'function getReserveConfigurationData(address asset) view returns (uint256 decimals, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen)'
+  ];
+
+  private addressesProviderABI = [
+    'function getPriceOracle() view returns (address)'
+  ];
+
+  private priceOracleABI = [
+    'function getAssetPrice(address asset) view returns (uint256)',
+    'function getAssetsPrices(address[] assets) view returns (uint256[])'
+  ];
+
+  /**
+   * Get comprehensive Aave position information for a user
+   */
+  public async getAavePosition(userAddress: string, networkId: number): Promise<AavePositionInfo> {
+    try {
+      if (!ethers.isAddress(userAddress)) {
+        throw new Error('Invalid user address format');
+      }
+
+      const aaveConfig = this.aaveConfigs[networkId];
+      if (!aaveConfig) {
+        throw new Error(`Aave not supported on network ${networkId}`);
+      }
+
+      const provider = this.getProvider(networkId);
+      
+      console.log(`Fetching Aave position for ${userAddress} on network ${networkId}`);
+
+      // Get global account data from LendingPool
+      const lendingPoolContract = new ethers.Contract(
+        aaveConfig.lendingPoolAddress,
+        this.lendingPoolABI,
+        provider
+      );
+
+      const userData = await lendingPoolContract.getUserAccountData(userAddress);
+      console.log("userData AAVE:",userData)
+      
+      const totalCollateralETH = ethers.formatEther(userData.totalCollateralETH);
+      const totalDebtETH = ethers.formatEther(userData.totalDebtETH);
+      const availableBorrowsETH = ethers.formatEther(userData.availableBorrowsETH);
+      const healthFactor = ethers.formatEther(userData.healthFactor);
+      const currentLiquidationThreshold = (Number(userData.currentLiquidationThreshold) / 100).toString();
+      const ltv = (Number(userData.ltv) / 100).toString();
+
+      console.log(`Global data - Collateral: ${totalCollateralETH} ETH, Debt: ${totalDebtETH} ETH, HF: ${healthFactor}`);
+
+      // Get individual asset positions
+      const dataProviderContract = new ethers.Contract(
+        aaveConfig.protocolDataProviderAddress,
+        this.protocolDataProviderABI,
+        provider
+      );
+
+      const availableAssets = this.aaveAssets[networkId] || [];
+      const userAssets: AssetPosition[] = [];
+      let totalCollateralUSD = 0;
+      let totalDebtUSD = 0;
+
+      for (const assetConfig of availableAssets) {
+        try {
+          console.log(`Checking ${assetConfig.symbol} position...`);
+          
+          const reserveData = await dataProviderContract.getUserReserveData(
+            assetConfig.address,
+            userAddress
+          );
+
+          const collateralBalance = parseFloat(
+            ethers.formatUnits(reserveData.currentATokenBalance, assetConfig.decimals)
+          );
+          const debtBalance = parseFloat(
+            ethers.formatUnits(reserveData.currentVariableDebt, assetConfig.decimals)
+          );
+
+          if (collateralBalance > 0 || debtBalance > 0) {
+            // Get asset price from Aave oracle
+            const priceUSD = await this.getAssetPriceFromAave(assetConfig.address, networkId);
+            
+            const collateralUSD = collateralBalance * priceUSD;
+            const debtUSD = debtBalance * priceUSD;
+
+            userAssets.push({
+              address: assetConfig.address,
+              symbol: assetConfig.symbol,
+              name: assetConfig.name,
+              collateralBalance,
+              debtBalance,
+              collateralUSD,
+              debtUSD,
+              priceUSD,
+              decimals: assetConfig.decimals
+            });
+
+            totalCollateralUSD += collateralUSD;
+            totalDebtUSD += debtUSD;
+
+            console.log(`${assetConfig.symbol}: Collateral ${collateralBalance}, Debt ${debtBalance}, Price $${priceUSD}`);
+          }
+        } catch (error) {
+          console.log(`No position in ${assetConfig.symbol} or error fetching:`, error);
+        }
+      }
+
+      const hasPosition = userAssets.length > 0 && (totalCollateralUSD > 0 || totalDebtUSD > 0);
+
+      const positionInfo: AavePositionInfo = {
+        totalCollateralETH,
+        totalDebtETH,
+        totalCollateralUSD,
+        totalDebtUSD,
+        availableBorrowsETH,
+        currentLiquidationThreshold,
+        ltv,
+        healthFactor,
+        hasPosition,
+        userAssets
+      };
+
+      console.log(`Position summary: ${userAssets.length} assets, $${totalCollateralUSD.toFixed(2)} collateral, $${totalDebtUSD.toFixed(2)} debt`);
+
+      return positionInfo;
+
+    } catch (error: any) {
+      console.error('Error fetching Aave position:', error);
+      throw new Error(`Failed to fetch Aave position: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get asset price from Aave's native oracle
+   */
+  public async getAssetPriceFromAave(assetAddress: string, networkId: number): Promise<number> {
+    try {
+      if (!ethers.isAddress(assetAddress)) {
+        throw new Error('Invalid asset address format');
+      }
+
+      const aaveConfig = this.aaveConfigs[networkId];
+      if (!aaveConfig) {
+        throw new Error(`Aave not supported on network ${networkId}`);
+      }
+
+      const provider = this.getProvider(networkId);
+
+      // Get price oracle address from addresses provider
+      const addressesProviderContract = new ethers.Contract(
+        aaveConfig.addressesProviderAddress,
+        this.addressesProviderABI,
+        provider
+      );
+
+      const priceOracleAddress = await addressesProviderContract.getPriceOracle();
+      console.log(`Using Aave price oracle at: ${priceOracleAddress}`);
+
+      // Get asset price from oracle
+      const priceOracleContract = new ethers.Contract(
+        priceOracleAddress,
+        this.priceOracleABI,
+        provider
+      );
+
+      const priceWei = await priceOracleContract.getAssetPrice(assetAddress);
+      
+      // Aave oracle returns prices with 8 decimals
+      const priceUSD = Number(priceWei) / 1e8;
+      
+      if (priceUSD <= 0) {
+        throw new Error('Invalid price returned from Aave oracle');
+      }
+
+      console.log(`Asset ${assetAddress} price from Aave oracle: $${priceUSD}`);
+      return priceUSD;
+
+    } catch (error: any) {
+      console.error(`Error getting asset price from Aave oracle:`, error);
+      
+      // Fallback prices for better UX on testnet
+      const fallbackPrices: Record<string, number> = {
+        '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5': 30.0,  // LINK
+        '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8': 1.0,   // USDC
+        '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357': 1.0,   // DAI
+        '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0': 1.0,   // USDT
+        '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9': 2500.0 // ETH
+      };
+
+      const fallbackPrice = fallbackPrices[assetAddress] || 0;
+      if (fallbackPrice > 0) {
+        console.log(`Using fallback price for ${assetAddress}: $${fallbackPrice}`);
+        return fallbackPrice;
+      }
+
+      throw new Error(`Failed to get asset price: ${error.message}`);
+    }
+  }
+
+  /**
+   * Calculate required protection amount based on strategy and position data
+   */
+  public async calculateRequiredProtectionAmount(params: ProtectionCalculationParams): Promise<{
+    requiredAmount: number;
+    assetSymbol: string;
+    assetAddress: string;
+    calculationDetails: {
+      currentHealthFactor: number;
+      targetHealthFactor: number;
+      strategy: string;
+      priceUSD: number;
+      totalCollateralUSD: number;
+      totalDebtUSD: number;
+    };
+  }> {
+    try {
+      console.log('Calculating required protection amount with params:', params);
+
+      const {
+        userAddress,
+        networkId,
+        protectionType,
+        targetHealthFactor,
+        collateralAsset,
+        debtAsset,
+        currentHealthFactor,
+        totalCollateralUSD,
+        totalDebtUSD,
+        currentLiquidationThreshold
+      } = params;
+
+      if (totalDebtUSD === 0) {
+        throw new Error('No debt position found - protection not needed');
+      }
+
+      if (currentHealthFactor >= targetHealthFactor) {
+        return {
+          requiredAmount: 0,
+          assetSymbol: 'N/A',
+          assetAddress: 'N/A',
+          calculationDetails: {
+            currentHealthFactor,
+            targetHealthFactor,
+            strategy: protectionType,
+            priceUSD: 0,
+            totalCollateralUSD,
+            totalDebtUSD
+          }
+        };
+      }
+
+      let requiredAmount = 0;
+      let assetAddress = '';
+      let assetSymbol = '';
+      let priceUSD = 0;
+
+      if (protectionType === 'COLLATERAL_DEPOSIT') {
+        // Calculate collateral needed
+        assetAddress = collateralAsset;
+        
+        // Get asset config for symbol
+        const availableAssets = this.aaveAssets[networkId] || [];
+        const assetConfig = availableAssets.find(asset => asset.address.toLowerCase() === collateralAsset.toLowerCase());
+        if (!assetConfig) {
+          throw new Error('Collateral asset configuration not found');
+        }
+        assetSymbol = assetConfig.symbol;
+
+        // Get liquidation threshold for collateral asset
+        const collateralLiquidationThreshold = await this.getAssetLiquidationThreshold(collateralAsset, networkId);
+        
+        // Calculate weighted collateral values
+        const currentWeightedCollateral = (totalCollateralUSD * currentLiquidationThreshold) / 10000;
+        const targetHF_BasisPoints = targetHealthFactor * 1e4; // Convert to basis points
+        const requiredWeightedCollateral = (targetHF_BasisPoints * totalDebtUSD) / 10000;
+
+        if (requiredWeightedCollateral <= currentWeightedCollateral) {
+          requiredAmount = 0;
+        } else {
+          const additionalWeightedCollateral = requiredWeightedCollateral - currentWeightedCollateral;
+          const additionalCollateralUSD = (additionalWeightedCollateral * 10000) / collateralLiquidationThreshold;
+          
+          // Get asset price and convert to token amount
+          priceUSD = await this.getAssetPriceFromAave(collateralAsset, networkId);
+          requiredAmount = additionalCollateralUSD / priceUSD;
+
+          console.log(`Collateral calculation: Need ${requiredAmount} ${assetSymbol} (${additionalCollateralUSD} USD)`);
+        }
+
+        
+
+      } else if (protectionType === 'DEBT_REPAYMENT') {
+        // Calculate debt repayment needed
+        assetAddress = debtAsset;
+        
+        // Get asset config for symbol
+        const availableAssets = this.aaveAssets[networkId] || [];
+        const assetConfig = availableAssets.find(asset => asset.address.toLowerCase() === debtAsset.toLowerCase());
+        if (!assetConfig) {
+          throw new Error('Debt asset configuration not found');
+        }
+        assetSymbol = assetConfig.symbol;
+
+        // Calculate required debt reduction
+        const weightedCollateral = (totalCollateralUSD * currentLiquidationThreshold) / 10000;
+        const targetDebtUSD = (weightedCollateral * 10000) / (targetHealthFactor * 1e4);
+
+        if (totalDebtUSD <= targetDebtUSD) {
+          requiredAmount = 0;
+        } else {
+          const debtToRepayUSD = totalDebtUSD - targetDebtUSD;
+          
+          // Get current user debt in this specific asset
+          const userPosition = await this.getAavePosition(userAddress, networkId);
+          const userAsset = userPosition.userAssets.find(asset => 
+            asset.address.toLowerCase() === debtAsset.toLowerCase()
+          );
+          
+          if (!userAsset || userAsset.debtBalance === 0) {
+            throw new Error('No debt found in the specified asset');
+          }
+
+          // Calculate tokens to repay
+          priceUSD = userAsset.priceUSD;
+          const assetDebtUSD = userAsset.debtUSD;
+          
+          if (assetDebtUSD <= debtToRepayUSD) {
+            requiredAmount = userAsset.debtBalance; // Repay all debt in this asset
+          } else {
+            requiredAmount = (debtToRepayUSD * userAsset.debtBalance) / assetDebtUSD;
+          }
+
+          // Ensure we don't exceed current debt
+          if (requiredAmount > userAsset.debtBalance) {
+            requiredAmount = userAsset.debtBalance;
+          }
+          console.log(`Debt repayment calculation: Need ${requiredAmount} ${assetSymbol} (${debtToRepayUSD} USD)`);
+        }
+
+        
+      } else {
+        throw new Error('Invalid protection type specified');
+      }
+
+      return {
+        requiredAmount: Math.max(0, requiredAmount),
+        assetSymbol,
+        assetAddress,
+        calculationDetails: {
+          currentHealthFactor,
+          targetHealthFactor,
+          strategy: protectionType,
+          priceUSD,
+          totalCollateralUSD,
+          totalDebtUSD
+        }
+      };
+
+    } catch (error: any) {
+      console.error('Error calculating required protection amount:', error);
+      throw new Error(`Protection calculation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get liquidation threshold for a specific asset
+   */
+  private async getAssetLiquidationThreshold(assetAddress: string, networkId: number): Promise<number> {
+    try {
+      const aaveConfig = this.aaveConfigs[networkId];
+      if (!aaveConfig) {
+        throw new Error(`Aave not supported on network ${networkId}`);
+      }
+
+      const provider = this.getProvider(networkId);
+      const dataProviderContract = new ethers.Contract(
+        aaveConfig.protocolDataProviderAddress,
+        this.protocolDataProviderABI,
+        provider
+      );
+
+      const reserveData = await dataProviderContract.getReserveConfigurationData(assetAddress);
+      const liquidationThreshold = Number(reserveData.liquidationThreshold);
+      
+      console.log(`Liquidation threshold for ${assetAddress}: ${liquidationThreshold}`);
+      return liquidationThreshold;
+
+    } catch (error: any) {
+      console.error('Error getting liquidation threshold:', error);
+      // Return a conservative default
+      return 8000; // 80%
+    }
+  }
+
+  /**
+   * Get supported Aave assets for a network
+   */
+  public getSupportedAaveAssets(networkId: number): AssetConfig[] {
+    return this.aaveAssets[networkId] || [];
+  }
+
+  /**
+   * Check if Aave is supported on a network
+   */
+  public isAaveSupported(networkId: number): boolean {
+    return networkId in this.aaveConfigs;
+  }
+
+  /**
+   * Get Aave configuration for a network
+   */
+  public getAaveConfig(networkId: number): AaveChainConfig | null {
+    return this.aaveConfigs[networkId] || null;
+  }
   
   // Enhanced token balance method that handles custom addresses
   async getTokenBalanceEnhanced(

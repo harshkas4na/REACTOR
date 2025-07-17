@@ -35,6 +35,7 @@ export class KnowledgeBaseHelper {
     const automationKeywords = [
       'fee collector', 'fee collection', 'collect fees', 'harvest fees',
       'range manager', 'range management', 'manage range', 'position management',
+      'aave protection', 'liquidation protection', 'aave liquidation', 'health factor',
       'coming soon', 'future features', 'upcoming automations'
     ];
     
@@ -62,12 +63,26 @@ export class KnowledgeBaseHelper {
         relatedTopics: ['Fee Collectors', 'Stop Orders', 'Uniswap V3 automation']
       };
     }
+
+    // Aave Protection questions
+    if (
+      lowerMessage.includes('aave protection') ||
+      lowerMessage.includes('liquidation protection') ||
+      lowerMessage.includes('aave liquidation') ||
+      lowerMessage.includes('health factor')
+    ) {
+      const aaveProtectionInfo = REACTOR_KNOWLEDGE_BASE.automations.AAVE_PROTECTION;
+      return {
+        answer: `🛡️ **Aave Liquidation Protection - Available on Sepolia!**\n\n**What it does:**\n${aaveProtectionInfo.description}\n\n**Key Features:**\n${aaveProtectionInfo.features.map(f => `• ${f}`).join('\n')}\n\n**Supported Networks:**\n${aaveProtectionInfo.supportedChains.map(id => `• ${this.getNetworkName(id)}`).join('\n')}\n\n**Status:** ${aaveProtectionInfo.costEstimate}\n\n💡 **This automation protects your Aave positions from liquidation by monitoring your health factor and automatically managing collateral and debt.**\n\nReady to protect your Aave position? Try it on Sepolia now!` ,
+        relatedTopics: ['Aave', 'Liquidation', 'Health Factor', 'Collateral Management']
+      };
+    }
     
     // Coming soon / future features questions
     if (lowerMessage.includes('coming soon') || lowerMessage.includes('future') || lowerMessage.includes('upcoming')) {
       return {
-        answer: `🚀 **REACTOR's Upcoming Automations!**\n\n**Currently Available:**\n• ✅ **Stop Orders** - Protect investments from price drops\n\n**Coming Soon:**\n\n🔧 **Fee Collectors**\n• ${REACTOR_KNOWLEDGE_BASE.automations.FEE_COLLECTOR.description}\n• Features: ${REACTOR_KNOWLEDGE_BASE.automations.FEE_COLLECTOR.features.slice(0, 2).join(', ')}\n\n📊 **Range Managers**  \n• ${REACTOR_KNOWLEDGE_BASE.automations.RANGE_MANAGER.description}\n• Features: ${REACTOR_KNOWLEDGE_BASE.automations.RANGE_MANAGER.features.slice(0, 2).join(', ')}\n\n**Networks:** Both will support Ethereum and Avalanche initially\n\n💡 **Want to get started now?** Create a stop order to protect your current investments while we finish building these advanced automations!`,
-        relatedTopics: ['Create Stop Order', 'Learn about RSCs', 'View roadmap']
+        answer: `🚀 **REACTOR's Upcoming Automations!**\n\n**Currently Available:**\n• ✅ **Stop Orders** - Protect investments from price drops\n• 🛡️ **Aave Protection** - Guard against liquidation (Sepolia)\n\n**Coming Soon:**\n\n🔧 **Fee Collectors**\n• ${REACTOR_KNOWLEDGE_BASE.automations.FEE_COLLECTOR.description}\n• Features: ${REACTOR_KNOWLEDGE_BASE.automations.FEE_COLLECTOR.features.slice(0, 2).join(', ')}\n\n📊 **Range Managers**  \n• ${REACTOR_KNOWLEDGE_BASE.automations.RANGE_MANAGER.description}\n• Features: ${REACTOR_KNOWLEDGE_BASE.automations.RANGE_MANAGER.features.slice(0, 2).join(', ')}\n\n**Networks:** All automations will support Ethereum and Avalanche initially\n\n💡 **Want to get started now?** Create a stop order or try Aave Protection on Sepolia while we finish building these advanced automations!`,
+        relatedTopics: ['Create Stop Order', 'Aave Protection', 'Learn about RSCs', 'View roadmap']
       };
     }
     
@@ -99,7 +114,7 @@ export class KnowledgeBaseHelper {
   }
   
   // Get automation information by type
-  static getAutomationInfo(type: 'STOP_ORDER' | 'FEE_COLLECTOR' | 'RANGE_MANAGER') {
+  static getAutomationInfo(type: 'STOP_ORDER' | 'FEE_COLLECTOR' | 'RANGE_MANAGER' | 'AAVE_PROTECTION') {
     return REACTOR_KNOWLEDGE_BASE.automations[type] || null;
   }
   
@@ -148,7 +163,7 @@ export class KnowledgeBaseHelper {
   }
   
   // Get response templates
-  static getResponseTemplate(type: 'welcome' | 'helpMenu' | 'errorGeneric' | 'notConnected' | 'comingSoon' | 'success'): string {
+  static getResponseTemplate(type: 'welcome' | 'helpMenu' | 'errorGeneric' | 'notConnected' | 'comingSoon' | 'success' | 'aaveProtectionReady' | 'healthFactorExplained' | 'aavePositionNotFound' | 'invalidHealthFactor' | 'protectionStrategiesExplained'): string {
     return REACTOR_KNOWLEDGE_BASE.responseTemplates[type] || '';
   }
   

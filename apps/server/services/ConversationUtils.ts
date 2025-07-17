@@ -166,6 +166,14 @@ export interface ConversationMetrics {
         ]
       },
       { 
+        intent: 'CREATE_AAVE_PROTECTION',
+        patterns: [
+          'aave protection', 'liquidation protection', 'protect aave', 'aave liquidation',
+          'health factor', 'protect from liquidation', 'aave auto', 'aave automation',
+          'liquidation risk', 'aave position', 'aave collateral', 'aave debt', 'aave strategy'
+        ]
+      },
+      { 
         intent: 'CHECK_BALANCE', 
         patterns: [
           'balance', 'how much', 'how many', 'wallet', 'holdings', 'portfolio',
@@ -235,13 +243,48 @@ export interface ConversationMetrics {
     if (this.isStopOrderContext(lowerMessage, recentContext, collectedData)) {
       return 'CREATE_STOP_ORDER';
     }
+
+    // 5. Aave protection context
+    if (this.isAaveProtectionContext(lowerMessage, recentContext, collectedData)) {
+      return 'CREATE_AAVE_PROTECTION';
+    }
     
-    // 5. Question/explanation context
+    // 6. Question/explanation context
     if (this.isQuestionContext(lowerMessage)) {
       return 'ASK_QUESTION';
     }
     
     return 'UNKNOWN';
+  }
+
+  // Helper for Aave Protection context
+  private static isAaveProtectionContext(
+    message: string,
+    recentContext: string,
+    collectedData: any
+  ): boolean {
+    // If already in aave protection flow
+    if (collectedData.intent === 'CREATE_AAVE_PROTECTION') {
+      // Continuation indicators
+      const continuationWords = ['yes', 'continue', 'proceed', 'next', 'go ahead'];
+      if (continuationWords.some(word => message.includes(word))) {
+        return true;
+      }
+      // Providing missing information
+      if (message.includes('health') || message.includes('collateral') || message.includes('debt')) {
+        return true;
+      }
+    }
+    // Recent aave protection context
+    if (
+      recentContext.includes('aave protection') ||
+      recentContext.includes('liquidation protection') ||
+      recentContext.includes('aave liquidation') ||
+      recentContext.includes('health factor')
+    ) {
+      return true;
+    }
+    return false;
   }
     
   // Enhanced balance inquiry detection
@@ -581,7 +624,10 @@ export interface ConversationMetrics {
       }
       
       // Check if we have enough information
-      const requiredFields = ['tokenToSell', 'tokenToBuy', 'amount', 'dropPercentage'];
+      let requiredFields = ['tokenToSell', 'tokenToBuy', 'amount', 'dropPercentage'];
+      if (collectedData.intent === 'CREATE_AAVE_PROTECTION') {
+        requiredFields = ['aaveAsset', 'protectionStrategy', 'healthFactorTrigger', 'targetHealthFactor'];
+      }
       const missingFields = requiredFields.filter(field => !collectedData[field]);
       
       if (missingFields.length === 0) {

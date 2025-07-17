@@ -1,35 +1,76 @@
 import { useState, useCallback } from 'react';
 import { useWeb3 } from '@/app/_context/Web3Context';
 
+// Enhanced interfaces for Aave support
+export interface AavePositionInfo {
+  totalCollateralETH: string;
+  totalDebtETH: string;
+  totalCollateralUSD: number;
+  totalDebtUSD: number;
+  availableBorrowsETH: string;
+  currentLiquidationThreshold: string;
+  ltv: string;
+  healthFactor: string;
+  hasPosition: boolean;
+  userAssets: Array<{
+    address: string;
+    symbol: string;
+    name: string;
+    collateralBalance: number;
+    debtBalance: number;
+    collateralUSD: number;
+    debtUSD: number;
+    priceUSD: number;
+    decimals: number;
+  }>;
+}
+
 export interface AIMessage {
   id: string;
   type: 'user' | 'ai';
   content: string;
   timestamp: Date;
   options?: Array<{ value: string; label: string }>;
-  inputType?: 'amount' | 'token' | 'network' | 'confirmation';
+  inputType?: 'amount' | 'token' | 'network' | 'confirmation' | 'choice' | 'number';
   automationConfig?: any;
+  pairInfo?: {
+    pairAddress: string;
+    currentPrice: number;
+    token0: string;
+    token1: string;
+  };
+  // NEW: Aave position information
+  aavePositionInfo?: AavePositionInfo;
+  showDeploymentHandler?: boolean;
 }
 
 export interface AIResponse {
   success: boolean;
   data?: {
     message: string;
-    followUpMessage?: string; // NEW: Optional follow-up message
+    followUpMessage?: string;
     intent: string;
     needsUserInput: boolean;
-    inputType?: 'amount' | 'token' | 'network' | 'confirmation';
+    inputType?: 'amount' | 'token' | 'network' | 'confirmation' | 'choice' | 'number';
     options?: Array<{ value: string; label: string }>;
     automationConfig?: any;
     nextStep?: string;
+    pairInfo?: {
+      pairAddress: string;
+      currentPrice: number;
+      token0: string;
+      token1: string;
+    };
+    // NEW: Aave position information
+    aavePositionInfo?: AavePositionInfo;
   };
   error?: string;
 }
 
-// NEW: Enhanced response interface for handling multiple messages
+// Enhanced response interface for handling multiple messages
 export interface AIMessageResponse {
   success: boolean;
-  messages?: AIMessage[]; // Array of AI messages to add to conversation
+  messages?: AIMessage[];
   error?: string;
 }
 
@@ -72,10 +113,9 @@ export const useReactorAI = () => {
     setError(null);
 
     try {
-      // Use provided conversation ID or generate new one
       const convId = currentConversationId || conversationId || generateConversationId();
 
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
+      const response = await fetch('http://localhost:8000/ai-automation/automate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,12 +138,11 @@ export const useReactorAI = () => {
         throw new Error(data.error || 'Failed to get AI response');
       }
 
-      // NEW: Handle multiple messages (main message + optional followUpMessage)
       if (data.data) {
         const messages: AIMessage[] = [];
         const baseTimestamp = new Date();
 
-        // Add the main AI message
+        // Add the main AI message with enhanced data support
         const mainMessage: AIMessage = {
           id: `msg_${Date.now()}_ai_main`,
           type: 'ai',
@@ -111,7 +150,10 @@ export const useReactorAI = () => {
           timestamp: baseTimestamp,
           options: data.data.options,
           inputType: data.data.inputType,
-          automationConfig: data.data.automationConfig
+          automationConfig: data.data.automationConfig,
+          pairInfo: data.data.pairInfo,
+          // NEW: Include Aave position information
+          aavePositionInfo: data.data.aavePositionInfo
         };
         messages.push(mainMessage);
 
@@ -121,11 +163,12 @@ export const useReactorAI = () => {
             id: `msg_${Date.now()}_ai_followup`,
             type: 'ai',
             content: data.data.followUpMessage,
-            timestamp: new Date(baseTimestamp.getTime() + 100), // Slight delay for proper ordering
-            // Follow-up messages typically don't have options/configs, but inherit needsUserInput behavior
+            timestamp: new Date(baseTimestamp.getTime() + 100),
             options: data.data.needsUserInput ? data.data.options : undefined,
             inputType: data.data.needsUserInput ? data.data.inputType : undefined,
-            automationConfig: data.data.needsUserInput ? data.data.automationConfig : undefined
+            automationConfig: data.data.needsUserInput ? data.data.automationConfig : undefined,
+            // Follow-up messages can also include Aave data for continuity
+            aavePositionInfo: data.data.needsUserInput ? data.data.aavePositionInfo : undefined
           };
           messages.push(followUpMessage);
         }
@@ -159,7 +202,7 @@ export const useReactorAI = () => {
     if (!conversationId) return true;
 
     try {
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/clear-conversation', {
+      const response = await fetch('http://localhost:8000/ai-automation/clear-conversation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +227,7 @@ export const useReactorAI = () => {
 
   const checkAIHealth = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/health', {
+      const response = await fetch('http://localhost:8000/ai-automation/health', {
         method: 'GET',
       });
       
@@ -197,7 +240,7 @@ export const useReactorAI = () => {
 
   const getSupportedFeatures = useCallback(async () => {
     try {
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/features', {
+      const response = await fetch('http://localhost:8000/ai-automation/features', {
         method: 'GET',
       });
       
