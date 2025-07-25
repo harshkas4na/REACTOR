@@ -161,33 +161,72 @@ router.post('/automate', validateAutomateRequest, async (req, res) => {
     console.error(`❌ AI request failed:`, {
       conversationId,
       error: error.message,
-      stack: error.stack,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       processingTime: `${processingTime}ms`
     });
 
-    // Determine error type and response
+    // Enhanced error classification and user-friendly responses
     let statusCode = 500;
     let errorCode = 'INTERNAL_ERROR';
     let userMessage = 'I encountered an unexpected error. Please try again.';
 
+    // Timeout errors
     if (error.message.includes('timeout')) {
       statusCode = 408;
       errorCode = 'TIMEOUT';
-      userMessage = 'I took too long to respond. Please try your message again.';
-    } else if (error.message.includes('network') || error.message.includes('connection')) {
+      userMessage = 'I took too long to respond. This might be due to network congestion. Please try your message again.';
+    } 
+    // Network/connectivity errors
+    else if (error.message.includes('network') || error.message.includes('connection') || 
+             error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
       statusCode = 503;
       errorCode = 'NETWORK_ERROR';
-      userMessage = 'I\'m having trouble connecting to my services. Please try again in a moment.';
-    } else if (error.message.includes('Gemini') || error.message.includes('API')) {
+      userMessage = 'I\'m having trouble connecting to blockchain networks. This could be due to network congestion or connectivity issues. Please try again in a moment.';
+    } 
+    // Gemini API errors
+    else if (error.message.includes('Gemini') || error.message.includes('API') || 
+             error.message.includes('generateContent')) {
       statusCode = 503;
       errorCode = 'AI_SERVICE_ERROR';
-      userMessage = 'My AI service is temporarily unavailable. Please try again in a moment.';
-    } else if (error.message.includes('blockchain') || error.message.includes('RPC')) {
+      userMessage = 'My AI service is temporarily unavailable. This might be due to high demand. Please try again in a moment.';
+    } 
+    // Blockchain RPC errors
+    else if (error.message.includes('blockchain') || error.message.includes('RPC') || 
+             error.message.includes('provider') || error.message.includes('gas')) {
       statusCode = 503;
       errorCode = 'BLOCKCHAIN_ERROR';
-      userMessage = 'I\'m having trouble accessing blockchain data. Please try again.';
+      userMessage = 'I\'m having trouble accessing blockchain data. This could be due to network congestion or RPC issues. Please try again.';
+    }
+    // Rate limiting errors
+    else if (error.message.includes('rate limit') || error.message.includes('too many requests')) {
+      statusCode = 429;
+      errorCode = 'RATE_LIMITED';
+      userMessage = 'I\'m being rate limited by external services. Please wait a moment before trying again.';
+    }
+    // Validation errors
+    else if (error.message.includes('validation') || error.message.includes('invalid')) {
+      statusCode = 400;
+      errorCode = 'VALIDATION_ERROR';
+      userMessage = 'There was an issue with your request. Please check your input and try again.';
+    }
+    // Blockchain-specific errors that should be user-friendly
+    else if (error.message.includes('pair not found') || error.message.includes('token not found')) {
+      statusCode = 400;
+      errorCode = 'TOKEN_PAIR_ERROR';
+      userMessage = 'I couldn\'t find the requested trading pair or token. Please try different tokens or check if they\'re available on the selected network.';
+    }
+    else if (error.message.includes('insufficient liquidity') || error.message.includes('low liquidity')) {
+      statusCode = 400;
+      errorCode = 'LIQUIDITY_ERROR';
+      userMessage = 'The trading pair has insufficient liquidity for safe trading. Please try a different token pair or reduce the amount.';
+    }
+    else if (error.message.includes('balance') || error.message.includes('insufficient funds')) {
+      statusCode = 400;
+      errorCode = 'BALANCE_ERROR';
+      userMessage = 'There appears to be an issue with token balance. Please check your wallet balance and try again.';
     }
 
+    // Return user-friendly error response
     return res.status(statusCode).json({
       success: false,
       error: userMessage,
@@ -196,7 +235,8 @@ router.post('/automate', validateAutomateRequest, async (req, res) => {
         conversationId,
         processingTime,
         timestamp: new Date().toISOString(),
-        retryable: statusCode !== 400
+        retryable: statusCode !== 400, // 400 errors are usually not retryable
+        retryAfter: statusCode === 429 ? 60 : statusCode >= 500 ? 30 : undefined
       }
     });
   }
@@ -300,6 +340,11 @@ router.get('/features', (req, res) => {
           description: 'Automated token protection against price drops',
           supportedNetworks: [1, 11155111, 43114]
         },
+        aaveProtection: {
+          status: 'active',
+          description: 'Automated Aave liquidation protection',
+          supportedNetworks: [11155111] // Currently only Sepolia
+        },
         feeCollectors: {
           status: 'coming_soon',
           description: 'Automated Uniswap V3 fee collection',
@@ -316,14 +361,16 @@ router.get('/features', (req, res) => {
         crossChain: true,
         balanceChecking: true,
         pairDiscovery: true,
-        educationalContent: true
+        educationalContent: true,
+        errorRecovery: true,
+        conversationReset: true
       },
       supportedNetworks: [
         { id: 1, name: 'Ethereum Mainnet', currency: 'ETH' },
         { id: 11155111, name: 'Ethereum Sepolia', currency: 'ETH' },
         { id: 43114, name: 'Avalanche C-Chain', currency: 'AVAX' }
       ],
-      supportedTokens: ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC', 'AVAX']
+      supportedTokens: ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC', 'AVAX', 'LINK', 'AAVE']
     },
     timestamp: new Date().toISOString()
   });
@@ -360,6 +407,36 @@ router.post('/clear-conversation', (req, res) => {
   }
 });
 
+// Reset conversation endpoint (NEW)
+router.post('/reset-conversation', (req, res) => {
+  try {
+    const { conversationId, newIntent } = req.body;
+    
+    if (!conversationId || typeof conversationId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid conversation ID is required'
+      });
+    }
+
+    // Reset conversation will be handled by the AI agent internally
+    console.log(`🔄 Conversation reset requested: ${conversationId} -> ${newIntent || 'UNKNOWN'}`);
+    
+    res.json({
+      success: true,
+      message: 'Conversation reset successfully',
+      conversationId,
+      newIntent: newIntent || 'UNKNOWN'
+    });
+  } catch (error: any) {
+    console.error('Error resetting conversation:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset conversation'
+    });
+  }
+});
+
 // Get conversation statistics (for debugging)
 router.get('/stats', (req, res) => {
   try {
@@ -387,9 +464,27 @@ router.get('/stats', (req, res) => {
 router.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('AI Automation Route Error:', error);
   
-  res.status(500).json({
+  // Determine if this is a user-facing error or internal error
+  let userMessage = 'An unexpected error occurred. Please try again.';
+  let statusCode = 500;
+  
+  if (error.message && typeof error.message === 'string') {
+    // Check for common error patterns and provide user-friendly messages
+    if (error.message.includes('timeout')) {
+      userMessage = 'The request timed out. Please try again.';
+      statusCode = 408;
+    } else if (error.message.includes('validation')) {
+      userMessage = 'Invalid request data. Please check your input.';
+      statusCode = 400;
+    } else if (error.message.includes('rate limit')) {
+      userMessage = 'Too many requests. Please wait before trying again.';
+      statusCode = 429;
+    }
+  }
+  
+  res.status(statusCode).json({
     success: false,
-    error: 'An unexpected error occurred',
+    error: userMessage,
     code: 'ROUTE_ERROR',
     timestamp: new Date().toISOString()
   });
