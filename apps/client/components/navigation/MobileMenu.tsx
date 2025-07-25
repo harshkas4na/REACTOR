@@ -154,7 +154,31 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     value="KOPLI" 
                     className="text-gray-200 hover:bg-gray-700/50"
                   >
-                    Kopli Testnet
+                    Reactive Kopli
+                  </SelectItem>
+                  <SelectItem 
+                    value="BSC_TESTNET" 
+                    className="text-gray-200 hover:bg-gray-700/50"
+                  >
+                    BSC Testnet (Origin)
+                  </SelectItem>
+                  <SelectItem 
+                    value="POLYGON_AMOY" 
+                    className="text-gray-200 hover:bg-gray-700/50"
+                  >
+                    Polygon Amoy (Origin)
+                  </SelectItem>
+                  <SelectItem 
+                    value="AVALANCHE_FUJI" 
+                    className="text-gray-200 hover:bg-gray-700/50"
+                  >
+                    Avalanche Fuji (Origin)
+                  </SelectItem>
+                  <SelectItem 
+                    value="BASE_SEPOLIA" 
+                    className="text-gray-200 hover:bg-gray-700/50"
+                  >
+                    Base Sepolia (Origin)
                   </SelectItem>
                 </div>
 
@@ -168,14 +192,13 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   </div>
                   {[
                     { value: "ETHEREUM", label: "Ethereum Mainnet" },
-                    { value: "AVALANCHE", label: "Avalanche C-Chain" },
-                    { value: "ARBITRUM", label: "Arbitrum One" },
-                    { value: "MANTA", label: "Manta Pacific" },
-                    { value: "BASE", label: "Base Chain" },
                     { value: "BSC", label: "Binance Smart Chain" },
-                    { value: "POLYGON", label: "Polygon PoS" },
-                    { value: "POLYGON_ZKEVM", label: "Polygon zkEVM" },
-                    { value: "OPBNB", label: "opBNB Mainnet" }
+                    { value: "AVALANCHE", label: "Avalanche C-Chain" },
+                    { value: "BASE", label: "Base Chain" },
+                    { value: "ARBITRUM", label: "Arbitrum One" },
+                    { value: "SONIC", label: "Sonic Mainnet" },
+                    { value: "HYPEREVM", label: "HyperEVM" },
+                    { value: "REACT", label: "Reactive Mainnet" }
                   ].map(network => (
                     <SelectItem 
                       key={network.value}

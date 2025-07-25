@@ -14,14 +14,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import AlphaBanner from './AlphaBanner'
 
-
-
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  // const [isLoading, setIsLoading] = useState<boolean>(false)
-  // const [error, setError] = useState<string | null>(null)
-  
-
   
   const {
     selectedNetwork,
@@ -34,15 +28,9 @@ export default function Navigation() {
     openMetaMaskApp
   } = useWeb3();
 
-  
-
- 
-
   const formatAddress = (address: string): string => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
   }
-
-  
 
   return (
     <>
@@ -58,19 +46,6 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center group">
-            {/* <div className="relative">
-              <Image 
-                src="/Reactor2-bgr.png" 
-                alt="Reactor Logo" 
-                width={100} 
-                height={100}
-                quality={100}
-                className="transition-transform duration-300 group-hover:scale-105" 
-              />
-            </div>
-            <span className="font-bold text-xl ml-[-10] md:text-3xl tracking-wider bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent transition-all duration-300 group-hover:from-blue-500 group-hover:via-purple-600 group-hover:to-blue-700">
-              REACTOR
-            </span> */}
             <Image 
                 src="/Full Logo/Color/DarkBg@2x.svg" 
                 alt="Reactor Logo" 
@@ -110,23 +85,31 @@ export default function Navigation() {
               </SelectTrigger>
               <SelectContent>
                 {/* Testnets */}
+                <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
+                    Testnets
+                  </div>
                 <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
-                <SelectItem value="KOPLI">Kopli Testnet</SelectItem>
+                <SelectItem value="KOPLI">Reactive Kopli</SelectItem>
+                <SelectItem value="BSC_TESTNET">BSC Testnet (Origin)</SelectItem>
+                <SelectItem value="POLYGON_AMOY">Polygon Amoy (Origin)</SelectItem>
+                <SelectItem value="AVALANCHE_FUJI">Avalanche Fuji (Origin)</SelectItem>
+                <SelectItem value="BASE_SEPOLIA">Base Sepolia (Origin)</SelectItem>
                 
                 {/* Divider */}
                 <div className="h-px bg-zinc-800 my-1" />
                 
                 {/* Mainnets */}
+                <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
+                    Mainnets
+                  </div>
                 <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
-                <SelectItem value="REACT">Reactive Mainnet</SelectItem>
-                <SelectItem value="AVALANCHE">Avalanche C-Chain</SelectItem>
-                <SelectItem value="ARBITRUM">Arbitrum One</SelectItem>
-                <SelectItem value="MANTA">Manta Pacific</SelectItem>
-                <SelectItem value="BASE">Base Chain</SelectItem>
                 <SelectItem value="BSC">Binance Smart Chain</SelectItem>
-                <SelectItem value="POLYGON">Polygon PoS</SelectItem>
-                <SelectItem value="POLYGON_ZKEVM">Polygon zkEVM</SelectItem>
-                <SelectItem value="OPBNB">opBNB Mainnet</SelectItem>
+                <SelectItem value="AVALANCHE">Avalanche C-Chain</SelectItem>
+                <SelectItem value="BASE">Base Chain</SelectItem>
+                <SelectItem value="ARBITRUM">Arbitrum One</SelectItem>
+                <SelectItem value="SONIC">Sonic Mainnet</SelectItem>
+                <SelectItem value="HYPEREVM">HyperEVM</SelectItem>
+                <SelectItem value="REACT">Reactive Mainnet</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -175,30 +158,6 @@ export default function Navigation() {
                   )}
                 </Button>
               </motion.div>
-            {/* Auth Button
-            <div className="hidden md:block">
-              {isSignedIn ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => signOut()}
-                  className="relative w-8 h-8 sm:w-9 sm:h-9"
-                  aria-label="Sign out"
-                >
-                  <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.location.href = '/sign-in'}
-                  className="relative w-8 h-8 sm:w-9 sm:h-9"
-                  aria-label="Sign in"
-                >
-                  <UserCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-              )}
-            </div> */}
 
             {/* Menu Toggle - Always visible on screens < lg */}
             <div className="lg:hidden">

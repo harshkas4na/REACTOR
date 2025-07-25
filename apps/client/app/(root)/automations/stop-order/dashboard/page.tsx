@@ -2,18 +2,11 @@
 import { ethers } from 'ethers';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Tabs,
   TabsContent,
@@ -22,21 +15,20 @@ import {
 } from "@/components/ui/tabs";
 import { 
   CheckCircle, 
-  Clock, 
-  X, 
   Pause, 
   Play, 
-  ExternalLink, 
+  X, 
   RefreshCw, 
   TrendingDown, 
   AlertCircle,
   Target,
-  Eye,
-  Activity
+  Activity,
+  Plus,
+  Eye
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// Types matching the smart contract
+// Simplified types
 enum OrderStatus {
   Active = 0,
   Paused = 1,
@@ -48,164 +40,102 @@ enum OrderStatus {
 interface StopOrder {
   id: number;
   client: string;
-  pair: string;
-  tokenSell: string;
-  tokenBuy: string;
+  tokenSellSymbol: string;
+  tokenBuySymbol: string;
   amount: string;
-  sellToken0: boolean;
-  coefficient: number;
-  threshold: number;
+  currentPrice: string;
+  triggerPrice: string;
   status: OrderStatus;
   createdAt: number;
   executedAt: number;
-  retryCount: number;
-  lastExecutionAttempt: number;
-  // Additional computed fields for UI
-  tokenSellSymbol: string;
-  tokenBuySymbol: string;
-  currentPrice: string;
-  triggerPrice: string;
   network: string;
-  executionHash?: string;
+  dropPercentage: number;
 }
 
-// Dummy data for demonstration
+// Simplified dummy data
 const DUMMY_ORDERS: StopOrder[] = [
   {
     id: 1,
     client: '0x742d35Cc6634C0532925a3b8D6Ac6C49BB24b9c8',
-    pair: '0x4C4d...8b64',
-    tokenSell: '0xA0b8...63c0',
-    tokenBuy: '0x291e...7f46',
-    amount: '1.5',
-    sellToken0: true,
-    coefficient: 1000,
-    threshold: 900,
-    status: OrderStatus.Active,
-    createdAt: Date.now() - 86400000, // 1 day ago
-    executedAt: 0,
-    retryCount: 0,
-    lastExecutionAttempt: 0,
     tokenSellSymbol: 'ETH',
     tokenBuySymbol: 'USDC',
+    amount: '1.5',
     currentPrice: '3,450.32',
     triggerPrice: '3,105.29',
+    status: OrderStatus.Active,
+    createdAt: Date.now() - 86400000,
+    executedAt: 0,
     network: 'Ethereum',
+    dropPercentage: 10
   },
   {
     id: 2,
     client: '0x742d35Cc6634C0532925a3b8D6Ac6C49BB24b9c8',
-    pair: '0x7B73...2a1c',
-    tokenSell: '0x514f...86CA',
-    tokenBuy: '0xA0b8...63c0',
-    amount: '500',
-    sellToken0: false,
-    coefficient: 1000,
-    threshold: 850,
-    status: OrderStatus.Executed,
-    createdAt: Date.now() - 172800000, // 2 days ago
-    executedAt: Date.now() - 3600000, // 1 hour ago
-    retryCount: 0,
-    lastExecutionAttempt: Date.now() - 3600000,
     tokenSellSymbol: 'LINK',
     tokenBuySymbol: 'ETH',
+    amount: '500',
     currentPrice: '14.23',
     triggerPrice: '12.10',
+    status: OrderStatus.Executed,
+    createdAt: Date.now() - 172800000,
+    executedAt: Date.now() - 3600000,
     network: 'Ethereum',
-    executionHash: '0xabcd...ef12'
+    dropPercentage: 15
   },
   {
     id: 3,
     client: '0x742d35Cc6634C0532925a3b8D6Ac6C49BB24b9c8',
-    pair: '0x9B71...4d2e',
-    tokenSell: '0xB31f...66c7',
-    tokenBuy: '0xB97E...8a6E',
-    amount: '25.0',
-    sellToken0: true,
-    coefficient: 1000,
-    threshold: 800,
-    status: OrderStatus.Paused,
-    createdAt: Date.now() - 259200000, // 3 days ago
-    executedAt: 0,
-    retryCount: 0,
-    lastExecutionAttempt: 0,
     tokenSellSymbol: 'WAVAX',
     tokenBuySymbol: 'USDC',
+    amount: '25.0',
     currentPrice: '38.75',
     triggerPrice: '31.00',
-    network: 'Avalanche',
-  },
-  {
-    id: 4,
-    client: '0x742d35Cc6634C0532925a3b8D6Ac6C49BB24b9c8',
-    pair: '0x2C7a...8f3b',
-    tokenSell: '0x2260...2C599',
-    tokenBuy: '0xA0b8...63c0',
-    amount: '0.05',
-    sellToken0: true,
-    coefficient: 1000,
-    threshold: 950,
-    status: OrderStatus.Failed,
-    createdAt: Date.now() - 432000000, // 5 days ago
+    status: OrderStatus.Paused,
+    createdAt: Date.now() - 259200000,
     executedAt: 0,
-    retryCount: 3,
-    lastExecutionAttempt: Date.now() - 86400000,
-    tokenSellSymbol: 'WBTC',
-    tokenBuySymbol: 'ETH',
-    currentPrice: '43,250.00',
-    triggerPrice: '41,087.50',
-    network: 'Ethereum',
+    network: 'Avalanche',
+    dropPercentage: 20
   }
 ];
 
+// Simplified status config
 const STATUS_CONFIG = {
   [OrderStatus.Active]: {
     label: 'Active',
     color: 'bg-green-500',
-    textColor: 'text-green-700',
-    bgColor: 'bg-green-50',
-    icon: Activity,
-    description: 'Monitoring price movements'
+    textColor: 'text-green-300',
+    icon: Activity
   },
   [OrderStatus.Paused]: {
     label: 'Paused',
     color: 'bg-yellow-500',
-    textColor: 'text-yellow-700',
-    bgColor: 'bg-yellow-50',
-    icon: Pause,
-    description: 'Temporarily suspended'
-  },
-  [OrderStatus.Cancelled]: {
-    label: 'Cancelled',
-    color: 'bg-gray-500',
-    textColor: 'text-gray-700',
-    bgColor: 'bg-gray-50',
-    icon: X,
-    description: 'Cancelled by user'
+    textColor: 'text-yellow-300',
+    icon: Pause
   },
   [OrderStatus.Executed]: {
     label: 'Executed',
     color: 'bg-blue-500',
-    textColor: 'text-blue-700',
-    bgColor: 'bg-blue-50',
-    icon: CheckCircle,
-    description: 'Successfully completed'
+    textColor: 'text-blue-300',
+    icon: CheckCircle
+  },
+  [OrderStatus.Cancelled]: {
+    label: 'Cancelled',
+    color: 'bg-gray-500',
+    textColor: 'text-gray-400',
+    icon: X
   },
   [OrderStatus.Failed]: {
     label: 'Failed',
     color: 'bg-red-500',
-    textColor: 'text-red-700',
-    bgColor: 'bg-red-50',
-    icon: AlertCircle,
-    description: 'Execution failed'
+    textColor: 'text-red-300',
+    icon: AlertCircle
   }
 };
 
-export default function StopOrderDashboard() {
+export default function SimplifiedStopOrderDashboard() {
   const [orders, setOrders] = useState<StopOrder[]>(DUMMY_ORDERS);
   const [connectedAccount, setConnectedAccount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTab, setSelectedTab] = useState('all');
 
   // Get connected account
   useEffect(() => {
@@ -225,238 +155,153 @@ export default function StopOrderDashboard() {
     getConnectedAccount();
   }, []);
 
-  // Filter orders based on selected tab
-  const filteredOrders = orders.filter(order => {
-    if (selectedTab === 'all') return true;
-    if (selectedTab === 'active') return order.status === OrderStatus.Active;
-    if (selectedTab === 'executed') return order.status === OrderStatus.Executed;
-    if (selectedTab === 'paused') return order.status === OrderStatus.Paused;
-    if (selectedTab === 'cancelled') return order.status === OrderStatus.Cancelled;
-    if (selectedTab === 'failed') return order.status === OrderStatus.Failed;
-    return true;
-  });
-
-  // Stats calculation
-  const stats = {
-    total: orders.length,
-    active: orders.filter(o => o.status === OrderStatus.Active).length,
-    executed: orders.filter(o => o.status === OrderStatus.Executed).length,
-    paused: orders.filter(o => o.status === OrderStatus.Paused).length,
-    failed: orders.filter(o => o.status === OrderStatus.Failed).length,
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    if (timestamp === 0) return 'N/A';
-    return new Date(timestamp).toLocaleString();
-  };
+  // Filter active vs completed orders
+  const activeOrders = orders.filter(order => 
+    order.status === OrderStatus.Active || order.status === OrderStatus.Paused
+  );
+  const completedOrders = orders.filter(order => 
+    order.status === OrderStatus.Executed || order.status === OrderStatus.Cancelled || order.status === OrderStatus.Failed
+  );
 
   const formatTimeAgo = (timestamp: number) => {
-    if (timestamp === 0) return 'N/A';
     const now = Date.now();
     const diff = now - timestamp;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     
-    if (days > 0) return `${days}d ${hours}h ago`;
+    if (days > 0) return `${days}d ago`;
     if (hours > 0) return `${hours}h ago`;
     return 'Recently';
   };
 
-  const handlePauseOrder = async (orderId: number) => {
+  // Simplified action handlers
+  const handleTogglePause = async (orderId: number, currentStatus: OrderStatus) => {
     setIsLoading(true);
     try {
-      // TODO: Call contract function to pause order
+      const newStatus = currentStatus === OrderStatus.Active ? OrderStatus.Paused : OrderStatus.Active;
       setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: OrderStatus.Paused }
-          : order
+        order.id === orderId ? { ...order, status: newStatus } : order
       ));
-      toast.success('Order paused successfully');
+      toast.success(newStatus === OrderStatus.Paused ? 'Order paused' : 'Order resumed');
     } catch (error) {
-      toast.error('Failed to pause order');
-      console.error(error);
+      toast.error('Action failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResumeOrder = async (orderId: number) => {
+  const handleCancel = async (orderId: number) => {
     setIsLoading(true);
     try {
-      // TODO: Call contract function to resume order
       setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: OrderStatus.Active }
-          : order
+        order.id === orderId ? { ...order, status: OrderStatus.Cancelled } : order
       ));
-      toast.success('Order resumed successfully');
-    } catch (error) {
-      toast.error('Failed to resume order');
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCancelOrder = async (orderId: number) => {
-    setIsLoading(true);
-    try {
-      // TODO: Call contract function to cancel order
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: OrderStatus.Cancelled }
-          : order
-      ));
-      toast.success('Order cancelled successfully');
+      toast.success('Order cancelled');
     } catch (error) {
       toast.error('Failed to cancel order');
-      console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Simplified status badge
   const StatusBadge = ({ status }: { status: OrderStatus }) => {
     const config = STATUS_CONFIG[status];
     const Icon = config.icon;
     
     return (
-      <Badge 
-        variant="outline" 
-        className={`${config.textColor} ${config.bgColor} border-current flex items-center space-x-1`}
-      >
+      <div className={`flex items-center space-x-1 ${config.textColor}`}>
         <Icon className="w-3 h-3" />
-        <span>{config.label}</span>
-      </Badge>
+        <span className="text-xs font-medium">{config.label}</span>
+      </div>
     );
   };
 
+  // Simplified order card
   const OrderCard = ({ order }: { order: StopOrder }) => (
     <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center font-bold text-white">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center text-sm font-bold text-white">
               #{order.id}
             </div>
             <div>
-              <CardTitle className="text-lg text-zinc-100">
+              <h3 className="font-medium text-zinc-100">
                 {order.tokenSellSymbol} → {order.tokenBuySymbol}
-              </CardTitle>
-              <CardDescription className="text-zinc-400">
-                {order.network} • {formatTimeAgo(order.createdAt)}
-              </CardDescription>
+              </h3>
+              <p className="text-xs text-zinc-400">{order.network} • {formatTimeAgo(order.createdAt)}</p>
             </div>
           </div>
           <StatusBadge status={order.status} />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+
+        <div className="grid grid-cols-3 gap-3 mb-3 text-sm">
           <div>
-            <p className="text-xs text-zinc-400">Amount</p>
-            <p className="text-sm font-medium text-zinc-200">{order.amount} {order.tokenSellSymbol}</p>
+            <p className="text-zinc-400 text-xs">Amount</p>
+            <p className="text-zinc-200 font-medium">{order.amount} {order.tokenSellSymbol}</p>
           </div>
           <div>
-            <p className="text-xs text-zinc-400">Current Price</p>
-            <p className="text-sm font-medium text-zinc-200">${order.currentPrice}</p>
+            <p className="text-zinc-400 text-xs">Drop %</p>
+            <p className="text-red-300 font-medium">{order.dropPercentage}%</p>
           </div>
           <div>
-            <p className="text-xs text-zinc-400">Trigger Price</p>
-            <p className="text-sm font-medium text-amber-300">${order.triggerPrice}</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-400">Drop %</p>
-            <p className="text-sm font-medium text-red-300">
-              {(((1 - order.threshold / order.coefficient) * 100)).toFixed(1)}%
-            </p>
+            <p className="text-zinc-400 text-xs">Trigger at</p>
+            <p className="text-amber-300 font-medium">${order.triggerPrice}</p>
           </div>
         </div>
 
-        {order.status === OrderStatus.Executed && order.executionHash && (
-          <div className="p-3 bg-green-900/20 rounded border border-green-500/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-green-300">Executed on {formatTimestamp(order.executedAt)}</span>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="text-green-400 hover:text-green-300"
-                onClick={() => window.open(`https://etherscan.io/tx/${order.executionHash}`, '_blank')}
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                View Tx
-              </Button>
-            </div>
+        {/* Actions - only show for active/paused orders */}
+        {(order.status === OrderStatus.Active || order.status === OrderStatus.Paused) && (
+          <div className="flex space-x-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => handleTogglePause(order.id, order.status)}
+              disabled={isLoading}
+              className="flex-1 bg-yellow-900/20 border-yellow-700 text-yellow-300 hover:bg-yellow-800/30"
+            >
+              {order.status === OrderStatus.Active ? (
+                <>
+                  <Pause className="w-3 h-3 mr-1" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="w-3 h-3 mr-1" />
+                  Resume
+                </>
+              )}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => handleCancel(order.id)}
+              disabled={isLoading}
+              className="flex-1 bg-red-900/20 border-red-700 text-red-300 hover:bg-red-800/30"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
           </div>
         )}
 
-        {order.status === OrderStatus.Failed && (
-          <div className="p-3 bg-red-900/20 rounded border border-red-500/20">
-            <p className="text-xs text-red-300">
-              Failed after {order.retryCount} retries • Last attempt: {formatTimeAgo(order.lastExecutionAttempt)}
+        {/* Execution info for completed orders */}
+        {order.status === OrderStatus.Executed && (
+          <div className="mt-3 p-2 bg-green-900/20 rounded border border-green-500/20">
+            <p className="text-xs text-green-300">
+              ✅ Executed {formatTimeAgo(order.executedAt)}
             </p>
           </div>
         )}
-
-        <div className="flex space-x-2">
-          {order.status === OrderStatus.Active && (
-            <>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => handlePauseOrder(order.id)}
-                disabled={isLoading}
-                className="bg-yellow-900/20 border-yellow-700 text-yellow-300 hover:bg-yellow-800/30"
-              >
-                <Pause className="w-3 h-3 mr-1" />
-                Pause
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => handleCancelOrder(order.id)}
-                disabled={isLoading}
-                className="bg-red-900/20 border-red-700 text-red-300 hover:bg-red-800/30"
-              >
-                <X className="w-3 h-3 mr-1" />
-                Cancel
-              </Button>
-            </>
-          )}
-          
-          {order.status === OrderStatus.Paused && (
-            <>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => handleResumeOrder(order.id)}
-                disabled={isLoading}
-                className="bg-green-900/20 border-green-700 text-green-300 hover:bg-green-800/30"
-              >
-                <Play className="w-3 h-3 mr-1" />
-                Resume
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => handleCancelOrder(order.id)}
-                disabled={isLoading}
-                className="bg-red-900/20 border-red-700 text-red-300 hover:bg-red-800/30"
-              >
-                <X className="w-3 h-3 mr-1" />
-                Cancel
-              </Button>
-            </>
-          )}
-        </div>
       </CardContent>
     </Card>
   );
 
   return (
     <div className="min-h-screen relative py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+      <div className="max-w-5xl mx-auto">
+        {/* Simplified Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -466,10 +311,10 @@ export default function StopOrderDashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 mb-2">
-                Stop Orders Dashboard
+                Your Stop Orders
               </h1>
               <p className="text-xl text-zinc-300">
-                Monitor and manage all your automated stop orders
+                Monitor and manage your automated orders
               </p>
             </div>
             <div className="flex space-x-3">
@@ -481,46 +326,43 @@ export default function StopOrderDashboard() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh
               </Button>
-              <Button
-                onClick={() => window.open('/automations/stop-order', '_blank')}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Create New
-              </Button>
+              <Link href="/automations/stop-order">
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New
+                </Button>
+              </Link>
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Card className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border-zinc-800">
-              <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-zinc-100">{stats.total}</h3>
-                <p className="text-sm text-zinc-400">Total Orders</p>
-              </CardContent>
-            </Card>
+          {/* Simple Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="bg-gradient-to-br from-green-900/40 to-blue-900/40 border-zinc-800">
               <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-green-300">{stats.active}</h3>
-                <p className="text-sm text-zinc-400">Active</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border-zinc-800">
-              <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-blue-300">{stats.executed}</h3>
-                <p className="text-sm text-zinc-400">Executed</p>
+                <h3 className="text-2xl font-bold text-green-300">{activeOrders.length}</h3>
+                <p className="text-sm text-zinc-400">Active Orders</p>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 border-zinc-800">
               <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-yellow-300">{stats.paused}</h3>
+                <h3 className="text-2xl font-bold text-yellow-300">
+                  {orders.filter(o => o.status === OrderStatus.Paused).length}
+                </h3>
                 <p className="text-sm text-zinc-400">Paused</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-red-900/40 to-pink-900/40 border-zinc-800">
+            <Card className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border-zinc-800">
               <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-red-300">{stats.failed}</h3>
-                <p className="text-sm text-zinc-400">Failed</p>
+                <h3 className="text-2xl font-bold text-blue-300">
+                  {orders.filter(o => o.status === OrderStatus.Executed).length}
+                </h3>
+                <p className="text-sm text-zinc-400">Executed</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 border-zinc-800">
+              <CardContent className="p-4 text-center">
+                <h3 className="text-2xl font-bold text-purple-300">{orders.length}</h3>
+                <p className="text-sm text-zinc-400">Total Orders</p>
               </CardContent>
             </Card>
           </div>
@@ -531,51 +373,65 @@ export default function StopOrderDashboard() {
           <Alert className="mb-6 bg-blue-900/20 border-blue-500/50">
             <Eye className="h-4 w-4 text-blue-400" />
             <AlertDescription className="text-zinc-200">
-              Showing orders for: <span className="font-mono text-blue-300">{connectedAccount}</span>
+              Wallet: <span className="font-mono text-blue-300">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Orders */}
+        {/* Simplified Tabs - Just Active and History */}
         <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-zinc-100">Your Stop Orders</CardTitle>
+            <CardTitle className="text-zinc-100">Your Orders</CardTitle>
             <CardDescription className="text-zinc-300">
-              Manage your automated trading orders
+              Manage your stop orders
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="grid w-full grid-cols-6 bg-zinc-800">
-                <TabsTrigger value="all" className="data-[state=active]:bg-blue-600">All</TabsTrigger>
-                <TabsTrigger value="active" className="data-[state=active]:bg-green-600">Active</TabsTrigger>
-                <TabsTrigger value="executed" className="data-[state=active]:bg-blue-600">Executed</TabsTrigger>
-                <TabsTrigger value="paused" className="data-[state=active]:bg-yellow-600">Paused</TabsTrigger>
-                <TabsTrigger value="cancelled" className="data-[state=active]:bg-gray-600">Cancelled</TabsTrigger>
-                <TabsTrigger value="failed" className="data-[state=active]:bg-red-600">Failed</TabsTrigger>
+            <Tabs defaultValue="active">
+              <TabsList className="grid w-full grid-cols-2 bg-zinc-800">
+                <TabsTrigger value="active" className="data-[state=active]:bg-green-600">
+                  Active ({activeOrders.length})
+                </TabsTrigger>
+                <TabsTrigger value="history" className="data-[state=active]:bg-blue-600">
+                  History ({completedOrders.length})
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value={selectedTab} className="mt-6">
-                {filteredOrders.length === 0 ? (
+              <TabsContent value="active" className="mt-6">
+                {activeOrders.length === 0 ? (
                   <div className="text-center py-12">
                     <Target className="w-16 h-16 text-zinc-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-medium text-zinc-200 mb-2">No orders found</h3>
+                    <h3 className="text-xl font-medium text-zinc-200 mb-2">No active orders</h3>
                     <p className="text-zinc-400 mb-4">
-                      {selectedTab === 'all' 
-                        ? "You haven't created any stop orders yet."
-                        : `No ${selectedTab} orders found.`
-                      }
+                      Create your first stop order to protect your trades
                     </p>
-                    <Button
-                      onClick={() => window.open('/automations/stop-order', '_blank')}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                    >
-                      Create Your First Stop Order
-                    </Button>
+                    <Link href="/automations/stop-order">
+                      <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                        Create Stop Order
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {filteredOrders.map((order) => (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {activeOrders.map((order) => (
+                      <OrderCard key={order.id} order={order} />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="history" className="mt-6">
+                {completedOrders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <CheckCircle className="w-16 h-16 text-zinc-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-medium text-zinc-200 mb-2">No completed orders</h3>
+                    <p className="text-zinc-400">
+                      Your executed and cancelled orders will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {completedOrders.map((order) => (
                       <OrderCard key={order.id} order={order} />
                     ))}
                   </div>
@@ -585,27 +441,35 @@ export default function StopOrderDashboard() {
           </CardContent>
         </Card>
 
-        {/* How it Works */}
+        {/* Simple Help Section */}
         <Card className="mt-8 bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-zinc-100">Understanding Order Status</CardTitle>
+            <CardTitle className="text-zinc-100 flex items-center">
+              <TrendingDown className="w-5 h-5 mr-2" />
+              How Stop Orders Work
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-                const Icon = config.icon;
-                return (
-                  <div key={status} className="flex items-start space-x-3 p-4 bg-zinc-800/50 rounded-lg">
-                    <div className={`w-8 h-8 rounded-full ${config.color} flex items-center justify-center`}>
-                      <Icon className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-zinc-200">{config.label}</h3>
-                      <p className="text-sm text-zinc-400">{config.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
+            <p className="text-zinc-300 mb-4">
+              Stop orders automatically sell your tokens when prices drop to protect you from losses. 
+              They monitor prices 24/7 and execute trades instantly when your trigger price is reached.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-zinc-800/50 rounded-lg">
+                <Activity className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                <h3 className="font-medium text-zinc-200 mb-1">Active</h3>
+                <p className="text-sm text-zinc-400">Monitoring prices</p>
+              </div>
+              <div className="text-center p-4 bg-zinc-800/50 rounded-lg">
+                <Pause className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                <h3 className="font-medium text-zinc-200 mb-1">Paused</h3>
+                <p className="text-sm text-zinc-400">Temporarily stopped</p>
+              </div>
+              <div className="text-center p-4 bg-zinc-800/50 rounded-lg">
+                <CheckCircle className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                <h3 className="font-medium text-zinc-200 mb-1">Executed</h3>
+                <p className="text-sm text-zinc-400">Successfully completed</p>
+              </div>
             </div>
           </CardContent>
         </Card>
