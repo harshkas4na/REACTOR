@@ -257,7 +257,7 @@ const CONTRACT_ADDRESSES = {
 };
 
 // ===== TOKEN SERVICE CLASS =====
-export class TokenService {
+class TokenService {
   private static cache = new Map<string, { data: Token[]; timestamp: number }>();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -492,7 +492,7 @@ export class TokenService {
 }
 
 // Helper function to format large numbers
-export function formatTokenBalance(balance: string): string {
+function formatTokenBalance(balance: string): string {
   const num = parseFloat(balance);
   if (num === 0) return '0';
   if (num < 0.0001) return '<0.0001';
