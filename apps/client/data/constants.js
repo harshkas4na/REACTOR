@@ -1,5 +1,5 @@
 //Base URL for the API
-export const BASE_URL = 'http://localhost:8000'
+export const BASE_URL = 'https://app.thereactor.in/api'
 
 export const NAVIGATION_ITEMS = [
     { label: 'Home', path: '/' },
