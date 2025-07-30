@@ -100,9 +100,9 @@ const CHAINS = {
       isOrigin: false,
       isDestination: false,
     },
-    '5318008': {
-      id: 5318008,
-      name: 'Kopli Testnet',
+    '5318007': {
+      id: 5318007,
+      name: 'Lasna Testnet',
       hasCallbacks: true,
       isOrigin: true,
       isDestination: true,

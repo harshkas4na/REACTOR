@@ -10,7 +10,7 @@ export default function NetworkBadge({ network }: NetworkBadgeProps) {
     switch (network.toLowerCase()) {
       case 'sepolia':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-      case 'kopli':
+      case 'Lasna':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'

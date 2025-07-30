@@ -245,7 +245,7 @@ export class NetworkUtils {
     'ETHEREUM': 1,
     'SEPOLIA': 11155111,
     'AVALANCHE': 43114,
-    'KOPLI': 5318008,
+    'Lasna': 5318007,
     'REACT': 1597,
     'ARBITRUM': 42161,
     'MANTA': 169,
@@ -260,7 +260,7 @@ export class NetworkUtils {
     1: 'Ethereum Mainnet',
     11155111: 'Ethereum Sepolia',
     43114: 'Avalanche C-Chain',
-    5318008: 'Kopli Testnet',
+    5318007: 'Lasna Testnet',
     1597: 'Reactive Mainnet',
     42161: 'Arbitrum One',
     169: 'Manta Pacific',
@@ -314,12 +314,12 @@ export class NetworkUtils {
         currency: 'REACT'
       };
     } 
-    // Testnets use Kopli
+    // Testnets use Lasna
     else {
       return {
-        chainId: 5318008,
-        name: 'Kopli Testnet',
-        currency: 'KOPLI'
+        chainId: 5318007,
+        name: 'Lasna Testnet',
+        currency: 'Lasna'
       };
     }
   }

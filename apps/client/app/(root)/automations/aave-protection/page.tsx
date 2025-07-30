@@ -18,7 +18,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw, TrendingDown, Activity, DollarSign } from 'lucide-react';
+import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw, TrendingDown, Activity, DollarSign, ExternalLink } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
 import { toast } from 'react-hot-toast';
 
@@ -74,10 +74,11 @@ interface ChainConfig {
   name: string;
   lendingPoolAddress: string;
   protocolDataProviderAddress: string;
-  addressesProviderAddress: string; // NEW: Aave addresses provider
+  addressesProviderAddress: string;
   protectionManagerAddress: string;
   rpcUrl?: string;
   nativeCurrency: string;
+  wethAddress?: string; // Add WETH address for ETH handling
 }
 
 interface AssetConfig {
@@ -85,7 +86,7 @@ interface AssetConfig {
   symbol: string;
   name: string;
   decimals: number;
-  canBorrow?: boolean; // NEW: Some assets can't be borrowed
+  canBorrow?: boolean;
 }
 
 // Configuration constants - updated for new contract architecture
@@ -95,27 +96,35 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     name: 'Ethereum Sepolia',
     lendingPoolAddress: '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951',
     protocolDataProviderAddress: '0x3e9708d80f7B3e43118013075F7e95CE3AB31F31',
-    addressesProviderAddress: '0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A', // NEW: Aave addresses provider on Sepolia
-    protectionManagerAddress: '0x4833996c0de8a9f58893A9Db0B6074e29D1bD4a9', // Replace with actual deployed address
+    addressesProviderAddress: '0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A',
+    protectionManagerAddress: '0x924f514f5475695be9a9b51bf1d60b583af9cd86',
     rpcUrl: 'https://rpc.sepolia.org',
-    nativeCurrency: 'ETH'
+    nativeCurrency: 'ETH',
+    wethAddress: '0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c' // Sepolia WETH
   },
-  // Future networks
   {
     id: '1',
     name: 'Ethereum Mainnet (Coming Soon)',
     lendingPoolAddress: '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9',
     protocolDataProviderAddress: '0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d',
-    addressesProviderAddress: '0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5', // Mainnet addresses provider
+    addressesProviderAddress: '0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5',
     protectionManagerAddress: '',
     rpcUrl: 'https://ethereum.publicnode.com',
-    nativeCurrency: 'ETH'
+    nativeCurrency: 'ETH',
+    wethAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' // Mainnet WETH
   }
 ];
 
-// Updated asset configuration - removed ETH, added AAVE and EURS
+// Updated asset configuration - include WETH/ETH
 const AAVE_ASSETS: Record<string, AssetConfig[]> = {
   '11155111': [
+    { 
+      address: 'ETH', // Special identifier for native ETH
+      symbol: 'ETH', 
+      name: 'Ethereum',
+      decimals: 18,
+      canBorrow: true
+    },
     { 
       address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', 
       symbol: 'LINK', 
@@ -145,14 +154,14 @@ const AAVE_ASSETS: Record<string, AssetConfig[]> = {
       canBorrow: true
     },
     {
-      address: '0x88541670e55cc00beefd87eb59edd1b7c511ac9a', // AAVE token
+      address: '0x88541670e55cc00beefd87eb59edd1b7c511ac9a',
       symbol: 'AAVE',
       name: 'Aave Token',
       decimals: 18,
-      canBorrow: false // Can't be borrowed
+      canBorrow: false
     },
     {
-      address: '0x6d906e526a4e2ca02097ba9d0caa3c382f52278e', // EURS token
+      address: '0x6d906e526a4e2ca02097ba9d0caa3c382f52278e',
       symbol: 'EURS',
       name: 'STASIS EURS',
       decimals: 2,
@@ -165,9 +174,9 @@ type SetupStep = 'idle' | 'checking-position' | 'approving-collateral' | 'approv
 
 export default function AaveLiquidationProtectionPage() {
   const [formData, setFormData] = useState<AaveProtectionFormData>({
-    chainId: '11155111', // Default to Sepolia
+    chainId: '11155111',
     userAddress: '',
-    protectionType: '0', // Default to COLLATERAL_DEPOSIT
+    protectionType: '0',
     healthFactorThreshold: '1.2',
     targetHealthFactor: '1.5',
     collateralAsset: '',
@@ -185,21 +194,17 @@ export default function AaveLiquidationProtectionPage() {
   const [collateralApproved, setCollateralApproved] = useState<boolean>(false);
   const [debtApproved, setDebtApproved] = useState<boolean>(false);
 
-  // Find the currently selected chain configuration
   const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId) || SUPPORTED_CHAINS[0];
   const availableAssets = AAVE_ASSETS[formData.chainId as keyof typeof AAVE_ASSETS] || [];
   
-  // Get assets available for collateral (all assets)
   const collateralAssets = availableAssets;
-  // Get assets available for debt (only those that can be borrowed)
   const debtAssets = availableAssets.filter(asset => asset.canBorrow !== false);
 
-  // Helper function to find asset config by address
   const findAssetByAddress = (address: string): AssetConfig | undefined => {
+    if (address === 'ETH') return availableAssets.find(asset => asset.symbol === 'ETH');
     return availableAssets.find(asset => asset.address.toLowerCase() === address.toLowerCase());
   };
 
-  // Protection type labels
   const protectionTypes = [
     { value: '0', label: 'Collateral Deposit Only', description: 'Automatically supply additional collateral when health factor drops' },
     { value: '1', label: 'Debt Repayment Only', description: 'Automatically repay debt when health factor drops' },
@@ -243,10 +248,8 @@ export default function AaveLiquidationProtectionPage() {
     };
   }, []);
 
-  // NEW: Get asset price from the protection manager contract (which uses Aave's oracle)
   const getAssetPriceUSD = async (assetConfig: AssetConfig, provider: ethers.BrowserProvider) => {
     try {
-      // Use the protection manager contract to get asset price from Aave oracle
       const protectionManagerInterface = new ethers.Interface([
         'function getAssetPrice(address asset) view returns (uint256)'
       ]);
@@ -258,8 +261,10 @@ export default function AaveLiquidationProtectionPage() {
       );
 
       try {
-        const priceWei = await protectionManagerContract.getAssetPrice(assetConfig.address);
-        const priceUSD = Number(priceWei) / 1e8; // Aave oracle returns prices in 8 decimals
+        // For ETH, use WETH address for price oracle
+        const assetAddress = assetConfig.address === 'ETH' ? selectedChain.wethAddress : assetConfig.address;
+        const priceWei = await protectionManagerContract.getAssetPrice(assetAddress);
+        const priceUSD = Number(priceWei) / 1e8;
         
         if (priceUSD > 0) {
           console.log(`Aave Oracle price for ${assetConfig.symbol}: ${priceUSD}`);
@@ -269,8 +274,8 @@ export default function AaveLiquidationProtectionPage() {
         console.log(`Failed to get price for ${assetConfig.symbol} from protection manager`);
       }
 
-      // Fallback prices for better UX on testnet
       const fallbackPrices: Record<string, number> = {
+        'ETH': 3500.0,
         'LINK': 30.0,
         'USDC': 1.0,
         'DAI': 1.0,
@@ -306,7 +311,6 @@ export default function AaveLiquidationProtectionPage() {
         throw new Error('Please switch to the selected network');
       }
 
-      // First get overall account data
       const lendingPoolInterface = new ethers.Interface([
         'function getUserAccountData(address user) view returns (uint256 totalCollateralETH, uint256 totalDebtETH, uint256 availableBorrowsETH, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)'
       ]);
@@ -323,7 +327,6 @@ export default function AaveLiquidationProtectionPage() {
       console.log("Raw collateral wei:", userData.totalCollateralETH.toString());
       console.log("Raw debt wei:", userData.totalDebtETH.toString());
 
-      // Protocol Data Provider interface for individual assets
       const dataProviderInterface = new ethers.Interface([
         'function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)'
       ]);
@@ -334,14 +337,17 @@ export default function AaveLiquidationProtectionPage() {
         provider
       );
 
-      // Get individual asset positions
       const userAssets: AssetPosition[] = [];
       let totalCollateralUSD = 0;
       let totalDebtUSD = 0;
 
       for (const assetConfig of availableAssets) {
         try {
-          const reserveData = await dataProvider.getUserReserveData(assetConfig.address, userAddress);
+          // For ETH, use WETH address to get reserve data
+          const reserveAddress = assetConfig.address === 'ETH' ? selectedChain.wethAddress : assetConfig.address;
+          if (!reserveAddress) continue;
+          
+          const reserveData = await dataProvider.getUserReserveData(reserveAddress, userAddress);
           
           const collateralBalance = parseFloat(ethers.formatUnits(reserveData.currentATokenBalance, assetConfig.decimals));
           const debtBalance = parseFloat(ethers.formatUnits(reserveData.currentVariableDebt, assetConfig.decimals));
@@ -372,7 +378,6 @@ export default function AaveLiquidationProtectionPage() {
         }
       }
 
-      // Check if user has any position
       const hasPosition = userAssets.length > 0;
       
       if (!hasPosition) {
@@ -391,7 +396,6 @@ export default function AaveLiquidationProtectionPage() {
         return;
       }
 
-      // Convert to readable format
       setPositionInfo({
         totalCollateralETH: ethers.formatEther(userData.totalCollateralETH),
         totalDebtETH: ethers.formatEther(userData.totalDebtETH),
@@ -405,7 +409,6 @@ export default function AaveLiquidationProtectionPage() {
         userAssets
       });
 
-      // Also fetch user subscription status
       await checkUserSubscription(userAddress);
 
     } catch (error: any) {
@@ -454,8 +457,9 @@ export default function AaveLiquidationProtectionPage() {
     }
   };
 
+  // Fixed approval checking logic
   const checkApprovals = async () => {
-    if (!connectedAccount || !formData.collateralAsset || !formData.debtAsset) return;
+    if (!connectedAccount) return;
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -463,20 +467,28 @@ export default function AaveLiquidationProtectionPage() {
         'function allowance(address owner, address spender) view returns (uint256)'
       ]);
 
-      // Check collateral approval
-      if (formData.protectionType === '0' || formData.protectionType === '2') {
-        const collateralContract = new ethers.Contract(formData.collateralAsset, erc20Interface, provider);
-        const collateralAllowance = await collateralContract.allowance(connectedAccount, selectedChain.protectionManagerAddress);
-        setCollateralApproved(collateralAllowance > 0);
+      // Check collateral approval only if needed and asset is selected
+      if ((formData.protectionType === '0' || formData.protectionType === '2') && formData.collateralAsset) {
+        if (formData.collateralAsset === 'ETH') {
+          setCollateralApproved(true); // ETH doesn't need approval
+        } else {
+          const collateralContract = new ethers.Contract(formData.collateralAsset, erc20Interface, provider);
+          const collateralAllowance = await collateralContract.allowance(connectedAccount, selectedChain.protectionManagerAddress);
+          setCollateralApproved(collateralAllowance > 0);
+        }
       } else {
         setCollateralApproved(true); // Not needed for debt repayment only
       }
 
-      // Check debt token approval
-      if (formData.protectionType === '1' || formData.protectionType === '2') {
-        const debtContract = new ethers.Contract(formData.debtAsset, erc20Interface, provider);
-        const debtAllowance = await debtContract.allowance(connectedAccount, selectedChain.protectionManagerAddress);
-        setDebtApproved(debtAllowance > 0);
+      // Check debt token approval only if needed and asset is selected
+      if ((formData.protectionType === '1' || formData.protectionType === '2') && formData.debtAsset) {
+        if (formData.debtAsset === 'ETH') {
+          setDebtApproved(true); // ETH doesn't need approval
+        } else {
+          const debtContract = new ethers.Contract(formData.debtAsset, erc20Interface, provider);
+          const debtAllowance = await debtContract.allowance(connectedAccount, selectedChain.protectionManagerAddress);
+          setDebtApproved(debtAllowance > 0);
+        }
       } else {
         setDebtApproved(true); // Not needed for collateral deposit only
       }
@@ -487,7 +499,7 @@ export default function AaveLiquidationProtectionPage() {
   };
 
   useEffect(() => {
-    if (formData.collateralAsset && formData.debtAsset && connectedAccount) {
+    if (connectedAccount) {
       checkApprovals();
     }
   }, [formData.collateralAsset, formData.debtAsset, formData.protectionType, connectedAccount]);
@@ -506,13 +518,11 @@ export default function AaveLiquidationProtectionPage() {
         signer
       );
 
-      // Approve maximum amount
       const tx = await tokenContract.approve(selectedChain.protectionManagerAddress, ethers.MaxUint256);
       await tx.wait();
       
       toast.success(`${tokenName} approval successful!`);
       
-      // Refresh approval status
       await checkApprovals();
       
     } catch (error: any) {
@@ -536,57 +546,49 @@ export default function AaveLiquidationProtectionPage() {
         signer
       );
 
-      // Convert health factors to wei (18 decimals)
       const thresholdWei = ethers.parseEther(formData.healthFactorThreshold);
       const targetWei = ethers.parseEther(formData.targetHealthFactor);
 
-      // Callback contract funding amount (similar to stop order implementation)
-      const CALLBACK_FUNDING_AMOUNT = '0.03'; // 0.03 ETH for callback execution
+      const CALLBACK_FUNDING_AMOUNT = '0.0003';
 
-      let tx;
-      if (formData.collateralAsset && formData.debtAsset) {
-        tx = await protectionManagerContract.subscribeToProtection(
-          parseInt(formData.protectionType),
-          thresholdWei,
-          targetWei,
-          formData.collateralAsset,
-          formData.debtAsset,
-          formData.preferDebtRepayment,
-          {
-            value: ethers.parseEther(CALLBACK_FUNDING_AMOUNT) // Fund callback contract
-          }
-        );
-      } else if (!formData.collateralAsset) {
-        tx = await protectionManagerContract.subscribeToProtection(
-          parseInt(formData.protectionType),
-          thresholdWei,
-          targetWei,
-          "0x0000000000000000000000000000000000000000", // fixed 
-          formData.debtAsset,
-          true,
-          {
-            value: ethers.parseEther(CALLBACK_FUNDING_AMOUNT)
-          }
-        );
-      } else if (!formData.debtAsset) {
-        tx = await protectionManagerContract.subscribeToProtection(
-          parseInt(formData.protectionType),
-          thresholdWei,
-          targetWei,
-          formData.collateralAsset,
-          "0x0000000000000000000000000000000000000000", // fixed 
-          false,
-          {
-            value: ethers.parseEther(CALLBACK_FUNDING_AMOUNT)
-          }
-        );
+      // Handle asset addresses properly - use default USDC for unused strategies
+      let collateralAddress = formData.collateralAsset;
+      let debtAddress = formData.debtAsset;
+      
+      // For collateral-only strategy, use placeholder for debt
+      if (formData.protectionType === '0') {
+        debtAddress = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC as placeholder
       }
+      
+      // For debt-only strategy, use placeholder for collateral  
+      if (formData.protectionType === '1') {
+        collateralAddress = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC as placeholder
+      }
+
+      // Convert ETH to WETH address for contract
+      if (collateralAddress === 'ETH') {
+        collateralAddress = selectedChain.wethAddress || '';
+      }
+      if (debtAddress === 'ETH') {
+        debtAddress = selectedChain.wethAddress || '';
+      }
+
+      const tx = await protectionManagerContract.subscribeToProtection(
+        parseInt(formData.protectionType),
+        thresholdWei,
+        targetWei,
+        collateralAddress,
+        debtAddress,
+        formData.preferDebtRepayment,
+        {
+          value: ethers.parseEther(CALLBACK_FUNDING_AMOUNT)
+        }
+      );
 
       await tx.wait();
       
       toast.success(`Successfully subscribed to liquidation protection! (Funded with ${CALLBACK_FUNDING_AMOUNT} ETH)`);
       
-      // Show refreshing state and reload position
       setSetupStep('refreshing-after-subscribe');
       await handleFetchAavePosition(formData.userAddress);
       
@@ -618,7 +620,6 @@ export default function AaveLiquidationProtectionPage() {
       toast.success('Successfully unsubscribed from protection!');
       setUserSubscription(null);
       
-      // Refresh position info
       await handleFetchAavePosition(formData.userAddress);
       
     } catch (error: any) {
@@ -629,7 +630,6 @@ export default function AaveLiquidationProtectionPage() {
     }
   };
 
-  // Network switching functions
   const switchNetwork = async (chainId: string) => {
     if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
 
@@ -666,7 +666,6 @@ export default function AaveLiquidationProtectionPage() {
       if (error.code === 4902) {
         console.log(`Chain ${chainId} not added to wallet, attempting to add it`);
         
-        // Add chain configuration based on chainId
         let chainConfig;
         if (chainId === '11155111') {
           chainConfig = {
@@ -712,16 +711,15 @@ export default function AaveLiquidationProtectionPage() {
   };
 
   const switchToRSCNetwork = async () => {
-    // RSC network configurations
     const rscNetworks = {
-      '11155111': { // Sepolia uses Kopli testnet
-        chainId: '5318008',
-        name: 'Reactive Kopli',
-        rpcUrl: 'https://kopli-rpc.rnk.dev',
+      '11155111': {
+        chainId: '5318007',
+        name: 'Reactive Lasna',
+        rpcUrl: 'https://lasna-rpc.rnk.dev/',
         currencySymbol: 'REACT',
-        explorerUrl: 'https://kopli.reactscan.net'
+        explorerUrl: 'https://lasna.reactscan.net/'
       },
-      '1': { // Mainnet uses Reactive mainnet
+      '1': {
         chainId: '1597',
         name: 'Reactive Mainnet',
         rpcUrl: 'https://mainnet-rpc.rnk.dev/',
@@ -799,12 +797,19 @@ export default function AaveLiquidationProtectionPage() {
     const originalChainId = formData.chainId;
     
     try {
-      // Form validation
       if (!formData.userAddress || !ethers.isAddress(formData.userAddress)) {
         throw new Error('Please enter a valid user address');
       }
-      if (!formData.collateralAsset && !formData.debtAsset) {
-        throw new Error('Please select a collateral or debt asset');
+      
+      // For single strategies, only require the relevant asset
+      if (formData.protectionType === '0' && !formData.collateralAsset) {
+        throw new Error('Please select a collateral asset for collateral deposit strategy');
+      }
+      if (formData.protectionType === '1' && !formData.debtAsset) {
+        throw new Error('Please select a debt asset for debt repayment strategy');
+      }
+      if (formData.protectionType === '2' && (!formData.collateralAsset || !formData.debtAsset)) {
+        throw new Error('Please select both collateral and debt assets for combined strategy');
       }
       
       if (parseFloat(formData.healthFactorThreshold) <= 1) {
@@ -818,7 +823,6 @@ export default function AaveLiquidationProtectionPage() {
         throw new Error('No active Aave position found for this address');
       }
 
-      // Check if user is on the correct network
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
       const currentChainId = network.chainId.toString();
@@ -827,39 +831,36 @@ export default function AaveLiquidationProtectionPage() {
         await switchNetwork(formData.chainId);
       }
 
-      // Check if already subscribed
       if (userSubscription && userSubscription.isActive) {
         throw new Error('Already subscribed to protection. Unsubscribe first to change settings.');
       }
 
-      console.log("collateralApproved:",collateralApproved);
       // Step 1: Approve collateral token if needed
-      if ((formData.protectionType === '0' || formData.protectionType === '2') && !collateralApproved) {
+      if ((formData.protectionType === '0' || formData.protectionType === '2') && 
+          formData.collateralAsset && formData.collateralAsset !== 'ETH' && !collateralApproved) {
         setSetupStep('approving-collateral');
         const collateralAsset = availableAssets.find(asset => asset.address === formData.collateralAsset);
         await approveToken(formData.collateralAsset, collateralAsset?.symbol || 'Collateral Token');
       }
 
       // Step 2: Approve debt token if needed
-      if ((formData.protectionType === '1' || formData.protectionType === '2') && !debtApproved) {
+      if ((formData.protectionType === '1' || formData.protectionType === '2') && 
+          formData.debtAsset && formData.debtAsset !== 'ETH' && !debtApproved) {
         setSetupStep('approving-debt');
         const debtAsset = availableAssets.find(asset => asset.address === formData.debtAsset);
         await approveToken(formData.debtAsset, debtAsset?.symbol || 'Debt Token');
       }
 
-      // Step 3: Switch to RSC network and fund RSC
       setSetupStep('switching-rsc');
       await switchToRSCNetwork();
       toast.success('Switched to RSC network');
 
-      // Step 4: Fund RSC monitoring contract
       setSetupStep('funding-rsc');
       const rscProvider = new ethers.BrowserProvider(window.ethereum);
       const rscSigner = await rscProvider.getSigner();
       
-      // RSC contract address - this should be the actual RSC contract for Aave protection
-      const RSC_CONTRACT_ADDRESS = '0xEBEfFB2a033e2762C3AFb5C174eb957098464d32'; // Update with actual RSC address
-      const RSC_FUNDING_AMOUNT = '0.05'; // 0.05 REACT tokens for monitoring
+      const RSC_CONTRACT_ADDRESS = '0x20D8D70AF616471Ff6e651f89Ff2cA1cA3fb5010';
+      const RSC_FUNDING_AMOUNT = '0.05';
       
       const rscFundingTx = await rscSigner.sendTransaction({
         to: RSC_CONTRACT_ADDRESS,
@@ -868,7 +869,6 @@ export default function AaveLiquidationProtectionPage() {
       await rscFundingTx.wait();
       toast.success(`Funded RSC with ${RSC_FUNDING_AMOUNT} REACT`);
 
-      // Step 5: Switch back to original network
       setSetupStep('switching-back');
       console.log(`Switching back to original chain: ${originalChainId}`);
       await switchNetwork(originalChainId);
@@ -882,7 +882,6 @@ export default function AaveLiquidationProtectionPage() {
       
       toast.success(`Switched back to ${selectedChain.name}`);
 
-      // Step 6: Subscribe to protection (includes callback contract funding)
       setSetupStep('subscribing');
       await subscribeToProtection();
 
@@ -893,7 +892,6 @@ export default function AaveLiquidationProtectionPage() {
       console.error('Error setting up protection:', error);
       setSetupStep('idle');
       
-      // Try to switch back to original network if we're stuck on RSC network
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const currentNetwork = await provider.getNetwork();
@@ -917,7 +915,40 @@ export default function AaveLiquidationProtectionPage() {
     }
   };
 
-  // Setup Status UI Component
+  // Fixed subscription display logic
+  const getSubscriptionAssetDisplay = (assetAddress: string, protectionType: number, isCollateral: boolean) => {
+    // Check if this asset should be shown as "None" based on protection type
+    const shouldShowNone = (
+      (protectionType === 1 && isCollateral) || // Debt only, showing collateral
+      (protectionType === 0 && !isCollateral) || // Collateral only, showing debt
+      assetAddress === '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8' // Placeholder USDC address
+    );
+
+    if (shouldShowNone) {
+      return <span className="text-zinc-400 italic">None</span>;
+    }
+
+    // Handle WETH to ETH conversion for display
+    let displayAddress = assetAddress;
+    if (assetAddress.toLowerCase() === selectedChain.wethAddress?.toLowerCase()) {
+      displayAddress = 'ETH';
+    }
+
+    const asset = findAssetByAddress(displayAddress);
+    if (!asset) {
+      return <span className="text-zinc-400 italic">Unknown</span>;
+    }
+
+    return (
+      <>
+        {asset.symbol}
+        <span className="text-xs text-green-300 ml-1">
+          ({asset.name})
+        </span>
+      </>
+    );
+  };
+
   const SetupStatusUI = () => {
     return (
       <>
@@ -1051,34 +1082,32 @@ export default function AaveLiquidationProtectionPage() {
             </CardContent>
           </Card>
 
-          {/* NEW: Oracle Information Card */}
-          <Card className="relative bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30 mt-6">
+          {/* Enhanced Funding Requirements Card */}
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6">
             <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-purple-600/20 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-purple-100">Enhanced with Aave Oracle</h3>
-                  <p className="text-sm text-purple-200">
-                    Now using Aave's native price oracle for more accurate and reliable price feeds
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* NEW: Funding Requirements Card */}
-          <Card className="relative bg-gradient-to-br from-amber-900/30 to-orange-900/30 border-amber-500/30 mt-6">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center flex-shrink-0">
                   <DollarSign className="h-4 w-4 text-amber-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-amber-100">Protection Setup Costs</h3>
-                  <p className="text-sm text-amber-200">
+                  <h3 className="font-medium text-amber-100 mb-2">Protection Setup Costs</h3>
+                  <p className="text-sm text-amber-200 mb-3">
                     RSC Monitoring: 0.05 REACT • Callback Execution: 0.03 ETH • Plus gas fees
                   </p>
+                  <div className="">
+                    <p className="text-sm text-amber-200 mb-2">
+                      📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
+                    </p>
+                    <a 
+                      href="https://www.coingecko.com/en/coins/reactive-network"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-amber-300 hover:text-amber-200 underline"
+                    >
+                      See here where you can obtain REACT tokens
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-amber-300">
@@ -1090,7 +1119,7 @@ export default function AaveLiquidationProtectionPage() {
           </Card>
         </motion.div>
 
-        {/* Current Subscription Status */}
+        {/* Current Subscription Status - Fixed display logic */}
         {userSubscription && userSubscription.isActive && (
           <Card className="relative bg-gradient-to-br from-green-900/30 to-blue-900/30 border-green-500/50 mb-8">
             <CardHeader className="border-b border-green-500/20">
@@ -1126,38 +1155,20 @@ export default function AaveLiquidationProtectionPage() {
                 </div>
               </div>
 
-              {/* NEW: Show asset details */}
+              {/* Fixed asset display */}
               <div className="mt-4 pt-4 border-t border-green-500/20">
                 <h4 className="text-sm font-medium text-green-100 mb-3">Assets Used:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-green-200">Collateral Asset:</p>
                     <p className="text-green-100 font-medium">
-                      {userSubscription.collateralAsset === '0x0000000000000000000000000000000000000000' ? (
-                        <span className="text-zinc-400 italic">None</span>
-                      ) : (
-                        <>
-                          {findAssetByAddress(userSubscription.collateralAsset)?.symbol || 'Unknown'} 
-                          <span className="text-xs text-green-300 ml-1">
-                            ({findAssetByAddress(userSubscription.collateralAsset)?.name || 'Unknown Asset'})
-                          </span>
-                        </>
-                      )}
+                      {getSubscriptionAssetDisplay(userSubscription.collateralAsset, userSubscription.protectionType, true)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-green-200">Debt Asset:</p>
                     <p className="text-green-100 font-medium">
-                      {userSubscription.debtAsset === '0x0000000000000000000000000000000000000000' ? (
-                        <span className="text-zinc-400 italic">None</span>
-                      ) : (
-                        <>
-                          {findAssetByAddress(userSubscription.debtAsset)?.symbol || 'Unknown'}
-                          <span className="text-xs text-green-300 ml-1">
-                            ({findAssetByAddress(userSubscription.debtAsset)?.name || 'Unknown Asset'})
-                          </span>
-                        </>
-                      )}
+                      {getSubscriptionAssetDisplay(userSubscription.debtAsset, userSubscription.protectionType, false)}
                     </p>
                   </div>
                 </div>
@@ -1219,7 +1230,7 @@ export default function AaveLiquidationProtectionPage() {
                         key={chain.id} 
                         value={chain.id}
                         className="text-zinc-200 hover:bg-blue-600/20 focus:bg-blue-600/20"
-                        disabled={chain.id !== '11155111'} // Only enable Sepolia for now
+                        disabled={chain.id !== '11155111'}
                       >
                         {chain.name}
                       </SelectItem>
@@ -1309,18 +1320,14 @@ export default function AaveLiquidationProtectionPage() {
                           <p className="text-zinc-200 font-medium text-lg">
                             ${positionInfo.totalCollateralUSD.toFixed(2)} USD
                           </p>
-                          <p className="text-xs text-zinc-500">
-                            ({parseFloat(positionInfo.totalCollateralETH).toFixed(6)} ETH)
-                          </p>
+                          
                         </div>
                         <div>
                           <p className="text-sm text-zinc-400">Total Debt</p>
                           <p className="text-zinc-200 font-medium text-lg">
                             ${positionInfo.totalDebtUSD.toFixed(2)} USD
                           </p>
-                          <p className="text-xs text-zinc-500">
-                            ({parseFloat(positionInfo.totalDebtETH).toFixed(6)} ETH)
-                          </p>
+                          
                         </div>
                         <div>
                           <p className="text-sm text-zinc-400">Health Factor</p>
@@ -1384,7 +1391,7 @@ export default function AaveLiquidationProtectionPage() {
                 </div>
               )}
 
-              {/* Protection Configuration - Only show if position exists */}
+              {/* Protection Configuration */}
               {positionInfo && positionInfo.hasPosition && !userSubscription?.isActive && (
                 <>
                   {/* Protection Type */}
@@ -1501,13 +1508,13 @@ export default function AaveLiquidationProtectionPage() {
                       <Select
                         value={formData.collateralAsset}
                         onValueChange={(value) => setFormData({...formData, collateralAsset: value})}
-                        disabled={formData.protectionType === '1'} // Disabled for debt repayment only
+                        disabled={formData.protectionType === '1'}
                       >
                         <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
                           <SelectValue placeholder="Select collateral asset" />
                         </SelectTrigger>
                         <SelectContent>
-                          {collateralAssets.map(asset => (
+                          {collateralAssets.filter(asset => asset.address !== 'ETH').map(asset => (
                             <SelectItem 
                               key={asset.address} 
                               value={asset.address}
@@ -1537,13 +1544,13 @@ export default function AaveLiquidationProtectionPage() {
                       <Select
                         value={formData.debtAsset}
                         onValueChange={(value) => setFormData({...formData, debtAsset: value})}
-                        disabled={formData.protectionType === '0'} // Disabled for collateral deposit only
+                        disabled={formData.protectionType === '0'}
                       >
                         <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
                           <SelectValue placeholder="Select debt asset" />
                         </SelectTrigger>
                         <SelectContent>
-                          {debtAssets.map(asset => (
+                          {debtAssets.filter(asset => asset.address !== 'ETH').map(asset => (
                             <SelectItem 
                               key={asset.address} 
                               value={asset.address}
@@ -1599,13 +1606,15 @@ export default function AaveLiquidationProtectionPage() {
                     </div>
                   )}
 
-                  {/* Approval Status */}
-                  {formData.collateralAsset && formData.debtAsset && (
+                  {/* Fixed Approval Status */}
+                  {((formData.protectionType === '0' && formData.collateralAsset) ||
+                    (formData.protectionType === '1' && formData.debtAsset) ||
+                    (formData.protectionType === '2' && formData.collateralAsset && formData.debtAsset)) && (
                     <Card className="bg-blue-900/20 border-blue-500/20">
                       <CardContent className="pt-4">
                         <h3 className="text-sm font-medium text-zinc-100 mb-2">Token Approval Status</h3>
                         <div className="space-y-2">
-                          {(formData.protectionType === '0' || formData.protectionType === '2') && (
+                          {(formData.protectionType === '0' || formData.protectionType === '2') && formData.collateralAsset && (
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-zinc-300">
                                 {availableAssets.find(a => a.address === formData.collateralAsset)?.symbol} (Collateral)
@@ -1622,7 +1631,7 @@ export default function AaveLiquidationProtectionPage() {
                               </div>
                             </div>
                           )}
-                          {(formData.protectionType === '1' || formData.protectionType === '2') && (
+                          {(formData.protectionType === '1' || formData.protectionType === '2') && formData.debtAsset && (
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-zinc-300">
                                 {availableAssets.find(a => a.address === formData.debtAsset)?.symbol} (Debt)
@@ -1654,8 +1663,10 @@ export default function AaveLiquidationProtectionPage() {
                     disabled={
                       setupStep !== 'idle' || 
                       !positionInfo?.hasPosition ||
-                      !(formData.collateralAsset || formData.debtAsset) ||
-                      selectedChain.id !== '11155111'
+                      selectedChain.id !== '11155111' ||
+                      (formData.protectionType === '0' && !formData.collateralAsset) ||
+                      (formData.protectionType === '1' && !formData.debtAsset) ||
+                      (formData.protectionType === '2' && (!formData.collateralAsset || !formData.debtAsset))
                     }
                   >
                     Subscribe to Liquidation Protection
@@ -1888,6 +1899,7 @@ export default function AaveLiquidationProtectionPage() {
                         <li><span className="font-medium text-blue-300">NETWORKS:</span> Automatically switches between your main chain and Reactive Network during setup</li>
                         <li><span className="font-medium text-purple-300">NEW:</span> Now uses Aave's native oracle for enhanced price accuracy</li>
                         <li><span className="font-medium text-blue-300">UPDATED:</span> Added support for AAVE (collateral only) and EURS tokens</li>
+                        <li><span className="font-medium text-green-300">ETH SUPPORT:</span> Native ETH is now supported for both collateral and debt strategies</li>
                       </ul>
                     </div>
                   </div>

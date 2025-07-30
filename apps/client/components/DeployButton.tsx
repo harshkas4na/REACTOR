@@ -63,13 +63,13 @@ const DeployButton = ({
       const chainId = await web3.eth.getChainId();
       const chainIdStr = chainId.toString();
       
-      if (chainIdStr === '5318008') {
-        // Kopli Testnet
+      if (chainIdStr === '5318007') {
+        // Lasna Testnet
         setCurrentRscNetwork({
-          chainId: '5318008',
-          name: 'Kopli Testnet',
-          currencySymbol: 'KOPLI',
-          explorerBaseUrl: 'https://kopli.reactscan.net',
+          chainId: '5318007',
+          name: 'Lasna Testnet',
+          currencySymbol: 'Lasna',
+          explorerBaseUrl: 'https://lasna.reactscan.net/',
           isMainnet: false
         });
       } else if (chainIdStr === '1597') {
@@ -185,7 +185,7 @@ const DeployButton = ({
       toast({
         variant: "destructive",
         title: "Network Error",
-        description: "Please connect to either Kopli Testnet or Reactive Mainnet",
+        description: "Please connect to either Lasna Testnet or Reactive Mainnet",
       });
       return;
     }
@@ -398,7 +398,7 @@ const DeployButton = ({
 
   // Get explorer URL for transaction
   const getExplorerUrl = (hash: string) => {
-    return currentRscNetwork ? `${currentRscNetwork.explorerBaseUrl}/tx/${hash}` : `https://kopli.reactscan.net/tx/${hash}`;
+    return currentRscNetwork ? `${currentRscNetwork.explorerBaseUrl}/tx/${hash}` : `https://lasna.reactscan.net//tx/${hash}`;
   };
 
   return (
@@ -434,7 +434,7 @@ const DeployButton = ({
           <AlertDescription className="text-red-200 text-sm">
             <p>You are not connected to an RSC network. Please connect to either:</p>
             <ul className="list-disc list-inside mt-1 ml-2">
-              <li>Kopli Testnet (for testing)</li>
+              <li>Lasna Testnet (for testing)</li>
               <li>Reactive Mainnet (for production)</li>
             </ul>
           </AlertDescription>

@@ -140,7 +140,7 @@ A comprehensive collection of verified automation templates ready for immediate 
 - Ethereum Mainnet
 - Sepolia Testnet
 - Avalanche C-Chain
-- Reactive Mainnet & Kopli Testnet
+- Reactive Mainnet & Lasna Testnet
 
 ## Best Practices
 

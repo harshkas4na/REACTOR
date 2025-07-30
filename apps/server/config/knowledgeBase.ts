@@ -20,7 +20,7 @@ export const REACTOR_KNOWLEDGE_BASE = {
       name: 'Stop Orders',
       description: 'Automatically sell tokens when price drops to protect from losses',
       supportedChains: [1, 11155111, 43114],
-      costEstimate: '• Ethereum: ~0.03 ETH + 0.05 REACT\n• Avalanche: ~0.01 AVAX + 0.05 REACT\n• Sepolia: ~0.03 ETH + 0.05 KOPLI',
+      costEstimate: '• Ethereum: ~0.03 ETH + 0.05 REACT\n• Avalanche: ~0.01 AVAX + 0.05 REACT\n• Sepolia: ~0.03 ETH + 0.05 Lasna',
       features: [
         '24/7 price monitoring',
         'Instant execution on trigger',
@@ -32,7 +32,7 @@ export const REACTOR_KNOWLEDGE_BASE = {
       name: 'Aave Liquidation Protection',
       description: 'Automatically protect your Aave positions from liquidation with smart collateral management and debt repayment strategies',
       supportedChains: [11155111], // Currently Sepolia only, expandable
-      costEstimate: '• Sepolia: ~0.03 ETH + 0.05 KOPLI\n• Ethereum Mainnet: Coming soon\n• Avalanche: Coming soon',
+      costEstimate: '• Sepolia: ~0.03 ETH + 0.05 Lasna\n• Ethereum Mainnet: Coming soon\n• Avalanche: Coming soon',
       features: [
         'Real-time health factor monitoring',
         'Automated collateral deposits',
@@ -101,9 +101,9 @@ export const REACTOR_KNOWLEDGE_BASE = {
       explorerUrl: 'https://explorer.reactive.network'
     },
     testnet: {
-      chainId: 5318008,
-      name: 'Kopli Testnet',
-      currency: 'KOPLI',
+      chainId: 5318007,
+      name: 'Lasna Testnet',
+      currency: 'Lasna',
       gasPrice: '0.05',
       explorerUrl: 'https://testnet.explorer.reactive.network'
     }
@@ -315,7 +315,7 @@ Which strategy fits your risk profile? 🤔`,
 • **Testnet**: Minimal amounts for testing
 
 **Aave Protection:**
-• **Sepolia**: ~0.03 ETH + 0.05 KOPLI
+• **Sepolia**: ~0.03 ETH + 0.05 Lasna
 • **Ethereum Mainnet**: Coming soon
 • **Avalanche**: Coming soon
 
@@ -381,7 +381,7 @@ What would you like to automate? 🤖`,
 
 **Test Networks:**
 • **Sepolia Testnet** - Uniswap V2, Aave V3 (full support)
-• **Kopli Testnet** - Reactive Network testnet
+• **Lasna Testnet** - Reactive Network testnet
 
 **Network-Specific Features:**
 • **Stop Orders**: Ethereum, Avalanche, Sepolia

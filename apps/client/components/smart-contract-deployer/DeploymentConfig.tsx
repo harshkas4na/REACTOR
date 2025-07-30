@@ -36,10 +36,10 @@ const SUPPORTED_NETWORKS: { [key: string]: SupportedNetwork } = {
     name: 'Ethereum Sepolia',
     rpcUrl: 'https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID'
   },
-  KOPLI: {
-    chainId: 5318008,
-    name: 'Kopli',
-    rpcUrl: 'https://kopli-rpc.rnk.dev'
+  Lasna: {
+    chainId: 5318007,
+    name: 'Lasna',
+    rpcUrl: 'https://lasna-rpc.rnk.dev/'
   },
   MUMBAI: {
     chainId: 80001,

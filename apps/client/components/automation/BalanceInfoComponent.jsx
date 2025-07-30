@@ -20,13 +20,13 @@ function getRSCNetworkForChain(sourceChainId) {
       currencySymbol: 'REACT'
     };
   } 
-  // Testnets use Kopli
+  // Testnets use Lasna
   else {
     return {
-      chainId: '5318008',
-      name: 'Kopli Testnet',
-      rpcUrl: 'https://kopli-rpc.rnk.dev',
-      currencySymbol: 'KOPLI'
+      chainId: '5318007',
+      name: 'Lasna Testnet',
+      rpcUrl: 'https://lasna-rpc.rnk.dev/',
+      currencySymbol: 'Lasna'
     };
   }
 }
@@ -142,7 +142,7 @@ useEffect(() => {
         };
       }
       
-      // If we're on the RSC network (either REACT or Kopli)
+      // If we're on the RSC network (either REACT or Lasna)
       if (currentChainId === rscNetwork.chainId) {
         // Add 10% to account for gas
         const rscFunding = ethers.parseEther(formData.rscFunding || "0.05");

@@ -1,7 +1,41 @@
 import { BlockchainService, EnhancedBlockchainService } from './BlockchainService';
 import { ValidationService } from './ValidationService';
 import { KnowledgeBaseHelper } from './KnowledgeBaseHelper';
-import { ethers } from 'ethers';
+// Add these imports at the top of your existing AIAgent.ts
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ConversationUtils, MessageAnalysis } from './ConversationUtils';
+import { REACTOR_KNOWLEDGE_BASE } from '../config/knowledgeBase';
+
+// Add these interfaces
+interface EmbeddingChunk {
+  id: string;
+  content: string;
+  embeddings: number[];
+  metadata: {
+    source: string;
+    category: 'reactor_overview' | 'rsc_technical' | 'automations' | 'stop_orders' | 'aave_protection' | 'networks' | 'costs' | 'faq';
+    priority: number;
+  };
+}
+
+interface RAGResponse {
+  answer: string;
+  relevantChunks: EmbeddingChunk[];
+  confidence: number;
+  sources: string[];
+}
+
+// Specific error types for better handling
+class BlockchainDataError extends Error {
+  constructor(
+    public type: 'BALANCE_FETCH_FAILED' | 'PAIR_NOT_FOUND' | 'PRICE_FETCH_FAILED' | 'NETWORK_ERROR' | 'TOKEN_INVALID',
+    message: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'BlockchainDataError';
+  }
+}
 
 export interface MessageContext {
   message: string;
@@ -58,6 +92,11 @@ interface GeminiResponse {
 
 export class AIAgent {
   private conversations = new Map<string, ConversationState>();
+  private genAI: GoogleGenerativeAI;
+  private embeddingModel = 'gemini-embedding-001';
+  private knowledgeBase: EmbeddingChunk[] = [];
+  private embeddingCache = new Map<string, number[]>();
+  private ragInitialized = false;
   private blockchainService: EnhancedBlockchainService;
   private validationService: ValidationService;
   private geminiApiKey: string;
@@ -81,11 +120,17 @@ SUPPORTED AUTOMATIONS:
 - **Fee Collectors** 🚧 Coming Soon: Auto-harvest Uniswap V3 fees
 - **Range Managers** 🚧 Coming Soon: Optimize LP position ranges
 
+IMPORTANT LIMITATIONS:
+- You do NOT provide blockchain querying services (checking balances, viewing positions, transaction history, etc.)
+- You do NOT provide market data or price information outside of automation setup
+- You focus ONLY on helping users create automations and learn about REACTOR
+
 FOCUS AREAS:
 - Be helpful and educational about Reactor platform and automations
 - Guide users through stop order and Aave protection creation
 - Explain RSCs, health factors, liquidation protection, and automation concepts
 - Stay focused on Reactor-specific topics
+- Politely decline blockchain query requests and redirect to automation creation
 
 TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
 
@@ -93,6 +138,155 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     this.blockchainService = blockchainService;
     this.validationService = validationService;
     this.geminiApiKey = process.env.GEMINI_API_KEY || '';
+
+    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    this.initializeRAGSystem().catch(console.error);
+  }
+
+  /**
+   * Initialize RAG system with REACTOR knowledge
+   */
+  private async initializeRAGSystem(): Promise<void> {
+    if (this.ragInitialized) return;
+
+    console.log('🧠 Initializing REACTOR knowledge base...');
+
+    const knowledgeChunks = [
+      {
+        content: `REACTOR Platform: ${REACTOR_KNOWLEDGE_BASE.platform.description}. Features: ${REACTOR_KNOWLEDGE_BASE.platform.features.join(', ')}. Enables DeFi automation through Reactive Smart Contracts with event-driven architecture, cross-chain operations, and user-friendly interfaces.`,
+        metadata: { source: 'Platform_Overview', category: 'reactor_overview' as const, priority: 5 }
+      },
+      {
+        content: `Stop Orders: ${REACTOR_KNOWLEDGE_BASE.automations.STOP_ORDER.description}. Features: ${REACTOR_KNOWLEDGE_BASE.automations.STOP_ORDER.features.join(', ')}. Cost: ${REACTOR_KNOWLEDGE_BASE.automations.STOP_ORDER.costEstimate}. Available on Ethereum, Avalanche, and Sepolia networks.`,
+        metadata: { source: 'Stop_Orders', category: 'stop_orders' as const, priority: 5 }
+      },
+      {
+        content: `Aave Protection: ${REACTOR_KNOWLEDGE_BASE.automations.AAVE_PROTECTION.description}. Features: ${REACTOR_KNOWLEDGE_BASE.automations.AAVE_PROTECTION.features.join(', ')}. Currently available on Sepolia testnet with Ethereum mainnet coming soon.`,
+        metadata: { source: 'Aave_Protection', category: 'aave_protection' as const, priority: 5 }
+      },
+      {
+        content: `RSCs (Reactive Smart Contracts): ${REACTOR_KNOWLEDGE_BASE.faq['what are rscs'].answer}`,
+        metadata: { source: 'RSC_Technical', category: 'rsc_technical' as const, priority: 4 }
+      },
+      {
+        content: `REACTOR FAQ: ${REACTOR_KNOWLEDGE_BASE.faq['what is reactor'].answer}`,
+        metadata: { source: 'FAQ_Overview', category: 'faq' as const, priority: 3 }
+      }
+    ];
+
+    for (const chunk of knowledgeChunks) {
+      try {
+        const embedding = await this.generateEmbedding(chunk.content);
+        this.knowledgeBase.push({
+          id: `chunk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          content: chunk.content,
+          embeddings: embedding,
+          metadata: chunk.metadata
+        });
+        await new Promise(resolve => setTimeout(resolve, 100)); // Rate limiting
+      } catch (error) {
+        console.error(`Failed to generate embedding:`, error);
+      }
+    }
+
+    this.ragInitialized = true;
+    console.log(`✅ RAG system initialized with ${this.knowledgeBase.length} chunks`);
+  }
+
+  /**
+   * Generate embedding with caching
+   */
+  private async generateEmbedding(text: string): Promise<number[]> {
+    const hash = this.hashText(text);
+    
+    if (this.embeddingCache.has(hash)) {
+      return this.embeddingCache.get(hash)!;
+    }
+    
+    const model = this.genAI.getGenerativeModel({ model: this.embeddingModel });
+    const result = await model.embedContent(text);
+    
+    if (!result.embedding?.values) {
+      throw new Error('No embedding values returned');
+    }
+    
+    const embedding = result.embedding.values;
+    this.embeddingCache.set(hash, embedding);
+    return embedding;
+  }
+
+  /**
+   * Process RAG query
+   */
+  private async processRAGQuery(query: string, maxChunks: number = 3): Promise<RAGResponse> {
+    if (!this.ragInitialized) {
+      await this.initializeRAGSystem();
+    }
+
+    const queryEmbedding = await this.generateEmbedding(query);
+    
+    const relevantChunks = this.knowledgeBase
+      .map(chunk => ({
+        ...chunk,
+        similarity: this.cosineSimilarity(queryEmbedding, chunk.embeddings)
+      }))
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, maxChunks);
+
+    const context = relevantChunks
+      .map(chunk => `[${chunk.metadata.source}]: ${chunk.content}`)
+      .join('\n\n');
+
+    const prompt = `${this.systemPrompt}
+
+RETRIEVED CONTEXT:
+${context}
+
+USER QUERY: "${query}"
+
+Respond as Reactor AI:`;
+
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const result = await model.generateContent(prompt);
+    const response = result.response.text();
+
+    const avgSimilarity = relevantChunks.reduce((sum, chunk) => sum + chunk.similarity, 0) / relevantChunks.length;
+    const confidence = Math.min(avgSimilarity * 100, 95);
+
+    return {
+      answer: response,
+      relevantChunks: relevantChunks.map(chunk => ({
+        id: chunk.id,
+        content: chunk.content,
+        embeddings: [],
+        metadata: chunk.metadata
+      })),
+      confidence,
+      sources: relevantChunks.map(chunk => chunk.metadata.source)
+    };
+  }
+
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) throw new Error('Vectors must have same length');
+    
+    let dotProduct = 0, normA = 0, normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  private hashText(text: string): string {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString();
   }
 
   async processMessage(context: MessageContext) {
@@ -108,7 +302,12 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       console.log('Current intent:', conversation.intent);
       console.log('Current step:', conversation.currentStep);
 
-      // CHECK FOR AUTOMATION SWITCHING OR RESET REQUESTS (NEW)
+      // Check for blockchain query requests first (NEW)
+      if (this.isBlockchainQueryRequest(context.message)) {
+        return this.handleBlockchainQueryDecline(context.message);
+      }
+
+      // CHECK FOR AUTOMATION SWITCHING OR RESET REQUESTS
       const resetResponse = this.handleAutomationSwitching(context.message, conversation);
       if (resetResponse) {
         return resetResponse;
@@ -164,7 +363,74 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     }
   }
 
-  // NEW: Handle automation switching and reset requests
+  // NEW: Detect blockchain query requests and decline politely
+  private isBlockchainQueryRequest(message: string): boolean {
+    const lowerMessage = message.toLowerCase().trim();
+    
+    const blockchainQueryKeywords = [
+      // Balance queries
+      'my balance', 'check balance', 'how much do i have', 'balance of', 'token balance',
+      'wallet balance', 'show balance', 'current balance', 'account balance',
+      
+      // Position queries
+      'my position', 'check position', 'lending position', 'my aave',
+      'position status', 'current position', 'portfolio', 'my holdings',
+      
+      // Price queries
+      'current price', 'price of', 'what is the price', 'token price', 'eth price',
+      'market price', 'live price', 'real time price',
+      
+      // Transaction queries
+      'transaction history', 'my transactions', 'recent transactions', 'tx history',
+      'transaction status', 'pending transactions',
+      
+      // Health factor queries
+      'my health factor', 'current health factor', 'check health factor',
+      'health factor status', 'liquidation risk',
+      
+      // General blockchain queries
+      'on chain data', 'blockchain data', 'contract balance', 'smart contract data',
+      'defi position', 'yield farming position', 'liquidity position'
+    ];
+    
+    return blockchainQueryKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  // NEW: Handle blockchain query decline
+  private handleBlockchainQueryDecline(message: string) {
+    const lowerMessage = message.toLowerCase();
+    
+    let specificResponse = '';
+    
+    if (lowerMessage.includes('balance')) {
+      specificResponse = '**Balance Checking** is not currently available through me.';
+    } else if (lowerMessage.includes('position') || lowerMessage.includes('aave')) {
+      specificResponse = '**Position Monitoring** is not currently available through me.';
+    } else if (lowerMessage.includes('price')) {
+      specificResponse = '**Price Checking** is not currently available through me.';
+    } else if (lowerMessage.includes('transaction')) {
+      specificResponse = '**Transaction History** is not currently available through me.';
+    } else if (lowerMessage.includes('health factor')) {
+      specificResponse = '**Health Factor Monitoring** is not currently available through me.';
+    } else {
+      specificResponse = '**Blockchain data queries** are not currently available through me.';
+    }
+
+    return {
+      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n🏦 **Create Aave Protection** - Guard against liquidation\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich automation would you like to create? 🚀`,
+      intent: 'ANSWER_REACTOR_QUESTION' as const,
+      needsUserInput: true,
+      inputType: 'choice' as const,
+      nextStep: 'blockchain_query_declined',
+      options: [
+        { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        { value: 'what is reactor', label: '📚 Learn About REACTOR' }
+      ]
+    };
+  }
+
+  // Handle automation switching and reset requests
   private handleAutomationSwitching(message: string, conversation: ConversationState) {
     const lowerMessage = message.toLowerCase().trim();
     
@@ -209,7 +475,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     return null;
   }
 
-  // NEW: Reset conversation state for new automation intent
+  // Reset conversation state for new automation intent
   private resetConversationForNewIntent(conversation: ConversationState, newIntent: ConversationState['intent']) {
     console.log(`🔄 Resetting conversation from ${conversation.intent} to ${newIntent}`);
     
@@ -233,79 +499,11 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     });
   }
 
-  // NEW: Enhanced error handling wrapper for blockchain operations
-  private async safeBlockchainOperation<T>(
-    operation: () => Promise<T>,
-    operationName: string,
-    userFriendlyContext: string
-  ): Promise<{ success: boolean; data?: T; error?: string }> {
-    try {
-      const result = await operation();
-      return { success: true, data: result };
-    } catch (error: any) {
-      console.error(`❌ ${operationName} failed:`, error);
-      
-      // Generate user-friendly error message
-      let userFriendlyError = this.generateUserFriendlyError(error, userFriendlyContext);
-      
-      return { success: false, error: userFriendlyError };
-    }
+  public getConversationCount(): number {
+    return this.conversations ? Object.keys(this.conversations).length : 0;
   }
 
-  // NEW: Generate user-friendly error messages
-  private generateUserFriendlyError(error: any, context: string): string {
-    const errorMessage = error.message?.toLowerCase() || '';
-    
-    // Network/Connection errors
-    if (errorMessage.includes('network') || errorMessage.includes('connection') || 
-        errorMessage.includes('timeout') || errorMessage.includes('failed to fetch')) {
-      return `I'm having trouble connecting to the blockchain network. This could be due to network congestion or connectivity issues. Please try again in a moment! 🌐`;
-    }
-    
-    // Rate limiting errors
-    if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
-      return `I'm being rate limited by the blockchain services. Let's wait a moment and try again! ⏳`;
-    }
-    
-    // Token/Pair not found errors
-    if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
-      if (context.includes('pair') || context.includes('trading')) {
-        return `I couldn't find a trading pair for these tokens. This might mean:\n• The pair doesn't exist on this network\n• The tokens might be listed differently\n• Try using more popular token pairs like ETH/USDC\n\nWould you like to try different tokens? 🔄`;
-      } else if (context.includes('token') || context.includes('balance')) {
-        return `I couldn't find information about this token. Please make sure:\n• The token symbol is correct\n• The token exists on the selected network\n• For custom tokens, provide the contract address\n\nNeed help finding the right token? 🔍`;
-      }
-    }
-    
-    // Insufficient balance/funds errors
-    if (errorMessage.includes('insufficient') || errorMessage.includes('balance')) {
-      return `It looks like there might be insufficient balance or funds for this operation. Please check your wallet balance and try again! 💰`;
-    }
-    
-    // Liquidity errors
-    if (errorMessage.includes('liquidity') || errorMessage.includes('reserves')) {
-      return `I found the trading pair, but it has very low liquidity. This could lead to high slippage when your order executes. Would you like to try a different token pair with better liquidity? 💧`;
-    }
-    
-    // Contract/Address errors
-    if (errorMessage.includes('invalid address') || errorMessage.includes('contract')) {
-      return `There seems to be an issue with a token contract address. Please verify:\n• The token symbol is correct\n• You're on the right network\n• For custom tokens, double-check the contract address\n\nLet me know if you need help! 🏗️`;
-    }
-    
-    // Aave-specific errors
-    if (errorMessage.includes('aave') || errorMessage.includes('health factor') || errorMessage.includes('liquidation')) {
-      return `I encountered an issue while checking your Aave position. This could be because:\n• You might not have an active Aave position\n• The Aave contracts might be temporarily unavailable\n• You might be on the wrong network\n\nWould you like to try again or check a different network? 🏦`;
-    }
-    
-    // Gas/Transaction errors
-    if (errorMessage.includes('gas') || errorMessage.includes('transaction')) {
-      return `There was an issue with gas estimation or transaction simulation. This usually means:\n• Network congestion is high\n• Insufficient gas funds\n• Transaction parameters need adjustment\n\nLet's try again or adjust the settings! ⛽`;
-    }
-    
-    // Generic fallback with context
-    return `I encountered an unexpected issue while ${context}. This might be a temporary problem with the blockchain services. Would you like to try again, or shall we try a different approach? 🔧`;
-  }
-
-  // NEW: Enhanced rejection detection (FIXED)
+  // Enhanced rejection detection
   private isRejectingAction(message: string): boolean {
     const lowerMessage = message.toLowerCase().trim();
     
@@ -378,7 +576,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
   private isAaveProtectionCreationIntent(message: string): boolean {
     const aaveProtectionCreationKeywords = [
       'create aave protection', 'set up aave protection', 'make aave protection',
-      'protect my aave', 'aave liquidation protection', 'liquidation protection',
+      'protect my aave', 'aave liquidation protection', 'create liquidation protection',
       'protect aave position', 'guard against liquidation', 'prevent liquidation',
       'health factor protection', 'aave automation', 'automated aave protection',
       'aave protection', 'new aave protection', 'build aave protection'
@@ -597,37 +795,42 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     }
 
     // Check knowledge base for other topics
-    const knowledgeResult = KnowledgeBaseHelper.enhancedSearch(context.message);
-    if (knowledgeResult) {
-      const response = {
-        message: knowledgeResult.answer,
-        intent: 'ANSWER_REACTOR_QUESTION' as const,
-        needsUserInput: false,
-        nextStep: `knowledge_${knowledgeResult.source}`,
-        options: this.generateReactorRelatedOptions(context.message)
-      };
-      
-      this.addToHistory(conversation, 'assistant', response.message);
-      return response;
-    }
-
-    // Check for automation-specific questions
-    if (KnowledgeBaseHelper.isQuestionAboutAutomation && KnowledgeBaseHelper.isQuestionAboutAutomation(lowerMessage)) {
-      const automationAnswer = KnowledgeBaseHelper.getAutomationAnswer && KnowledgeBaseHelper.getAutomationAnswer(lowerMessage);
-      if (automationAnswer) {
+    if (typeof KnowledgeBaseHelper?.enhancedSearch === 'function') {
+      const knowledgeResult = KnowledgeBaseHelper.enhancedSearch(context.message);
+      if (knowledgeResult) {
         const response = {
-          message: automationAnswer.answer,
+          message: knowledgeResult.answer,
           intent: 'ANSWER_REACTOR_QUESTION' as const,
           needsUserInput: false,
-          nextStep: 'automation_explained',
-          options: automationAnswer.relatedTopics.map(topic => ({
-            value: topic.toLowerCase().replace(/\s+/g, '_'),
-            label: topic
-          }))
+          nextStep: `knowledge_${knowledgeResult.source}`,
+          options: this.generateReactorRelatedOptions(context.message)
         };
         
         this.addToHistory(conversation, 'assistant', response.message);
         return response;
+      }
+    }
+
+    // Check for automation-specific questions
+    if (typeof KnowledgeBaseHelper?.isQuestionAboutAutomation === 'function' && 
+        KnowledgeBaseHelper.isQuestionAboutAutomation(lowerMessage)) {
+      if (typeof KnowledgeBaseHelper?.getAutomationAnswer === 'function') {
+        const automationAnswer = KnowledgeBaseHelper.getAutomationAnswer(lowerMessage);
+        if (automationAnswer) {
+          const response = {
+            message: automationAnswer.answer,
+            intent: 'ANSWER_REACTOR_QUESTION' as const,
+            needsUserInput: false,
+            nextStep: 'automation_explained',
+            options: automationAnswer.relatedTopics.map(topic => ({
+              value: topic.toLowerCase().replace(/\s+/g, '_'),
+              label: topic
+            }))
+          };
+          
+          this.addToHistory(conversation, 'assistant', response.message);
+          return response;
+        }
       }
     }
 
@@ -779,7 +982,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     }
   }
 
-  // Enhanced stop order flow handling with rejection support
+  // Enhanced stop order flow handling with rejection support and improved error handling
   private async handleStopOrderFlow(conversation: ConversationState, context: MessageContext) {
     const data = conversation.collectedData;
     
@@ -788,7 +991,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     console.log('Current step:', conversation.currentStep);
     console.log('Message:', context.message);
     
-    // Handle rejection/cancellation with reset (NEW)
+    // Handle rejection/cancellation with reset
     if (this.isRejectingAction(context.message)) {
       console.log('🚫 User rejected stop order configuration - resetting');
       return this.handleStopOrderRejection(conversation);
@@ -872,116 +1075,78 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     console.log('Missing data:', missingData);
     
     if (missingData.length === 0) {
-      // Fetch real blockchain data with improved error handling (NEW)
+      // NEW: Improved blockchain data fetching with specific error handling
       if (!data.userBalance || !data.pairAddress || !data.currentPrice) {
         console.log('📊 Fetching real blockchain data before validation...');
-        const fetchResult = await this.safeBlockchainOperation(
-          () => this.fetchRealBlockchainData(conversation),
-          'fetchRealBlockchainData',
-          'fetching token and pair information'
-        );
         
-        if (!fetchResult.success) {
-          return {
-            message: `❌ **Unable to fetch blockchain data**\n\n${fetchResult.error}\n\nThis might be temporary. Would you like to:\n• Try again\n• Use different tokens\n• Switch to manual setup`,
-            intent: 'CREATE_STOP_ORDER' as const,
-            needsUserInput: true,
-            inputType: 'choice' as const,
-            nextStep: 'fetch_error_recovery',
-            options: [
-              { value: 'try again', label: '🔄 Try Again' },
-              { value: 'different tokens', label: '🪙 Use Different Tokens' },
-              { value: 'manual setup', label: '⚙️ Manual Setup' }
-            ]
-          };
+        try {
+          await this.fetchRealBlockchainDataWithSpecificErrors(conversation);
+        } catch (error: any) {
+          if (error instanceof BlockchainDataError) {
+            return this.handleSpecificBlockchainError(error, conversation);
+          } else {
+            return this.generateErrorResponse(error, conversation);
+          }
         }
       }
       
-      // Run validation checks with improved error handling (NEW)
+      // Run validation checks with improved error handling
       if (conversation.currentStep !== 'proceed_to_balance_check' && 
           conversation.currentStep !== 'proceed_to_final_confirmation') {
         
-        const liquidityResult = await this.safeBlockchainOperation(
-          () => this.checkInsufficientLiquidity(conversation),
-          'checkInsufficientLiquidity',
-          'checking trading pair liquidity'
-        );
-        
-        if (!liquidityResult.success) {
-          return {
-            message: `⚠️ **Unable to check liquidity**\n\n${liquidityResult.error}\n\nWould you like to proceed anyway or try different tokens?`,
-            intent: 'CREATE_STOP_ORDER' as const,
-            needsUserInput: true,
-            inputType: 'confirmation' as const,
-            nextStep: 'liquidity_check_failed',
-            options: [
-              { value: 'proceed anyway', label: '⚠️ Proceed Anyway' },
-              { value: 'different tokens', label: '🔄 Try Different Tokens' }
-            ]
-          };
-        }
-        
-        const liquidityCheck = liquidityResult.data!;
-        if (liquidityCheck.hasInsufficientLiquidity) {
-          conversation.currentStep = 'confirm_low_liquidity';
+        try {
+          const liquidityCheck = await this.checkInsufficientLiquidity(conversation);
           
-          const response = {
-            message: liquidityCheck.message!,
-            intent: 'CREATE_STOP_ORDER' as const,
-            needsUserInput: true,
-            inputType: 'confirmation' as const,
-            nextStep: 'confirm_low_liquidity',
-            options: [
-              { value: 'yes proceed', label: '⚠️ Yes, proceed with this risk' },
-              { value: 'no different', label: '🔄 No, try different tokens' }
-            ]
-          };
-          
-          this.addToHistory(conversation, 'assistant', response.message);
-          return response;
+          if (liquidityCheck.hasInsufficientLiquidity) {
+            conversation.currentStep = 'confirm_low_liquidity';
+            
+            const response = {
+              message: liquidityCheck.message!,
+              intent: 'CREATE_STOP_ORDER' as const,
+              needsUserInput: true,
+              inputType: 'confirmation' as const,
+              nextStep: 'confirm_low_liquidity',
+              options: [
+                { value: 'yes proceed', label: '⚠️ Yes, proceed with this risk' },
+                { value: 'no different', label: '🔄 No, try different tokens' }
+              ]
+            };
+            
+            this.addToHistory(conversation, 'assistant', response.message);
+            return response;
+          }
+        } catch (error: any) {
+          console.error('Liquidity check failed:', error);
+          // Continue with flow despite liquidity check failure
         }
       }
       
-      // Check balance with improved error handling (NEW)
+      // Check balance with improved error handling
       if (conversation.currentStep !== 'proceed_to_final_confirmation') {
-        const balanceResult = await this.safeBlockchainOperation(
-          () => this.checkInsufficientBalance(conversation),
-          'checkInsufficientBalance',
-          'checking token balance'
-        );
-        
-        if (!balanceResult.success) {
-          return {
-            message: `⚠️ **Unable to check balance**\n\n${balanceResult.error}\n\nWould you like to proceed anyway?`,
-            intent: 'CREATE_STOP_ORDER' as const,
-            needsUserInput: true,
-            inputType: 'confirmation' as const,
-            nextStep: 'balance_check_failed',
-            options: [
-              { value: 'proceed anyway', label: '⚠️ Proceed Anyway' },
-              { value: 'try again', label: '🔄 Try Again' }
-            ]
-          };
-        }
-        
-        const balanceCheck = balanceResult.data!;
-        if (balanceCheck.hasInsufficientBalance) {
-          conversation.currentStep = 'confirm_insufficient_balance';
+        try {
+          const balanceCheck = await this.checkInsufficientBalance(conversation);
           
-          const response = {
-            message: balanceCheck.message!,
-            intent: 'CREATE_STOP_ORDER' as const,
-            needsUserInput: true,
-            inputType: 'confirmation' as const,
-            nextStep: 'confirm_insufficient_balance',
-            options: [
-              { value: 'yes proceed', label: '✅ Yes, proceed anyway' },
-              { value: 'no change', label: '❌ No, let me change the amount' }
-            ]
-          };
-          
-          this.addToHistory(conversation, 'assistant', response.message);
-          return response;
+          if (balanceCheck.hasInsufficientBalance) {
+            conversation.currentStep = 'confirm_insufficient_balance';
+            
+            const response = {
+              message: balanceCheck.message!,
+              intent: 'CREATE_STOP_ORDER' as const,
+              needsUserInput: true,
+              inputType: 'confirmation' as const,
+              nextStep: 'confirm_insufficient_balance',
+              options: [
+                { value: 'yes proceed', label: '✅ Yes, proceed anyway' },
+                { value: 'no change', label: '❌ No, let me change the amount' }
+              ]
+            };
+            
+            this.addToHistory(conversation, 'assistant', response.message);
+            return response;
+          }
+        } catch (error: any) {
+          console.error('Balance check failed:', error);
+          // Continue with flow despite balance check failure
         }
       }
       
@@ -1021,7 +1186,152 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     return response;
   }
 
-  // NEW: Handle stop order rejection with reset and options
+  // NEW: Fetch blockchain data with specific error types
+  private async fetchRealBlockchainDataWithSpecificErrors(conversation: ConversationState) {
+    const data = conversation.collectedData;
+    
+    // Fetch user balance with specific error handling
+    if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
+      try {
+        console.log(`🏦 Fetching ${data.tokenToSell} balance...`);
+        const balance = await this.blockchainService.getTokenBalanceEnhanced(
+          data.connectedWallet,
+          data.tokenToSell,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+        data.userBalance = balance;
+        console.log(`✅ Balance fetched: ${balance} ${data.tokenToSell}`);
+      } catch (error: any) {
+        console.error('❌ Error fetching user balance:', error);
+        throw new BlockchainDataError(
+          'BALANCE_FETCH_FAILED',
+          `Unable to fetch your ${data.tokenToSell} balance. This could be due to network connectivity issues or the token not being available on ${this.getNetworkName(data.selectedNetwork!)}.`,
+          { tokenToSell: data.tokenToSell, network: data.selectedNetwork }
+        );
+      }
+    }
+
+    // Fetch pair address with specific error handling
+    if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
+      try {
+        console.log(`🔍 Finding trading pair ${data.tokenToSell}/${data.tokenToBuy}...`);
+        const pairAddress = await this.blockchainService.findPairAddressEnhanced(
+          data.tokenToSell,
+          data.tokenToBuy,
+          data.selectedNetwork,
+          data.customTokenAddresses
+        );
+        
+        if (!pairAddress) {
+          throw new BlockchainDataError(
+            'PAIR_NOT_FOUND',
+            `No trading pair found for ${data.tokenToSell}/${data.tokenToBuy} on ${this.getNetworkName(data.selectedNetwork!)}.`,
+            { tokenToSell: data.tokenToSell, tokenToBuy: data.tokenToBuy, network: data.selectedNetwork }
+          );
+        }
+        
+        data.pairAddress = pairAddress;
+        console.log(`✅ Pair found: ${pairAddress}`);
+        
+        // Fetch price with specific error handling
+        try {
+          const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
+            data.tokenToSell,
+            data.tokenToBuy,
+            data.selectedNetwork,
+            data.customTokenAddresses
+          );
+          data.currentPrice = currentPrice;
+          console.log(`✅ Current price: ${currentPrice}`);
+          
+          if (data.dropPercentage) {
+            data.targetPrice = currentPrice * (1 - data.dropPercentage / 100);
+            console.log(`✅ Target price: ${data.targetPrice}`);
+          }
+        } catch (priceError: any) {
+          console.error('❌ Error fetching price:', priceError);
+          throw new BlockchainDataError(
+            'PRICE_FETCH_FAILED',
+            `Found the ${data.tokenToSell}/${data.tokenToBuy} trading pair but couldn't get the current price. This might be due to very low liquidity or network issues.`,
+            { pairAddress, tokenToSell: data.tokenToSell, tokenToBuy: data.tokenToBuy }
+          );
+        }
+      } catch (error: any) {
+        if (error instanceof BlockchainDataError) {
+          throw error; // Re-throw specific errors
+        }
+        console.error('❌ Error fetching pair data:', error);
+        throw new BlockchainDataError(
+          'NETWORK_ERROR',
+          `Unable to access trading pair information due to network connectivity issues. Please try again in a moment.`,
+          { tokenToSell: data.tokenToSell, tokenToBuy: data.tokenToBuy, network: data.selectedNetwork }
+        );
+      }
+    }
+  }
+
+  // NEW: Handle specific blockchain errors with tailored responses
+  private handleSpecificBlockchainError(error: BlockchainDataError, conversation: ConversationState) {
+    const data = conversation.collectedData;
+    
+    switch (error.type) {
+      case 'BALANCE_FETCH_FAILED':
+        return {
+          message: `💰 **Unable to Check ${data.tokenToSell} Balance**\n\n${error.message}\n\n**This might be because:**\n• Network connectivity issues\n• The token contract might be temporarily unavailable\n• The token might not exist on this network\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'balance_fetch_error',
+         
+        };
+
+      case 'PAIR_NOT_FOUND':
+        return {
+          message: `🔍 **Trading Pair Not Found**\n\n${error.message}\n\n**This means:**\n• These tokens cannot be directly traded on this network\n• You might need to use different tokens\n• The pair might exist on a different network\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'pair_not_found_error',
+         
+        };
+
+      case 'PRICE_FETCH_FAILED':
+        return {
+          message: `📊 **Unable to Get Current Price**\n\n${error.message}\n\n**This usually means:**\n• The trading pair has very low liquidity\n• Price oracles might be temporarily unavailable\n• Network congestion is affecting data retrieval\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'price_fetch_error',
+          
+        };
+
+      case 'NETWORK_ERROR':
+        return {
+          message: `🌐 **Network Connectivity Issue**\n\n${error.message}\n\n**This is usually temporary and caused by:**\n• High network congestion\n• RPC endpoint issues\n• Temporary service outages\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'network_error',
+          
+        };
+
+      case 'TOKEN_INVALID':
+        return {
+          message: `🪙 **Invalid Token**\n\n${error.message}\n\n**This means:**\n• The token symbol might be incorrect\n• The token might not exist on this network\n• You might need to provide a contract address\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'token_invalid_error',
+          
+        };
+
+      default:
+        return this.generateErrorResponse(error, conversation);
+    }
+  }
+
+  // Handle stop order rejection with reset and options
   private handleStopOrderRejection(conversation: ConversationState) {
     console.log('🚫 Handling stop order rejection');
     
@@ -1047,17 +1357,11 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       options: [
         { value: 'create stop order', label: '🛡️ Create a different stop order' },
         { value: 'create aave protection', label: '🏦 Create Aave protection instead' },
-        { value: 'what is reactor', label: '📚 Learn about REACTOR' },
-        { value: 'help me choose', label: '🤔 Help me choose the right automation' }
-      ]
+        { value: 'what is reactor', label: '📚 Learn about REACTOR' }      ]
     };
     
     this.addToHistory(conversation, 'assistant', response.message);
     return response;
-  }
-
-  public getConversationCount(): number {
-    return this.conversations ? Object.keys(this.conversations).length : 0;
   }
   
   private identifyMissingStopOrderData(conversation: ConversationState): string[] {
@@ -1169,78 +1473,6 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           inputType: 'token' as const,
           nextStep: 'general'
         };
-    }
-  }
-
-  // Enhanced fetch blockchain data with better error handling (NEW)
-  private async fetchRealBlockchainData(conversation: ConversationState) {
-    const data = conversation.collectedData;
-    
-    try {
-      // Fetch user balance first with error handling
-      if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
-        try {
-          console.log(`🏦 Fetching ${data.tokenToSell} balance for validation...`);
-          const balance = await this.blockchainService.getTokenBalanceEnhanced(
-            data.connectedWallet,
-            data.tokenToSell,
-            data.selectedNetwork,
-            data.customTokenAddresses
-          );
-          data.userBalance = balance;
-          console.log(`✅ Balance fetched: ${balance} ${data.tokenToSell}`);
-        } catch (error: any) {
-          console.error('❌ Error fetching user balance:', error);
-          // Instead of setting to '0', throw a more descriptive error
-          throw new Error(`Unable to fetch ${data.tokenToSell} balance. This could be due to network issues or the token not being available on this network.`);
-        }
-      }
-
-      // Fetch pair address and price with error handling
-      if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
-        try {
-          console.log(`🔍 Finding trading pair ${data.tokenToSell}/${data.tokenToBuy}...`);
-          const pairAddress = await this.blockchainService.findPairAddressEnhanced(
-            data.tokenToSell,
-            data.tokenToBuy,
-            data.selectedNetwork,
-            data.customTokenAddresses
-          );
-          
-          if (!pairAddress) {
-            throw new Error(`No trading pair found for ${data.tokenToSell}/${data.tokenToBuy} on this network.`);
-          }
-          
-          data.pairAddress = pairAddress;
-          console.log(`✅ Pair found: ${pairAddress}`);
-          
-          try {
-            const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
-              data.tokenToSell,
-              data.tokenToBuy,
-              data.selectedNetwork,
-              data.customTokenAddresses
-            );
-            data.currentPrice = currentPrice;
-            console.log(`✅ Current price: ${currentPrice}`);
-            
-            if (data.dropPercentage) {
-              data.targetPrice = currentPrice * (1 - data.dropPercentage / 100);
-              console.log(`✅ Target price: ${data.targetPrice}`);
-            }
-          } catch (priceError: any) {
-            console.error('❌ Error fetching price:', priceError);
-            throw new Error(`Found the trading pair but couldn't get current price. This might be due to low liquidity or network issues.`);
-          }
-        } catch (error: any) {
-          console.error('❌ Error fetching pair data:', error);
-          throw new Error(`Couldn't find or access the ${data.tokenToSell}/${data.tokenToBuy} trading pair. Please try different tokens or check if they're available on this network.`);
-        }
-      }
-    } catch (error: any) {
-      console.error('❌ Error in fetchRealBlockchainData:', error);
-      // Re-throw with preserved message for better error handling upstream
-      throw error;
     }
   }
 
@@ -1522,7 +1754,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     console.log('Current step:', conversation.currentStep);
     console.log('Message:', context.message);
 
-    // Handle rejection/cancellation with reset (NEW)
+    // Handle rejection/cancellation with reset
     if (this.isRejectingAction(context.message)) {
       console.log('🚫 User rejected Aave protection configuration - resetting');
       return this.handleAaveProtectionRejection(conversation);
@@ -1534,7 +1766,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         const aaveConfig = await this.prepareAaveConfig(conversation);
         
         const response = {
-          message: "🚀 **Perfect!** Redirecting you to deploy your Aave liquidation protection...\n\nYour configuration has been prepared and will be loaded automatically. You'll just need to sign the transactions! ✨",
+          message: "🚀 **Perfect!** Redirecting you to subscribe your Aave liquidation protection...\n\nYour configuration has been prepared and will be loaded automatically. You'll just need to sign the transactions! ✨",
           intent: 'CREATE_AAVE_PROTECTION' as const,
           needsUserInput: false,
           automationConfig: aaveConfig,
@@ -1603,57 +1835,10 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       return response;
     }
 
-    // Check Aave position if not already done with improved error handling (NEW)
-    if (data.hasAavePosition === undefined && conversation.currentStep !== 'checking_aave_position') {
-      conversation.currentStep = 'checking_aave_position';
-      
-      const positionResult = await this.safeBlockchainOperation(
-        () => this.checkAavePosition(conversation),
-        'checkAavePosition',
-        'checking your Aave lending position'
-      );
-      
-      if (!positionResult.success) {
-        const response = {
-          message: `❌ **Unable to Check Aave Position**\n\n${positionResult.error}\n\n**This could be because:**\n• Network connectivity issues\n• Aave contracts might be temporarily unavailable\n• You might be on the wrong network\n\n**What would you like to do?**`,
-          intent: 'CREATE_AAVE_PROTECTION' as const,
-          needsUserInput: true,
-          inputType: 'choice' as const,
-          nextStep: 'position_check_error',
-          options: [
-            { value: 'try again', label: '🔄 Try Again' },
-            { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
-            { value: 'help', label: '❓ Get Help' }
-          ]
-        };
-        
-        this.addToHistory(conversation, 'assistant', response.message);
-        return response;
-      }
-      
-      const hasPosition = positionResult.data!;
-      
-      if (!hasPosition) {
-        const response = {
-          message: "❌ **No Aave Position Found**\n\nI couldn't find an active Aave lending position for your wallet address.\n\n**To use liquidation protection, you need:**\n• An active Aave lending position\n• Some collateral supplied\n• Some debt borrowed\n\n**Next steps:**",
-          intent: 'CREATE_AAVE_PROTECTION' as const,
-          needsUserInput: true,
-          inputType: 'choice' as const,
-          nextStep: 'no_aave_position',
-          options: [
-            { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
-            { value: 'learn about aave', label: '📚 Learn About Aave' },
-            { value: 'refresh position', label: '🔄 Check Position Again' }
-          ]
-        };
-        
-        this.addToHistory(conversation, 'assistant', response.message);
-        return response;
-      }
-
-      // Position found, continue with flow
-      data.hasAavePosition = true;
-      conversation.currentStep = 'initial';
+    // For Aave protection, we skip the actual position checking since we can't query blockchain
+    // Instead, we assume the user knows they have a position and proceed with configuration
+    if (data.hasAavePosition === undefined) {
+      data.hasAavePosition = true; // Assume position exists
     }
 
     // Identify missing data and ask for next piece
@@ -1697,7 +1882,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     return response;
   }
 
-  // NEW: Handle Aave protection rejection with reset and options
+  // Handle Aave protection rejection with reset and options
   private handleAaveProtectionRejection(conversation: ConversationState) {
     console.log('🚫 Handling Aave protection rejection');
     
@@ -1723,9 +1908,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       options: [
         { value: 'create aave protection', label: '🏦 Create different Aave protection' },
         { value: 'create stop order', label: '🛡️ Create stop order instead' },
-        { value: 'what is reactor', label: '📚 Learn about REACTOR' },
-        { value: 'help me choose', label: '🤔 Help me choose the right automation' }
-      ]
+        { value: 'what is reactor', label: '📚 Learn about REACTOR' }      ]
     };
     
     this.addToHistory(conversation, 'assistant', response.message);
@@ -1968,27 +2151,7 @@ ${strategyDescription}
 • Approve the protection contract to spend your tokens
 • Maintain funding for ongoing protection
 
-**Ready to deploy your automated Aave protection?** 🚀`;
-  }
-
-  // Check if user has Aave position
-  private async checkAavePosition(conversation: ConversationState): Promise<boolean> {
-    const data = conversation.collectedData;
-    
-    try {
-      console.log(`Checking Aave position for ${data.connectedWallet} on network ${data.selectedNetwork}`);
-      
-      if (data.connectedWallet && data.selectedNetwork) {
-        // For demo purposes, return true if wallet is connected
-        // In real implementation, this would call Aave contract
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking Aave position:', error);
-      return false;
-    }
+**Ready to subscribe to your automated Aave protection?** 🚀`;
   }
 
   // Get Aave Assets for Network

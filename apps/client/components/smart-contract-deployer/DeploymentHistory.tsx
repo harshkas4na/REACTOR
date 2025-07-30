@@ -19,7 +19,7 @@ type CallbackProxies = {
 const NETWORK_EXPLORERS: NetworkExplorers = {
   'Ethereum Mainnet': 'https://etherscan.io',
   'Sepolia': 'https://sepolia.etherscan.io',
-  'Kopli': 'https://kopli.reactscan.net/',
+  'Lasna': 'https://lasna.reactscan.net//',
   'Polygon': 'https://polygonscan.com',
   'Mumbai': 'https://mumbai.polygonscan.com',
   'Arbitrum': 'https://arbiscan.io',
@@ -27,14 +27,14 @@ const NETWORK_EXPLORERS: NetworkExplorers = {
   'BSC': 'https://bscscan.com',
   'Avalanche': 'https://snowtrace.io',
   'Fantom': 'https://ftmscan.com',
-  'Chain ID: 5318008': 'https://kopli.reactscan.net', // Fallback for Kopli
+  'Chain ID: 5318007': 'https://lasna.reactscan.net/', // Fallback for Lasna
 }
 
 // Callback proxy addresses for different chains
 export const CALLBACK_PROXIES: CallbackProxies = {
   '1': '0x1D5267C1bb7D8bA68964dDF3990601BDB7902D76', // Ethereum Mainnet 
   '11155111': '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA', // Sepolia
-  '5318008': '0x0000000000000000000000000000000000fffFfF', // Kopli
+  '5318007': '0x0000000000000000000000000000000000fffFfF', // Lasna
   '137': '0x42458259d5c85fB2bf117f197f1Fef8C3b7dCBfe', // Polygon 
   '8453': '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', // Base 
   '43114': '0x934Ea75496562D4e83E80865c33dbA600644fCDa',// Avalanche C-Chain
@@ -204,8 +204,8 @@ export default function DeploymentHistory() {
                             // Fixed the network to chainId mapping logic
                             let chainId = '11155111'; // Default to Sepolia
                             
-                            if (deployment.network === 'Kopli' || deployment.network === 'Chain ID: 5318008') {
-                              chainId = '5318008';
+                            if (deployment.network === 'Lasna' || deployment.network === 'Chain ID: 5318007') {
+                              chainId = '5318007';
                             } else if (deployment.network === 'Ethereum Mainnet') {
                               chainId = '1';
                             } else if (deployment.network === 'Polygon') {

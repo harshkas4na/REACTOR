@@ -359,7 +359,7 @@
 //                     className="w-full"
 //                   >
 //                     {isDeploying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-//                     Deploy RSC to Kopli Network
+//                     Deploy RSC to Lasna Network
 //                   </Button>
 //                 )}
 //               </div>
@@ -391,7 +391,7 @@
 
 //           {deployedRSCAddress && (
 //             <Alert>
-//               <AlertTitle>Deployed RSC Address on Kopli Network</AlertTitle>
+//               <AlertTitle>Deployed RSC Address on Lasna Network</AlertTitle>
 //               <AlertDescription className="font-mono">{deployedRSCAddress}</AlertDescription>
 //             </Alert>
 //           )}

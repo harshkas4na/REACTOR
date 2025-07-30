@@ -89,7 +89,7 @@ export default function Navigation() {
                     Testnets
                   </div>
                 <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
-                <SelectItem value="KOPLI">Reactive Kopli</SelectItem>
+                <SelectItem value="Lasna">Reactive Lasna</SelectItem>
                 <SelectItem value="BSC_TESTNET">BSC Testnet (Origin)</SelectItem>
                 <SelectItem value="POLYGON_AMOY">Polygon Amoy (Origin)</SelectItem>
                 <SelectItem value="AVALANCHE_FUJI">Avalanche Fuji (Origin)</SelectItem>

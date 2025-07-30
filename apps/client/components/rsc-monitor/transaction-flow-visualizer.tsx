@@ -35,14 +35,14 @@ const initialTimelineStages: Stage[] = [
   { 
     title: 'RSC Event Capture', 
     status: 'success', 
-    chain: 'Kopli', 
+    chain: 'Lasna', 
     timestamp: '2023-04-15 14:30:10',
     hash: '0x3456...7890'
   },
   { 
     title: 'Callback Processing', 
     status: 'pending', 
-    chain: 'Kopli', 
+    chain: 'Lasna', 
     timestamp: '2023-04-15 14:30:15',
     hash: '0x4567...8901'
   },

@@ -23,14 +23,14 @@ const SUPPORTED_CHAINS = {
     { id: 8453, name: 'Base Chain' },
     { id: 56, name: 'BSC' },
     { id: 137, name: 'Polygon PoS' },
-    { id: 5318008, name: 'Kopli Testnet' }
+    { id: 5318007, name: 'Lasna Testnet' }
   ],
   DESTINATIONS: [
     { id: 11155111, name: 'Ethereum Sepolia' },
     { id: 43114, name: 'Avalanche C-Chain' },
     { id: 169, name: 'Manta Pacific' },
     { id: 8453, name: 'Base Chain' },
-    { id: 5318008, name: 'Kopli Testnet' }
+    { id: 5318007, name: 'Lasna Testnet' }
   ]
 };
 

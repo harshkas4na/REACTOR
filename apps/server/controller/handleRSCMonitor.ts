@@ -124,19 +124,19 @@ interface ChainConfig {
       explorerApiUrl: 'https://api-opbnb.bscscan.com/api',
       callbackProxy: undefined
     },
-    5318008: {
-      id: 5318008,
-      name: 'Kopli Testnet',
-      rpcUrl: 'https://kopli-rpc.rnk.dev',
-      explorerUrl: 'https://kopli-explorer.rkt.ink',
+    5318007: {
+      id: 5318007,
+      name: 'Lasna Testnet',
+      rpcUrl: 'https://lasna-rpc.rnk.dev/',
+      explorerUrl: 'https://Lasna-explorer.rkt.ink',
       explorerApiKey: '',
-      explorerApiUrl: 'https://kopli-explorer.rkt.ink/api',
+      explorerApiUrl: 'https://Lasna-explorer.rkt.ink/api',
       callbackProxy: '0x0000000000000000000000000000000000FFFFFF'
     }
   };
   
   // RPC Configuration
-  const RNK_RPC_URL = 'https://kopli-rpc.rnk.dev';
+  const RNK_RPC_URL = 'https://lasna-rpc.rnk.dev/';
   
   class RSCFlowController {
     private flowRequest: RSCFlowRequest;

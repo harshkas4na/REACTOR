@@ -88,13 +88,13 @@ export function getRSCNetworkForChain(sourceChainId: string) {
       currencySymbol: 'REACT'
     };
   } 
-  // Testnets use Kopli
+  // Testnets use Lasna
   else {
     return {
-      chainId: '5318008',
-      name: 'Kopli Testnet',
-      rpcUrl: 'https://kopli-rpc.rnk.dev',
-      currencySymbol: 'KOPLI'
+      chainId: '5318007',
+      name: 'Lasna Testnet',
+      rpcUrl: 'https://lasna-rpc.rnk.dev/',
+      currencySymbol: 'Lasna'
     };
   }
 }
@@ -306,13 +306,13 @@ export async function switchToRSCNetwork(sourceChainId: string) {
             chainId: rscChainIdHex,
             chainName: rscNetwork.name,
             nativeCurrency: {
-              name: rscNetwork.chainId === '1597' ? 'REACT' : 'KOPLI',
-              symbol: rscNetwork.chainId === '1597' ? 'REACT' : 'KOPLI',
+              name: rscNetwork.chainId === '1597' ? 'REACT' : 'Lasna',
+              symbol: rscNetwork.chainId === '1597' ? 'REACT' : 'Lasna',
               decimals: 18
             },
             rpcUrls: [rscNetwork.rpcUrl],
             blockExplorerUrls: [
-              rscNetwork.chainId === '1597' ? 'https://reactscan.net' : 'https://kopli.reactscan.net'
+              rscNetwork.chainId === '1597' ? 'https://reactscan.net' : 'https://lasna.reactscan.net/'
             ]
           }],
         });

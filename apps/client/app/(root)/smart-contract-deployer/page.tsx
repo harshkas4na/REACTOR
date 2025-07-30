@@ -34,7 +34,7 @@ export interface DeploymentRecord {
 const NETWORK_NAMES: { [key: number]: string } = {
   1: 'Ethereum Mainnet',
   11155111: 'Sepolia',
-  5318008: 'Kopli',
+  5318007: 'Lasna',
   137: 'Polygon',
   80001: 'Mumbai',
   42161: 'Arbitrum',

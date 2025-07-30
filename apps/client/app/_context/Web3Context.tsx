@@ -50,10 +50,10 @@ export const SUPPORTED_NETWORKS: SupportedNetworks = {
     isDestination: true,
     callbackProxy: '0x33Bbb7D0a2F1029550B0e91f653c4055DC9F4Dd8'
   },
-  KOPLI: {
-    chainId: 5318008,
-    name: 'Kopli Testnet',
-    rpcUrl: 'https://kopli-rpc.rnk.dev',
+  Lasna: {
+    chainId: 5318007,
+    name: 'Lasna Testnet',
+    rpcUrl: 'https://lasna-rpc.rnk.dev/',
     hasCallback: true,
     isDestination: true,
     callbackProxy: '0x0000000000000000000000000000000000FFFFFF'

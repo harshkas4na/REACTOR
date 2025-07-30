@@ -14,7 +14,7 @@ const destinationSupportedChains = [
   { id: '43114', name: 'Avalanche C-Chain' },
   { id: '169', name: 'Manta Pacific' },
   { id: '8453', name: 'Base Chain' },
-  { id: '5318008', name: 'Kopli Testnet' }
+  { id: '5318007', name: 'Lasna Testnet' }
 ]
 
 export default function TargetConfiguration() {

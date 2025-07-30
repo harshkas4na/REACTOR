@@ -26,7 +26,7 @@ const originSupportedChains = [
   { id: '8453', name: 'Base Chain' },
   { id: '56', name: 'Binance Smart Chain' },
   { id: '137', name: 'Polygon PoS' },
-  { id: '5318008', name: 'Kopli Testnet' }
+  { id: '5318007', name: 'Lasna Testnet' }
 ]
 
 export default function TriggerSelection({ onSelect }: TriggerSelectionProps) {

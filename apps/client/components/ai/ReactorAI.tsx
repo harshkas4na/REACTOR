@@ -379,7 +379,7 @@ export default function ReactorAI() {
       'ETHEREUM': 1,
       'SEPOLIA': 11155111,
       'AVALANCHE': 43114,
-      'KOPLI': 5318008,
+      'Lasna': 5318007,
       'REACT': 1597,
       'ARBITRUM': 42161,
       'MANTA': 169,
@@ -425,7 +425,7 @@ export default function ReactorAI() {
         network: getChainIdFromNetwork(selectedNetwork) 
       });
 
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
+      const response = await fetch('http://localhost:8000/ai-automation/automate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

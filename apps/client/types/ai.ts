@@ -180,7 +180,7 @@ export interface AIHealthStatus {
 export type AutomationType = 'stop_order' | 'fee_collector' | 'range_manager';
 export type NetworkType = 'mainnet' | 'testnet';
 export type TokenSymbol = 'ETH' | 'USDC' | 'USDT' | 'DAI' | 'WBTC' | 'AVAX';
-export type ChainId = 1 | 11155111 | 43114 | 1597 | 5318008;
+export type ChainId = 1 | 11155111 | 43114 | 1597 | 5318007;
 
 // Enhanced interfaces for better AI integration
 export interface SmartRecommendation {

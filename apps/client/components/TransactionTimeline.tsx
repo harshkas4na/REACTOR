@@ -21,8 +21,8 @@ export default function TransactionTimeline({ status }: TransactionTimelineProps
   const stages = [
     { key: 'originTx', title: 'Origin Transaction', chain: status.stages.originTx.chain },
     { key: 'eventEmission', title: 'Event Emission', chain: status.stages.eventEmission.chain },
-    { key: 'rscCapture', title: 'RSC Event Capture', chain: 'Kopli' },
-    { key: 'callback', title: 'Callback Processing', chain: 'Kopli' },
+    { key: 'rscCapture', title: 'RSC Event Capture', chain: 'Lasna' },
+    { key: 'callback', title: 'Callback Processing', chain: 'Lasna' },
     { key: 'destinationExecution', title: 'Destination Execution', chain: status.stages.destinationExecution.chain },
   ]
 

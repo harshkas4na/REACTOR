@@ -22,7 +22,7 @@ type CallbackProxies = {
 export const CALLBACK_PROXIES: CallbackProxies = {
   '1': '0x1D5267C1bb7D8bA68964dDF3990601BDB7902D76', // Ethereum Mainnet 
   '11155111': '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA', // Sepolia
-  '5318008': '0x0000000000000000000000000000000000fffFfF', // Kopli
+  '5318007': '0x0000000000000000000000000000000000fffFfF', // Lasna
   '137': '0x42458259d5c85fB2bf117f197f1Fef8C3b7dCBfe', // Polygon 
   '8453': '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', // Base 
   '43114': '0x934Ea75496562D4e83E80865c33dbA600644fCDa',// Avalanche C-Chain
@@ -32,7 +32,7 @@ export const CALLBACK_PROXIES: CallbackProxies = {
 const CALLBACK_FUNDING_REQUIREMENTS: { [chainId: string]: { amount: string, currency: string } } = {
   '1': { amount: '0.03', currency: 'ETH' }, // Ethereum Mainnet requires 0.03 ETH
   '43114': { amount: '0.01', currency: 'AVAX' }, // Avalanche requires 0.01 AVAX
-  '5318008': { amount: '0.05', currency: 'REACT' }, // Kopli requires 0.05 REACT for Reactive contracts
+  '5318007': { amount: '0.05', currency: 'REACT' }, // Lasna requires 0.05 REACT for Reactive contracts
   // Default for other chains
   'default': { amount: '0.01', currency: 'native token' }
 };
@@ -107,9 +107,9 @@ const DeploymentTab = ({
       if (web3) {
         const chainId = await web3.eth.getChainId();
         const chainIdStr = chainId.toString();
-        const isKopli = chainId === BigInt(5318008);
+        const isLasna = chainId === BigInt(5318007);
         const networkName = 
-          chainId === BigInt(5318008) ? 'Kopli' : 
+          chainId === BigInt(5318007) ? 'Lasna' : 
           chainId === BigInt(1) ? 'Ethereum Mainnet' :
           chainId === BigInt(11155111) ? 'Sepolia' :
           chainId === BigInt(137) ? 'Polygon' :
@@ -117,7 +117,7 @@ const DeploymentTab = ({
           `Chain ID: ${chainId}`;
         
         setNetworkStatus({
-          isCorrectNetwork: isKopli,
+          isCorrectNetwork: isLasna,
           currentNetwork: networkName,
           chainId: chainIdStr
         });
@@ -194,8 +194,8 @@ useEffect(() => {
       ...prev,
       destination: chainRequirement.amount,
       ...(areContractsIdentical ? { origin: chainRequirement.amount } : { origin: '0.0' }),
-      // If we're on Kopli, ensure reactive has proper funding
-      ...(networkStatus.chainId === '5318008' ? { reactive: '0.05' } : {})
+      // If we're on Lasna, ensure reactive has proper funding
+      ...(networkStatus.chainId === '5318007' ? { reactive: '0.05' } : {})
     }));
   }
 }, [networkStatus.chainId, areContractsIdentical]);
@@ -378,7 +378,7 @@ useEffect(() => {
       return;
     }
   
-    // For reactive contracts on Kopli
+    // For reactive contracts on Lasna
     if (type === 'reactive') {
       if (isNaN(amount) || amount < 0.05) {
         throw new Error(`Minimum 0.05 REACT required for monitoring events on Reactive network`);
@@ -470,7 +470,7 @@ useEffect(() => {
             </AlertTitle>
             <AlertDescription className="mt-2 text-zinc-300">
               {type === 'reactive' ? (
-                <span>Please connect your wallet to the <strong>Kopli Network</strong> to deploy this contract.</span>
+                <span>Please connect your wallet to the <strong>Lasna Network</strong> to deploy this contract.</span>
               ) : (
                 <span>Please connect your wallet to deploy this contract.</span>
               )}
@@ -491,7 +491,7 @@ useEffect(() => {
             <AlertDescription className="mt-2 text-zinc-300">
               You are currently on <strong>{networkStatus.currentNetwork}</strong>.
               <br />
-              Reactive contracts must be deployed on <strong>Kopli Network</strong>.
+              Reactive contracts must be deployed on <strong>Lasna Network</strong>.
             </AlertDescription>
           </Alert>
         </div>
@@ -507,7 +507,7 @@ useEffect(() => {
               Network Status
             </AlertTitle>
             <AlertDescription className="text-zinc-300">
-              Connected to <strong>Kopli Network</strong> - Ready to deploy
+              Connected to <strong>Lasna Network</strong> - Ready to deploy
             </AlertDescription>
           </Alert>
         )}
@@ -534,7 +534,7 @@ useEffect(() => {
               <span>Deploy Contract</span>
               {type === 'reactive' && (
                 <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full">
-                  on Kopli
+                  on Lasna
                 </span>
               )}
             </div>
@@ -566,10 +566,10 @@ useEffect(() => {
 
       const chainId = await web3.eth.getChainId();
       const chainIdStr = chainId.toString();
-      const isKopli = chainId === BigInt(5318008);
+      const isLasna = chainId === BigInt(5318007);
       
-      if (type === 'reactive' && !isKopli) {
-        toast.error("Reactive contracts must be deployed on Kopli network", {
+      if (type === 'reactive' && !isLasna) {
+        toast.error("Reactive contracts must be deployed on Lasna network", {
           id: deploymentToast
         });
         return;
@@ -1411,11 +1411,11 @@ useEffect(() => {
                 <TooltipTrigger asChild>
                   <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900/40 text-purple-200">
                     <Info className="w-3 h-3 mr-1" />
-                    Kopli Network
+                    Lasna Network
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p className="text-sm">This contract must be deployed on the Kopli Network for proper event monitoring and callback functionality.</p>
+                  <p className="text-sm">This contract must be deployed on the Lasna Network for proper event monitoring and callback functionality.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

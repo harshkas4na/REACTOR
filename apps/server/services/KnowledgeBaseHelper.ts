@@ -92,7 +92,7 @@ export class KnowledgeBaseHelper {
   // Check if question is about Reactive Network
   static isQuestionAboutReactiveNetwork(message: string): boolean {
     const reactiveKeywords = [
-      'reactive network', 'reactive chain', 'react token', 'kopli', 
+      'reactive network', 'reactive chain', 'react token', 'Lasna', 
       'rsc network', 'monitoring network', 'automation network'
     ];
     

@@ -106,8 +106,8 @@ export class RSCMonitorService {
           gasUsed: txStatus.gasUsed,
         },
         eventEmission: { status: 'pending', chain: 'Ethereum', timestamp: '', hash: '' },
-        rscCapture: { status: 'pending', chain: 'Kopli', timestamp: '', hash: '' },
-        callback: { status: 'pending', chain: 'Kopli', timestamp: '', hash: '' },
+        rscCapture: { status: 'pending', chain: 'Lasna', timestamp: '', hash: '' },
+        callback: { status: 'pending', chain: 'Lasna', timestamp: '', hash: '' },
         destinationExecution: { status: 'pending', chain: 'Unknown', timestamp: '', hash: '' },
       },
     };
@@ -125,8 +125,8 @@ export class RSCMonitorService {
       stages: {
         originTx: { status: 'pending', chain: rscConfig.originChain.chainId, timestamp: '', hash: '' },
         eventEmission: { status: 'pending', chain: rscConfig.originChain.chainId, timestamp: '', hash: '' },
-        rscCapture: { status: 'pending', chain: 'Kopli', timestamp: '', hash: '' },
-        callback: { status: 'pending', chain: 'Kopli', timestamp: '', hash: '' },
+        rscCapture: { status: 'pending', chain: 'Lasna', timestamp: '', hash: '' },
+        callback: { status: 'pending', chain: 'Lasna', timestamp: '', hash: '' },
         destinationExecution: { status: 'pending', chain: rscConfig.destinationChain.chainId, timestamp: '', hash: '' },
       },
     };
@@ -163,13 +163,13 @@ export class RSCMonitorService {
   }
 
   async monitorRSCCapture(originTxHash: string, rscAddress: string): Promise<void> {
-    const rvmTx = await this.rnkMethods.getTransactionByHash('kopli', originTxHash);
+    const rvmTx = await this.rnkMethods.getTransactionByHash('Lasna', originTxHash);
     // Parse transaction data and verify event processing
     // Update the TransactionStatus accordingly
   }
 
   async trackCallback(rvmTxHash: string, rscAddress: string): Promise<void> {
-    const callbackTxs = await this.rnkMethods.getCallbackTransaction('kopli', rvmTxHash);
+    const callbackTxs = await this.rnkMethods.getCallbackTransaction('Lasna', rvmTxHash);
     // Monitor callback status and verify execution
     // Update the TransactionStatus accordingly
   }

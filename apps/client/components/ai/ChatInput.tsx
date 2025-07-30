@@ -77,14 +77,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const baseActions = [
       {
         icon: Shield,
-        label: "Protect",
+        label: "Stop Order",
         text: "Create a stop order",
         color: "text-blue-400 hover:text-blue-300 hover:bg-blue-700/30"
       },
       {
         icon: Heart,
-        label: "Aave",
-        text: "Create Aave protection for my position",
+        label: "Liquidation",
+        text: "Create Liquidation protection",
         color: "text-purple-400 hover:text-purple-300 hover:bg-purple-700/30"
       },
       {
