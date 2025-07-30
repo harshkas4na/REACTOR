@@ -151,7 +151,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     Ethereum Sepolia
                   </SelectItem>
                   <SelectItem 
-                    value="Lasna" 
+                    value="LASNA" 
                     className="text-gray-200 hover:bg-gray-700/50"
                   >
                     Reactive Lasna
