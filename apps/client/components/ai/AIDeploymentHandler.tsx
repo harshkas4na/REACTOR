@@ -8,16 +8,65 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, CheckCircle, Loader2, AlertTriangle, Rocket } from 'lucide-react';
 
-// Import stop order deployment functions
-import { 
-  deployDestinationContract, 
-  approveTokens, 
-  deployRSC, 
-  switchNetwork, 
-  switchToRSCNetwork,
-  getRSCNetworkForChain,
-  SUPPORTED_CHAINS 
-} from '@/utils/stopOrderDeployment';
+// Updated Stop Order Contract ABI (simplified)
+const STOP_ORDER_ABI = [
+  {
+    "inputs": [
+      { "internalType": "address", "name": "pair", "type": "address" },
+      { "internalType": "bool", "name": "sellToken0", "type": "bool" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "uint256", "name": "coefficient", "type": "uint256" },
+      { "internalType": "uint256", "name": "threshold", "type": "uint256" }
+    ],
+    "name": "createStopOrder",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+];
+
+// Updated contract addresses
+const CONTRACT_ADDRESSES = {
+  CALLBACK: '0x9148309eFB90b8803187413DFEE904327DFD8835',
+  RSC: '0x820bEaada84dD6D507edcE56D211038bd9444049'
+};
+
+// Supported chains configuration
+const SUPPORTED_CHAINS = [
+  { 
+    id: '11155111', 
+    name: 'Ethereum Sepolia',
+    rscNetwork: {
+      chainId: '5318007',
+      name: 'Reactive Lasna',
+      rpcUrl: 'https://lasna-rpc.rnk.dev/',
+      currencySymbol: 'REACT',
+      explorerUrl: 'https://lasna.reactscan.net/'
+    }
+  },
+  {
+    id: '1',
+    name: 'Ethereum Mainnet',
+    rscNetwork: {
+      chainId: '1597',
+      name: 'Reactive Mainnet',
+      rpcUrl: 'https://mainnet-rpc.rnk.dev/',
+      currencySymbol: 'REACT',
+      explorerUrl: 'https://reactscan.net'
+    }
+  },
+  {
+    id: '43114',
+    name: 'Avalanche C-Chain',
+    rscNetwork: {
+      chainId: '1597',
+      name: 'Reactive Mainnet',
+      rpcUrl: 'https://mainnet-rpc.rnk.dev/',
+      currencySymbol: 'REACT',
+      explorerUrl: 'https://reactscan.net'
+    }
+  }
+];
 
 interface AIDeploymentHandlerProps {
   automationConfig: any;
@@ -25,7 +74,7 @@ interface AIDeploymentHandlerProps {
   onCancel: () => void;
 }
 
-type DeploymentStep = 'idle' | 'deploying-destination' | 'switching-network' | 'deploying-rsc' | 'switching-back' | 'approving' | 'complete' | 'error';
+type DeploymentStep = 'idle' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'switching-back' | 'creating' | 'complete';
 
 export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
   automationConfig,
@@ -35,6 +84,170 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
   const [deploymentStep, setDeploymentStep] = useState<DeploymentStep>('idle');
   const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [deploymentResult, setDeploymentResult] = useState<any>(null);
+
+  // Network switching functions
+  const switchNetwork = async (targetChainId: string) => {
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
+
+    try {
+      const targetChainIdHex = `0x${parseInt(targetChainId).toString(16)}`;
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() === targetChainId) {
+        console.log(`Already on chain ${targetChainId}`);
+        return true;
+      }
+
+      console.log(`Switching from ${currentNetwork.chainId} to chain ${targetChainId}`);
+      
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: targetChainIdHex }],
+        });
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          console.log(`Chain ${targetChainId} not added to wallet, attempting to add it`);
+          
+          let chainConfig;
+          const chain = SUPPORTED_CHAINS.find(c => c.id === targetChainId);
+          if (!chain) throw new Error('Chain not supported');
+          
+          chainConfig = {
+            chainId: targetChainIdHex,
+            chainName: chain.name,
+            nativeCurrency: {
+              name: chain.name.includes('Ethereum') ? 'ETH' : 'AVAX',
+              symbol: chain.name.includes('Ethereum') ? 'ETH' : 'AVAX',
+              decimals: 18
+            },
+            rpcUrls: [
+              chain.id === '1' ? 'https://ethereum.publicnode.com' : 
+              chain.id === '11155111' ? 'https://rpc.sepolia.org' :
+              chain.id === '43114' ? 'https://api.avax.network/ext/bc/C/rpc' : ''
+            ],
+            blockExplorerUrls: [
+              chain.id === '1' ? 'https://etherscan.io' : 
+              chain.id === '11155111' ? 'https://sepolia.etherscan.io' :
+              chain.id === '43114' ? 'https://snowtrace.io' : ''
+            ]
+          };
+          
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [chainConfig],
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } else {
+          throw switchError;
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newProvider = new ethers.BrowserProvider(window.ethereum);
+      const newNetwork = await newProvider.getNetwork();
+      
+      if (newNetwork.chainId.toString() !== targetChainId) {
+        throw new Error(`Network switch failed. Expected ${targetChainId}, got ${newNetwork.chainId}`);
+      }
+      
+      console.log(`Successfully switched to chain ${targetChainId}`);
+      return true;
+      
+    } catch (error: any) {
+      if (error.code === 4001) {
+        throw new Error('User rejected the request to switch networks');
+      }
+      throw new Error(`Network switch failed: ${error.message || 'User rejected the request'}`);
+    }
+  };
+
+  const switchToRSCNetwork = async (originalChainId: string) => {
+    const selectedChain = SUPPORTED_CHAINS.find(c => c.id === originalChainId);
+    if (!selectedChain) throw new Error('Chain not supported');
+    
+    const rscNetwork = selectedChain.rscNetwork;
+    const rscChainIdHex = `0x${parseInt(rscNetwork.chainId).toString(16)}`;
+    
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() === rscNetwork.chainId) {
+        console.log(`Already on ${rscNetwork.name}`);
+        return true;
+      }
+
+      console.log(`Switching to ${rscNetwork.name}...`);
+      
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: rscChainIdHex }],
+        });
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          console.log(`${rscNetwork.name} not added to wallet, attempting to add it`);
+          
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: rscChainIdHex,
+              chainName: rscNetwork.name,
+              nativeCurrency: {
+                name: rscNetwork.currencySymbol,
+                symbol: rscNetwork.currencySymbol,
+                decimals: 18
+              },
+              rpcUrls: [rscNetwork.rpcUrl],
+              blockExplorerUrls: [rscNetwork.explorerUrl]
+            }],
+          });
+        } else {
+          throw switchError;
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      let attempts = 0;
+      let switched = false;
+      
+      while (attempts < 3 && !switched) {
+        try {
+          const updatedProvider = new ethers.BrowserProvider(window.ethereum);
+          const updatedNetwork = await updatedProvider.getNetwork();
+          
+          if (updatedNetwork.chainId.toString() === rscNetwork.chainId) {
+            switched = true;
+            console.log(`Successfully switched to ${rscNetwork.name} (attempt ${attempts + 1})`);
+          } else {
+            console.log(`Network not switched yet, attempt ${attempts + 1}, got: ${updatedNetwork.chainId}`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (verifyError) {
+          console.log(`Verification attempt ${attempts + 1} failed:`, verifyError);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        attempts++;
+      }
+      
+      if (!switched) {
+        throw new Error(`Failed to verify RSC network switch after ${attempts} attempts`);
+      }
+      
+      toast.success(`Switched to ${rscNetwork.name}`);
+      return true;
+      
+    } catch (error: any) {
+      if (error.code === 4001) {
+        throw new Error('User rejected the request to switch networks');
+      }
+      throw new Error(`Failed to switch to RSC network: ${error.message || 'Unknown error'}`);
+    }
+  };
 
   const handleDeployment = async () => {
     try {
@@ -69,20 +282,13 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
         throw new Error(`Please switch to ${selectedChain.name} network`);
       }
 
-      // Step 1: Deploy Destination Contract
-      setDeploymentStep('deploying-destination');
-      toast.loading('Deploying destination contract...', { id: 'deployment' });
-      
-      const destinationAddress = await deployDestinationContract(
-        selectedChain, 
-        automationConfig.destinationFunding
-      );
+      const originalChainId = automationConfig.chainId;
 
-      // Step 2: Approve Token Spending
-      setDeploymentStep('approving');
-      toast.loading('Approving token spending...', { id: 'deployment' });
+      // Step 1: Check and approve tokens if needed
+      setDeploymentStep('checking-approval');
+      toast.loading('Checking token approval...', { id: 'deployment' });
       
-      // Get token address based on sellToken0 flag
+      // Get token to approve based on sellToken0 flag
       let tokenToApprove;
       if (automationConfig.sellToken0) {
         tokenToApprove = await getToken0FromPair(automationConfig.pairAddress);
@@ -90,45 +296,166 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
         tokenToApprove = await getToken1FromPair(automationConfig.pairAddress);
       }
 
-      await approveTokens(
+      const tokenContract = new ethers.Contract(
         tokenToApprove,
-        destinationAddress,
-        automationConfig.amount
+        [
+          'function approve(address spender, uint256 amount) returns (bool)',
+          'function allowance(address owner, address spender) view returns (uint256)',
+          'function decimals() view returns (uint8)'
+        ],
+        signer
       );
 
-      // Step 3: Switch to RSC Network
-      setDeploymentStep('switching-network');
-      const rscNetwork = getRSCNetworkForChain(automationConfig.chainId);
-      toast.loading(`Switching to ${rscNetwork.name}...`, { id: 'deployment' });
+      // Get token decimals
+      const decimals = await tokenContract.decimals();
       
-      await switchToRSCNetwork(automationConfig.chainId);
+      // Parse amount - handle different amount formats
+      let requiredAmount;
+      if (automationConfig.amount === 'all' || automationConfig.amount.includes('%')) {
+        // For percentage amounts, we'll use a large allowance
+        requiredAmount = ethers.parseUnits('1000000', decimals); // Large allowance
+      } else {
+        requiredAmount = ethers.parseUnits(automationConfig.amount, decimals);
+      }
 
-      // Step 4: Deploy RSC
-      setDeploymentStep('deploying-rsc');
-      toast.loading('Deploying Reactive Smart Contract...', { id: 'deployment' });
+      const currentAllowance = await tokenContract.allowance(signerAddress, CONTRACT_ADDRESSES.CALLBACK);
+
+      if (currentAllowance < requiredAmount) {
+        setDeploymentStep('approving');
+        toast.loading('Approving tokens...', { id: 'deployment' });
+        
+        // Reset allowance to 0 first if needed
+        if (currentAllowance > 0) {
+          const resetTx = await tokenContract.approve(CONTRACT_ADDRESSES.CALLBACK, 0);
+          await resetTx.wait();
+        }
+
+        // Approve the required amount
+        const approvalTx = await tokenContract.approve(CONTRACT_ADDRESSES.CALLBACK, requiredAmount);
+        await approvalTx.wait();
+        toast.success('Token approval confirmed');
+      } else {
+        toast.success('Tokens already approved');
+      }
+
+      // Step 2: Switch to RSC network and fund it
+      setDeploymentStep('switching-rsc');
+      toast.loading(`Switching to ${selectedChain.rscNetwork.name}...`, { id: 'deployment' });
+      await switchToRSCNetwork(originalChainId);
       
-      const rscAddress = await deployRSC({
-        pair: automationConfig.pairAddress,
-        stopOrder: destinationAddress,
-        client: automationConfig.clientAddress,
-        token0: automationConfig.sellToken0,
-        coefficient: automationConfig.coefficient,
-        threshold: automationConfig.threshold
-      }, selectedChain, automationConfig.rscFunding);
+      // Wait for network to settle
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      setDeploymentStep('funding-rsc');
+      toast.loading('Funding RSC monitor...', { id: 'deployment' });
+      
+      // Create fresh provider and signer after network switch
+      const rscProvider = new ethers.BrowserProvider(window.ethereum);
+      const rscSigner = await rscProvider.getSigner();
+      
+      const rscFundingTx = await rscSigner.sendTransaction({
+        to: CONTRACT_ADDRESSES.RSC,
+        value: ethers.parseEther(automationConfig.rscFunding || "0.05")
+      });
+      await rscFundingTx.wait();
 
-      // Step 5: Switch back to original network
+      // Step 3: Switch back to original network
       setDeploymentStep('switching-back');
       toast.loading(`Switching back to ${selectedChain.name}...`, { id: 'deployment' });
+      await switchNetwork(originalChainId);
       
-      await switchNetwork(automationConfig.chainId);
+      // Verify we're back on the original network
+      const finalProvider = new ethers.BrowserProvider(window.ethereum);
+      const finalNetwork = await finalProvider.getNetwork();
+      
+      if (finalNetwork.chainId.toString() !== originalChainId) {
+        throw new Error(`Failed to switch back to original network. Current: ${finalNetwork.chainId}, Expected: ${originalChainId}`);
+      }
 
-      // Deployment complete
+      toast.success(`Switched back to ${selectedChain.name}`);
+
+      // Step 4: Create the stop order
+      setDeploymentStep('creating');
+      toast.loading('Creating stop order...', { id: 'deployment' });
+      
+      const finalSigner = await finalProvider.getSigner();
+      
+      // Create the stop order contract instance
+      const stopOrderContract = new ethers.Contract(
+        CONTRACT_ADDRESSES.CALLBACK,
+        STOP_ORDER_ABI,
+        finalSigner
+      );
+
+      // Parse the actual amount for the contract call
+      let contractAmount;
+      if (automationConfig.amount === 'all') {
+        // Get current balance for 'all'
+        const tokenContractForBalance = new ethers.Contract(
+          tokenToApprove,
+          ['function balanceOf(address) view returns (uint256)'],
+          finalSigner
+        );
+        contractAmount = await tokenContractForBalance.balanceOf(signerAddress);
+      } else if (automationConfig.amount.includes('%')) {
+        // Handle percentage amounts
+        const percentage = parseInt(automationConfig.amount.replace('%', ''));
+        const tokenContractForBalance = new ethers.Contract(
+          tokenToApprove,
+          ['function balanceOf(address) view returns (uint256)'],
+          finalSigner
+        );
+        const balance = await tokenContractForBalance.balanceOf(signerAddress);
+        contractAmount = balance * BigInt(percentage) / BigInt(100);
+      } else {
+        contractAmount = ethers.parseUnits(automationConfig.amount, decimals);
+      }
+
+      console.log('Creating stop order with params:', {
+        pair: automationConfig.pairAddress,
+        sellToken0: automationConfig.sellToken0,
+        amount: contractAmount.toString(),
+        coefficient: automationConfig.coefficient,
+        threshold: automationConfig.threshold,
+        funding: automationConfig.destinationFunding
+      });
+
+      // Call createStopOrder function
+      const createOrderTx = await stopOrderContract.createStopOrder(
+        automationConfig.pairAddress,
+        automationConfig.sellToken0,
+        contractAmount,
+        parseInt(automationConfig.coefficient),
+        parseInt(automationConfig.threshold),
+        { 
+          value: ethers.parseEther(automationConfig.destinationFunding || "0.03"),
+          gasLimit: 500000
+        }
+      );
+
+      const receipt = await createOrderTx.wait();
+      
+      // Extract order ID from transaction logs
+      let orderId = null;
+      try {
+        const orderCreatedEvent = receipt.logs.find((log: any) => 
+          log.topics[0] === ethers.id('StopOrderCreated(address,uint256,address,bool,address,address,uint256,uint256,uint256)')
+        );
+        
+        if (orderCreatedEvent) {
+          orderId = parseInt(orderCreatedEvent.topics[2], 16);
+        }
+      } catch (logError) {
+        console.log('Could not extract order ID from logs:', logError);
+      }
+      
       setDeploymentStep('complete');
-      toast.success('Stop order deployed successfully!', { id: 'deployment' });
+      toast.success('🎉 Your stop order is now active and monitoring prices 24/7', { id: 'deployment' });
 
       const result = {
-        destinationAddress,
-        rscAddress,
+        destinationAddress: CONTRACT_ADDRESSES.CALLBACK,
+        rscAddress: CONTRACT_ADDRESSES.RSC,
+        orderId,
         chainId: automationConfig.chainId,
         chainName: selectedChain.name
       };
@@ -139,7 +466,7 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
     } catch (error: any) {
       console.error('Deployment error:', error);
       setDeploymentError(error.message || 'Deployment failed');
-      setDeploymentStep('error');
+      setDeploymentStep('idle');
       toast.error(error.message || 'Deployment failed', { id: 'deployment' });
       onDeploymentComplete(false, { error: error.message });
     }
@@ -167,21 +494,22 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
   };
 
   const getStepIcon = (step: DeploymentStep) => {
-    if (step === deploymentStep && deploymentStep !== 'complete' && deploymentStep !== 'error') {
+    if (step === deploymentStep && deploymentStep !== 'complete' && deploymentStep !== 'idle') {
       return <Loader2 className="h-4 w-4 animate-spin text-blue-400" />;
     }
     if (deploymentStep === 'complete' || 
-        (deploymentStep === 'switching-back' && step !== 'complete') ||
-        (deploymentStep === 'deploying-rsc' && (step === 'deploying-destination' || step === 'approving' || step === 'switching-network')) ||
-        (deploymentStep === 'switching-network' && (step === 'deploying-destination' || step === 'approving')) ||
-        (deploymentStep === 'approving' && step === 'deploying-destination')) {
+        (deploymentStep === 'switching-back' && step !== 'complete' && step !== 'switching-back') ||
+        (deploymentStep === 'creating' && step !== 'complete' && step !== 'creating' && step !== 'switching-back') ||
+        (deploymentStep === 'funding-rsc' && (step === 'checking-approval' || step === 'approving' || step === 'switching-rsc')) ||
+        (deploymentStep === 'switching-rsc' && (step === 'checking-approval' || step === 'approving')) ||
+        (deploymentStep === 'approving' && step === 'checking-approval')) {
       return <CheckCircle className="h-4 w-4 text-green-400" />;
     }
     return <Clock className="h-4 w-4 text-zinc-400" />;
   };
 
   const getStepStatus = (step: DeploymentStep): 'pending' | 'active' | 'complete' => {
-    const stepOrder: DeploymentStep[] = ['deploying-destination', 'approving', 'switching-network', 'deploying-rsc', 'switching-back', 'complete'];
+    const stepOrder: DeploymentStep[] = ['checking-approval', 'approving', 'switching-rsc', 'funding-rsc', 'switching-back', 'creating', 'complete'];
     const currentIndex = stepOrder.indexOf(deploymentStep);
     const stepIndex = stepOrder.indexOf(step);
     
@@ -205,7 +533,8 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
           <div className="space-y-1 text-sm text-zinc-300">
             <p><span className="font-medium">Network:</span> {SUPPORTED_CHAINS.find(c => c.id === automationConfig.chainId)?.name}</p>
             <p><span className="font-medium">Amount:</span> {automationConfig.amount}</p>
-            <p><span className="font-medium">Funding:</span> {automationConfig.destinationFunding} + {automationConfig.rscFunding}</p>
+            <p><span className="font-medium">Drop Percentage:</span> {automationConfig.dropPercentage}%</p>
+            <p><span className="font-medium">Total Cost:</span> {automationConfig.destinationFunding} ETH + {automationConfig.rscFunding} REACT</p>
           </div>
         </div>
 
@@ -215,11 +544,12 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
             <h3 className="text-zinc-100 font-medium">Deployment Progress</h3>
             
             {[
-              { step: 'deploying-destination' as DeploymentStep, label: 'Deploy Destination Contract' },
+              { step: 'checking-approval' as DeploymentStep, label: 'Check Token Approval' },
               { step: 'approving' as DeploymentStep, label: 'Approve Token Spending' },
-              { step: 'switching-network' as DeploymentStep, label: 'Switch to RSC Network' },
-              { step: 'deploying-rsc' as DeploymentStep, label: 'Deploy Reactive Smart Contract' },
-              { step: 'switching-back' as DeploymentStep, label: 'Switch Back to Original Network' }
+              { step: 'switching-rsc' as DeploymentStep, label: 'Switch to RSC Network' },
+              { step: 'funding-rsc' as DeploymentStep, label: 'Fund RSC Monitor' },
+              { step: 'switching-back' as DeploymentStep, label: 'Switch Back to Original Network' },
+              { step: 'creating' as DeploymentStep, label: 'Create Stop Order' }
             ].map(({ step, label }) => (
               <div key={step} className="flex items-center space-x-3">
                 {getStepIcon(step)}
@@ -249,7 +579,8 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
           <Alert className="bg-green-900/20 border-green-500/50">
             <CheckCircle className="h-4 w-4 text-green-400" />
             <AlertDescription className="text-green-200">
-              Stop order deployed successfully! Your automation is now active and monitoring prices.
+              Stop order created successfully! Your automation is now active and monitoring prices.
+              {deploymentResult.orderId && ` Order ID: ${deploymentResult.orderId}`}
             </AlertDescription>
           </Alert>
         )}
@@ -275,7 +606,7 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
             </>
           )}
           
-          {(deploymentStep === 'complete' || deploymentStep === 'error') && (
+          {(deploymentStep === 'complete' || deploymentStep === 'idle') && deploymentError && (
             <Button
               onClick={onCancel}
               className="w-full bg-zinc-700 hover:bg-zinc-600"
@@ -283,8 +614,17 @@ export const AIDeploymentHandler: React.FC<AIDeploymentHandlerProps> = ({
               Close
             </Button>
           )}
+
+          {deploymentStep === 'complete' && !deploymentError && (
+            <Button
+              onClick={onCancel}
+              className="w-full bg-green-700 hover:bg-green-600"
+            >
+              Done
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
   );
-}; 
+};

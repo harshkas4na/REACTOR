@@ -44,7 +44,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     dexName: 'Uniswap V2',
     routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
     factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
-    callbackAddress: '0xf79dfe2575151935ed7938593D680E7077EC1d0c',
+    callbackAddress: '0x9148309eFB90b8803187413DFEE904327DFD8835',
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH',
     defaultFunding: '0.03'
@@ -77,8 +77,8 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
 
 // Contract addresses
 const CONTRACT_ADDRESSES = {
-  CALLBACK: '0xf79dfe2575151935ed7938593D680E7077EC1d0c',
-  RSC: '0xc8d3a69E93610cdC2B06f3D8f82aAe762BF2162b'
+  CALLBACK: '0x9148309eFB90b8803187413DFEE904327DFD8835',
+  RSC: '0x820bEaada84dD6D507edcE56D211038bd9444049'
 };
 
 // ===== INTERFACES =====
@@ -343,6 +343,50 @@ export default function SimpleStopOrderDashboard() {
     }
   };
 
+  // FIXED: Correct calculation for threshold-based orders
+  const calculateOrderMetrics = async (orderData: any, provider: ethers.BrowserProvider) => {
+    try {
+      // Get current pair price
+      const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.sellToken0, provider);
+      
+      // Calculate the trigger price from threshold
+      const coefficient = Number(orderData.coefficient);
+      const threshold = Number(orderData.threshold);
+      const triggerPrice = threshold / coefficient;
+      
+      // Try to estimate the drop percentage
+      // Since we don't know the original price exactly, we'll use current price as approximation
+      // This won't be 100% accurate but much better than the old calculation
+      let dropPercentage = 0;
+      if (currentPrice > 0 && triggerPrice > 0) {
+        dropPercentage = ((currentPrice - triggerPrice) / currentPrice) * 100;
+        // Ensure it's positive and reasonable (clamp between 0-50%)
+        dropPercentage = Math.max(0, Math.min(50, dropPercentage));
+      }
+
+      console.log('Order metrics calculation:', {
+        coefficient,
+        threshold,
+        currentPrice,
+        triggerPrice,
+        calculatedDropPercentage: dropPercentage
+      });
+
+      return {
+        currentPrice: currentPrice.toFixed(6),
+        triggerPrice: triggerPrice.toFixed(6),
+        dropPercentage: Math.round(dropPercentage * 10) / 10 // Round to 1 decimal place
+      };
+    } catch (error) {
+      console.error('Error calculating order metrics:', error);
+      return {
+        currentPrice: '0',
+        triggerPrice: '0', 
+        dropPercentage: 0
+      };
+    }
+  };
+
   const fetchUserOrders = async () => {
     if (!connectedAccount || !connectedChain) return;
 
@@ -380,14 +424,8 @@ export default function SimpleStopOrderDashboard() {
             fetchTokenInfo(orderData.tokenBuy, provider)
           ]);
 
-          // Get current pair price
-          const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.sellToken0, provider);
-          
-          // Calculate drop percentage and trigger price
-          const coefficient = Number(orderData.coefficient);
-          const threshold = Number(orderData.threshold);
-          const dropPercentage = ((coefficient - threshold) / coefficient) * 100;
-          const triggerPrice = currentPrice * (1 - dropPercentage / 100);
+          // FIXED: Use new calculation method
+          const metrics = await calculateOrderMetrics(orderData, provider);
 
           const order: StopOrder = {
             id: Number(orderData.id),
@@ -402,14 +440,14 @@ export default function SimpleStopOrderDashboard() {
             status: Number(orderData.status), // Convert BigInt to number
             createdAt: Number(orderData.createdAt),
             executedAt: Number(orderData.executedAt),
-            retryCount: Number(orderData.retryCount), // Convert BigInt to number
+            retryCount: Number(orderData.retryCount),
             lastExecutionAttempt: Number(orderData.lastExecutionAttempt),
-            currentPrice: currentPrice.toFixed(6),
-            dropPercentage: Math.round(dropPercentage * 10) / 10,
-            triggerPrice: triggerPrice.toFixed(6)
+            currentPrice: metrics.currentPrice,
+            dropPercentage: metrics.dropPercentage,
+            triggerPrice: metrics.triggerPrice
           };
 
-          console.log('Processed order:', order);
+          console.log('Processed order with fixed metrics:', order);
           return order;
         } catch (error) {
           console.error('Error fetching order:', orderId, error);
@@ -426,7 +464,7 @@ export default function SimpleStopOrderDashboard() {
       // Sort by creation time (newest first)
       validOrders.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('Final orders to set:', validOrders);
+      console.log('Final orders with corrected calculations:', validOrders);
       setOrders(validOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -623,8 +661,6 @@ export default function SimpleStopOrderDashboard() {
               </AlertDescription>
             </Alert>
           )}
-
-         
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -913,8 +949,6 @@ export default function SimpleStopOrderDashboard() {
             </CardContent>
           </Card>
         )}
-
-       
       </div>
     </div>
   );
