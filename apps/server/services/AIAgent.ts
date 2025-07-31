@@ -1278,7 +1278,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     switch (error.type) {
       case 'BALANCE_FETCH_FAILED':
         return {
-          message: `💰 **Unable to Check ${data.tokenToSell} Balance**\n\n${error.message}\n\n**This might be because:**\n• Network connectivity issues\n• The token contract might be temporarily unavailable\n• The token might not exist on this network\n\n**What would you like to do?**`,
+          message: `💰 **Unable to Check ${data.tokenToSell} Balance**\n\n\n\n**This might be because:**\n• Network connectivity issues\n• The token contract might be temporarily unavailable\n• The token might not exist on this network\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
@@ -1288,7 +1288,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
 
       case 'PAIR_NOT_FOUND':
         return {
-          message: `🔍 **Trading Pair Not Found**\n\n${error.message}\n\n**This means:**\n• These tokens cannot be directly traded on this network\n• You might need to use different tokens\n• The pair might exist on a different network\n\n**What would you like to do?**`,
+          message: `🔍 **Trading Pair Not Found**\n\n\n\n**This means:**\n• These tokens cannot be directly traded on this network\n• You might need to use different tokens\n• The pair might exist on a different network\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
@@ -1298,7 +1298,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
 
       case 'PRICE_FETCH_FAILED':
         return {
-          message: `📊 **Unable to Get Current Price**\n\n${error.message}\n\n**This usually means:**\n• The trading pair has very low liquidity\n• Price oracles might be temporarily unavailable\n• Network congestion is affecting data retrieval\n\n**What would you like to do?**`,
+          message: `📊 **Unable to Get Current Price**\n\n\n\n**This usually means:**\n• The trading pair has very low liquidity\n• Price oracles might be temporarily unavailable\n• Network congestion is affecting data retrieval\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
@@ -1308,7 +1308,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
 
       case 'NETWORK_ERROR':
         return {
-          message: `🌐 **Network Connectivity Issue**\n\n${error.message}\n\n**This is usually temporary and caused by:**\n• High network congestion\n• RPC endpoint issues\n• Temporary service outages\n\n**What would you like to do?**`,
+          message: `🌐 **Network Connectivity Issue**\n\n\n\n**This is usually temporary and caused by:**\n• High network congestion\n• RPC endpoint issues\n• Temporary service outages\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
@@ -1318,7 +1318,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
 
       case 'TOKEN_INVALID':
         return {
-          message: `🪙 **Invalid Token**\n\n${error.message}\n\n**This means:**\n• The token symbol might be incorrect\n• The token might not exist on this network\n• You might need to provide a contract address\n\n**What would you like to do?**`,
+          message: `🪙 **Invalid Token**\n\n\n\n**This means:**\n• The token symbol might be incorrect\n• The token might not exist on this network\n• You might need to provide a contract address\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
@@ -1633,7 +1633,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       };
     } catch (error: any) {
       console.error('Error preparing final configuration:', error);
-      throw new Error(`Failed to prepare configuration: ${error.message}`);
+      throw new Error(`Failed to prepare configuration: `);
     }
   }
 
@@ -2093,7 +2093,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       };
     } catch (error: any) {
       console.error('Error preparing Aave configuration:', error);
-      throw new Error(`Failed to prepare Aave configuration: ${error.message}`);
+      throw new Error(`Failed to prepare Aave configuration: `);
     }
   }
 
@@ -2380,7 +2380,7 @@ ${strategyDescription}
 
   private generateErrorResponse(error: any, conversation: ConversationState) {
     return {
-      message: `❌ **Something went wrong!** ${error.message || 'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Setting up Aave protection\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
+      message: `❌ **Something went wrong!** ${'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Setting up Aave protection\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'error_recovery',

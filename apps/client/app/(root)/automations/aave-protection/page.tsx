@@ -89,6 +89,16 @@ interface AssetConfig {
   canBorrow?: boolean;
 }
 
+// NEW: Form validation errors interface
+interface FormValidationErrors {
+  healthFactorThreshold?: string;
+  targetHealthFactor?: string;
+  collateralAsset?: string;
+  debtAsset?: string;
+  userAddress?: string;
+  general?: string;
+}
+
 // Configuration constants - updated for new contract architecture
 const SUPPORTED_CHAINS: ChainConfig[] = [
   { 
@@ -194,6 +204,9 @@ export default function AaveLiquidationProtectionPage() {
   const [collateralApproved, setCollateralApproved] = useState<boolean>(false);
   const [debtApproved, setDebtApproved] = useState<boolean>(false);
 
+  // NEW: Form validation errors state
+  const [validationErrors, setValidationErrors] = useState<FormValidationErrors>({});
+
   const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId) || SUPPORTED_CHAINS[0];
   const availableAssets = AAVE_ASSETS[formData.chainId as keyof typeof AAVE_ASSETS] || [];
   
@@ -210,6 +223,62 @@ export default function AaveLiquidationProtectionPage() {
     { value: '1', label: 'Debt Repayment Only', description: 'Automatically repay debt when health factor drops' },
     { value: '2', label: 'Combined Protection', description: 'Use both strategies with preference order' }
   ];
+
+  // NEW: Form validation function
+  const validateForm = (): FormValidationErrors => {
+    const errors: FormValidationErrors = {};
+
+    // Validate user address
+    if (!formData.userAddress) {
+      errors.userAddress = 'Please enter a user address';
+    } else if (!ethers.isAddress(formData.userAddress)) {
+      errors.userAddress = 'Please enter a valid Ethereum address';
+    }
+
+    // Validate health factor thresholds
+    const threshold = parseFloat(formData.healthFactorThreshold);
+    const target = parseFloat(formData.targetHealthFactor);
+
+    if (isNaN(threshold) || threshold <= 1) {
+      errors.healthFactorThreshold = 'Health factor threshold must be greater than 1.0';
+    }
+
+    if (isNaN(target)) {
+      errors.targetHealthFactor = 'Please enter a valid target health factor';
+    } else if (target <= threshold) {
+      errors.targetHealthFactor = 'Target health factor must be higher than threshold';
+    }
+
+    // Validate asset selection based on protection type
+    if (formData.protectionType === '0' && !formData.collateralAsset) {
+      errors.collateralAsset = 'Please select a collateral asset for collateral deposit strategy';
+    }
+    if (formData.protectionType === '1' && !formData.debtAsset) {
+      errors.debtAsset = 'Please select a debt asset for debt repayment strategy';
+    }
+    if (formData.protectionType === '2') {
+      if (!formData.collateralAsset) {
+        errors.collateralAsset = 'Please select a collateral asset for combined strategy';
+      }
+      if (!formData.debtAsset) {
+        errors.debtAsset = 'Please select a debt asset for combined strategy';
+      }
+    }
+
+    // Check if position exists
+    if (!positionInfo || !positionInfo.hasPosition) {
+      errors.general = 'No active Aave position found for this address';
+    }
+
+    return errors;
+  };
+
+  // NEW: Clear validation errors when form data changes
+  useEffect(() => {
+    if (Object.keys(validationErrors).length > 0) {
+      setValidationErrors({});
+    }
+  }, [formData]);
 
   useEffect(() => {
     const getConnectedAccount = async () => {
@@ -794,33 +863,19 @@ export default function AaveLiquidationProtectionPage() {
   const handleSetupProtection = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // NEW: Validate form before proceeding
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
     const originalChainId = formData.chainId;
     
     try {
-      if (!formData.userAddress || !ethers.isAddress(formData.userAddress)) {
-        throw new Error('Please enter a valid user address');
-      }
-      
-      // For single strategies, only require the relevant asset
-      if (formData.protectionType === '0' && !formData.collateralAsset) {
-        throw new Error('Please select a collateral asset for collateral deposit strategy');
-      }
-      if (formData.protectionType === '1' && !formData.debtAsset) {
-        throw new Error('Please select a debt asset for debt repayment strategy');
-      }
-      if (formData.protectionType === '2' && (!formData.collateralAsset || !formData.debtAsset)) {
-        throw new Error('Please select both collateral and debt assets for combined strategy');
-      }
-      
-      if (parseFloat(formData.healthFactorThreshold) <= 1) {
-        throw new Error('Health factor threshold must be greater than 1.0');
-      }
-      if (parseFloat(formData.targetHealthFactor) <= parseFloat(formData.healthFactorThreshold)) {
-        throw new Error('Target health factor must be higher than threshold');
-      }
-
-      if (!positionInfo || !positionInfo.hasPosition) {
-        throw new Error('No active Aave position found for this address');
+      if (userSubscription && userSubscription.isActive) {
+        setValidationErrors({ general: 'Already subscribed to protection. Unsubscribe first to change settings.' });
+        return;
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -829,10 +884,6 @@ export default function AaveLiquidationProtectionPage() {
       
       if (currentChainId !== formData.chainId) {
         await switchNetwork(formData.chainId);
-      }
-
-      if (userSubscription && userSubscription.isActive) {
-        throw new Error('Already subscribed to protection. Unsubscribe first to change settings.');
       }
 
       // Step 1: Approve collateral token if needed
@@ -915,13 +966,12 @@ export default function AaveLiquidationProtectionPage() {
     }
   };
 
-  // Fixed subscription display logic
+  // FIXED: Subscription display logic - only show "None" based on protection type
   const getSubscriptionAssetDisplay = (assetAddress: string, protectionType: number, isCollateral: boolean) => {
-    // Check if this asset should be shown as "None" based on protection type
+    // Only show "None" based on protection type logic, not specific addresses
     const shouldShowNone = (
       (protectionType === 1 && isCollateral) || // Debt only, showing collateral
-      (protectionType === 0 && !isCollateral) || // Collateral only, showing debt
-      assetAddress === '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8' // Placeholder USDC address
+      (protectionType === 0 && !isCollateral)   // Collateral only, showing debt
     );
 
     if (shouldShowNone) {
@@ -1030,6 +1080,24 @@ export default function AaveLiquidationProtectionPage() {
     );
   };
 
+  // NEW: Validation Error Display Component
+  const ValidationErrorsUI = () => {
+    if (Object.keys(validationErrors).length === 0) return null;
+
+    return (
+      <div className="space-y-2">
+        {Object.entries(validationErrors).map(([field, error]) => (
+          <Alert key={field} variant="destructive" className="bg-red-900/20 border-red-500/50">
+            <AlertCircle className="h-4 w-4 text-red-400" />
+            <AlertDescription className="text-red-200">
+              {error}
+            </AlertDescription>
+          </Alert>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="relative z-20 max-w-4xl mx-auto">
@@ -1083,37 +1151,37 @@ export default function AaveLiquidationProtectionPage() {
           </Card>
 
           {/* Enhanced Funding Requirements Card */}
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6">
-            <CardContent className="p-4">
-              <div className="flex items-start space-x-3">
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-4 sm:mt-6">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-3">
                 <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center flex-shrink-0">
                   <DollarSign className="h-4 w-4 text-amber-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-amber-100 mb-2">Protection Setup Costs</h3>
-                  <p className="text-sm text-amber-200 mb-3">
+                  <h3 className="font-medium text-amber-100 mb-2 text-sm sm:text-base">Protection Setup Costs</h3>
+                  <p className="text-xs sm:text-sm text-amber-200 mb-3">
                     RSC Monitoring: 0.05 REACT • Callback Execution: 0.03 ETH • Plus gas fees
                   </p>
                   <div className="">
-                    <p className="text-sm text-amber-200 mb-2">
+                    <p className="text-xs sm:text-sm text-amber-200 mb-2">
                       📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
                     </p>
                     <a 
                       href="https://www.coingecko.com/en/coins/reactive-network"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-amber-300 hover:text-amber-200 underline"
+                      className="inline-flex items-center text-xs sm:text-sm text-amber-300 hover:text-amber-200 underline"
                     >
                       See here where you can obtain REACT tokens
                       <ExternalLink className="h-3 w-3 ml-1" />
                     </a>
                   </div>
                 </div>
-                <div className="text-right">
+                {/* <div className="text-right">
                   <p className="text-xs text-amber-300">
                     Covers 24/7 monitoring & automatic execution
                   </p>
-                </div>
+                </div> */}
               </div>
             </CardContent>
           </Card>
@@ -1201,6 +1269,9 @@ export default function AaveLiquidationProtectionPage() {
           </CardHeader>
           <CardContent>
             <form className="space-y-6" onSubmit={handleSetupProtection}>
+              {/* NEW: Show validation errors */}
+              <ValidationErrorsUI />
+
               {/* Chain Selection */}
               <div className="space-y-2">
                 <div className="flex items-center mt-4 space-x-2">
@@ -1260,7 +1331,9 @@ export default function AaveLiquidationProtectionPage() {
                     placeholder="Enter user address"
                     value={formData.userAddress}
                     onChange={(e) => setFormData({...formData, userAddress: e.target.value})}
-                    className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                    className={`bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 ${
+                      validationErrors.userAddress ? 'border-red-500' : ''
+                    }`}
                   />
                   <Button 
                     type="button" 
@@ -1459,7 +1532,9 @@ export default function AaveLiquidationProtectionPage() {
                         placeholder="e.g., 1.2"
                         value={formData.healthFactorThreshold}
                         onChange={(e) => setFormData({...formData, healthFactorThreshold: e.target.value})}
-                        className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                        className={`bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 ${
+                          validationErrors.healthFactorThreshold ? 'border-red-500' : ''
+                        }`}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1483,7 +1558,9 @@ export default function AaveLiquidationProtectionPage() {
                         placeholder="e.g., 1.5"
                         value={formData.targetHealthFactor}
                         onChange={(e) => setFormData({...formData, targetHealthFactor: e.target.value})}
-                        className="bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500"
+                        className={`bg-blue-900/20 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 ${
+                          validationErrors.targetHealthFactor ? 'border-red-500' : ''
+                        }`}
                       />
                     </div>
                   </div>
@@ -1510,7 +1587,9 @@ export default function AaveLiquidationProtectionPage() {
                         onValueChange={(value) => setFormData({...formData, collateralAsset: value})}
                         disabled={formData.protectionType === '1'}
                       >
-                        <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
+                        <SelectTrigger className={`bg-blue-900/20 border-zinc-700 text-zinc-200 ${
+                          validationErrors.collateralAsset ? 'border-red-500' : ''
+                        }`}>
                           <SelectValue placeholder="Select collateral asset" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1546,7 +1625,9 @@ export default function AaveLiquidationProtectionPage() {
                         onValueChange={(value) => setFormData({...formData, debtAsset: value})}
                         disabled={formData.protectionType === '0'}
                       >
-                        <SelectTrigger className="bg-blue-900/20 border-zinc-700 text-zinc-200">
+                        <SelectTrigger className={`bg-blue-900/20 border-zinc-700 text-zinc-200 ${
+                          validationErrors.debtAsset ? 'border-red-500' : ''
+                        }`}>
                           <SelectValue placeholder="Select debt asset" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1663,10 +1744,7 @@ export default function AaveLiquidationProtectionPage() {
                     disabled={
                       setupStep !== 'idle' || 
                       !positionInfo?.hasPosition ||
-                      selectedChain.id !== '11155111' ||
-                      (formData.protectionType === '0' && !formData.collateralAsset) ||
-                      (formData.protectionType === '1' && !formData.debtAsset) ||
-                      (formData.protectionType === '2' && (!formData.collateralAsset || !formData.debtAsset))
+                      selectedChain.id !== '11155111'
                     }
                   >
                     Subscribe to Liquidation Protection
@@ -1897,9 +1975,7 @@ export default function AaveLiquidationProtectionPage() {
                         <li>Consider gas costs when setting thresholds for small positions</li>
                         <li><span className="font-medium text-purple-300">FUNDING:</span> Requires 0.03 ETH + 0.05 REACT tokens for monitoring and execution</li>
                         <li><span className="font-medium text-blue-300">NETWORKS:</span> Automatically switches between your main chain and Reactive Network during setup</li>
-                        <li><span className="font-medium text-purple-300">NEW:</span> Now uses Aave's native oracle for enhanced price accuracy</li>
-                        <li><span className="font-medium text-blue-300">UPDATED:</span> Added support for AAVE (collateral only) and EURS tokens</li>
-                        <li><span className="font-medium text-green-300">ETH SUPPORT:</span> Native ETH is now supported for both collateral and debt strategies</li>
+                        <li><span className="font-medium text-purple-300">NEW:</span> Now uses Aave's native oracle for enhanced price accuracy</li>                        
                       </ul>
                     </div>
                   </div>

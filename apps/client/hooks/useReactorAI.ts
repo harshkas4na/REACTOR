@@ -115,7 +115,7 @@ export const useReactorAI = () => {
     try {
       const convId = currentConversationId || conversationId || generateConversationId();
 
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
+      const response = await fetch('http://localhost:8000/ai-automation/automate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -202,7 +202,7 @@ export const useReactorAI = () => {
     if (!conversationId) return true;
 
     try {
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/clear-conversation', {
+      const response = await fetch('http://localhost:8000/ai-automation/clear-conversation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ export const useReactorAI = () => {
 
   const checkAIHealth = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/health', {
+      const response = await fetch('http://localhost:8000/ai-automation/health', {
         method: 'GET',
       });
       
@@ -240,7 +240,7 @@ export const useReactorAI = () => {
 
   const getSupportedFeatures = useCallback(async () => {
     try {
-      const response = await fetch('https://app.thereactor.in/api/ai-automation/features', {
+      const response = await fetch('http://localhost:8000/ai-automation/features', {
         method: 'GET',
       });
       

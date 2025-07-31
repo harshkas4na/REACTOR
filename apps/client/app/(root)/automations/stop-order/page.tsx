@@ -52,7 +52,9 @@ import {
   Settings,
   HelpCircle,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  BarChart3,
+  ArrowRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
@@ -176,7 +178,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     dexName: 'Uniswap V2',
     routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
     factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
-    callbackAddress: '0xf79dfe2575151935ed7938593D680E7077EC1d0c',
+    callbackAddress: '0x9148309eFB90b8803187413DFEE904327DFD8835',
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH',
     defaultFunding: '0.03',
@@ -252,8 +254,8 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
 
 // Contract addresses
 const CONTRACT_ADDRESSES = {
-  CALLBACK: '0xf79dfe2575151935ed7938593D680E7077EC1d0c',
-  RSC: '0xc8d3a69E93610cdC2B06f3D8f82aAe762BF2162b'
+  CALLBACK: '0x9148309eFB90b8803187413DFEE904327DFD8835',
+  RSC: '0x820bEaada84dD6D507edcE56D211038bd9444049'
 };
 
 // ===== TOKEN SERVICE CLASS =====
@@ -600,9 +602,9 @@ const TokenSelectionModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-zinc-900 border-zinc-700 max-w-md">
+      <DialogContent className="bg-zinc-900 border-zinc-700 w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100 flex items-center justify-between">
+          <DialogTitle className="text-zinc-100 flex items-center justify-between text-lg sm:text-xl">
             {tokenModalType === 'sell' ? 'Token to sell' : 'Token to receive'}
             <div className="flex items-center space-x-2">
               <Button
@@ -618,8 +620,6 @@ const TokenSelectionModal = ({
                 <RefreshCw className={`w-3 h-3 text-zinc-400 ${isLoadingBalances ? 'animate-spin' : ''}`} />
               </Button>
             </div>
-
-        
           </DialogTitle>
         </DialogHeader>
         
@@ -628,16 +628,16 @@ const TokenSelectionModal = ({
             placeholder="Search tokens or paste address..." 
             value={searchTerm}
             onValueChange={setSearchTerm}
-            className="text-zinc-200 border-zinc-700"
+            className="text-zinc-200 border-zinc-700 text-sm sm:text-base"
           />
-          <CommandList className="max-h-[400px]">
+          <CommandList className="max-h-[50vh] sm:max-h-[400px]">
             <CommandEmpty>
               {ethers.isAddress(searchTerm) ? (
                 <div className="p-2">
                   <Button
                     onClick={() => handleCustomTokenSelect(searchTerm)}
                     disabled={isLoadingCustomToken}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-sm"
                   >
                     {isLoadingCustomToken ? (
                       <div className="flex items-center">
@@ -681,14 +681,14 @@ const TokenSelectionModal = ({
                       onSelect(token);
                       onClose();
                     }}
-                    className="cursor-pointer hover:bg-zinc-800/50 p-3"
+                    className="cursor-pointer hover:bg-zinc-800/50 p-3 touch-manipulation"
                   >
                     <div className="flex items-center w-full">
                       {token.logoURI ? (
                         <img 
                           src={token.logoURI} 
                           alt={token.symbol}
-                          className="w-10 h-10 rounded-full mr-3"
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full mr-3 flex-shrink-0"
                           onError={(e) => {
                             // Fallback to gradient circle if image fails to load
                             (e.currentTarget as HTMLElement).style.display = 'none';
@@ -697,15 +697,15 @@ const TokenSelectionModal = ({
                         />
                       ) : null}
                       <div 
-                        className={`w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-sm font-bold mr-3 ${token.logoURI ? 'hidden' : 'flex'}`}
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs sm:text-sm font-bold mr-3 flex-shrink-0 ${token.logoURI ? 'hidden' : 'flex'}`}
                       >
                         {token.symbol.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-zinc-200 truncate">{token.symbol}</span>
+                          <span className="font-medium text-zinc-200 truncate text-sm sm:text-base">{token.symbol}</span>
                           <div className="text-right ml-2">
-                            <span className="text-zinc-200 font-medium">
+                            <span className="text-zinc-200 font-medium text-sm sm:text-base">
                               {token.balance && parseFloat(token.balance) > 0 ? 
                                 formatTokenBalance(token.balance) : '0'}
                             </span>
@@ -811,25 +811,25 @@ const SimpleStatusIndicator = ({
   const getStatusIcon = () => {
     switch (status.type) {
       case 'error':
-        return <AlertTriangle className="w-4 h-4" />;
+        return <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />;
       case 'warning':
-        return <AlertCircle className="w-4 h-4" />;
+        return <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />;
       case 'loading':
-        return <Loader2 className="w-4 h-4 animate-spin" />;
+        return <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />;
       case 'success':
-        return <CheckCircle className="w-4 h-4" />;
+        return <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />;
       default:
-        return <Info className="w-4 h-4" />;
+        return <Info className="w-4 h-4 sm:w-5 sm:h-5" />;
     }
   };
 
   return (
-    <Alert className={`${getStatusStyles()} mb-10`}>
+    <Alert className={`${getStatusStyles()} mb-6 sm:mb-8 lg:mb-10`}>
       {getStatusIcon()}
-      <AlertDescription>
+      <AlertDescription className="text-sm sm:text-base">
         {status.message}
         {connectedChain && status.type === 'success' && (
-          <div className="text-xs mt-1 opacity-80">
+          <div className="text-xs sm:text-sm mt-1 opacity-80">
             Cost: ~{connectedChain.defaultFunding} {connectedChain.nativeCurrency} + 0.05 {connectedChain.rscNetwork.currencySymbol} + gas
           </div>
         )}
@@ -876,17 +876,38 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
   return (
     <Alert className={colorClasses[stepInfo.color as keyof typeof colorClasses]}>
       {deploymentStep === 'complete' ? (
-        <CheckCircle className="h-4 w-4" />
+        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
       ) : (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
       )}
       <AlertDescription>
         <div className="space-y-1">
-          <span className="font-medium text-zinc-200">{stepInfo.title}</span>
-          <div className="text-sm opacity-80">{stepInfo.message}</div>
+          <span className="font-medium text-zinc-200 text-sm sm:text-base">{stepInfo.title}</span>
+          <div className="text-xs sm:text-sm opacity-80">{stepInfo.message}</div>
         </div>
       </AlertDescription>
     </Alert>
+  );
+};
+
+// ===== SIMPLE DASHBOARD LINK COMPONENT =====
+const DashboardLink = () => {
+  return (
+    <div className="mt-4 sm:mt-6">
+      <div className="flex items-center justify-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
+        <div className="flex items-center text-xs sm:text-sm text-zinc-400">
+          <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-zinc-500" />
+          <span>Track your orders:</span>
+          <Link 
+            href="/automations/stop-order/dashboard" 
+            className="ml-2 text-zinc-300 hover:text-blue-400 underline decoration-zinc-600 hover:decoration-blue-400 transition-colors"
+          >
+            Order Dashboard
+          </Link>
+          <ArrowRight className="w-2 h-2 sm:w-3 sm:h-3 ml-1 text-zinc-500" />
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -1082,23 +1103,63 @@ export default function EnhancedStopOrderWithFunctionality() {
     }
   };
 
-  // Calculate threshold from percentage
+  // FIXED: Calculate threshold from percentage using actual current price
   const calculateThresholdFromPercentage = (percentage: string) => {
-    if (!percentage || isNaN(parseFloat(percentage))) return;
+    if (!percentage || isNaN(parseFloat(percentage)) || !formData.selectedPair) return;
     
     const dropPercent = parseFloat(percentage);
-    const coefficient = 1000; // Standard coefficient used in contract
-    const threshold = Math.floor(coefficient * (100 - dropPercent) / 100);
+    const coefficient = 1000;
+    
+    // Get current price from pair reserves with validation
+    const reserve0 = parseFloat(formData.selectedPair.reserve0);
+    const reserve1 = parseFloat(formData.selectedPair.reserve1);
+    
+    if (reserve0 <= 0 || reserve1 <= 0) {
+      console.error('Invalid reserves for threshold calculation');
+      return;
+    }
+
+    // Get current price based on sell direction
+    const currentPrice = formData.sellToken0 
+      ? reserve1 / reserve0  // token1 per token0
+      : reserve0 / reserve1; // token0 per token1
+
+    if (currentPrice <= 0 || !isFinite(currentPrice)) {
+      console.error('Invalid current price calculated from reserves');
+      return;
+    }
+
+    // Calculate actual stop price
+    const stopPrice = currentPrice * (1 - dropPercent / 100);
+    
+    if (stopPrice <= 0) {
+      console.error('Invalid stop price calculated');
+      return;
+    }
+    
+    // Convert to threshold format (actual price * coefficient)
+    const threshold = Math.floor(stopPrice * coefficient);
+    
+    console.log('Updated threshold calculation:', {
+      currentPrice,
+      dropPercent,
+      stopPrice,
+      coefficient,
+      threshold,
+      'Previous (wrong) threshold': Math.floor(coefficient * (100 - dropPercent) / 100)
+    });
     
     setFormData(prev => ({
       ...prev,
       coefficient: coefficient.toString(),
       threshold: threshold.toString(),
-      dropPercentage: percentage
+      dropPercentage: percentage,
+      currentPrice: currentPrice.toString(),
+      stopPrice: stopPrice.toString()
     }));
   };
 
-  // Enhanced deployment function with better state management
+  // Enhanced deployment function with FIXED threshold calculation
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -1206,13 +1267,12 @@ export default function EnhancedStopOrderWithFunctionality() {
         throw new Error(`Failed to switch back to original network. Current: ${finalNetwork.chainId}, Expected: ${originalChainId}`);
       }
       
-
       setDeploymentStep('creating');
       
       console.log(`Successfully verified back on chain ${originalChainId}`);
       toast.success(`Switched back to ${connectedChain.name}`);
 
-      // Step 4: Create the stop order
+      // Step 4: Create the stop order with CORRECTED threshold calculation
       currentStep = 'creating';
       setDeploymentStep(currentStep);
       
@@ -1227,27 +1287,65 @@ export default function EnhancedStopOrderWithFunctionality() {
         finalSigner
       );
 
-      // Calculate coefficient and threshold from drop percentage
+      // FIXED: Calculate threshold from actual current price, not just percentage
       const dropPercent = parseFloat(formData.dropPercentage);
       const coefficient = 1000; // Standard coefficient
-      const threshold = Math.floor(coefficient * (100 - dropPercent) / 100);
+
+      // Get current price from pair reserves with validation
+      const reserve0 = parseFloat(formData.selectedPair.reserve0);
+      const reserve1 = parseFloat(formData.selectedPair.reserve1);
+      
+      if (reserve0 <= 0 || reserve1 <= 0) {
+        throw new Error('Invalid pair reserves - no liquidity available');
+      }
+
+      const currentPrice = formData.sellToken0 
+        ? reserve1 / reserve0  // token1 per token0
+        : reserve0 / reserve1; // token0 per token1
+
+      if (currentPrice <= 0 || !isFinite(currentPrice)) {
+        throw new Error('Invalid current price calculated from reserves');
+      }
+
+      // Calculate the actual stop price (target price that should trigger sale)
+      const stopPrice = currentPrice * (1 - dropPercent / 100);
+      
+      if (stopPrice <= 0) {
+        throw new Error('Invalid stop price - check your drop percentage');
+      }
+      
+      // Convert to threshold format the contract expects
+      const threshold = Math.floor(stopPrice * coefficient);
+      
+      if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
+        throw new Error('Invalid threshold calculated - check parameters');
+      }
+
+      console.log('Threshold calculation:', {
+        currentPrice,
+        dropPercent,
+        stopPrice,
+        coefficient,
+        threshold,
+        'Previous (wrong) threshold': Math.floor(coefficient * (100 - dropPercent) / 100)
+      });
 
       console.log('Creating stop order with params:', {
         pair: formData.selectedPair.pairAddress,
         sellToken0: formData.sellToken0,
         amount: requiredAmount.toString(),
         coefficient,
-        threshold,
+        threshold, // This is now the ACTUAL price threshold, not percentage
         funding: formData.destinationFunding
       });
 
-      // Call createStopOrder function
+      // Call createStopOrder function with corrected threshold
       const createOrderTx = await stopOrderContract.createStopOrder(
         formData.selectedPair.pairAddress,
         formData.sellToken0,
         requiredAmount,
         coefficient,
-        threshold,
+        threshold, // Now contains actual price * coefficient
         { 
           value: ethers.parseEther(formData.destinationFunding),
           gasLimit: 500000 // Provide sufficient gas
@@ -1517,15 +1615,29 @@ export default function EnhancedStopOrderWithFunctionality() {
     checkBalance();
   }, [formData.sellToken, formData.amount, connectedAccount]);
 
-  // Calculate stop price when drop percentage changes
+  // FIXED: Calculate stop price when drop percentage changes using actual price
   useEffect(() => {
-    if (formData.selectedPair && formData.dropPercentage) {
-      const currentPrice = formData.selectedPair.currentPrice;
-      const dropPercent = parseFloat(formData.dropPercentage) || 10;
-      const stopPrice = currentPrice * (1 - dropPercent / 100);
-      setFormData(prev => ({ ...prev, stopPrice: stopPrice.toFixed(6) }));
+    if (formData.selectedPair && formData.dropPercentage && formData.sellToken && formData.buyToken) {
+      const reserve0 = parseFloat(formData.selectedPair.reserve0);
+      const reserve1 = parseFloat(formData.selectedPair.reserve1);
+      
+      if (reserve0 > 0 && reserve1 > 0) {
+        // Get current price based on sell direction
+        const currentPrice = formData.sellToken0 
+          ? reserve1 / reserve0  // token1 per token0
+          : reserve0 / reserve1; // token0 per token1
+          
+        const dropPercent = parseFloat(formData.dropPercentage) || 10;
+        const stopPrice = currentPrice * (1 - dropPercent / 100);
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          currentPrice: currentPrice.toString(),
+          stopPrice: stopPrice.toFixed(6) 
+        }));
+      }
     }
-  }, [formData.selectedPair, formData.dropPercentage]);
+  }, [formData.selectedPair, formData.dropPercentage, formData.sellToken0, formData.sellToken, formData.buyToken]);
 
   // Calculate expected receive amount
   const calculateReceiveAmount = () => {
@@ -1591,12 +1703,12 @@ export default function EnhancedStopOrderWithFunctionality() {
   // Show loading during initialization
   if (isInitializing) {
     return (
-      <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-        <div className="relative z-20 max-w-4xl mx-auto">
+      <div className="relative min-h-screen py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="relative z-20 max-w-7xl mx-auto">
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-400 mx-auto mb-4" />
-              <p className="text-zinc-200">Loading...</p>
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-blue-400 mx-auto mb-4" />
+              <p className="text-zinc-200 text-sm sm:text-base">Loading...</p>
             </div>
           </div>
         </div>
@@ -1605,26 +1717,26 @@ export default function EnhancedStopOrderWithFunctionality() {
   }
 
   return (
-    <div className="relative min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-      <div className="relative z-20 max-w-4xl mx-auto">
+    <div className="relative min-h-screen py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-20 max-w-7xl mx-auto">
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-12"
+          className="mb-8 sm:mb-12"
         >
-          <h1 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 text-center lg:text-left">
             Smart Stop Orders
           </h1>
-          <p className="text-xl text-zinc-200 mb-4">
+          <p className="text-base sm:text-lg lg:text-xl text-zinc-200 mb-4 text-center lg:text-left">
             Automatically sell your tokens when prices drop - protecting your investments 24/7.
           </p>
           
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <Alert className="bg-blue-900/20 border-blue-500/30">
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-blue-200">
+              <Info className="h-4 w-4 sm:h-5 sm:w-5" />
+              <AlertDescription className="text-blue-200 text-sm sm:text-base">
                 <span className="font-medium">Currently live on Ethereum Sepolia</span> • 
                 Ethereum Mainnet and Avalanche C-Chain support coming soon
               </AlertDescription>
@@ -1632,77 +1744,77 @@ export default function EnhancedStopOrderWithFunctionality() {
           </div>
           
           <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <CardContent className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center flex-shrink-0">
                     <Shield className="h-4 w-4 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-zinc-100">Multi-Chain Protection</h3>
-                    <p className="text-sm text-zinc-300">Ethereum, Sepolia & Avalanche</p>
+                    <h3 className="font-medium text-zinc-100 text-sm sm:text-base">Multi-Chain Protection</h3>
+                    <p className="text-xs sm:text-sm text-zinc-300">Ethereum, Sepolia & Avalanche</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                     <Clock className="h-4 w-4 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-zinc-100">24/7 Monitoring</h3>
-                    <p className="text-sm text-zinc-300">Never miss a price movement</p>
+                    <h3 className="font-medium text-zinc-100 text-sm sm:text-base">24/7 Monitoring</h3>
+                    <p className="text-xs sm:text-sm text-zinc-300">Never miss a price movement</p>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <div className="flex items-start space-x-3 sm:col-span-2 lg:col-span-1">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                     <Zap className="h-4 w-4 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-zinc-100">Instant Execution</h3>
-                    <p className="text-sm text-zinc-300">Automatic when triggered</p>
+                    <h3 className="font-medium text-zinc-100 text-sm sm:text-base">Instant Execution</h3>
+                    <p className="text-xs sm:text-sm text-zinc-300">Automatic when triggered</p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
           {/* Enhanced Funding Requirements Card */}
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6">
-            <CardContent className="p-4">
-              <div className="flex items-start space-x-3">
+          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-4 sm:mt-6">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-3">
                 <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center flex-shrink-0">
                   <DollarSign className="h-4 w-4 text-amber-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-amber-100 mb-2">Protection Setup Costs</h3>
-                  <p className="text-sm text-amber-200 mb-3">
+                  <h3 className="font-medium text-amber-100 mb-2 text-sm sm:text-base">Protection Setup Costs</h3>
+                  <p className="text-xs sm:text-sm text-amber-200 mb-3">
                     RSC Monitoring: 0.05 REACT • Callback Execution: 0.03 ETH • Plus gas fees
                   </p>
                   <div className="">
-                    <p className="text-sm text-amber-200 mb-2">
+                    <p className="text-xs sm:text-sm text-amber-200 mb-2">
                       📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
                     </p>
                     <a 
                       href="https://www.coingecko.com/en/coins/reactive-network"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-amber-300 hover:text-amber-200 underline"
+                      className="inline-flex items-center text-xs sm:text-sm text-amber-300 hover:text-amber-200 underline"
                     >
                       See here where you can obtain REACT tokens
                       <ExternalLink className="h-3 w-3 ml-1" />
                     </a>
                   </div>
                 </div>
-                <div className="text-right">
+                {/* <div className="text-right">
                   <p className="text-xs text-amber-300">
                     Covers 24/7 monitoring & automatic execution
                   </p>
-                </div>
+                </div> */}
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
         {/* Main Interface Container */}
-        <div className="">
+        <div className="space-y-6 sm:space-y-8">
           
             {/* Status Indicator */}
             <SimpleStatusIndicator
@@ -1714,30 +1826,30 @@ export default function EnhancedStopOrderWithFunctionality() {
             />
 
             {/* Combined Stop Order Configuration */}
-            <Card className="relative mx-44 bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+            <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mx-auto max-w-2xl">
             
-              <CardHeader className="border-b border-zinc-800">
-                <CardTitle className="text-xl text-zinc-100">
+              <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl text-zinc-100">
                   Configure Stop Order
                 </CardTitle>
-                <CardDescription className="text-zinc-300">
+                <CardDescription className="text-zinc-300 text-sm sm:text-base">
                   Set up automatic selling when your token price drops
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
+              <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                 {/* Token Selection Section */}
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Sell Token Section */}
-                  <div className="bg-blue-900/20 rounded-xl p-4 border border-blue-500/20">
+                  <div className="bg-blue-900/20 rounded-xl p-3 sm:p-4 border border-blue-500/20">
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-sm text-zinc-400">Sell</span>
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-1.5 sm:space-x-2">
                         {['25%', '50%', '75%', 'Max'].map(percentage => (
                           <Button
                             key={percentage}
                             variant="outline"
                             size="sm"
-                            className="text-xs px-2 py-1 bg-blue-700/50 border-blue-600 text-zinc-300 hover:bg-blue-600"
+                            className="text-xs px-1.5 py-1 sm:px-2 sm:py-1 bg-blue-700/50 border-blue-600 text-zinc-300 hover:bg-blue-600"
                             onClick={() => {
                               if (formData.sellToken?.balance) {
                                 const balance = parseFloat(formData.sellToken.balance);
@@ -1753,38 +1865,39 @@ export default function EnhancedStopOrderWithFunctionality() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
                       <Input
                         type="number"
                         placeholder="0.0"
                         value={formData.amount}
                         onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                        className="border-0 bg-transparent text-2xl font-semibold text-zinc-100 placeholder:text-zinc-500 p-0 h-auto focus:ring-2 focus:ring-blue-500"
+                        className="border-0 bg-transparent text-xl sm:text-2xl font-semibold text-zinc-100 placeholder:text-zinc-500 p-0 h-auto focus:ring-2 focus:ring-blue-500"
                       />
                       
                       <Button
                         onClick={() => openTokenModal('sell')}
-                        className="bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100 px-3 py-2 h-auto"
+                        className="bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100 px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base"
                       >
                         {formData.sellToken ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
+                          <div className="flex items-center space-x-1.5 sm:space-x-2">
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
                               {formData.sellToken.symbol.charAt(0)}
                             </div>
-                            <span>{formData.sellToken.symbol}</span>
-                            <ChevronDown className="w-4 h-4" />
+                            <span className="hidden sm:inline">{formData.sellToken.symbol}</span>
+                            <span className="sm:hidden">{formData.sellToken.symbol.slice(0, 4)}</span>
+                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                           </div>
                         ) : (
-                          <div className="flex items-center space-x-2">
-                            <span>Select token</span>
-                            <ChevronDown className="w-4 h-4" />
+                          <div className="flex items-center space-x-1.5 sm:space-x-2">
+                            <span className="text-xs sm:text-sm">Select token</span>
+                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                           </div>
                         )}
                       </Button>
                     </div>
                     
                     {formData.sellToken?.balance && (
-                      <div className="text-sm text-zinc-400 mt-2">
+                      <div className="text-xs sm:text-sm text-zinc-400 mt-2">
                         Balance: {parseFloat(formData.sellToken.balance).toFixed(4)} {formData.sellToken.symbol}
                       </div>
                     )}
@@ -1799,44 +1912,45 @@ export default function EnhancedStopOrderWithFunctionality() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="w-10 h-10 bg-blue-800/50 hover:bg-blue-700/70 rounded-lg border border-blue-700 hover:border-blue-600"
+                        className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-800/50 hover:bg-blue-700/70 rounded-lg border border-blue-700 hover:border-blue-600"
                         onClick={handleSwapTokens}
                         disabled={!formData.sellToken || !formData.buyToken}
                       >
-                        <ArrowUpDown className="w-4 h-4 text-blue-300" />
+                        <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-300" />
                       </Button>
                     </motion.div>
                   </div>
 
                   {/* Buy Token Section */}
-                  <div className="bg-blue-900/20 rounded-xl p-4 border border-blue-500/20">
+                  <div className="bg-blue-900/20 rounded-xl p-3 sm:p-4 border border-blue-500/20">
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-sm text-zinc-400">Receive (at stop price)</span>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="flex-1">
-                        <span className="text-2xl font-semibold text-zinc-100">
+                        <span className="text-xl sm:text-2xl font-semibold text-zinc-100">
                           {calculateReceiveAmount()}
                         </span>
                       </div>
                       
                       <Button
                         onClick={() => openTokenModal('buy')}
-                        className="bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100 px-3 py-2 h-auto"
+                        className="bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100 px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base"
                       >
                         {formData.buyToken ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
+                          <div className="flex items-center space-x-1.5 sm:space-x-2">
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
                               {formData.buyToken.symbol.charAt(0)}
                             </div>
-                            <span>{formData.buyToken.symbol}</span>
-                            <ChevronDown className="w-4 h-4" />
+                            <span className="hidden sm:inline">{formData.buyToken.symbol}</span>
+                            <span className="sm:hidden">{formData.buyToken.symbol.slice(0, 4)}</span>
+                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                           </div>
                         ) : (
-                          <div className="flex items-center space-x-2">
-                            <span>Select token</span>
-                            <ChevronDown className="w-4 h-4" />
+                          <div className="flex items-center space-x-1.5 sm:space-x-2">
+                            <span className="text-xs sm:text-sm">Select token</span>
+                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                           </div>
                         )}
                       </Button>
@@ -1846,14 +1960,14 @@ export default function EnhancedStopOrderWithFunctionality() {
 
                 {/* Stop Loss Configuration */}
                 {formData.sellToken && formData.buyToken && (
-                  <div className="space-y-4 pt-4 border-t border-zinc-800">
-                    <h3 className="text-lg font-semibold text-zinc-100 flex items-center">
-                      <TrendingDown className="w-5 h-5 mr-2 text-red-400" />
+                  <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-zinc-800">
+                    <h3 className="text-base sm:text-lg font-semibold text-zinc-100 flex items-center">
+                      <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-400" />
                       Stop Loss Settings
                     </h3>
                     
                     {/* Custom Percentage Input */}
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       <label className="text-sm text-zinc-400 block">Drop percentage to trigger sale</label>
                       <Input
                         type="number"
@@ -1866,18 +1980,18 @@ export default function EnhancedStopOrderWithFunctionality() {
                           setFormData(prev => ({ ...prev, dropPercentage: e.target.value }));
                           calculateThresholdFromPercentage(e.target.value);
                         }}
-                        className="bg-blue-900/20 border-blue-700 text-zinc-200 text-lg focus:border-blue-500 focus:ring-blue-500"
+                        className="bg-blue-900/20 border-blue-700 text-zinc-200 text-base sm:text-lg focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
 
                     {/* Quick Percentage Options */}
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                       {['5', '10', '15', '20'].map(percentage => (
                         <Button
                           key={percentage}
                           variant={formData.dropPercentage === percentage ? "default" : "outline"}
                           size="sm"
-                          className={`${
+                          className={`text-xs sm:text-sm ${
                             formData.dropPercentage === percentage 
                               ? 'bg-red-600 border-red-500 hover:bg-red-700' 
                               : 'bg-blue-800/50 border-blue-700 text-zinc-300 hover:bg-blue-700'
@@ -1894,17 +2008,17 @@ export default function EnhancedStopOrderWithFunctionality() {
 
                     {/* Price Information */}
                     {formData.selectedPair && formData.stopPrice && (
-                      <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 sm:p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
-                            <p className="text-sm text-red-400 mb-1">Current Price</p>
-                            <p className="text-lg font-bold text-red-100">
+                            <p className="text-xs sm:text-sm text-red-400 mb-1">Current Price</p>
+                            <p className="text-base sm:text-lg font-bold text-red-100">
                               {formData.selectedPair.currentPrice.toFixed(6)}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-red-400 mb-1">Stop Trigger Price</p>
-                            <p className="text-lg font-bold text-red-100">
+                            <p className="text-xs sm:text-sm text-red-400 mb-1">Stop Trigger Price</p>
+                            <p className="text-base sm:text-lg font-bold text-red-100">
                               {formData.stopPrice}
                             </p>
                           </div>
@@ -1917,62 +2031,50 @@ export default function EnhancedStopOrderWithFunctionality() {
                         </div>
                       </div>
                     )}
+
                     {/* Deployment Status */}
-            <DeploymentStatus deploymentStep={deploymentStep} />
+                    <DeploymentStatus deploymentStep={deploymentStep} />
 
-                  {/* Create Stop Order Button */}
-                  <Button 
-                    onClick={handleCreateOrder}
-                    className="w-full h-14  text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                    disabled={!isFormValid}
-                  >
-                    {deploymentStep === 'complete' ? (
-                      <div className="flex items-center">
-                        <CheckCircle className="w-5 h-5 mr-2" />
-                        Stop Order Created! 🎉
-                      </div>
-                    ) : deploymentStep !== 'idle' ? (
-                      <div className="flex items-center">
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Processing...
-                      </div>
-                    ) : isLoadingPair ? (
-                      <div className="flex items-center">
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Finding Pair...
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <Shield className="w-5 h-5 mr-2" />
-                        Create Stop Order
-                      </div>
-                    )}
-                  </Button>
-
-                  {/* Dashboard Information */}
-                  <div className="mt-8 p-4 bg-zinc-800/30 rounded-lg border border-zinc-700">
-                    <p className="text-zinc-300 text-sm leading-relaxed">
-                      Once your stop order is created, you can monitor its status, view execution history, and manage all your active orders through the{' '}
-                      <Link 
-                        href="/automations/stop-order/dashboard" 
-                        className="text-blue-400 hover:text-blue-300 underline font-medium"
-                      >
-                        Order Dashboard
-                      </Link>
-                      . The dashboard provides real-time updates and complete control over your automated trading strategies.
-                    </p>
-                  </div>
+                    {/* Create Stop Order Button */}
+                    <Button 
+                      onClick={handleCreateOrder}
+                      className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      disabled={!isFormValid}
+                    >
+                      {deploymentStep === 'complete' ? (
+                        <div className="flex items-center">
+                          <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                          Stop Order Created! 🎉
+                        </div>
+                      ) : deploymentStep !== 'idle' ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
+                          Processing...
+                        </div>
+                      ) : isLoadingPair ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
+                          Finding Pair...
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                          Create Stop Order
+                        </div>
+                      )}
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            
+            {/* Simple Dashboard Link Component */}
+            <DashboardLink />
 
             {/* Network Info */}
             {connectedChain && (
-              <div className="text-center">
-                <p className="text-sm text-zinc-400">
+              <div className="text-center mt-4 sm:mt-6">
+                <p className="text-xs sm:text-sm text-zinc-400">
                   Connected to <span className="text-zinc-300 font-medium">{connectedChain.name}</span>
                   {connectedChain.isComingSoon && (
                     <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
@@ -1982,36 +2084,33 @@ export default function EnhancedStopOrderWithFunctionality() {
                 </p>
               </div>
             )}
-          
-
-         
         </div>
-      </div>
-      {/* Educational Section */}
-      <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-8">
-          <CardHeader className="border-b border-zinc-800">
-            <CardTitle className="text-zinc-100 flex items-center">
-              <HelpCircle className="w-5 h-5 mr-2" />
+
+        {/* Educational Section */}
+        <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6 sm:mt-8">
+          <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+            <CardTitle className="text-zinc-100 flex items-center text-lg sm:text-xl">
+              <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Frequently Asked Questions
             </CardTitle>
-            <CardDescription className="text-zinc-300">
+            <CardDescription className="text-zinc-300 text-sm sm:text-base">
               Understanding automated stop loss protection
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="what-is" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
                   What is a Stop Order?
                 </AccordionTrigger>
-                <AccordionContent className="text-zinc-300">
-                  <div className="space-y-4">
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
                     <p>
                       A stop order acts as your personal trading assistant, watching token prices 24/7 and automatically selling when they drop to your specified level. Think of it as an insurance policy for your crypto investments.
                     </p>
-                    <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
-                      <h4 className="font-medium text-zinc-100 mb-2">Example Scenario:</h4>
-                      <p className="text-sm text-zinc-300">
+                    <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
+                      <h4 className="font-medium text-zinc-100 mb-2 text-sm sm:text-base">Example Scenario:</h4>
+                      <p className="text-xs sm:text-sm text-zinc-300">
                         You own ETH worth $3,500 each. You set a 10% stop order. If ETH drops to $3,150, 
                         your tokens automatically sell for USDC, protecting you from further losses.
                       </p>
@@ -2021,11 +2120,11 @@ export default function EnhancedStopOrderWithFunctionality() {
               </AccordionItem>
 
               <AccordionItem value="how-it-works" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
                   How Does It Work?
                 </AccordionTrigger>
-                <AccordionContent className="text-zinc-300">
-                  <div className="space-y-4">
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
                     <p>
                       Our Reactive Smart Contracts (RSCs) monitor blockchain events 24/7, automatically executing trades when your conditions are met.
                     </p>
@@ -2036,8 +2135,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                           <span className="text-xs font-bold text-blue-300">1</span>
                         </div>
                         <div>
-                          <p className="text-blue-200 font-medium">Continuous Monitoring</p>
-                          <p className="text-blue-300 text-sm">
+                          <p className="text-blue-200 font-medium text-sm sm:text-base">Continuous Monitoring</p>
+                          <p className="text-blue-300 text-xs sm:text-sm">
                             RSCs watch DEX prices across chains without requiring manual intervention.
                           </p>
                         </div>
@@ -2048,8 +2147,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                           <span className="text-xs font-bold text-purple-300">2</span>
                         </div>
                         <div>
-                          <p className="text-purple-200 font-medium">Automatic Trigger</p>
-                          <p className="text-purple-300 text-sm">
+                          <p className="text-purple-200 font-medium text-sm sm:text-base">Automatic Trigger</p>
+                          <p className="text-purple-300 text-xs sm:text-sm">
                             When price drops to your threshold, the RSC automatically triggers a sell order.
                           </p>
                         </div>
@@ -2060,8 +2159,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                           <span className="text-xs font-bold text-green-300">3</span>
                         </div>
                         <div>
-                          <p className="text-green-200 font-medium">Instant Execution</p>
-                          <p className="text-green-300 text-sm">
+                          <p className="text-green-200 font-medium text-sm sm:text-base">Instant Execution</p>
+                          <p className="text-green-300 text-xs sm:text-sm">
                             Your tokens are swapped on the DEX, protecting you from further losses.
                           </p>
                         </div>
@@ -2072,11 +2171,11 @@ export default function EnhancedStopOrderWithFunctionality() {
               </AccordionItem>
 
               <AccordionItem value="funding" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
                   Setup Process & Costs
                 </AccordionTrigger>
-                <AccordionContent className="text-zinc-300">
-                  <div className="space-y-4">
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
                     <p>
                       Our optimized setup process minimizes transactions while ensuring your stop order is properly funded and configured.
                     </p>
@@ -2087,8 +2186,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                           <span className="text-xs font-bold text-blue-300">1</span>
                         </div>
                         <div>
-                          <p className="text-blue-200 font-medium">Token Approval (if needed)</p>
-                          <p className="text-blue-300 text-sm">
+                          <p className="text-blue-200 font-medium text-sm sm:text-base">Token Approval (if needed)</p>
+                          <p className="text-blue-300 text-xs sm:text-sm">
                             We check if your tokens are already approved. If not, one transaction approves them for trading.
                           </p>
                         </div>
@@ -2099,8 +2198,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                           <span className="text-xs font-bold text-purple-300">2</span>
                         </div>
                         <div>
-                          <p className="text-purple-200 font-medium">RSC Funding</p>
-                          <p className="text-purple-300 text-sm">
+                          <p className="text-purple-200 font-medium text-sm sm:text-base">RSC Funding</p>
+                          <p className="text-purple-300 text-xs sm:text-sm">
                             One transaction on RN funds the 24/7 price monitoring system.
                           </p>
                         </div>
@@ -2111,8 +2210,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                           <span className="text-xs font-bold text-green-300">3</span>
                         </div>
                         <div>
-                          <p className="text-green-200 font-medium">Stop Order Creation</p>
-                          <p className="text-green-300 text-sm">
+                          <p className="text-green-200 font-medium text-sm sm:text-base">Stop Order Creation</p>
+                          <p className="text-green-300 text-xs sm:text-sm">
                             Final transaction creates your stop order and funds the execution contract in one go.
                           </p>
                         </div>
@@ -2120,7 +2219,7 @@ export default function EnhancedStopOrderWithFunctionality() {
                     </div>
 
                     <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-500/30">
-                      <p className="text-sm text-amber-200">
+                      <p className="text-xs sm:text-sm text-amber-200">
                         ⚡ <span className="font-medium">Optimized Flow:</span> 
                         Only 2-3 transactions total! We automatically handle network switching and combine funding with contract creation.
                       </p>
@@ -2130,52 +2229,52 @@ export default function EnhancedStopOrderWithFunctionality() {
               </AccordionItem>
 
               <AccordionItem value="safety" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
                   Safety & Security Features
                 </AccordionTrigger>
-                <AccordionContent className="text-zinc-300">
-                  <div className="space-y-4">
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
                     <p>
                       Your funds and orders are protected by multiple layers of security and safety mechanisms.
                     </p>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-green-900/20 p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 flex items-center">
-                          <Shield className="w-4 h-4 mr-2" />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
+                        <h4 className="font-medium text-green-200 mb-2 flex items-center text-sm sm:text-base">
+                          <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                           Smart Contract Security
                         </h4>
-                        <p className="text-sm text-green-300">
+                        <p className="text-xs sm:text-sm text-green-300">
                           Audited contracts with pausability and emergency stop functions for maximum protection.
                         </p>
                       </div>
                       
-                      <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 flex items-center">
-                          <Clock className="w-4 h-4 mr-2" />
+                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
+                        <h4 className="font-medium text-blue-200 mb-2 flex items-center text-sm sm:text-base">
+                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                           Order Management
                         </h4>
-                        <p className="text-sm text-blue-300">
+                        <p className="text-xs sm:text-sm text-blue-300">
                           Pause, resume, or cancel your stop orders anytime before they execute.
                         </p>
                       </div>
                       
-                      <div className="bg-purple-900/20 p-4 rounded-lg border border-purple-500/20">
-                        <h4 className="font-medium text-purple-200 mb-2 flex items-center">
-                          <Target className="w-4 h-4 mr-2" />
+                      <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
+                        <h4 className="font-medium text-purple-200 mb-2 flex items-center text-sm sm:text-base">
+                          <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                           Price Validation
                         </h4>
-                        <p className="text-sm text-purple-300">
+                        <p className="text-xs sm:text-sm text-purple-300">
                           Multiple price checks ensure orders execute only at valid market prices.
                         </p>
                       </div>
                       
-                      <div className="bg-orange-900/20 p-4 rounded-lg border border-orange-500/20">
-                        <h4 className="font-medium text-orange-200 mb-2 flex items-center">
-                          <Zap className="w-4 h-4 mr-2" />
+                      <div className="bg-orange-900/20 p-3 sm:p-4 rounded-lg border border-orange-500/20">
+                        <h4 className="font-medium text-orange-200 mb-2 flex items-center text-sm sm:text-base">
+                          <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                           Gas Protection
                         </h4>
-                        <p className="text-sm text-orange-300">
+                        <p className="text-xs sm:text-sm text-orange-300">
                           Pre-funded execution ensures your orders work even during high gas periods.
                         </p>
                       </div>
@@ -2186,6 +2285,7 @@ export default function EnhancedStopOrderWithFunctionality() {
             </Accordion>
           </CardContent>
         </Card>
+      </div>
 
       {/* Token Selection Modal */}
       <TokenSelectionModal

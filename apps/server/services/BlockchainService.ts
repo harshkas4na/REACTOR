@@ -307,7 +307,7 @@ export class BlockchainService {
       console.error(`Error validating token address ${tokenAddress}:`, error);
       return {
         isValid: false,
-        error: `Validation failed: ${error.message}`
+        error: `Validation failed: `
       };
     }
   }
@@ -364,7 +364,7 @@ export class BlockchainService {
       return formattedBalance;
     } catch (error: any) {
       console.error('Error getting native balance:', error);
-      throw new Error(`Failed to get native balance: ${error.message}`);
+      throw new Error(`Failed to get native balance: `);
     }
   }
 
@@ -417,7 +417,7 @@ export class BlockchainService {
       return formattedBalance;
     } catch (error: any) {
       console.error('Error getting token balance:', error);
-      throw new Error(`Failed to get ${tokenSymbol} balance: ${error.message}`);
+      throw new Error(`Failed to get ${tokenSymbol} balance: `);
     }
   }
 
@@ -457,7 +457,7 @@ export class BlockchainService {
       };
     } catch (error: any) {
       console.error('Error getting custom token balance:', error);
-      throw new Error(`Failed to get token balance at ${tokenAddress}: ${error.message}`);
+      throw new Error(`Failed to get token balance at ${tokenAddress}: `);
     }
   }
 
@@ -511,7 +511,7 @@ export class BlockchainService {
       return pairAddress;
     } catch (error: any) {
       console.error('Error finding pair address:', error);
-      throw new Error(`Failed to find ${token0}/${token1} pair: ${error.message}`);
+      throw new Error(`Failed to find ${token0}/${token1} pair: `);
     }
   }
 
@@ -560,7 +560,7 @@ export class BlockchainService {
       return price;
     } catch (error: any) {
       console.error('Error getting current price:', error);
-      throw new Error(`Failed to get price: ${error.message}`);
+      throw new Error(`Failed to get price: `);
     }
   }
 
@@ -613,7 +613,7 @@ export class BlockchainService {
       return isToken0Result;
     } catch (error: any) {
       console.error('Error checking token0:', error);
-      throw new Error(`Failed to check token0: ${error.message}`);
+      throw new Error(`Failed to check token0: `);
     }
   }
 
@@ -677,8 +677,7 @@ export class BlockchainService {
     } catch (error: any) {
       console.error(`Error validating pair ${token0Symbol}/${token1Symbol}:`, error);
       return { 
-        exists: false,
-        error: error.message 
+        exists: false
       };
     }
   }
@@ -1076,7 +1075,7 @@ export class EnhancedBlockchainService extends BlockchainService {
 
     } catch (error: any) {
       console.error('Error fetching Aave position:', error);
-      throw new Error(`Failed to fetch Aave position: ${error.message}`);
+      throw new Error(`Failed to fetch Aave position: `);
     }
   }
 
@@ -1143,7 +1142,7 @@ export class EnhancedBlockchainService extends BlockchainService {
         return fallbackPrice;
       }
 
-      throw new Error(`Failed to get asset price: ${error.message}`);
+      throw new Error(`Failed to get asset price: `);
     }
   }
 
@@ -1308,7 +1307,7 @@ export class EnhancedBlockchainService extends BlockchainService {
 
     } catch (error: any) {
       console.error('Error calculating required protection amount:', error);
-      throw new Error(`Protection calculation failed: ${error.message}`);
+      throw new Error(`Protection calculation failed: `);
     }
   }
 
@@ -1389,7 +1388,7 @@ export class EnhancedBlockchainService extends BlockchainService {
       
     } catch (error: any) {
       console.error('Error getting token balance:', error);
-      throw new Error(`Could not fetch ${tokenIdentifier} balance: ${error.message}`);
+      throw new Error(`Could not fetch ${tokenIdentifier} balance: `);
     }
   }
   
@@ -1437,7 +1436,7 @@ export class EnhancedBlockchainService extends BlockchainService {
       
       return tokenInfo;
     } catch (error: any) {
-      throw new Error(`Invalid token contract at ${tokenAddress}: ${error.message}`);
+      throw new Error(`Invalid token contract at ${tokenAddress}: `);
     }
   }
   
@@ -1657,7 +1656,7 @@ async checkPoolLiquidity(pairAddress: string, networkId: number): Promise<{
     // In case of error, we'll be conservative and warn the user
     return {
       hasSufficientLiquidity: false,
-      message: `⚠️ **Unable to verify liquidity**\n\nI couldn't check the liquidity of this trading pair due to a technical issue:\n\n${error.message}\n\n**Recommendation**: Proceed with caution or try a different token pair.`
+      message: `⚠️ **Unable to verify liquidity**\n\nI couldn't check the liquidity of this trading pair due to a technical issue:\n\n\n\n**Recommendation**: Proceed with caution or try a different token pair.`
     };
   }
 }
@@ -1774,7 +1773,7 @@ private getNetworkLiquidityMultiplier(networkId: number): number {
     } catch (error: any) {
       return {
         isValid: false,
-        error: error.message || 'Token validation failed'
+        error:  'Token validation failed'
       };
     }
   }
