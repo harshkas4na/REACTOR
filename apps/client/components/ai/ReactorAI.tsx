@@ -425,7 +425,7 @@ export default function ReactorAI() {
         network: getChainIdFromNetwork(selectedNetwork) 
       });
 
-      const response = await fetch('http://localhost:8000/ai-automation/automate', {
+      const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -655,7 +655,7 @@ export default function ReactorAI() {
       const successMessage: Message = {
         id: `msg_${Date.now()}_success`,
         type: 'ai',
-        content: `🎉 **Deployment Successful!** Your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} is now active!\n\n✅ **Deployment Details:**\n• **${deploymentType === 'aave_protection' ? 'Protection Contract' : 'Destination Contract'}:** \`${result.destinationAddress || result.protectionAddress}\`\n• **RSC Address:** \`${result.rscAddress || 'N/A'}\`\n• **Network:** ${result.chainName}\n\n🔍 **What happens next?**\nYour automation is now monitoring 24/7 automatically. ${deploymentType === 'aave_protection' ? 'Your health factor will be checked periodically and protection will trigger when needed.' : 'When your conditions are met, it will execute automatically!'}\n\n💡 **Pro Tip:** You can monitor your automation in the RSC Monitor section.`,
+        content: `🎉 **Deployment Successful!** Your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} is now active!\n\n✅ **Deployment Details:**\n• **${deploymentType === 'aave_protection' ? 'Protection Contract' : 'Destination Contract'}:** \`${result.destinationAddress || result.protectionAddress}\`\n• **RSC Address:** \`${result.rscAddress || 'N/A'}\`\n• **Network:** ${result.chainName}\n\n🔍 **What happens next?**\nYour automation is now monitoring 24/7 automatically. ${deploymentType === 'aave_protection' ? 'Your health factor will be checked periodically and protection will trigger when needed.' : 'When your conditions are met, it will execute automatically!'}\n\n💡 **Pro Tip:** You can monitor your automation in the stop order's dashboard section.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMessage]);
