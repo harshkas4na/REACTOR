@@ -1792,10 +1792,8 @@ export default function EnhancedStopOrderWithFunctionality() {
                     <p className="text-xs sm:text-sm text-amber-200 mb-2">
                       📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
                     </p>
-                    <a 
-                      href="https://www.coingecko.com/en/coins/reactive-network"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <a
+                      href="/markets" // Changed href to the new page route
                       className="inline-flex items-center text-xs sm:text-sm text-amber-300 hover:text-amber-200 underline"
                     >
                       See here where you can obtain REACT tokens
