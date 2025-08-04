@@ -38,7 +38,7 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     name: 'Ethereum Sepolia',
     dexName: 'Uniswap V2',
     routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
-    factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
+    factoryAddress: '0x7e0987e5b3a30e3f2828572bb659a548460a3003',
     stopOrderABI: stopOrderABISepolia,
     stopOrderBytecode: stopOrderByteCodeSepolia,
     rscABI: rscABISepolia,

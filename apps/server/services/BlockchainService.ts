@@ -122,7 +122,7 @@ export class BlockchainService {
       id: 11155111,
       name: 'Ethereum Sepolia',
       rpcUrl: 'https://sepolia.infura.io/v3/a4f144f3378f4e70821b6f28a428e429',
-      factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6', // Uniswap V2 on Sepolia
+      factoryAddress: '0x7e0987e5b3a30e3f2828572bb659a548460a3003', // Uniswap V2 on Sepolia
       nativeCurrency: 'ETH',
       nativeDecimals: 18
     },
