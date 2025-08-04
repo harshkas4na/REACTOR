@@ -107,7 +107,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     lendingPoolAddress: '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951',
     protocolDataProviderAddress: '0x3e9708d80f7B3e43118013075F7e95CE3AB31F31',
     addressesProviderAddress: '0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A',
-    protectionManagerAddress: '0x924f514f5475695be9a9b51bf1d60b583af9cd86',
+    protectionManagerAddress: '0xC789a1c6ef9764626bd95D376984FE35Ac0A579B',
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH',
     wethAddress: '0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c' // Sepolia WETH
@@ -618,7 +618,7 @@ export default function AaveLiquidationProtectionPage() {
       const thresholdWei = ethers.parseEther(formData.healthFactorThreshold);
       const targetWei = ethers.parseEther(formData.targetHealthFactor);
 
-      const CALLBACK_FUNDING_AMOUNT = '0.0003';
+      const CALLBACK_FUNDING_AMOUNT = '0.03';
 
       // Handle asset addresses properly - use default USDC for unused strategies
       let collateralAddress = formData.collateralAsset;
@@ -910,7 +910,7 @@ export default function AaveLiquidationProtectionPage() {
       const rscProvider = new ethers.BrowserProvider(window.ethereum);
       const rscSigner = await rscProvider.getSigner();
       
-      const RSC_CONTRACT_ADDRESS = '0x20D8D70AF616471Ff6e651f89Ff2cA1cA3fb5010';
+      const RSC_CONTRACT_ADDRESS = '0xC789a1c6ef9764626bd95D376984FE35Ac0A579B';
       const RSC_FUNDING_AMOUNT = '0.05';
       
       const rscFundingTx = await rscSigner.sendTransaction({

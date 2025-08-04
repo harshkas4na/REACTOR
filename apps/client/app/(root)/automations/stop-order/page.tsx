@@ -177,8 +177,8 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     name: 'Ethereum Sepolia',
     dexName: 'Uniswap V2',
     routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
-    factoryAddress: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
-    callbackAddress: '0x9148309eFB90b8803187413DFEE904327DFD8835',
+    factoryAddress: '0x7e0987e5b3a30e3f2828572bb659a548460a3003',
+    callbackAddress: '0xAff550C16085915eeA2D7fc3C72A47f9bA5C47cC',
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH',
     defaultFunding: '0.03',
@@ -254,8 +254,8 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
 
 // Contract addresses
 const CONTRACT_ADDRESSES = {
-  CALLBACK: '0x9148309eFB90b8803187413DFEE904327DFD8835',
-  RSC: '0x820bEaada84dD6D507edcE56D211038bd9444049'
+  CALLBACK: '0xAff550C16085915eeA2D7fc3C72A47f9bA5C47cC',
+  RSC: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
 };
 
 // ===== TOKEN SERVICE CLASS =====

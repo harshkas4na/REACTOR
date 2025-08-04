@@ -1,38 +1,30 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@nextui-org/react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  RocketLaunchIcon, 
   SparklesIcon,
   ShieldExclamationIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  ClockIcon
+  CodeBracketIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import React from "react";
 
 const slides = [
+  // USE THIS AS THE DEFAULT WELCOME TEXT
   {
     id: 0,
     title: (
       <>
         <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-          Automate DeFi Without Code
+          Automate DeFi, Without Code
         </span>{" "}
       </>
     ),
-    subtitle: "Deploy powerful DeFi automations in minutes with ready-to-use templates",
-    image: "/Background2.jpg",
-    primaryButton: {
-      text: "Use Automations",
-      href: "#featured-automations",
-      icon: RocketLaunchIcon,
-      isAnchor: true
-    }
+    subtitle: "Protect your assets 24/7 with fully on-chain, autonomous automations. Set your strategy once and let Reactor handle the rest.",
   },
+  // USE THIS FOR STOP ORDERS (UNISWAP)
   {
     id: 1,
     title: (
@@ -43,13 +35,13 @@ const slides = [
       </>
     ),
     subtitle: "Set up Uniswap stop orders to secure your positions when prices drop",
-    image: "/Uniswap-stop-order.jpg",
     primaryButton: {
       text: "Create Stop Order",
       href: "/automations/stop-order",
       icon: ShieldExclamationIcon
     }
   },
+  // USE THIS FOR AAVE PROTECTION
   {
     id: 2,
     title: (
@@ -60,211 +52,270 @@ const slides = [
       </>
     ),
     subtitle: "Automatically manage your Aave health factor to avoid costly liquidations",
-    image: "/aave-protection.jpeg",
     primaryButton: {
       text: "Setup Aave Protection",
       href: "/automations/aave-protection",
       icon: ShieldExclamationIcon
     },
-    
   },
-  {
-    id: 3,
-    title: (
-      <>
-        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
-          Collect Fees Without Effort
-        </span>{" "}
-      </>
-    ),
-    subtitle: "Automatically collect earned fees from your Uniswap V3 positions 24/7",
-    image: "/fee-collector-9.jpg",
-    primaryButton: {
-      text: "Setup Fee Collector",
-      href: "/automations/fee-collector",
-      icon: CurrencyDollarIcon
-    },
-    status: 'Coming Soon'
-  },
-  {
-    id: 4,
-    title: (
-      <>
-        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
-          Optimize Your Liquidity {" "} Positions
-        </span>{" "}
-      </>
-    ),
-    subtitle: "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
-    image: "/range-manager-7.jpg",
-    primaryButton: {
-      text: "Setup Range Manager",
-      href: "/automations/range-manager",
-      icon: ChartBarIcon
-    },
-    status: 'Coming Soon'
-  }
 ];
 
-const Hero = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
+export default function Hero() {
+  const [activeFeature, setActiveFeature] = useState<'stop-order' | 'aave' | null>(null);
 
-  useEffect(() => {
-    if (isFirstLoad) {
-      const timer = setTimeout(() => {
-        setIsFirstLoad(false);
-      }, 3000);
-      return () => clearTimeout(timer);
+  const handleCardClick = (feature: 'stop-order' | 'aave') => {
+    if (activeFeature === feature) {
+      setActiveFeature(null);
+    } else {
+      setActiveFeature(feature);
     }
+  };
 
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [isFirstLoad]);
+  const getCurrentSlide = () => {
+    if (activeFeature === 'stop-order') return slides[1];
+    if (activeFeature === 'aave') return slides[2];
+    return slides[0];
+  };
 
-  // Get current icon component
-  const CurrentIcon = slides[currentSlide].primaryButton.icon;
+  const currentSlide = getCurrentSlide();
 
   return (
-    <section className="relative py-20 sm:py-32 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="lg:flex lg:items-center lg:gap-12">
-          <motion.div className="lg:w-1/2 lg:pr-8">
-            {/* Fixed height container for text */}
-            <div className="h-[200px] sm:h-[240px] md:h-[280px] relative mb-4">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentSlide}
-                  initial={{ opacity: 0, y: 20, position: 'absolute' }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-full"
-                >
-                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4">
-                    {slides[currentSlide].title}
-                  </h1>
-                  <p className="text-xl sm:text-2xl sm:mb-1 mb-8 text-zinc-300">
-                    {slides[currentSlide].subtitle}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Fixed position buttons */}
-            <div className="relative">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-                className="flex flex-col sm:flex-row gap-4"
-              >
-                <div className="w-full sm:w-auto">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentSlide}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.5 }}
-                      className="w-full sm:w-auto"
-                    >
-                      <Button
-                        as={slides[currentSlide].primaryButton.isAnchor ? "a" : Link}
-                        href={slides[currentSlide].primaryButton.href}
-                        color={slides[currentSlide].status === 'Coming Soon' ? "default" : "primary"}
-                        variant="shadow"
-                        size="lg"
-                        isDisabled={slides[currentSlide].status === 'Coming Soon'}
-                        startContent={<CurrentIcon className="h-5 w-5" />}
-                        className="w-full sm:w-auto hover:bg-primary/80 rounded-md scroll-smooth"
-                      >
-                        {slides[currentSlide].primaryButton.text}
-                      </Button>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-                <Button
-                  as={Link}
-                  href="/deploy-reactive-contract"
-                  className="w-full rounded-md sm:w-auto hover:bg-blue-950/70"
-                  variant="bordered"
-                  size="lg"
-                  startContent={<SparklesIcon className="h-5 w-5" />}
-                >
-                  For Developers
-                </Button>
-              </motion.div>
-
-              {/* Fixed position dots */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1, duration: 0.5 }}
-                className="flex justify-center mt-8 gap-2"
-              >
-                {slides.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                      currentSlide === index
-                        ? "bg-primary w-6 "
-                        : "bg-zinc-600 hover:bg-zinc-500"
-                    }`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
-                ))}
-              </motion.div>
-            </div>
-          </motion.div>
-
-          <motion.div className="lg:w-1/2 mt-12 lg:mt-0">
+    <section className="relative min-h-screen  overflow-hidden">
+      
+      <div className="relative z-10 container mx-auto px-4 py-16 h-full">
+        <div className="grid lg:grid-cols-2 gap-12 items-center min-h-screen">
+          {/* Left Column - Dynamic Text Content */}
+          <motion.div 
+            className="space-y-8"
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+          >
             <AnimatePresence mode="wait">
               <motion.div
-                key={currentSlide}
-                initial={{ opacity: 0, x: 100 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -100 }}
+                key={currentSlide.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
-                className="relative aspect-[4/3] rounded-lg overflow-hidden"
+                className="space-y-6"
               >
-                <Image
-                  src={slides[currentSlide].image}
-                  alt="Hero Image"
-                  width={500}
-                  height={500}
-                  quality={100}
-                  className={`object-cover w-full h-full transition-transform duration-700 hover:scale-105 ${
-                    slides[currentSlide].status === 'Coming Soon' ? 'blur-sm' : ''
-                  }`}
-                  priority
-                  onError={(e) => {
-                    console.error('Image failed to load:', slides[currentSlide].image);
-                  }}
-                />
+                <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
+                  {currentSlide.title}
+                </h1>
                 
-                {/* Coming Soon Overlay */}
-                {slides[currentSlide].status === 'Coming Soon' && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-full mb-4 mx-auto w-16 h-16 flex items-center justify-center">
-                        <ClockIcon className="h-8 w-8 text-white" />
-                      </div>
-                      <h3 className="text-2xl font-bold text-white mb-2">Coming Soon</h3>
-                      <p className="text-zinc-300 text-sm">This feature is in development</p>
-                    </div>
-                  </div>
-                )}
+                <p className="text-xl lg:text-2xl text-slate-300 leading-relaxed max-w-2xl">
+                  {currentSlide.subtitle}
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                  {currentSlide.primaryButton ? (
+                    <Link href={currentSlide.primaryButton.href}>
+                      <Button
+                        size="lg"
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-8 py-3 text-lg"
+                        startContent={<currentSlide.primaryButton.icon className="w-5 h-5" />}
+                      >
+                        {currentSlide.primaryButton.text}
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href="/docs">
+                      <Button
+                        size="lg"
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-8 py-3 text-lg"
+                        startContent={<CodeBracketIcon className="w-5 h-5" />}
+                      >
+                        For Developers
+                      </Button>
+                    </Link>
+                  )}
+                  
+                  <Button
+                    variant="bordered"
+                    size="lg"
+                    className="border-purple-400 text-purple-400 hover:bg-purple-400/10 font-semibold px-8 py-3 text-lg"
+                    startContent={<SparklesIcon className="w-5 h-5" />}
+                  >
+                    Learn More
+                  </Button>
+                </div>
               </motion.div>
             </AnimatePresence>
+
+            {/* Feature Status Indicator */}
+            <motion.div 
+              className="flex items-center gap-2 text-sm text-slate-400"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1 }}
+            >
+              <div className={`w-2 h-2 rounded-full ${activeFeature ? 'bg-green-400' : 'bg-purple-400'} animate-pulse`}></div>
+              {activeFeature ? `${activeFeature} feature active` : 'Click a card to explore features'}
+            </motion.div>
+          </motion.div>
+
+          {/* Right Column - Interactive Quadrant System */}
+          <motion.div 
+            className="relative h-[600px] w-full"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            {/* Glowing Grid Background */}
+            <div className="absolute inset-0 opacity-30">
+              <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-2xl"></div>
+              <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_24%,rgba(168,85,247,0.1)_25%,rgba(168,85,247,0.1)_26%,transparent_27%,transparent_74%,rgba(168,85,247,0.1)_75%,rgba(168,85,247,0.1)_76%,transparent_77%,transparent),linear-gradient(-45deg,transparent_24%,rgba(59,130,246,0.1)_25%,rgba(59,130,246,0.1)_26%,transparent_27%,transparent_74%,rgba(59,130,246,0.1)_75%,rgba(59,130,246,0.1)_76%,transparent_77%,transparent)] bg-[length:60px_60px]"></div>
+            </div>
+
+            {/* 2x2 Quadrant Grid */}
+            <div className="relative grid grid-cols-2 grid-rows-2 gap-4 h-full p-4">
+              
+              {/* Quadrant 1 - Stop Order (Top-Left) */}
+              <motion.div
+                className="relative cursor-pointer group"
+                onClick={() => handleCardClick('stop-order')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <motion.div
+                  className="w-full h-full rounded-xl relative"
+                  style={{ transformStyle: 'preserve-3d' }}
+                  animate={{ 
+                    rotateY: activeFeature === 'stop-order' ? 180 : 0 
+                  }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                >
+                  {/* Front Face */}
+                  <motion.div
+                    className="absolute inset-0 w-full h-full bg-gradient-to-br from-red-500/20 to-red-700/20 rounded-xl border border-red-500/30 flex items-center justify-center group-hover:border-red-400/50 transition-colors"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  >
+                    <div className="text-center space-y-4">
+                      <Image
+                        src="/images/hero/uniswap-logo.png"
+                        alt="Uniswap Logo"
+                        width={80}
+                        height={80}
+                        className="mx-auto opacity-80 group-hover:opacity-100 transition-opacity"
+                      />
+                      <p className="text-red-300 font-medium">Stop Orders</p>
+                    </div>
+                  </motion.div>
+
+                  {/* Back Face */}
+                  <motion.div
+                    className="absolute inset-0 w-full h-full bg-gradient-to-br from-red-600/30 to-red-800/30 rounded-xl border border-red-400/50 flex items-center justify-center"
+                    style={{ 
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)'
+                    }}
+                  >
+                    <Image
+                      src="/images/hero/stop-order-scene.png"
+                      alt="Stop Order Scene"
+                      fill
+                      className="object-cover rounded-xl opacity-90"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-red-900/50 to-transparent rounded-xl"></div>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+
+              {/* Quadrant 2 - Decorative (Top-Right) */}
+              <motion.div 
+                className="bg-gradient-to-br from-slate-800/30 to-slate-700/30 rounded-xl border border-slate-600/20 flex items-center justify-center"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+              >
+                <div className="text-center space-y-2 opacity-40">
+                  <SparklesIcon className="w-12 h-12 text-purple-400 mx-auto" />
+                  <p className="text-slate-400 text-sm">More Features</p>
+                  <p className="text-slate-500 text-xs">Coming Soon</p>
+                </div>
+              </motion.div>
+
+              {/* Quadrant 3 - Decorative (Bottom-Left) */}
+              <motion.div 
+                className="bg-gradient-to-br from-slate-800/30 to-slate-700/30 rounded-xl border border-slate-600/20 flex items-center justify-center"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6, duration: 0.6 }}
+              >
+                <div className="text-center space-y-2 opacity-40">
+                  <CodeBracketIcon className="w-12 h-12 text-blue-400 mx-auto" />
+                  <p className="text-slate-400 text-sm">Custom Logic</p>
+                  <p className="text-slate-500 text-xs">Coming Soon</p>
+                </div>
+              </motion.div>
+
+              {/* Quadrant 4 - Aave Protection (Bottom-Right) */}
+              <motion.div
+                className="relative cursor-pointer group"
+                onClick={() => handleCardClick('aave')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <motion.div
+                  className="w-full h-full rounded-xl relative"
+                  style={{ transformStyle: 'preserve-3d' }}
+                  animate={{ 
+                    rotateY: activeFeature === 'aave' ? 180 : 0 
+                  }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                >
+                  {/* Front Face */}
+                  <motion.div
+                    className="absolute inset-0 w-full h-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-xl border border-cyan-500/30 flex items-center justify-center group-hover:border-cyan-400/50 transition-colors"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  >
+                    <div className="text-center space-y-4">
+                      <Image
+                        src="/images/hero/aave-logo.png"
+                        alt="Aave Logo"
+                        width={80}
+                        height={80}
+                        className="mx-auto opacity-80 group-hover:opacity-100 transition-opacity"
+                      />
+                      <p className="text-cyan-300 font-medium">Aave Protection</p>
+                    </div>
+                  </motion.div>
+
+                  {/* Back Face */}
+                  <motion.div
+                    className="absolute inset-0 w-full h-full bg-gradient-to-br from-cyan-600/30 to-purple-600/30 rounded-xl border border-cyan-400/50 flex items-center justify-center"
+                    style={{ 
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)'
+                    }}
+                  >
+                    <Image
+                      src="/images/hero/aave-protection-scene.png"
+                      alt="Aave Protection Scene"
+                      fill
+                      className="object-cover rounded-xl opacity-90"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-purple-900/50 to-transparent rounded-xl"></div>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            </div>
+
+            {/* Interaction Hint */}
+            <motion.div
+              className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.5 }}
+            >
+              <p className="text-sm text-slate-400">
+                Click the cards to explore features
+              </p>
+            </motion.div>
           </motion.div>
         </div>
       </div>
     </section>
   );
-};
-
-export default Hero;
+}
