@@ -10,10 +10,12 @@
   import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
   import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
   import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-  import { Loader2, ExternalLink, Info, Zap, ArrowRight, Eye, Code, Rocket } from 'lucide-react';
+  import { Loader2, ExternalLink, Info, Zap, ArrowRight, Eye, Code, Rocket, DollarSign } from 'lucide-react';
   import { useToast } from '@/hooks/use-toast';
   import DeployButton from '@/components/DeployButton';
   import { motion } from 'framer-motion';
+import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
+import RSCFundingRequirementsComponent from '@/components/RSCFundingRequirementsComponent';
 
   // Supported chains configuration
   const SUPPORTED_CHAINS = {
@@ -82,6 +84,34 @@
     const isEthereumAddress = (address: string): boolean => {
       return /^0x[a-fA-F0-9]{40}$/.test(address);
     }
+    const getChainConfig = (chainId: string | number) => {
+      const id = typeof chainId === 'string' ? parseInt(chainId) : chainId;
+      
+      // Check both origins and destinations
+      const allChains = [...SUPPORTED_CHAINS.ORIGINS, ...SUPPORTED_CHAINS.DESTINATIONS];
+      const chain = allChains.find(c => c.id === id);
+      
+      if (!chain) return null;
+      
+      // Map to the format expected by EnhancedFundingRequirementsCard
+      const nativeCurrencyMap: { [key: number]: string } = {
+        1: 'ETH',           // Ethereum Mainnet
+        11155111: 'ETH',    // Ethereum Sepolia  
+        43114: 'AVAX',      // Avalanche C-Chain
+        42161: 'ETH',       // Arbitrum One
+        169: 'ETH',         // Manta Pacific
+        8453: 'ETH',        // Base Chain
+        56: 'BNB',          // Binance Smart Chain
+        137: 'MATIC',       // Polygon PoS
+        5318007: 'REACT'    // Lasna Testnet
+      };
+      
+      return {
+        id: id.toString(),
+        name: chain.name,
+        nativeCurrency: nativeCurrencyMap[id] || 'ETH'
+      };
+    };
 
     // Effect for form validation
     useEffect(() => {
@@ -258,6 +288,7 @@
             ))}
           </div>
         </motion.div>
+        
 
         {/* How It Works Section */}
         <motion.div
@@ -301,12 +332,19 @@
           </div>
         </motion.div>
 
+        {/* RSC Funding Requirements Card */}
+            <RSCFundingRequirementsComponent 
+              orgChainId={OrgChainId}   
+              desChainId={DesChainId}
+              connectedAccount={account}  
+            />
+
         {/* Automation Studio */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
-          className="mb-8"
+          className="my-8"
         >
           <Card className="bg-card/70 border-border">
             <CardHeader className="bg-accent/10 border-b border-border">

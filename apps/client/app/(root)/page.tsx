@@ -2,7 +2,6 @@ import Hero from '@/components/home/Hero'
 import SocialProof from '@/components/home/SocialProof'
 import WhyReactor from '@/components/home/WhyReactor'
 import FeaturedAutomations from '@/components/home/FeaturedAutomations'
-import DeveloperCTA from '@/components/home/DeveloperCTA'
 import Footer from '@/components/home/Footer'
 
 export default function Home() {
@@ -20,7 +19,7 @@ export default function Home() {
           <SocialProof />
           <WhyReactor />
           <FeaturedAutomations />
-          {/* <DeveloperCTA /> */}
+         
         </div>
 
       </main>

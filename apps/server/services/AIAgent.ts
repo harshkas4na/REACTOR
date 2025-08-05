@@ -1270,6 +1270,28 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       }
     }
   }
+  // Get Aave Assets for Network (helper method)
+  private getAaveAssets(chainId: number) {
+    const assets = {
+      11155111: [ // Sepolia
+        { address: 'ETH', symbol: 'ETH', name: 'Ethereum' },
+        { address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', symbol: 'LINK', name: 'Chainlink' },
+        { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin' },
+        { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin' },
+        { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD' },
+        { address: '0x88541670e55cc00beefd87eb59edd1b7c511ac9a', symbol: 'AAVE', name: 'Aave Token' }
+      ],
+      1: [ // Ethereum Mainnet (when supported)
+        { address: 'ETH', symbol: 'ETH', name: 'Ethereum' },
+        { address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', symbol: 'AAVE', name: 'Aave Token' },
+        { address: '0xA0b86a33E6441b4B576fb3D43bF18E5c73b49c90', symbol: 'USDC', name: 'USD Coin' },
+        { address: '0x6B175474E89094C44Da98b954EedeAC495271d0F', symbol: 'DAI', name: 'Dai Stablecoin' },
+        { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', symbol: 'USDT', name: 'Tether USD' }
+      ]
+    };
+    
+    return assets[chainId as keyof typeof assets] || assets[11155111];
+  }
 
   // NEW: Handle specific blockchain errors with tailored responses
   private handleSpecificBlockchainError(error: BlockchainDataError, conversation: ConversationState) {
@@ -1677,7 +1699,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     
     const { collectedData, currentStep } = conversation;
     const lowerMessage = message.toLowerCase();
-
+  
     switch (currentStep) {
       case 'protectionType':
         if (lowerMessage.includes('collateral') && lowerMessage.includes('only')) {
@@ -1694,7 +1716,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           collectedData.protectionType = '2';
         }
         break;
-
+  
       case 'healthFactorThreshold':
       case 'targetHealthFactor':
         const healthFactorMatch = message.match(/\b(\d+(?:\.\d+)?)\b/);
@@ -1706,7 +1728,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           }
         }
         break;
-
+  
       case 'collateralAsset':
       case 'debtAsset':
         const addressPattern = /0x[a-fA-F0-9]{40}/;
@@ -1724,7 +1746,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           }
         }
         break;
-
+  
       case 'preferDebtRepayment':
         if (lowerMessage.includes('debt') || lowerMessage.includes('repay') || lowerMessage.includes('true')) {
           collectedData.preferDebtRepayment = true;
@@ -1732,7 +1754,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           collectedData.preferDebtRepayment = false;
         }
         break;
-
+  
       case 'aave_network':
         if (lowerMessage.includes('sepolia') || lowerMessage.includes('testnet') || lowerMessage.includes('11155111')) {
           collectedData.selectedNetwork = 11155111;
@@ -1744,6 +1766,37 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         break;
     }
   }
+  private validateHealthFactorThresholds(conversation: ConversationState): {
+    isValid: boolean;
+    message?: string;
+  } {
+    const data = conversation.collectedData;
+    
+    if (!data.healthFactorThreshold || !data.targetHealthFactor) {
+      return { isValid: true }; // Skip validation if values aren't set yet
+    }
+    
+    const triggerThreshold = parseFloat(data.healthFactorThreshold);
+    const targetThreshold = parseFloat(data.targetHealthFactor);
+    
+    if (isNaN(triggerThreshold) || isNaN(targetThreshold)) {
+      return { isValid: true }; // Skip validation if values are invalid
+    }
+    
+    if (targetThreshold <= triggerThreshold) {
+      const recommendedTarget = (triggerThreshold + 0.3).toFixed(1);
+      const message = `⚠️ **Invalid Health Factor Configuration**\n\n**Target Health Factor (${targetThreshold})** must be **HIGHER** than **Trigger Threshold (${triggerThreshold})**\n\n**Why?** When protection triggers at ${triggerThreshold}, it needs to restore your health factor to a safer level (${targetThreshold}). A higher target ensures you stay above the trigger point after protection executes.\n\n**Example:** If trigger = ${triggerThreshold}, target should be at least ${recommendedTarget}\n\n**Recommended minimum:** ${recommendedTarget}\n**Conservative:** ${(triggerThreshold + 0.5).toFixed(1)}\n**Very safe:** ${(triggerThreshold + 0.8).toFixed(1)}\n\nPlease choose a higher target health factor:`;
+      
+      return {
+        isValid: false,
+        message
+      };
+    }
+    
+    return { isValid: true };
+  }
+  
+  
 
   // Enhanced Aave Protection Flow Handler with rejection support
   private async handleAaveProtectionFlow(conversation: ConversationState, context: MessageContext) {
@@ -1753,13 +1806,13 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     console.log('Current data:', data);
     console.log('Current step:', conversation.currentStep);
     console.log('Message:', context.message);
-
+  
     // Handle rejection/cancellation with reset
     if (this.isRejectingAction(context.message)) {
       console.log('🚫 User rejected Aave protection configuration - resetting');
       return this.handleAaveProtectionRejection(conversation);
     }
-
+  
     // Handle confirmation steps
     if (conversation.currentStep === 'final_aave_confirmation' && this.isConfirmingAction(context.message)) {
       try {
@@ -1779,7 +1832,40 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         return this.generateErrorResponse(error, conversation);
       }
     }
-
+  
+    // ENHANCED: Threshold validation after collecting target health factor
+    if (data.healthFactorThreshold && data.targetHealthFactor) {
+      const validation = this.validateHealthFactorThresholds(conversation);
+      
+      if (!validation.isValid) {
+        // Reset target health factor and ask again with warning
+        const triggerValue = data.healthFactorThreshold;
+        data.targetHealthFactor = undefined;
+        conversation.currentStep = 'targetHealthFactor';
+        
+        const minRecommended = (parseFloat(triggerValue) + 0.3).toFixed(1);
+        const conservative = (parseFloat(triggerValue) + 0.5).toFixed(1);
+        const verySafe = (parseFloat(triggerValue) + 0.8).toFixed(1);
+        
+        const response = {
+          message: validation.message!,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'number' as const,
+          nextStep: 'targetHealthFactor',
+          options: [
+            { value: minRecommended, label: `⚖️ ${minRecommended} (Recommended Minimum)` },
+            { value: conservative, label: `🛡️ ${conservative} (Conservative)` },
+            { value: verySafe, label: `🔒 ${verySafe} (Very Safe)` },
+            { value: 'custom', label: '✏️ Custom Value (Higher than ' + triggerValue + ')' }
+          ]
+        };
+        
+        this.addToHistory(conversation, 'assistant', response.message);
+        return response;
+      }
+    }
+  
     // Check for network requirement first
     if (!data.selectedNetwork) {
       conversation.currentStep = 'aave_network';
@@ -1800,7 +1886,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       this.addToHistory(conversation, 'assistant', response.message);
       return response;
     }
-
+  
     // Check if network is supported
     if (data.selectedNetwork && data.selectedNetwork !== 11155111) {
       const networkName = this.getNetworkName(data.selectedNetwork);
@@ -1821,7 +1907,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       this.addToHistory(conversation, 'assistant', response.message);
       return response;
     }
-
+  
     // Check if user has connected wallet
     if (!data.connectedWallet) {
       const response = {
@@ -1834,17 +1920,17 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       this.addToHistory(conversation, 'assistant', response.message);
       return response;
     }
-
+  
     // For Aave protection, we skip the actual position checking since we can't query blockchain
     // Instead, we assume the user knows they have a position and proceed with configuration
     if (data.hasAavePosition === undefined) {
       data.hasAavePosition = true; // Assume position exists
     }
-
+  
     // Identify missing data and ask for next piece
     const missingData = this.identifyMissingAaveData(conversation);
     console.log('Missing Aave data:', missingData);
-
+  
     if (missingData.length === 0) {
       // All data collected, show final confirmation
       try {
@@ -1868,7 +1954,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         return this.generateErrorResponse(error, conversation);
       }
     }
-
+  
     // Ask for the next missing piece of data
     const nextMissing = missingData[0];
     conversation.currentStep = nextMissing;
@@ -1881,6 +1967,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     
     return response;
   }
+  
 
   // Handle Aave protection rejection with reset and options
   private handleAaveProtectionRejection(conversation: ConversationState) {
@@ -1953,22 +2040,19 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           options: [
             { 
               value: '0', 
-              label: '💰 Collateral Deposit Only',
-              description: 'Automatically supply additional collateral when health factor drops'
+              label: '💰 Collateral Deposit Only'
             },
             { 
               value: '1', 
-              label: '💳 Debt Repayment Only',
-              description: 'Automatically repay debt when health factor drops'
+              label: '💳 Debt Repayment Only'
             },
             { 
               value: '2', 
-              label: '🔄 Combined Protection',
-              description: 'Use both strategies with preference order for maximum safety'
+              label: '🔄 Combined Protection'
             }
           ]
         };
-
+  
       case 'healthFactorThreshold':
         return {
           message: `📊 **Set Your Health Factor Trigger Threshold**\n\n${data.currentHealthFactor ? `Your current health factor: **${data.currentHealthFactor}**\n\n` : ''}At what health factor should protection trigger?\n\n**Recommended:** 1.2 (safe margin above liquidation at 1.0)\n**Conservative:** 1.3-1.5 (extra safety)\n**Aggressive:** 1.1 (close to liquidation risk)\n\n💡 *Lower values = closer to liquidation risk*`,
@@ -1983,22 +2067,27 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
             { value: 'custom', label: '✏️ Custom Value' }
           ]
         };
-
+  
       case 'targetHealthFactor':
+        const triggerValue = data.healthFactorThreshold;
+        const minRecommended = triggerValue ? (parseFloat(triggerValue) + 0.3).toFixed(1) : '1.5';
+        const conservative = triggerValue ? (parseFloat(triggerValue) + 0.5).toFixed(1) : '1.8';
+        const verySafe = triggerValue ? (parseFloat(triggerValue) + 0.8).toFixed(1) : '2.0';
+        
         return {
-          message: `🎯 **Set Your Target Health Factor**\n\nAfter protection triggers at **${data.healthFactorThreshold}**, what should be the target health factor?\n\n**Must be higher than trigger threshold (${data.healthFactorThreshold})**\n\n**Recommended:** 1.5 (comfortable safety margin)\n**Conservative:** 1.8+ (maximum safety)\n**Balanced:** 1.4-1.6 (good efficiency vs safety)\n\n💡 *Higher values = safer but more capital needed*`,
+          message: `🎯 **Set Your Target Health Factor**\n\nAfter protection triggers at **${triggerValue}**, what should be the target health factor?\n\n**⚠️ IMPORTANT:** Target must be **HIGHER** than trigger threshold (${triggerValue})\n\n**Recommended:** ${minRecommended} (${triggerValue ? (parseFloat(minRecommended) - parseFloat(triggerValue)).toFixed(1) : '0.3'} point safety margin)\n**Conservative:** ${conservative}+ (maximum safety)\n**Balanced:** Good efficiency vs safety\n\n💡 *Higher values = safer but more capital needed*\n\n**Why higher?** Protection deposits collateral or repays debt to restore your health factor. If the target is too close to the trigger, you might need protection again soon!`,
           intent: 'CREATE_AAVE_PROTECTION' as const,
           needsUserInput: true,
           inputType: 'number' as const,
           nextStep: 'targetHealthFactor',
           options: [
-            { value: '1.5', label: '⚖️ 1.5 (Recommended)' },
-            { value: '1.8', label: '🛡️ 1.8 (Conservative)' },
-            { value: '2.0', label: '🔒 2.0 (Very Safe)' },
+            { value: minRecommended, label: `⚖️ ${minRecommended} (Recommended)` },
+            { value: conservative, label: `🛡️ ${conservative} (Conservative)` },
+            { value: verySafe, label: `🔒 ${verySafe} (Very Safe)` },
             { value: 'custom', label: '✏️ Custom Value' }
           ]
         };
-
+  
       case 'collateralAsset':
         const collateralAssets = this.getAaveAssets(data.selectedNetwork || 11155111);
         return {
@@ -2012,7 +2101,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
             label: `${asset.symbol} - ${asset.name}`
           }))
         };
-
+  
       case 'debtAsset':
         const debtAssets = this.getAaveAssets(data.selectedNetwork || 11155111);
         return {
@@ -2026,7 +2115,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
             label: `${asset.symbol} - ${asset.name}`
           }))
         };
-
+  
       case 'preferDebtRepayment':
         return {
           message: `🔄 **Combined Strategy Preference**\n\nSince you chose combined protection, which strategy should be tried first?\n\n**Strategy Order:**\n• **Primary**: Tried first when health factor drops\n• **Backup**: Used if primary strategy fails\n\n**Recommendation:** Prefer debt repayment in volatile markets, collateral deposit in stable markets.`,
@@ -2037,17 +2126,29 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           options: [
             { 
               value: 'true', 
-              label: '💳 Prefer Debt Repayment First',
-              description: 'Try debt repayment first, then collateral deposit'
+              label: '💳 Prefer Debt Repayment First'
             },
             { 
               value: 'false', 
-              label: '💰 Prefer Collateral Deposit First',
-              description: 'Try collateral deposit first, then debt repayment'
+              label: '💰 Prefer Collateral Deposit First'
             }
           ]
         };
-
+  
+      case 'aave_network':
+        return {
+          message: "🌐 **Aave Liquidation Protection Setup**\n\nFirst, which network is your Aave position on?\n\n**Currently supported:**\n• **Sepolia Testnet** - Full support for testing\n• **Ethereum Mainnet** - Coming soon\n• **Avalanche** - Coming soon",
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'network' as const,
+          nextStep: 'aave_network',
+          options: [
+            { value: '11155111', label: '🧪 Sepolia Testnet (Available Now)' },
+            { value: '1', label: '🔷 Ethereum Mainnet (Coming Soon)' },
+            { value: '43114', label: '🔺 Avalanche (Coming Soon)' }
+          ]
+        };
+  
       default:
         return {
           message: "🤔 I need a bit more information to set up your Aave protection. What would you like to configure?",
@@ -2154,25 +2255,7 @@ ${strategyDescription}
 **Ready to subscribe to your automated Aave protection?** 🚀`;
   }
 
-  // Get Aave Assets for Network
-  private getAaveAssets(chainId: number) {
-    const assets = {
-      11155111: [ // Sepolia
-        { address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', symbol: 'LINK', name: 'Chainlink' },
-        { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin' },
-        { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin' },
-        { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD' },
-        { address: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9', symbol: 'ETH', name: 'Ethereum' }
-      ],
-      1: [ // Ethereum Mainnet (when supported)
-        { address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', symbol: 'ETH', name: 'Ethereum' },
-        { address: '0xA0b86a33E6417c86C4C8Aa5c7f8b7e5B2A6d4e7F', symbol: 'USDC', name: 'USD Coin' },
-        // ... other mainnet assets
-      ]
-    };
-    
-    return assets[chainId as keyof typeof assets] || assets[11155111];
-  }
+  
 
   // Get Asset Name from Address
   private getAssetNameFromAddress(address: string, chainId: number): string {
