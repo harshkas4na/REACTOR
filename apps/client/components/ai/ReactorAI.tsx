@@ -117,7 +117,7 @@ interface AIResponse {
   error?: string;
 }
 
-// NEW: Aave Position Display Component
+// Aave Position Display Component
 interface AavePositionDisplayProps {
   positionInfo: AavePositionInfo;
   isExpanded?: boolean;
@@ -183,7 +183,7 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
       </div>
 
       {/* Main Position Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 gap-4 mb-4">
         <div className="bg-zinc-800/50 p-3 rounded-lg">
           <p className="text-sm text-zinc-400 mb-1">Total Collateral</p>
           <p className="text-zinc-200 font-medium text-lg">
@@ -210,7 +210,7 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-zinc-400 mb-1">Health Factor</p>
-            <p className={`font-bold text-2xl ${healthFactorColor}`}>
+            <p className={`font-bold text-xl ${healthFactorColor}`}>
               {parseFloat(positionInfo.healthFactor).toFixed(3)}
             </p>
           </div>
@@ -218,7 +218,7 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
             <p className="text-xs text-zinc-500 mb-1">Status</p>
             <Badge 
               variant="outline" 
-              className={`${
+              className={`text-xs ${
                 parseFloat(positionInfo.healthFactor) > 1.5 
                   ? 'border-green-500 text-green-400' 
                   : parseFloat(positionInfo.healthFactor) > 1.2 
@@ -247,9 +247,9 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
           </div>
           <div className="grid gap-2">
             {positionInfo.userAssets.map((asset, index) => (
-              <div key={asset.symbol + index} className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <div key={asset.symbol + index} className="flex justify-between items-center p-2 bg-zinc-800/30 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
                     <span className="text-xs font-medium text-blue-400">
                       {asset.symbol.slice(0, 2)}
                     </span>
@@ -261,13 +261,13 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
                 </div>
                 <div className="text-right">
                   {asset.collateralBalance > 0 && (
-                    <div className="text-green-400 text-sm">
+                    <div className="text-green-400 text-xs">
                       <span className="font-medium">+{asset.collateralBalance.toFixed(4)}</span>
                       <span className="text-xs ml-1">(${asset.collateralUSD.toFixed(2)})</span>
                     </div>
                   )}
                   {asset.debtBalance > 0 && (
-                    <div className="text-red-400 text-sm">
+                    <div className="text-red-400 text-xs">
                       <span className="font-medium">-{asset.debtBalance.toFixed(4)}</span>
                       <span className="text-xs ml-1">(${asset.debtUSD.toFixed(2)})</span>
                     </div>
@@ -296,10 +296,13 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
   );
 };
 
-export default function ReactorAI() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+// Component Props Interface
+interface ReactorAIProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -316,10 +319,22 @@ export default function ReactorAI() {
   const { account, selectedNetwork } = useWeb3();
   const router = useRouter();
 
-  // Dynamic sizing based on expanded state
-  const chatWidth = isExpanded ? 'w-[700px]' : 'w-96';
-  const chatHeight = isMinimized ? 60 : (isExpanded ? 700 : 550);
-  const messageAreaHeight = isExpanded ? 'h-[480px]' : 'h-80';
+  // Apply body styles when AI is open/closed
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.marginRight = '400px';
+      document.body.style.transition = 'margin-right 0.3s ease-out';
+    } else {
+      document.body.style.marginRight = '0';
+      document.body.style.transition = 'margin-right 0.3s ease-out';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.marginRight = '0';
+      document.body.style.transition = '';
+    };
+  }, [isOpen]);
 
   // Generate conversation ID on first open
   useEffect(() => {
@@ -365,10 +380,10 @@ export default function ReactorAI() {
 
   // Focus input when chat opens
   useEffect(() => {
-    if (isOpen && !isMinimized && inputRef.current) {
+    if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, isMinimized]);
+  }, [isOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -395,7 +410,6 @@ export default function ReactorAI() {
   // Enhanced sendMessage function to handle multiple AI messages and Aave data
   const sendMessage = async (content: string, isOptionSelection: boolean = false) => {
     if (!content.trim() && !isOptionSelection) return;
-    console.log('Sending content to AI:', { content });
 
     const userMessage: Message = {
       id: `msg_${Date.now()}_user`,
@@ -409,22 +423,7 @@ export default function ReactorAI() {
     setIsLoading(true);
     setIsTyping(true);
 
-    // Track message sent
-    AIUtils.Analytics.trackEvent('ai_message_sent', {
-      messageLength: content.length,
-      isOptionSelection,
-      hasWallet: !!account,
-      network: selectedNetwork
-    });
-
     try {
-      console.log('Sending message to AI:', { 
-        message: content.trim(), 
-        conversationId, 
-        wallet: account, 
-        network: getChainIdFromNetwork(selectedNetwork) 
-      });
-
       const response = await fetch('https://app.thereactor.in/api/ai-automation/automate', {
         method: 'POST',
         headers: {
@@ -443,17 +442,11 @@ export default function ReactorAI() {
       }
 
       const data: AIResponse = await response.json();
-      console.log('AI Response:', data);
 
       if (data.success && data.data) {
-        // Handle multiple messages (main message + optional followUpMessage)
-        const aiMessages: Message[] = [];
         const baseTimestamp = new Date();
-
-        // Simulate typing delay for better UX
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Add the main AI message with all data including Aave info
         const mainMessage: Message = {
           id: `msg_${Date.now()}_ai_main`,
           type: 'ai',
@@ -465,12 +458,9 @@ export default function ReactorAI() {
           pairInfo: data.data.pairInfo,
           aavePositionInfo: data.data.aavePositionInfo
         };
-        aiMessages.push(mainMessage);
 
-        // Add main message to state first
         setMessages(prev => [...prev, mainMessage]);
 
-        // Handle follow-up message if it exists
         if (data.data.followUpMessage) {
           setTimeout(() => {
             const followUpMessage: Message = {
@@ -488,81 +478,49 @@ export default function ReactorAI() {
           }, 1200);
         }
 
-        // Handle automation configuration redirection
         if (data.data.automationConfig && data.data.automationConfig.deploymentReady) {
           handleAutomationRedirect(data.data);
         }
-
-        // Track successful response
-        AIUtils.Analytics.trackEvent('ai_response_received', {
-          intent: data.data.intent,
-          needsUserInput: data.data.needsUserInput,
-          hasOptions: !!data.data.options?.length,
-          hasConfig: !!data.data.automationConfig,
-          hasFollowUp: !!data.data.followUpMessage,
-          hasAavePosition: !!data.data.aavePositionInfo
-        });
-
       } else {
         throw new Error(data.error || 'Failed to get AI response');
       }
     } catch (error: any) {
-      console.error('AI Chat Error:', error);
-      
       const errorMessage: Message = {
         id: `msg_${Date.now()}_error`,
         type: 'ai',
-        content: `❌ **Connection Error**\n\nSorry, I encountered an error: ${error.message}\n\n**This could be due to:**\n• **Network issues** - Check your internet connection\n• **Server problems** - AI service might be temporarily down\n• **Rate limiting** - Too many requests, please wait a moment\n\nPlease try again in a moment! 🔄`,
+        content: `❌ **Connection Error**\n\nSorry, I encountered an error: ${error.message}\n\nPlease try again in a moment! 🔄`,
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, errorMessage]);
       toast.error('Connection error - please try again');
-      
-      // Track error
-      AIUtils.Analytics.trackEvent('ai_error', {
-        error: error.message,
-        statusCode: error.status
-      });
     } finally {
       setIsLoading(false);
       setIsTyping(false);
     }
   };
 
-  // Enhanced automation configuration redirection
   const handleAutomationRedirect = (responseData: any) => {
     const config = responseData.automationConfig;
-    
     if (!config) return;
 
-    // Determine automation type and set deployment type
     if (config.protectionType !== undefined) {
-      // This is an Aave protection configuration
       setDeploymentType('aave_protection');
       setCurrentDeploymentConfig(config);
-      
-      
-      
     } else if (config.pairAddress) {
-      // This is a stop order configuration
       setDeploymentType('stop_order');
       setCurrentDeploymentConfig(config);
-      
-      
     }
   };
 
   const handleOptionSelect = (option: { value: string; label: string }) => {
     const lowerValue = option.value.toLowerCase();
     
-    // Handle deployment choices
     if (lowerValue === 'deploy now' || lowerValue === 'subscribe now') {
       handleDirectDeployment();
     } else if (lowerValue === 'manual setup') {
       handleManualSetup();
     } else {
-      // Handle other options normally
       sendMessage(option.value, true);
     }
   };
@@ -574,18 +532,11 @@ export default function ReactorAI() {
       const deployMessage: Message = {
         id: `msg_${Date.now()}_deploy`,
         type: 'ai',
-        content: `🚀 **Perfect!** Let's deploy your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} directly here!\n\nI'll guide you through the deployment process step by step. Make sure your wallet is connected and you have enough funds for gas fees. ✨`,
+        content: `🚀 **Perfect!** Let's deploy your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} directly here!\n\nI'll guide you through the deployment process step by step. ✨`,
         timestamp: new Date(),
         showDeploymentHandler: true
       };
       setMessages(prev => [...prev, deployMessage]);
-      
-      // Track deployment initiated
-      AIUtils.Analytics.trackEvent('ai_deployment_initiated', {
-        configType: deploymentType,
-        chainId: currentDeploymentConfig.chainId,
-        hasWallet: !!account
-      });
       
       toast.success('🎯 Starting deployment process!');
     }
@@ -599,26 +550,20 @@ export default function ReactorAI() {
         const redirectMessage: Message = {
           id: `msg_${Date.now()}_redirect`,
           type: 'ai',
-          content: `🚀 **Configuration Saved!** Redirecting you to the ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} page...\n\nThe form will be pre-filled with your settings. ✨`,
+          content: `🚀 **Configuration Saved!** Redirecting you to the ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} page...`,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, redirectMessage]);
         
-        // Track config stored
-        AIUtils.Analytics.trackConfigLoaded(true, currentDeploymentConfig);
-        
-        // Redirect after a short delay
         setTimeout(() => {
           const redirectPath = deploymentType === 'aave_protection' 
             ? '/automations/aave-protection?from_ai=true'
             : '/automations/stop-order?from_ai=true';
           router.push(redirectPath);
-          setIsOpen(false);
+          onClose();
         }, 1500);
         
         toast.success('🎯 Redirecting to setup page!');
-      } else {
-        toast.error('Failed to save configuration. Please try again.');
       }
     }
   };
@@ -637,55 +582,28 @@ export default function ReactorAI() {
     sendMessage(inputValue);
   };
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Copied to clipboard!');
-    } catch (error) {
-      toast.error('Failed to copy');
-    }
-  };
-
   const handleDeploymentComplete = (success: boolean, result?: any) => {
     setShowDeploymentHandler(false);
     setCurrentDeploymentConfig(null);
     
     if (success && result) {
-      // Add success message with deployment details
       const successMessage: Message = {
         id: `msg_${Date.now()}_success`,
         type: 'ai',
-        content: `🎉 **Deployment Successful!** Your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} is now active!\n\n✅ **Deployment Details:**\n• **${deploymentType === 'aave_protection' ? 'Protection Contract' : 'Destination Contract'}:** \`${result.destinationAddress || result.protectionAddress}\`\n• **RSC Address:** \`${result.rscAddress || 'N/A'}\`\n• **Network:** ${result.chainName}\n\n🔍 **What happens next?**\nYour automation is now monitoring 24/7 automatically. ${deploymentType === 'aave_protection' ? 'Your health factor will be checked periodically and protection will trigger when needed.' : 'When your conditions are met, it will execute automatically!'}\n\n💡 **Pro Tip:** You can monitor your automation in the stop order's dashboard section.`,
+        content: `🎉 **Deployment Successful!** Your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} is now active!`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMessage]);
-      
-      // Track successful deployment
-      AIUtils.Analytics.trackEvent('ai_deployment_success', {
-        deploymentType,
-        destinationAddress: result.destinationAddress || result.protectionAddress,
-        rscAddress: result.rscAddress,
-        chainId: result.chainId
-      });
-      
-      toast.success(`🎉 ${deploymentType === 'aave_protection' ? 'Aave protection' : 'Stop order'} deployed successfully!`);
+      toast.success('🎉 Deployment successful!');
     } else {
-      // Add error message
       const errorMessage: Message = {
         id: `msg_${Date.now()}_error`,
         type: 'ai',
-        content: `❌ **Deployment Failed**\n\nI'm sorry, but the deployment encountered an error: ${result?.error || 'Unknown error'}\n\n🔧 **Troubleshooting:**\n• Check your wallet connection\n• Ensure you have enough gas fees\n• Verify you're on the correct network\n• Try again in a few moments\n\n💬 **Need help?** Feel free to ask me questions or try again!`,
+        content: `❌ **Deployment Failed**\n\nPlease try again or contact support.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
-      
-      // Track deployment failure
-      AIUtils.Analytics.trackEvent('ai_deployment_failed', {
-        deploymentType,
-        error: result?.error || 'Unknown error'
-      });
-      
-      toast.error('❌ Deployment failed - please try again');
+      toast.error('❌ Deployment failed');
     }
   };
 
@@ -693,63 +611,51 @@ export default function ReactorAI() {
     setShowDeploymentHandler(false);
     setCurrentDeploymentConfig(null);
     
-    // Add cancellation message
     const cancelMessage: Message = {
       id: `msg_${Date.now()}_cancel`,
       type: 'ai',
-      content: `📝 **Deployment Cancelled**\n\nNo worries! Your configuration is still saved. You can:\n\n• **Try again** by saying "deploy my ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'}"\n• **Modify settings** by asking me to change specific parameters\n• **Use manual interface** - I can redirect you to the form\n\nWhat would you like to do next? 🤔`,
+      content: `📝 **Deployment Cancelled**\n\nWhat would you like to do next? 🤔`,
       timestamp: new Date()
     };
     setMessages(prev => [...prev, cancelMessage]);
-    
-    // Track deployment cancellation
-    AIUtils.Analytics.trackEvent('ai_deployment_cancelled', {
-      deploymentType
-    });
-    
     toast('Deployment cancelled');
   };
 
-  // Handler for quick action buttons
   const handleQuickAction = (text: string) => {
     setInputValue(text);
-    // Optionally, auto-send: sendMessage(text);
   };
 
-  // Enhanced MessageBubble component with Aave support
+  // Enhanced MessageBubble component
   const MessageBubble = ({ message }: { message: Message }) => {
     return (
       <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
-        <div className="flex items-start space-x-2 max-w-[85%]">
+        <div className="flex items-start space-x-2 max-w-[90%]">
           {message.type === 'ai' && (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-muted to-muted/80 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary" />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-4 h-4 text-primary-foreground" />
             </div>
           )}
           
           <div className={`rounded-2xl px-4 py-3 ${
             message.type === 'user' 
               ? 'bg-primary text-primary-foreground ml-auto' 
-              : 'bg-card text-foreground border border-border'
+              : 'bg-muted/50 text-foreground border border-border'
           }`}>
             <FormattedMessage content={message.content} />
             
-            {/* Render Aave Position Info if present */}
             {message.aavePositionInfo && (
               <AavePositionDisplay 
                 positionInfo={message.aavePositionInfo} 
-                isExpanded={isExpanded}
+                isExpanded={true}
               />
             )}
             
-            {/* Existing pair info display */}
             {message.pairInfo && (
               <PairInfoDisplay 
                 pairInfo={message.pairInfo} 
               />
             )}
             
-            {/* Options buttons */}
             {message.options && message.options.length > 0 && (
               <div className="mt-3 space-y-2">
                 {message.options.map((option, index) => (
@@ -758,7 +664,7 @@ export default function ReactorAI() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOptionSelect(option)}
-                    className="w-full justify-start text-left h-auto py-2 px-3 bg-muted/50 hover:bg-muted border-border hover:border-primary/50 transition-colors"
+                    className="w-full justify-start text-left h-auto py-2 px-3 bg-background/50 hover:bg-background border-border hover:border-primary/50 transition-colors"
                   >
                     {option.label}
                   </Button>
@@ -766,7 +672,6 @@ export default function ReactorAI() {
               </div>
             )}
             
-            {/* Confirmation buttons */}
             {message.inputType === 'confirmation' && !message.options && (
               <div className="mt-3 flex space-x-2">
                 <Button
@@ -787,7 +692,6 @@ export default function ReactorAI() {
               </div>
             )}
             
-            {/* Deployment handler */}
             {message.showDeploymentHandler && currentDeploymentConfig && (
               <div className="mt-4">
                 {deploymentType === 'aave_protection' ? (
@@ -808,7 +712,7 @@ export default function ReactorAI() {
           </div>
           
           {message.type === 'user' && (
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-primary" />
             </div>
           )}
@@ -817,163 +721,177 @@ export default function ReactorAI() {
     );
   };
 
+  // Return null if not open
+  if (!isOpen) return null;
+
   return (
-    <>
-      {/* Floating AI Button */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed bottom-6 left-6 z-50"
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative"
-            >
-              <Button
-                onClick={() => setIsOpen(true)}
-                className="w-16 h-16 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 p-0 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 relative overflow-hidden"
-              >
-                <Image 
-                  src="/Symbol/Color/DarkBg.png" 
-                  alt="Reactor AI" 
-                  width={50} 
-                  height={50}
-                  className="transition-transform duration-300 hover:scale-110"
-                />
-                
-                {/* Enhanced glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full animate-pulse"></div>
-              </Button>
-              
-              {/* Enhanced notification indicator */}
-              <motion.div 
-                className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center"
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Sparkles className="w-3 h-3 text-foreground" />
-              </motion.div>
-              
-              {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-popover text-popover-foreground text-xs rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 whitespace-nowrap border border-border">
-                Chat with Reactor AI
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Chat Interface */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: -100, y: 100 }}
-            animate={{ 
-              opacity: 1, 
-              x: 0, 
-              y: 0,
-              height: chatHeight
-            }}
-            exit={{ opacity: 0, x: -100, y: 100 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className={`fixed bottom-6 left-6 z-50 ${chatWidth} max-w-[calc(100vw-3rem)]`}
-          >
-            <Card className="bg-card/95 backdrop-blur-md border-border shadow-2xl overflow-hidden h-full">
-              {/* Chat Header */}
-              <ChatHeader
-                isTyping={isTyping}
-                account={account}
-                selectedNetwork={selectedNetwork}
-                isExpanded={isExpanded}
-                isMinimized={isMinimized}
-                onExpand={() => setIsExpanded(!isExpanded)}
-                onMinimize={() => setIsMinimized(!isMinimized)}
-                onClose={() => setIsOpen(false)}
-              />
-
-              {/* Messages Area */}
-              <AnimatePresence>
-                {!isMinimized && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex-1 flex flex-col"
-                  >
-                    <CardContent className="p-0 flex-1 flex flex-col">
-                      <div 
-                        ref={chatContainerRef}
-                        className={`${messageAreaHeight} overflow-y-auto p-4 bg-gradient-to-b from-background/50 to-background scrollbar-thin scrollbar-thumb-muted scrollbar-track-muted/50`}
-                      >
-                        {/* Render messages using enhanced MessageBubble */}
-                        {messages.map((message) => (
-                          <MessageBubble key={message.id} message={message} />
-                        ))}
-                        
-                        {/* Loading indicator */}
-                        {isLoading && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex justify-start mb-4"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-muted to-muted/80 flex items-center justify-center">
-                                <Sparkles className="w-4 h-4 text-primary" />
-                              </div>
-                              <div className="bg-card text-foreground rounded-2xl px-4 py-3 border border-border">
-                                <div className="flex items-center space-x-3">
-                                  <div className="flex space-x-1">
-                                    <motion.div 
-                                      className="w-2 h-2 bg-primary rounded-full"
-                                      animate={{ scale: [1, 1.2, 1] }}
-                                      transition={{ duration: 1, repeat: Infinity, delay: 0 }}
-                                    />
-                                    <motion.div 
-                                      className="w-2 h-2 bg-secondary rounded-full"
-                                      animate={{ scale: [1, 1.2, 1] }}
-                                      transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
-                                    />
-                                    <motion.div 
-                                      className="w-2 h-2 bg-primary rounded-full"
-                                      animate={{ scale: [1, 1.2, 1] }}
-                                      transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
-                                    />
-                                  </div>
-                                  <span className="text-sm">AI is thinking...</span>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                        <div ref={messagesEndRef} />
-                      </div>
-
-                      {/* Chat Input */}
-                      <ChatInput
-                        inputValue={inputValue}
-                        onInputChange={(e) => setInputValue(e.target.value)}
-                        onSubmit={handleSubmit}
-                        isLoading={isLoading}
-                        account={account}
-                        selectedNetwork={selectedNetwork}
-                        onQuickAction={handleQuickAction}
-                        currentDeploymentConfig={currentDeploymentConfig}
-                      />
-                    </CardContent>
-                  </motion.div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="fixed top-0 right-0 h-full w-[400px] bg-background border-l border-border shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Reactor AI</h3>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-xs text-muted-foreground">
+                  {isTyping ? 'Thinking...' : 'Online'}
+                </span>
+                {account && (
+                  <Badge variant="secondary" className="text-xs bg-primary/20 text-primary">
+                    Connected
+                  </Badge>
                 )}
-              </AnimatePresence>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
+          >
+            {/* Render messages */}
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+            
+            {/* Loading indicator */}
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="bg-muted/50 text-foreground rounded-2xl px-4 py-3 border border-border">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex space-x-1">
+                        <motion.div 
+                          className="w-2 h-2 bg-primary rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                        />
+                        <motion.div 
+                          className="w-2 h-2 bg-secondary rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                        />
+                        <motion.div 
+                          className="w-2 h-2 bg-primary rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                        />
+                      </div>
+                      <span className="text-sm">AI is thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="border-t border-border p-4 bg-muted/20">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="flex space-x-2">
+                <Input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={
+                    account 
+                      ? "Ask me about DeFi automation..." 
+                      : "Ask me about REACTOR..."
+                  }
+                  className="flex-1 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  disabled={isLoading}
+                  maxLength={500}
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isLoading || !inputValue.trim()}
+                  className="bg-primary hover:bg-primary/90 shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Status and Character Count */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center space-x-3">
+                  {account ? (
+                    <div className="flex items-center space-x-1">
+                      <CheckCircle className="w-3 h-3 text-green-400" />
+                      <span>Wallet connected</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 text-amber-400" />
+                      <span>Connect wallet for automations</span>
+                    </div>
+                  )}
+                  {selectedNetwork && (
+                    <Badge variant="secondary" className="text-xs bg-primary/20 text-primary">
+                      {selectedNetwork}
+                    </Badge>
+                  )}
+                </div>
+                <span className={`text-xs ${inputValue.length > 450 ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                  {inputValue.length}/500
+                </span>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { icon: Shield, label: "Stop Order", text: "Create a stop order" },
+                  { icon: Heart, label: "Protection", text: "Protect my Aave position" },
+                  { icon: BookOpen, label: "Learn", text: "What is Reactor?" }
+                ].map((action, index) => (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={() => handleQuickAction(action.text)}
+                    disabled={isLoading}
+                  >
+                    <action.icon className="w-3 h-3 mr-1" />
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            </form>
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

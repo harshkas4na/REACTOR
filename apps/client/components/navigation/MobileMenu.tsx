@@ -5,15 +5,16 @@ import Link from 'next/link'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useWeb3 } from '../../app/_context/Web3Context'
 import { Button } from "@/components/ui/button"
-import { UserCircle2, LogOut, ChevronDown } from 'lucide-react'
+import { UserCircle2, LogOut, ChevronDown, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenAI?: () => void; // New prop for opening AI
 }
 
-export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
+export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { switchNetwork, selectedNetwork } = useWeb3();
   const [openDropdowns, setOpenDropdowns] = useState<string[]>([]);
@@ -60,6 +61,11 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     setOpenDropdowns([]);
   };
 
+  const handleAIClick = () => {
+    onOpenAI?.(); // Open AI
+    onClose(); // Close mobile menu
+  };
+
   return (
     <motion.div 
       ref={menuRef}
@@ -69,6 +75,32 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       transition={{ duration: 0.3 }}
     >
       <div className="px-4 py-4 space-y-4">
+        {/* ReactorAI Button - Prominent placement at top */}
+        <div className="pb-4 border-b border-gray-700">
+          <Button
+            onClick={handleAIClick}
+            className="w-full bg-gradient-to-r from-primary/20 to-secondary/20 hover:from-primary/30 hover:to-secondary/30 border border-primary/30 text-primary-foreground justify-start text-left h-auto py-3 px-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center relative">
+                <Sparkles className="w-4 h-4 text-foreground" />
+                {/* Notification indicator */}
+                <motion.div 
+                  className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center"
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <div className="w-1.5 h-1.5 bg-foreground rounded-full" />
+                </motion.div>
+              </div>
+              <div>
+                <span className="font-medium text-foreground">ReactorAI</span>
+                <p className="text-xs text-muted-foreground">Your DeFi automation assistant</p>
+              </div>
+            </div>
+          </Button>
+        </div>
+
         {/* Navigation Links */}
         {NAVIGATION_ITEMS.map((item) => {
           if (item.type === 'dropdown') {
