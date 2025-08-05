@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -155,7 +155,7 @@ const AAVE_ASSETS: Record<string, AssetConfig[]> = {
 };
 
 // RSC Contract address
-const RSC_CONTRACT_ADDRESS = '0xC789a1c6ef9764626bd95D376984FE35Ac0A579B';
+const RSC_CONTRACT_ADDRESS = '0x0ab16De452e4cdd82F22968DC6AbE160cdA974d2';
 
 export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
   automationConfig,
@@ -165,6 +165,69 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
   const [deploymentStep, setDeploymentStep] = useState<AaveDeploymentStep>('idle');
   const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [deploymentResult, setDeploymentResult] = useState<any>(null);
+  
+  // Enhanced state management for persistent UI during network switches
+  const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
+  const [stepProgress, setStepProgress] = useState<Map<AaveDeploymentStep, boolean>>(new Map());
+  const [networkSwitchingTo, setNetworkSwitchingTo] = useState<string>('');
+
+  // Persist deployment state during network switches
+  useEffect(() => {
+    const handleNetworkSwitch = (chainId: string) => {
+      console.log('Network changed to:', chainId);
+      setIsNetworkSwitching(true);
+      
+      // Determine which network we're switching to
+      const newChainId = parseInt(chainId, 16).toString();
+      const chain = SUPPORTED_CHAINS.find(c => c.id === newChainId);
+      if (chain) {
+        setNetworkSwitchingTo(chain.name);
+      } else if (newChainId === '5318007') {
+        setNetworkSwitchingTo('Reactive Lasna');
+      } else if (newChainId === '1597') {
+        setNetworkSwitchingTo('Reactive Mainnet');
+      } else {
+        setNetworkSwitchingTo('Unknown Network');
+      }
+      
+      // Keep deployment component visible during switch
+      setTimeout(() => {
+        setIsNetworkSwitching(false);
+        setNetworkSwitchingTo('');
+      }, 3000);
+    };
+
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.on('chainChanged', handleNetworkSwitch);
+      return () => {
+        window.ethereum.removeListener('chainChanged', handleNetworkSwitch);
+      };
+    }
+  }, []);
+
+  // Enhanced network switching with persistent UI and better error handling
+  const switchNetworkPersistent = async (targetChainId: string, networkName: string) => {
+    setIsNetworkSwitching(true);
+    setNetworkSwitchingTo(networkName);
+    toast.loading(`Switching to ${networkName}...`, { id: 'network-switch' });
+    
+    try {
+      await switchNetwork(targetChainId);
+      toast.success(`✅ Connected to ${networkName}`, { id: 'network-switch' });
+      
+      // Wait for network to settle
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+    } catch (error: any) {
+      toast.error(`❌ Failed to switch to ${networkName}: ${error.message}`, { id: 'network-switch' });
+      throw error;
+    } finally {
+      setTimeout(() => {
+        setIsNetworkSwitching(false);
+        setNetworkSwitchingTo('');
+      }, 1000);
+    }
+  };
 
   // Enhanced network switching functions
   const switchNetwork = async (targetChainId: string) => {
@@ -275,6 +338,7 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
       }
 
       console.log(`Switching to ${rscNetwork.name}...`);
+      setNetworkSwitchingTo(rscNetwork.name);
       
       try {
         await window.ethereum.request({
@@ -328,6 +392,7 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
     try {
       setDeploymentError(null);
       setDeploymentStep('idle');
+      setStepProgress(new Map());
 
       // Validate configuration
       if (!automationConfig.deploymentReady) {
@@ -361,12 +426,15 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
 
       // Step 1: Check Aave Position
       setDeploymentStep('checking-position');
+      setStepProgress(prev => new Map(prev).set('checking-position', false));
       toast.loading('Checking your Aave position...', { id: 'deployment' });
       
       const hasPosition = await checkAavePosition(selectedChain, signerAddress);
       if (!hasPosition) {
         throw new Error('No active Aave position found for this address');
       }
+      
+      setStepProgress(prev => new Map(prev).set('checking-position', true));
 
       // Step 2: Approve Collateral Token if needed
       if ((automationConfig.protectionType === '0' || automationConfig.protectionType === '2') && automationConfig.collateralAsset) {
@@ -375,6 +443,7 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
         // Only approve if it's not ETH
         if (automationConfig.collateralAsset !== 'ETH') {
           setDeploymentStep('approving-collateral');
+          setStepProgress(prev => new Map(prev).set('approving-collateral', false));
           toast.loading(`Approving ${collateralAsset?.symbol || 'collateral token'}...`, { id: 'deployment' });
           
           await approveToken(
@@ -382,6 +451,11 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
             selectedChain.protectionManagerAddress,
             collateralAsset?.symbol || 'Collateral Token'
           );
+          
+          setStepProgress(prev => new Map(prev).set('approving-collateral', true));
+        } else {
+          // Mark as completed for ETH
+          setStepProgress(prev => new Map(prev).set('approving-collateral', true));
         }
       }
 
@@ -392,6 +466,7 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
         // Only approve if it's not ETH
         if (automationConfig.debtAsset !== 'ETH') {
           setDeploymentStep('approving-debt');
+          setStepProgress(prev => new Map(prev).set('approving-debt', false));
           toast.loading(`Approving ${debtAsset?.symbol || 'debt token'}...`, { id: 'deployment' });
           
           await approveToken(
@@ -399,18 +474,29 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
             selectedChain.protectionManagerAddress,
             debtAsset?.symbol || 'Debt Token'
           );
+          
+          setStepProgress(prev => new Map(prev).set('approving-debt', true));
+        } else {
+          // Mark as completed for ETH
+          setStepProgress(prev => new Map(prev).set('approving-debt', true));
         }
       }
 
       // Step 4: Switch to RSC Network and fund it
       setDeploymentStep('switching-rsc');
-      toast.loading('Switching to RSC network...', { id: 'deployment' });
+      setStepProgress(prev => new Map(prev).set('switching-rsc', false));
+      
+      const rscNetworkName = originalChainId === '11155111' ? 'Reactive Lasna' : 'Reactive Mainnet';
+      await switchNetworkPersistent(originalChainId, rscNetworkName);
       await switchToRSCNetwork(originalChainId);
+      
+      setStepProgress(prev => new Map(prev).set('switching-rsc', true));
       
       // Wait for network to settle
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       setDeploymentStep('funding-rsc');
+      setStepProgress(prev => new Map(prev).set('funding-rsc', false));
       toast.loading('Funding RSC monitor...', { id: 'deployment' });
       
       // Create fresh provider and signer after network switch
@@ -423,10 +509,14 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
         value: ethers.parseEther(RSC_FUNDING_AMOUNT)
       });
       await rscFundingTx.wait();
+      
+      setStepProgress(prev => new Map(prev).set('funding-rsc', true));
 
       // Step 5: Switch back to original network
       setDeploymentStep('switching-back');
-      toast.loading(`Switching back to ${selectedChain.name}...`, { id: 'deployment' });
+      setStepProgress(prev => new Map(prev).set('switching-back', false));
+      
+      await switchNetworkPersistent(originalChainId, selectedChain.name);
       await switchNetwork(originalChainId);
       
       // Verify we're back on the original network
@@ -437,13 +527,17 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
         throw new Error(`Failed to switch back to original network. Current: ${finalNetwork.chainId}, Expected: ${originalChainId}`);
       }
 
+      setStepProgress(prev => new Map(prev).set('switching-back', true));
       toast.success(`Switched back to ${selectedChain.name}`);
 
       // Step 6: Subscribe to Protection
       setDeploymentStep('subscribing');
+      setStepProgress(prev => new Map(prev).set('subscribing', false));
       toast.loading('Subscribing to liquidation protection...', { id: 'deployment' });
       
       await subscribeToProtection(selectedChain, automationConfig);
+      
+      setStepProgress(prev => new Map(prev).set('subscribing', true));
 
       // Deployment complete
       setDeploymentStep('complete');
@@ -576,7 +670,7 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
         debtAddress = chain.wethAddress || '';
       }
 
-      const CALLBACK_FUNDING_AMOUNT = '0.0003';
+      const CALLBACK_FUNDING_AMOUNT = '0.03';
 
       const tx = await protectionManagerContract.subscribeToProtection(
         parseInt(config.protectionType),
@@ -607,29 +701,23 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
     return assets.find(asset => asset.address.toLowerCase() === address.toLowerCase());
   };
 
+  // Enhanced step icon with persistent state
   const getStepIcon = (step: AaveDeploymentStep) => {
-    if (step === deploymentStep && deploymentStep !== 'complete' && deploymentStep !== 'idle') {
-      return <Loader2 className="h-4 w-4 animate-spin text-blue-400" />;
-    }
-    if (deploymentStep === 'complete' || 
-        (deploymentStep === 'subscribing' && (step === 'checking-position' || step === 'approving-collateral' || step === 'approving-debt' || step === 'switching-rsc' || step === 'funding-rsc' || step === 'switching-back')) ||
-        (deploymentStep === 'switching-back' && (step === 'checking-position' || step === 'approving-collateral' || step === 'approving-debt' || step === 'switching-rsc' || step === 'funding-rsc')) ||
-        (deploymentStep === 'funding-rsc' && (step === 'checking-position' || step === 'approving-collateral' || step === 'approving-debt' || step === 'switching-rsc')) ||
-        (deploymentStep === 'switching-rsc' && (step === 'checking-position' || step === 'approving-collateral' || step === 'approving-debt')) ||
-        (deploymentStep === 'approving-debt' && (step === 'checking-position' || step === 'approving-collateral')) ||
-        (deploymentStep === 'approving-collateral' && step === 'checking-position')) {
+    const isCompleted = stepProgress.get(step) === true;
+    const isActive = step === deploymentStep && deploymentStep !== 'complete' && deploymentStep !== 'idle';
+    
+    if (isCompleted) {
       return <CheckCircle className="h-4 w-4 text-green-400" />;
+    }
+    if (isActive) {
+      return <Loader2 className="h-4 w-4 animate-spin text-blue-400" />;
     }
     return <Clock className="h-4 w-4 text-zinc-400" />;
   };
 
   const getStepStatus = (step: AaveDeploymentStep): 'pending' | 'active' | 'complete' => {
-    const stepOrder: AaveDeploymentStep[] = ['checking-position', 'approving-collateral', 'approving-debt', 'switching-rsc', 'funding-rsc', 'switching-back', 'subscribing', 'complete'];
-    const currentIndex = stepOrder.indexOf(deploymentStep);
-    const stepIndex = stepOrder.indexOf(step);
-    
-    if (stepIndex < currentIndex || deploymentStep === 'complete') return 'complete';
-    if (stepIndex === currentIndex) return 'active';
+    if (stepProgress.get(step) === true) return 'complete';
+    if (step === deploymentStep) return 'active';
     return 'pending';
   };
 
@@ -647,16 +735,62 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
     return asset ? `${asset.symbol} (${asset.name})` : 'Unknown Asset';
   };
 
+  // ENHANCED: Strategy-specific asset display logic
+  const getAssetDisplayForStrategy = () => {
+    const { protectionType, collateralAsset, debtAsset, chainId } = automationConfig;
+    
+    switch (protectionType) {
+      case '0': // Collateral Only - show only collateral asset
+        return collateralAsset && (
+          <div>
+            <span className="font-medium text-zinc-200">Collateral Asset:</span> {getAssetDisplay(collateralAsset, chainId)}
+          </div>
+        );
+      
+      case '1': // Debt Only - show only debt asset
+        return debtAsset && (
+          <div>
+            <span className="font-medium text-zinc-200">Debt Asset:</span> {getAssetDisplay(debtAsset, chainId)}
+          </div>
+        );
+      
+      case '2': // Combined - show both assets
+        return (
+          <>
+            {collateralAsset && (
+              <div>
+                <span className="font-medium text-zinc-200">Collateral Asset:</span> {getAssetDisplay(collateralAsset, chainId)}
+              </div>
+            )}
+            {debtAsset && (
+              <div>
+                <span className="font-medium text-zinc-200">Debt Asset:</span> {getAssetDisplay(debtAsset, chainId)}
+              </div>
+            )}
+          </>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   return (
     <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
       <CardHeader>
         <CardTitle className="text-zinc-100 flex items-center space-x-2">
           <Shield className="h-5 w-5" />
           <span>Deploy Aave Protection</span>
+          {isNetworkSwitching && (
+            <div className="flex items-center space-x-2 text-amber-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Switching to {networkSwitchingTo}...</span>
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Enhanced Configuration Summary */}
+        {/* ENHANCED: Configuration Summary with strategy-specific assets */}
         <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
           <h3 className="text-zinc-100 font-medium mb-2">Protection Configuration</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-zinc-300">
@@ -672,16 +806,8 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
             <div>
               <span className="font-medium text-zinc-200">Target Health Factor:</span> {automationConfig.targetHealthFactor}
             </div>
-            {automationConfig.collateralAsset && (
-              <div>
-                <span className="font-medium text-zinc-200">Collateral Asset:</span> {getAssetDisplay(automationConfig.collateralAsset, automationConfig.chainId)}
-              </div>
-            )}
-            {automationConfig.debtAsset && (
-              <div>
-                <span className="font-medium text-zinc-200">Debt Asset:</span> {getAssetDisplay(automationConfig.debtAsset, automationConfig.chainId)}
-              </div>
-            )}
+            {/* ENHANCED: Smart asset display based on protection type */}
+            {getAssetDisplayForStrategy()}
           </div>
           
           {/* Cost Breakdown */}
@@ -694,7 +820,7 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
               </div>
               <div className="flex items-center space-x-2">
                 <Coins className="h-3 w-3" />
-                <span>Callback: 0.0003 ETH</span>
+                <span>Callback: 0.03 ETH</span>
               </div>
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="h-3 w-3" />
@@ -704,10 +830,18 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
           </div>
         </div>
 
-        {/* Enhanced Deployment Steps */}
-        {deploymentStep !== 'idle' && (
+        {/* ENHANCED: Deployment Steps - Persistent during network switches */}
+        {(deploymentStep !== 'idle' || isNetworkSwitching) && (
           <div className="space-y-3">
-            <h3 className="text-zinc-100 font-medium">Deployment Progress</h3>
+            <h3 className="text-zinc-100 font-medium flex items-center space-x-2">
+              <span>Deployment Progress</span>
+              {isNetworkSwitching && (
+                <div className="flex items-center space-x-1 text-amber-400">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span className="text-xs">Network Switching...</span>
+                </div>
+              )}
+            </h3>
             
             {[
               { step: 'checking-position' as AaveDeploymentStep, label: 'Check Aave Position', description: 'Verifying active position and health factor' },
@@ -722,8 +856,15 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
               if (step === 'approving-collateral' && automationConfig.protectionType === '1') return null;
               if (step === 'approving-debt' && automationConfig.protectionType === '0') return null;
               
+              const isNetworkStep = step === 'switching-rsc' || step === 'switching-back';
+              const showNetworkSwitchingHighlight = isNetworkSwitching && isNetworkStep;
+              
               return (
-                <div key={step} className="flex items-start space-x-3 p-3 rounded-lg bg-zinc-800/30">
+                <div key={step} className={`flex items-start space-x-3 p-3 rounded-lg transition-all duration-200 ${
+                  showNetworkSwitchingHighlight 
+                    ? 'bg-amber-900/20 border border-amber-500/30' 
+                    : 'bg-zinc-800/30'
+                }`}>
                   <div className="flex-shrink-0 mt-0.5">
                     {getStepIcon(step)}
                   </div>
@@ -733,12 +874,18 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
                       getStepStatus(step) === 'active' ? 'text-blue-400' : 'text-zinc-400'
                     }`}>
                       {label}
+                      {showNetworkSwitchingHighlight && (
+                        <span className="ml-2 text-amber-400">(In Progress...)</span>
+                      )}
                     </span>
                     <p className={`text-xs mt-1 ${
                       getStepStatus(step) === 'complete' ? 'text-green-300' :
                       getStepStatus(step) === 'active' ? 'text-blue-300' : 'text-zinc-500'
                     }`}>
                       {description}
+                      {showNetworkSwitchingHighlight && (
+                        <span className="text-amber-300"> - Keep this window open!</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -780,14 +927,16 @@ export const AaveDeploymentHandler: React.FC<AaveDeploymentHandlerProps> = ({
               <Button
                 onClick={handleDeployment}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                disabled={isNetworkSwitching}
               >
                 <Shield className="h-4 w-4 mr-2" />
-                Deploy Protection
+                {isNetworkSwitching ? `Switching to ${networkSwitchingTo}...` : 'Deploy Protection'}
               </Button>
               <Button
                 variant="outline"
                 onClick={onCancel}
                 className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                disabled={isNetworkSwitching}
               >
                 Cancel
               </Button>

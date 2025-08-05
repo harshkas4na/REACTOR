@@ -942,6 +942,14 @@ export default function EnhancedStopOrderWithFunctionality() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isDeploymentActive, setIsDeploymentActive] = useState(false); // Flag to completely disable refresh during deployment
 
+  // FIXED: Reset deployment step when form changes after successful creation
+  useEffect(() => {
+    // Only reset if deployment was complete and user is now changing form data
+    if (deploymentStep === 'complete') {
+      setDeploymentStep('idle');
+    }
+  }, [formData.sellToken, formData.buyToken, formData.amount, formData.dropPercentage]);
+
   // Professional network switching functions (like Aave protection)
   const switchNetwork = async (targetChainId: string) => {
     if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
@@ -1801,11 +1809,6 @@ export default function EnhancedStopOrderWithFunctionality() {
                     </a>
                   </div>
                 </div>
-                {/* <div className="text-right">
-                  <p className="text-xs text-amber-300">
-                    Covers 24/7 monitoring & automatic execution
-                  </p>
-                </div> */}
               </div>
             </CardContent>
           </Card>

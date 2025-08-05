@@ -910,7 +910,7 @@ export default function AaveLiquidationProtectionPage() {
       const rscProvider = new ethers.BrowserProvider(window.ethereum);
       const rscSigner = await rscProvider.getSigner();
       
-      const RSC_CONTRACT_ADDRESS = '0xC789a1c6ef9764626bd95D376984FE35Ac0A579B';
+      const RSC_CONTRACT_ADDRESS = '0x0ab16De452e4cdd82F22968DC6AbE160cdA974d2';
       const RSC_FUNDING_AMOUNT = '0.05';
       
       const rscFundingTx = await rscSigner.sendTransaction({
