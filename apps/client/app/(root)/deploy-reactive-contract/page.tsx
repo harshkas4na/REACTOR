@@ -14,6 +14,8 @@
   import { useToast } from '@/hooks/use-toast';
   import DeployButton from '@/components/DeployButton';
   import { motion } from 'framer-motion';
+import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
+import RSCFundingRequirementsComponent from '@/components/RSCFundingRequirementsComponent';
 
   // Supported chains configuration
   const SUPPORTED_CHAINS = {
@@ -82,6 +84,34 @@
     const isEthereumAddress = (address: string): boolean => {
       return /^0x[a-fA-F0-9]{40}$/.test(address);
     }
+    const getChainConfig = (chainId: string | number) => {
+      const id = typeof chainId === 'string' ? parseInt(chainId) : chainId;
+      
+      // Check both origins and destinations
+      const allChains = [...SUPPORTED_CHAINS.ORIGINS, ...SUPPORTED_CHAINS.DESTINATIONS];
+      const chain = allChains.find(c => c.id === id);
+      
+      if (!chain) return null;
+      
+      // Map to the format expected by EnhancedFundingRequirementsCard
+      const nativeCurrencyMap: { [key: number]: string } = {
+        1: 'ETH',           // Ethereum Mainnet
+        11155111: 'ETH',    // Ethereum Sepolia  
+        43114: 'AVAX',      // Avalanche C-Chain
+        42161: 'ETH',       // Arbitrum One
+        169: 'ETH',         // Manta Pacific
+        8453: 'ETH',        // Base Chain
+        56: 'BNB',          // Binance Smart Chain
+        137: 'MATIC',       // Polygon PoS
+        5318007: 'REACT'    // Lasna Testnet
+      };
+      
+      return {
+        id: id.toString(),
+        name: chain.name,
+        nativeCurrency: nativeCurrencyMap[id] || 'ETH'
+      };
+    };
 
     // Effect for form validation
     useEffect(() => {
@@ -302,41 +332,19 @@
           </div>
         </motion.div>
 
-        {/* Enhanced Funding Requirements Card */}
-        <Card className="relative bg-card/70 border-border my-4 sm:mt-6">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-3">
-                <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="h-4 w-4 text-amber-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-amber-100 mb-2 text-sm sm:text-base">Protection Setup Costs</h3>
-                  <p className="text-xs sm:text-sm text-amber-200 mb-3">
-                    RSC Monitoring: 0.05 REACT • Plus gas fees
-                  </p>
-                  <div className="">
-                    <p className="text-xs sm:text-sm text-amber-200 mb-2">
-                      📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
-                    </p>
-                    <a
-                      href="/markets" // Changed href to the new page route
-                      className="inline-flex items-center text-xs sm:text-sm text-amber-300 hover:text-amber-200 underline"
-                    >
-                      See here where you can obtain REACT tokens
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* RSC Funding Requirements Card */}
+            <RSCFundingRequirementsComponent 
+              orgChainId={OrgChainId}   
+              desChainId={DesChainId}
+              connectedAccount={account}  
+            />
 
         {/* Automation Studio */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
-          className="mb-8"
+          className="my-8"
         >
           <Card className="bg-card/70 border-border">
             <CardHeader className="bg-accent/10 border-b border-border">

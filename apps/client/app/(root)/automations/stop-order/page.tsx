@@ -58,6 +58,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
 
 // Stop Order Contract ABI - only the functions we need
 const STOP_ORDER_ABI = [
@@ -1785,33 +1786,10 @@ export default function EnhancedStopOrderWithFunctionality() {
             </CardContent>
           </Card>
           {/* Enhanced Funding Requirements Card */}
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-4 sm:mt-6">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-3">
-                <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="h-4 w-4 text-amber-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-amber-100 mb-2 text-sm sm:text-base">Protection Setup Costs</h3>
-                  <p className="text-xs sm:text-sm text-amber-200 mb-3">
-                    RSC Monitoring: 0.05 REACT • Callback Execution: 0.03 ETH • Plus gas fees
-                  </p>
-                  <div className="">
-                    <p className="text-xs sm:text-sm text-amber-200 mb-2">
-                      📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
-                    </p>
-                    <a
-                      href="/markets" // Changed href to the new page route
-                      className="inline-flex items-center text-xs sm:text-sm text-amber-300 hover:text-amber-200 underline"
-                    >
-                      See here where you can obtain REACT tokens
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EnhancedFundingRequirementsCard 
+            connectedChain={connectedChain ?? undefined}
+            connectedAccount={connectedAccount}
+          />
         </motion.div>
 
         {/* Main Interface Container */}

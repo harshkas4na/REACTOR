@@ -21,6 +21,7 @@ import {
 import { Info, AlertCircle, Shield, Clock, Zap, Loader2, CheckCircle, RefreshCw, TrendingDown, Activity, DollarSign, ExternalLink } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionTrigger, AccordionItem } from '@/components/ui/accordion';
 import { toast } from 'react-hot-toast';
+import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
 
 // Define types for form data and position info
 interface AaveProtectionFormData {
@@ -78,7 +79,8 @@ interface ChainConfig {
   protectionManagerAddress: string;
   rpcUrl?: string;
   nativeCurrency: string;
-  wethAddress?: string; // Add WETH address for ETH handling
+  wethAddress?: string;
+  isComingSoon?: boolean; // ADD THIS FLAG
 }
 
 interface AssetConfig {
@@ -110,18 +112,19 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     protectionManagerAddress: '0xC789a1c6ef9764626bd95D376984FE35Ac0A579B',
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH',
-    wethAddress: '0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c' // Sepolia WETH
+    wethAddress: '0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c'
   },
   {
     id: '1',
-    name: 'Ethereum Mainnet (Coming Soon)',
+    name: 'Ethereum Mainnet',
     lendingPoolAddress: '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9',
     protocolDataProviderAddress: '0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d',
     addressesProviderAddress: '0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5',
     protectionManagerAddress: '',
     rpcUrl: 'https://ethereum.publicnode.com',
     nativeCurrency: 'ETH',
-    wethAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' // Mainnet WETH
+    wethAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    isComingSoon: true // ADD THIS FLAG
   }
 ];
 
@@ -196,6 +199,7 @@ export default function AaveLiquidationProtectionPage() {
 
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [connectedAccount, setConnectedAccount] = useState<string>('');
+  const [connectedChain, setConnectedChain] = useState<ChainConfig | null>(null); // CHANGED: Use state instead of computed
   const [setupStep, setSetupStep] = useState<SetupStep>('idle');
   const [positionInfo, setPositionInfo] = useState<AavePositionInfo | null>(null);
   const [userSubscription, setUserSubscription] = useState<UserSubscription | null>(null);
@@ -207,8 +211,8 @@ export default function AaveLiquidationProtectionPage() {
   // NEW: Form validation errors state
   const [validationErrors, setValidationErrors] = useState<FormValidationErrors>({});
 
-  const selectedChain = SUPPORTED_CHAINS.find(chain => chain.id === formData.chainId) || SUPPORTED_CHAINS[0];
-  const availableAssets = AAVE_ASSETS[formData.chainId as keyof typeof AAVE_ASSETS] || [];
+  // UPDATED: Get available assets using connectedChain
+  const availableAssets = connectedChain ? (AAVE_ASSETS[connectedChain.id as keyof typeof AAVE_ASSETS] || []) : [];
   
   const collateralAssets = availableAssets;
   const debtAssets = availableAssets.filter(asset => asset.canBorrow !== false);
@@ -280,41 +284,62 @@ export default function AaveLiquidationProtectionPage() {
     }
   }, [formData]);
 
+  // UPDATED: Chain detection useEffect (like Stop Order page)
   useEffect(() => {
-    const getConnectedAccount = async () => {
-      if (window.ethereum) {
+    const detectConnection = async () => {
+      if (typeof window !== 'undefined' && window.ethereum) {
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
-          const accounts = await provider.listAccounts();
+          const [accounts, network] = await Promise.all([
+            provider.listAccounts(),
+            provider.getNetwork()
+          ]);
+
           if (accounts.length > 0) {
             const account = accounts[0].address;
             setConnectedAccount(account);
             setFormData(prev => ({ ...prev, userAddress: account }));
           }
+
+          const chainId = network.chainId.toString();
+          const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
+          
+          if (chain) {
+            setConnectedChain(chain);
+            setFormData(prev => ({ ...prev, chainId: chainId }));
+          }
         } catch (error) {
-          console.error('Error getting connected account:', error);
+          console.error('Error detecting connection:', error);
         }
       }
     };
 
-    getConnectedAccount();
+    detectConnection();
 
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length > 0) {
-          setConnectedAccount(accounts[0]);
-          setFormData(prev => ({ ...prev, userAddress: accounts[0] }));
-        } else {
-          setConnectedAccount('');
+    // Handle network and account changes
+    const handleChainChanged = () => {
+      setTimeout(() => window.location.reload(), 100);
+    };
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length > 0) {
+        setConnectedAccount(accounts[0]);
+        setFormData(prev => ({ ...prev, userAddress: accounts[0] }));
+      }
+      setTimeout(() => window.location.reload(), 100);
+    };
+
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.on('chainChanged', handleChainChanged);
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+
+      return () => {
+        if (window.ethereum && window.ethereum.removeListener) {
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
         }
-      });
+      };
     }
-
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', () => {});
-      }
-    };
   }, []);
 
   const getAssetPriceUSD = async (assetConfig: AssetConfig, provider: ethers.BrowserProvider) => {
@@ -324,14 +349,14 @@ export default function AaveLiquidationProtectionPage() {
       ]);
 
       const protectionManagerContract = new ethers.Contract(
-        selectedChain.protectionManagerAddress,
+        connectedChain!.protectionManagerAddress, // UPDATED: Use connectedChain
         protectionManagerInterface,
         provider
       );
 
       try {
         // For ETH, use WETH address for price oracle
-        const assetAddress = assetConfig.address === 'ETH' ? selectedChain.wethAddress : assetConfig.address;
+        const assetAddress = assetConfig.address === 'ETH' ? connectedChain!.wethAddress : assetConfig.address;
         const priceWei = await protectionManagerContract.getAssetPrice(assetAddress);
         const priceUSD = Number(priceWei) / 1e8;
         
@@ -372,6 +397,10 @@ export default function AaveLiquidationProtectionPage() {
         throw new Error('Invalid user address format');
       }
 
+      if (!connectedChain) {
+        throw new Error('No chain connected');
+      }
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
       const currentChainId = network.chainId.toString();
@@ -385,7 +414,7 @@ export default function AaveLiquidationProtectionPage() {
       ]);
 
       const lendingPoolContract = new ethers.Contract(
-        selectedChain.lendingPoolAddress,
+        connectedChain.lendingPoolAddress, // UPDATED: Use connectedChain
         lendingPoolInterface,
         provider
       );
@@ -401,7 +430,7 @@ export default function AaveLiquidationProtectionPage() {
       ]);
 
       const dataProvider = new ethers.Contract(
-        selectedChain.protocolDataProviderAddress,
+        connectedChain.protocolDataProviderAddress, // UPDATED: Use connectedChain
         dataProviderInterface,
         provider
       );
@@ -413,7 +442,7 @@ export default function AaveLiquidationProtectionPage() {
       for (const assetConfig of availableAssets) {
         try {
           // For ETH, use WETH address to get reserve data
-          const reserveAddress = assetConfig.address === 'ETH' ? selectedChain.wethAddress : assetConfig.address;
+          const reserveAddress = assetConfig.address === 'ETH' ? connectedChain.wethAddress : assetConfig.address;
           if (!reserveAddress) continue;
           
           const reserveData = await dataProvider.getUserReserveData(reserveAddress, userAddress);
@@ -491,6 +520,8 @@ export default function AaveLiquidationProtectionPage() {
 
   const checkUserSubscription = async (userAddress: string) => {
     try {
+      if (!connectedChain) return;
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       
       const protectionManagerInterface = new ethers.Interface([
@@ -498,7 +529,7 @@ export default function AaveLiquidationProtectionPage() {
       ]);
 
       const protectionManagerContract = new ethers.Contract(
-        selectedChain.protectionManagerAddress,
+        connectedChain.protectionManagerAddress, // UPDATED: Use connectedChain
         protectionManagerInterface,
         provider
       );
@@ -528,7 +559,7 @@ export default function AaveLiquidationProtectionPage() {
 
   // Fixed approval checking logic
   const checkApprovals = async () => {
-    if (!connectedAccount) return;
+    if (!connectedAccount || !connectedChain) return;
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -542,7 +573,7 @@ export default function AaveLiquidationProtectionPage() {
           setCollateralApproved(true); // ETH doesn't need approval
         } else {
           const collateralContract = new ethers.Contract(formData.collateralAsset, erc20Interface, provider);
-          const collateralAllowance = await collateralContract.allowance(connectedAccount, selectedChain.protectionManagerAddress);
+          const collateralAllowance = await collateralContract.allowance(connectedAccount, connectedChain.protectionManagerAddress);
           setCollateralApproved(collateralAllowance > 0);
         }
       } else {
@@ -555,7 +586,7 @@ export default function AaveLiquidationProtectionPage() {
           setDebtApproved(true); // ETH doesn't need approval
         } else {
           const debtContract = new ethers.Contract(formData.debtAsset, erc20Interface, provider);
-          const debtAllowance = await debtContract.allowance(connectedAccount, selectedChain.protectionManagerAddress);
+          const debtAllowance = await debtContract.allowance(connectedAccount, connectedChain.protectionManagerAddress);
           setDebtApproved(debtAllowance > 0);
         }
       } else {
@@ -575,6 +606,8 @@ export default function AaveLiquidationProtectionPage() {
 
   const approveToken = async (tokenAddress: string, tokenName: string) => {
     try {
+      if (!connectedChain) throw new Error('No chain connected');
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
@@ -587,7 +620,7 @@ export default function AaveLiquidationProtectionPage() {
         signer
       );
 
-      const tx = await tokenContract.approve(selectedChain.protectionManagerAddress, ethers.MaxUint256);
+      const tx = await tokenContract.approve(connectedChain.protectionManagerAddress, ethers.MaxUint256);
       await tx.wait();
       
       toast.success(`${tokenName} approval successful!`);
@@ -602,6 +635,8 @@ export default function AaveLiquidationProtectionPage() {
 
   const subscribeToProtection = async () => {
     try {
+      if (!connectedChain) throw new Error('No chain connected');
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
@@ -610,7 +645,7 @@ export default function AaveLiquidationProtectionPage() {
       ]);
 
       const protectionManagerContract = new ethers.Contract(
-        selectedChain.protectionManagerAddress,
+        connectedChain.protectionManagerAddress,
         protectionManagerInterface,
         signer
       );
@@ -636,10 +671,10 @@ export default function AaveLiquidationProtectionPage() {
 
       // Convert ETH to WETH address for contract
       if (collateralAddress === 'ETH') {
-        collateralAddress = selectedChain.wethAddress || '';
+        collateralAddress = connectedChain.wethAddress || '';
       }
       if (debtAddress === 'ETH') {
-        debtAddress = selectedChain.wethAddress || '';
+        debtAddress = connectedChain.wethAddress || '';
       }
 
       const tx = await protectionManagerContract.subscribeToProtection(
@@ -670,6 +705,8 @@ export default function AaveLiquidationProtectionPage() {
   const unsubscribeFromProtection = async () => {
     setIsUnsubscribing(true);
     try {
+      if (!connectedChain) throw new Error('No chain connected');
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
@@ -678,7 +715,7 @@ export default function AaveLiquidationProtectionPage() {
       ]);
 
       const protectionManagerContract = new ethers.Contract(
-        selectedChain.protectionManagerAddress,
+        connectedChain.protectionManagerAddress,
         protectionManagerInterface,
         signer
       );
@@ -870,6 +907,11 @@ export default function AaveLiquidationProtectionPage() {
       return;
     }
 
+    if (!connectedChain) {
+      toast.error('No chain connected');
+      return;
+    }
+
     const originalChainId = formData.chainId;
     
     try {
@@ -931,7 +973,7 @@ export default function AaveLiquidationProtectionPage() {
         throw new Error(`Failed to switch back to original network. Current: ${finalNetwork.chainId}, Expected: ${originalChainId}`);
       }
       
-      toast.success(`Switched back to ${selectedChain.name}`);
+      toast.success(`Switched back to ${connectedChain.name}`);
 
       setSetupStep('subscribing');
       await subscribeToProtection();
@@ -980,7 +1022,7 @@ export default function AaveLiquidationProtectionPage() {
 
     // Handle WETH to ETH conversion for display
     let displayAddress = assetAddress;
-    if (assetAddress.toLowerCase() === selectedChain.wethAddress?.toLowerCase()) {
+    if (connectedChain && assetAddress.toLowerCase() === connectedChain.wethAddress?.toLowerCase()) {
       displayAddress = 'ETH';
     }
 
@@ -1115,6 +1157,15 @@ export default function AaveLiquidationProtectionPage() {
             Automatically protect your Aave positions from liquidation with smart collateral management and debt repayment strategies.
           </p>
           
+          {/* Network Status Alert */}
+          <Alert className="bg-blue-900/20 border-blue-500/30 mb-8">
+            <Info className="h-4 w-4 sm:h-5 sm:w-5" />
+            <AlertDescription className="text-blue-200 text-sm sm:text-base">
+              <span className="font-medium">Currently live on Ethereum Sepolia</span> • 
+              Ethereum Mainnet support coming soon
+            </AlertDescription>
+          </Alert>
+          
           {/* Features Card */}
           <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
             <CardContent className="p-6">
@@ -1151,38 +1202,10 @@ export default function AaveLiquidationProtectionPage() {
           </Card>
 
           {/* Enhanced Funding Requirements Card */}
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-4 sm:mt-6">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-3">
-                <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="h-4 w-4 text-amber-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-amber-100 mb-2 text-sm sm:text-base">Protection Setup Costs</h3>
-                  <p className="text-xs sm:text-sm text-amber-200 mb-3">
-                    RSC Monitoring: 0.05 REACT • Callback Execution: 0.03 ETH • Plus gas fees
-                  </p>
-                  <div className="">
-                    <p className="text-xs sm:text-sm text-amber-200 mb-2">
-                      📝 <span className="font-medium">Note:</span> To fund a Reactive Smart Contract, you will need gas on the Reactive Network.
-                    </p>
-                    <a
-                      href="/markets" // Changed href to the new page route
-                      className="inline-flex items-center text-xs sm:text-sm text-amber-300 hover:text-amber-200 underline"
-                    >
-                      See here where you can obtain REACT tokens
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  </div>
-                </div>
-                {/* <div className="text-right">
-                  <p className="text-xs text-amber-300">
-                    Covers 24/7 monitoring & automatic execution
-                  </p>
-                </div> */}
-              </div>
-            </CardContent>
-          </Card>
+          <EnhancedFundingRequirementsCard 
+            connectedChain={connectedChain ?? undefined}
+            connectedAccount={connectedAccount}
+          />
         </motion.div>
 
         {/* Current Subscription Status - Fixed display logic */}
@@ -1299,9 +1322,14 @@ export default function AaveLiquidationProtectionPage() {
                         key={chain.id} 
                         value={chain.id}
                         className="text-zinc-200 hover:bg-blue-600/20 focus:bg-blue-600/20"
-                        disabled={chain.id !== '11155111'}
+                        disabled={chain.isComingSoon}
                       >
                         {chain.name}
+                        {chain.isComingSoon && (
+                          <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
+                            Coming Soon
+                          </span>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1742,15 +1770,16 @@ export default function AaveLiquidationProtectionPage() {
                     disabled={
                       setupStep !== 'idle' || 
                       !positionInfo?.hasPosition ||
-                      selectedChain.id !== '11155111'
+                      !connectedChain ||
+                      connectedChain.isComingSoon
                     }
                   >
                     Subscribe to Liquidation Protection
                   </Button>
 
-                  {selectedChain.id !== '11155111' && (
+                  {connectedChain?.isComingSoon && (
                     <p className="text-center text-amber-400 text-sm">
-                      This network is coming soon. Currently only Sepolia testnet is supported.
+                      {connectedChain.name} support coming soon. Currently only Sepolia testnet is supported.
                     </p>
                   )}
                 </>
@@ -1758,6 +1787,20 @@ export default function AaveLiquidationProtectionPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Network info display at bottom */}
+        {connectedChain && (
+          <div className="text-center my-4 sm:my-6">
+            <p className="text-xs sm:text-sm text-zinc-400">
+              Connected to <span className="text-zinc-300 font-medium">{connectedChain.name}</span>
+              {connectedChain.isComingSoon && (
+                <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
+                  Coming Soon
+                </span>
+              )}
+            </p>
+          </div>
+        )}
 
         {/* Educational Section */}
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
