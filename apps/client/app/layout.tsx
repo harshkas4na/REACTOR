@@ -5,7 +5,7 @@ import { AutomationProvider } from "./_context/AutomationContext";
 import Navigation from "@/components/navigation/Navigation";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Web3Provider } from "@/app/_context/Web3Context";
-import ReactorAI from "@/components/ai/ReactorAI";
+import ReactorAIWrapper from "@/components/ai/ReactorAIWrapper";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://thereactor.in'), // Replace with your actual domain
+  metadataBase: new URL('https://thereactor.in'),
   alternates: {
     canonical: '/',
   },
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     siteName: 'REACTOR',
     images: [
       {
-        url: '/og-image.jpg', // You'll need to create this
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'REACTOR - DeFi Automation Platform',
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'REACTOR - DeFi Automation Made Simple',
     description: 'Automate your DeFi with AI. Protect Uniswap positions, secure Aave loans, and more.',
-    creator: '@0xReactor', // Replace with your actual Twitter handle
+    creator: '@0xReactor',
     images: ['/og-image.jpg'],
   },
   robots: {
@@ -87,7 +87,7 @@ export const metadata: Metadata = {
     shortcut: '/Symbol/Color/DarkBg.png',
     apple: '/Symbol/Color/DarkBg.png',
   },
-  manifest: '/manifest.json', // You'll need to create this
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -98,12 +98,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <head>
-        {/* Additional SEO tags */}
         <link rel="canonical" href="https://thereactor.in" />
         <meta name="theme-color" content="#1a0b2e" />
         <meta name="msapplication-TileColor" content="#1a0b2e" />
         
-        {/* Schema.org structured data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -142,7 +140,7 @@ export default function RootLayout({
                 <main className="flex-grow px-4 sm:px-6 lg:px-8">
                   {children}
                 </main>
-                <ReactorAI />
+                <ReactorAIWrapper />
               </div>
             </AutomationProvider>
           </Web3Provider>
