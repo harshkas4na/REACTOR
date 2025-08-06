@@ -119,10 +119,10 @@ export default function Navigation() {
                       </div>
                     <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
                     <SelectItem value="LASNA">Reactive Lasna</SelectItem>
-                    <SelectItem value="BSC_TESTNET">BSC Testnet (Origin)</SelectItem>
+                    {/* <SelectItem value="BSC_TESTNET">BSC Testnet (Origin)</SelectItem>
                     <SelectItem value="POLYGON_AMOY">Polygon Amoy (Origin)</SelectItem>
                     <SelectItem value="AVALANCHE_FUJI">Avalanche Fuji (Origin)</SelectItem>
-                    <SelectItem value="BASE_SEPOLIA">Base Sepolia (Origin)</SelectItem>
+                    <SelectItem value="BASE_SEPOLIA">Base Sepolia (Origin)</SelectItem> */}
                     
                     {/* Divider */}
                     <div className="h-px bg-zinc-800 my-1" />
@@ -131,14 +131,14 @@ export default function Navigation() {
                     <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
                         Mainnets
                       </div>
-                    <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
+                    {/* <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
                     <SelectItem value="BSC">Binance Smart Chain</SelectItem>
                     <SelectItem value="AVALANCHE">Avalanche C-Chain</SelectItem>
                     <SelectItem value="BASE">Base Chain</SelectItem>
                     <SelectItem value="ARBITRUM">Arbitrum One</SelectItem>
                     <SelectItem value="SONIC">Sonic Mainnet</SelectItem>
                     <SelectItem value="HYPEREVM">HyperEVM</SelectItem>
-                    <SelectItem value="REACT">Reactive Mainnet</SelectItem>
+                    <SelectItem value="REACT">Reactive Mainnet</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>

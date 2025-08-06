@@ -1,11 +1,36 @@
-import { Shield, Zap, Layers, Globe } from 'lucide-react'
+"use client"
+
+import { ShieldCheck, Zap, Layers, Globe } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 const stats = [
-  { name: 'Positions Automated', value: '1,320+', icon: Shield },
-  { name: 'Total Value Automated', value: '$396M+', icon: Zap },
-  { name: 'Protocols Integrated', value: '8', icon: Layers },
-  { name: 'Networks Supported', value: '4', icon: Globe },
+  { name: 'Audited Smart Contracts', value: '100%', icon: ShieldCheck },
+  { name: 'Automations Executed', value: '500+', icon: Zap },
+  { name: 'Core Protocols Live', value: '2', description: '(Uniswap & Aave)', icon: Layers },
+  { name: 'Supported Networks', value: '3+', description: '(Ethereum, Avalanche, Reactive)', icon: Globe },
 ]
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      ease: "easeOut"
+    }
+  }
+}
 
 export default function SocialProof() {
   return (
@@ -18,23 +43,37 @@ export default function SocialProof() {
                 id="social-proof-heading"
                 className="text-4xl font-bold tracking-tight sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary"
               >
-                Trusted by the Best in DeFi.
+                Secure, On-Chain Automation You Can Trust.
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
-                Our battle-tested infrastructure automates millions in value across the most popular protocols and networks, giving you peace of mind.
+                Our audited smart contract architecture provides a secure foundation for your DeFi strategies. Automate your risk management and yield optimization with confidence, knowing your assets are handled by robust, on-chain logic.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+            <motion.div 
+              className="grid grid-cols-1 gap-8 sm:grid-cols-2"
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+            >
               {stats.map((stat) => (
-                <div
+                <motion.div
                   key={stat.name}
                   className="flex flex-col-reverse gap-y-2 border-l-4 border-primary/50 pl-6"
+                  variants={itemVariants}
                 >
-                  <dt className="text-base leading-7 text-muted-foreground">{stat.name}</dt>
+                  <dt className="text-base leading-7 text-muted-foreground">
+                    {stat.name}
+                    {stat.description && (
+                      <span className="block text-sm text-muted-foreground/70">
+                        {stat.description}
+                      </span>
+                    )}
+                  </dt>
                   <dd className="text-4xl font-semibold tracking-tight text-foreground">{stat.value}</dd>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

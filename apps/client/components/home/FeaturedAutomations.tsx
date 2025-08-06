@@ -41,7 +41,7 @@ const automations = [
     name: 'Fee Collector',
     description:
       'Automatically compound your earnings. Our Fee Collector for Uniswap V3 monitors your positions and claims your earned fees when it`s most profitable, sending them directly to your wallet.',
-    imageSrc: '/gryfin.jpeg',
+    imageSrc: '/gryfin-removebg-preview.png',
     imageAlt: 'A griffin guarding a collection of glowing coins, representing fee collection.',
     features: [
       { name: 'Automatic Fee Compounding', icon: Zap },
