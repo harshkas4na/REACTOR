@@ -131,14 +131,14 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
 
   if (!positionInfo.hasPosition) {
     return (
-      <div className="my-4 p-4 bg-amber-900/20 border border-amber-500/30 rounded-lg">
+      <div className="my-4 p-3 sm:p-4 bg-amber-900/20 border border-amber-500/30 rounded-lg">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center">
-            <AlertCircle className="h-4 w-4 text-amber-400" />
+          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-600/20 flex items-center justify-center">
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-amber-400" />
           </div>
           <div>
-            <h3 className="font-medium text-amber-100">No Aave Position Found</h3>
-            <p className="text-sm text-amber-200">
+            <h3 className="font-medium text-amber-100 text-sm sm:text-base">No Aave Position Found</h3>
+            <p className="text-xs sm:text-sm text-amber-200">
               You need an active Aave lending position to use liquidation protection.
             </p>
           </div>
@@ -160,33 +160,33 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
     : 'bg-red-900/20 border-red-500/30';
 
   return (
-    <div className={`my-4 p-4 ${healthFactorBg} rounded-lg border`}>
+    <div className={`my-4 p-3 sm:p-4 ${healthFactorBg} rounded-lg border`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center">
-            <Shield className="h-4 w-4 text-blue-400" />
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-600/20 flex items-center justify-center">
+            <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
           </div>
           <div>
-            <h3 className="font-medium text-zinc-100">Aave Position</h3>
-            <p className="text-sm text-zinc-300">Current lending position details</p>
+            <h3 className="font-medium text-zinc-100 text-sm sm:text-base">Aave Position</h3>
+            <p className="text-xs sm:text-sm text-zinc-300">Current lending position details</p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setShowDetails(!showDetails)}
-          className="text-zinc-400 hover:text-zinc-200"
+          className="text-zinc-400 hover:text-zinc-200 p-1 sm:p-2"
         >
-          {showDetails ? <Shrink className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+          {showDetails ? <Shrink className="h-3 w-3 sm:h-4 sm:w-4" /> : <Expand className="h-3 w-3 sm:h-4 sm:w-4" />}
         </Button>
       </div>
 
       {/* Main Position Stats */}
-      <div className="grid grid-cols-1 gap-4 mb-4">
-        <div className="bg-zinc-800/50 p-3 rounded-lg">
-          <p className="text-sm text-zinc-400 mb-1">Total Collateral</p>
-          <p className="text-zinc-200 font-medium text-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+        <div className="bg-zinc-800/50 p-2 sm:p-3 rounded-lg">
+          <p className="text-xs sm:text-sm text-zinc-400 mb-1">Total Collateral</p>
+          <p className="text-zinc-200 font-medium text-base sm:text-lg">
             ${positionInfo.totalCollateralUSD.toFixed(2)}
           </p>
           <p className="text-xs text-zinc-500">
@@ -194,9 +194,9 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
           </p>
         </div>
         
-        <div className="bg-zinc-800/50 p-3 rounded-lg">
-          <p className="text-sm text-zinc-400 mb-1">Total Debt</p>
-          <p className="text-zinc-200 font-medium text-lg">
+        <div className="bg-zinc-800/50 p-2 sm:p-3 rounded-lg">
+          <p className="text-xs sm:text-sm text-zinc-400 mb-1">Total Debt</p>
+          <p className="text-zinc-200 font-medium text-base sm:text-lg">
             ${positionInfo.totalDebtUSD.toFixed(2)}
           </p>
           <p className="text-xs text-zinc-500">
@@ -206,11 +206,11 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
       </div>
 
       {/* Health Factor - Prominent Display */}
-      <div className="bg-zinc-800/50 p-4 rounded-lg mb-4">
+      <div className="bg-zinc-800/50 p-3 sm:p-4 rounded-lg mb-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-zinc-400 mb-1">Health Factor</p>
-            <p className={`font-bold text-xl ${healthFactorColor}`}>
+            <p className="text-xs sm:text-sm text-zinc-400 mb-1">Health Factor</p>
+            <p className={`font-bold text-lg sm:text-xl ${healthFactorColor}`}>
               {parseFloat(positionInfo.healthFactor).toFixed(3)}
             </p>
           </div>
@@ -239,7 +239,7 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
       {/* Detailed Asset Breakdown */}
       {showDetails && positionInfo.userAssets && positionInfo.userAssets.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h4 className="text-sm font-medium text-zinc-200">Asset Breakdown:</h4>
             <div className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
               🔮 Live from Aave Oracle
@@ -249,7 +249,7 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
             {positionInfo.userAssets.map((asset, index) => (
               <div key={asset.symbol + index} className="flex justify-between items-center p-2 bg-zinc-800/30 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
                     <span className="text-xs font-medium text-blue-400">
                       {asset.symbol.slice(0, 2)}
                     </span>
@@ -311,6 +311,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
   const [showDeploymentHandler, setShowDeploymentHandler] = useState(false);
   const [currentDeploymentConfig, setCurrentDeploymentConfig] = useState<any>(null);
   const [deploymentType, setDeploymentType] = useState<'stop_order' | 'aave_protection'>('stop_order');
+  const [isMobile, setIsMobile] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -319,10 +320,23 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
   const { account, selectedNetwork } = useWeb3();
   const router = useRouter();
 
-  // Apply body styles when AI is open/closed
+  // Check if mobile on mount and window resize
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.marginRight = '400px';
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Apply body styles when AI is open/closed - responsive version
+  useEffect(() => {
+    if (isOpen && !isMobile) {
+      // Only apply margin on desktop
+      const sidebarWidth = window.innerWidth >= 1024 ? '400px' : '350px';
+      document.body.style.marginRight = sidebarWidth;
       document.body.style.transition = 'margin-right 0.3s ease-out';
     } else {
       document.body.style.marginRight = '0';
@@ -334,7 +348,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
       document.body.style.marginRight = '0';
       document.body.style.transition = '';
     };
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   // Generate conversation ID on first open
   useEffect(() => {
@@ -380,10 +394,10 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
 
   // Focus input when chat opens
   useEffect(() => {
-    if (isOpen && inputRef.current) {
+    if (isOpen && inputRef.current && !isMobile) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -576,8 +590,8 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (!inputValue.trim()) return;
     sendMessage(inputValue);
   };
@@ -628,15 +642,15 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
   // Enhanced MessageBubble component
   const MessageBubble = ({ message }: { message: Message }) => {
     return (
-      <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
-        <div className="flex items-start space-x-2 max-w-[90%]">
+      <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mb-3 sm:mb-4`}>
+        <div className="flex items-start space-x-2 max-w-[95%] sm:max-w-[90%]">
           {message.type === 'ai' && (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
             </div>
           )}
           
-          <div className={`rounded-2xl px-4 py-3 ${
+          <div className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base ${
             message.type === 'user' 
               ? 'bg-primary text-primary-foreground ml-auto' 
               : 'bg-muted/50 text-foreground border border-border'
@@ -664,7 +678,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOptionSelect(option)}
-                    className="w-full justify-start text-left h-auto py-2 px-3 bg-background/50 hover:bg-background border-border hover:border-primary/50 transition-colors"
+                    className="w-full justify-start text-left h-auto py-2 px-3 text-sm bg-background/50 hover:bg-background border-border hover:border-primary/50 transition-colors"
                   >
                     {option.label}
                   </Button>
@@ -712,8 +726,8 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
           </div>
           
           {message.type === 'user' && (
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-primary" />
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <User className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
             </div>
           )}
         </div>
@@ -731,18 +745,22 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="fixed top-0 right-0 h-full w-[400px] bg-background border-l border-border shadow-2xl z-50 flex flex-col"
+        className={`fixed top-0 right-0 h-full z-50 flex flex-col bg-background border-l border-border shadow-2xl ${
+          isMobile 
+            ? 'w-full' 
+            : 'w-[350px] lg:w-[400px]'
+        }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border bg-muted/30">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Reactor AI</h3>
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">Reactor AI</h3>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-xs text-muted-foreground">
                   {isTyping ? 'Thinking...' : 'Online'}
                 </span>
@@ -758,7 +776,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground p-1 sm:p-2"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -768,7 +786,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
         <div className="flex-1 overflow-hidden flex flex-col">
           <div 
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
+            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
           >
             {/* Render messages */}
             {messages.map((message) => (
@@ -783,29 +801,29 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                 className="flex justify-start"
               >
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-primary-foreground" />
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
+                    <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
                   </div>
-                  <div className="bg-muted/50 text-foreground rounded-2xl px-4 py-3 border border-border">
+                  <div className="bg-muted/50 text-foreground rounded-2xl px-3 py-2 sm:px-4 sm:py-3 border border-border">
                     <div className="flex items-center space-x-3">
                       <div className="flex space-x-1">
                         <motion.div 
-                          className="w-2 h-2 bg-primary rounded-full"
+                          className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full"
                           animate={{ scale: [1, 1.2, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0 }}
                         />
                         <motion.div 
-                          className="w-2 h-2 bg-secondary rounded-full"
+                          className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-secondary rounded-full"
                           animate={{ scale: [1, 1.2, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
                         />
                         <motion.div 
-                          className="w-2 h-2 bg-primary rounded-full"
+                          className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full"
                           animate={{ scale: [1, 1.2, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
                         />
                       </div>
-                      <span className="text-sm">AI is thinking...</span>
+                      <span className="text-xs sm:text-sm">AI is thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -815,8 +833,8 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-border p-4 bg-muted/20">
-            <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="border-t border-border p-3 sm:p-4 bg-muted/20">
+            <div className="space-y-3">
               <div className="flex space-x-2">
                 <Input
                   ref={inputRef}
@@ -827,25 +845,31 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                       ? "Ask me about DeFi automation..." 
                       : "Ask me about REACTOR..."
                   }
-                  className="flex-1 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="flex-1 bg-background border-border text-foreground placeholder:text-muted-foreground text-sm sm:text-base"
                   disabled={isLoading}
                   maxLength={500}
                   autoComplete="off"
                   spellCheck="false"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
                 />
                 <Button
-                  type="submit"
                   size="icon"
+                  onClick={handleSubmit}
                   disabled={isLoading || !inputValue.trim()}
                   className="bg-primary hover:bg-primary/90 shrink-0"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
               </div>
 
               {/* Status and Character Count */}
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 sm:space-x-3 flex-wrap">
                   {account ? (
                     <div className="flex items-center space-x-1">
                       <CheckCircle className="w-3 h-3 text-green-400" />
@@ -854,7 +878,8 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                   ) : (
                     <div className="flex items-center space-x-1">
                       <AlertCircle className="w-3 h-3 text-amber-400" />
-                      <span>Connect wallet for automations</span>
+                      <span className="hidden sm:inline">Connect wallet for automations</span>
+                      <span className="sm:hidden">Connect wallet</span>
                     </div>
                   )}
                   {selectedNetwork && (
@@ -879,16 +904,17 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                     key={index}
                     variant="ghost"
                     size="sm"
-                    className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    className="text-xs h-6 sm:h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
                     onClick={() => handleQuickAction(action.text)}
                     disabled={isLoading}
                   >
                     <action.icon className="w-3 h-3 mr-1" />
-                    {action.label}
+                    <span className="hidden sm:inline">{action.label}</span>
+                    <span className="sm:hidden">{action.label.split(' ')[0]}</span>
                   </Button>
                 ))}
               </div>
-            </form>
+            </div>
           </div>
         </div>
       </motion.div>
