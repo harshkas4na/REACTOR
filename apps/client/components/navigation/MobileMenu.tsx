@@ -76,30 +76,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
     >
       <div className="px-4 py-4 space-y-4">
         {/* ReactorAI Button - Prominent placement at top */}
-        <div className="pb-4 border-b border-gray-700">
-          <Button
-            onClick={handleAIClick}
-            className="w-full bg-gradient-to-r from-primary/20 to-secondary/20 hover:from-primary/30 hover:to-secondary/30 border border-primary/30 text-primary-foreground justify-start text-left h-auto py-3 px-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center relative">
-                <Sparkles className="w-4 h-4 text-foreground" />
-                {/* Notification indicator */}
-                <motion.div 
-                  className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center"
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <div className="w-1.5 h-1.5 bg-foreground rounded-full" />
-                </motion.div>
-              </div>
-              <div>
-                <span className="font-medium text-foreground">ReactorAI</span>
-                <p className="text-xs text-muted-foreground">Your DeFi automation assistant</p>
-              </div>
-            </div>
-          </Button>
-        </div>
+       
 
         {/* Navigation Links */}
         {NAVIGATION_ITEMS.map((item) => {
@@ -188,7 +165,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
                   >
                     Reactive Lasna
                   </SelectItem>
-                  <SelectItem 
+                  {/* <SelectItem 
                     value="BSC_TESTNET" 
                     className="text-gray-200 hover:bg-gray-700/50"
                   >
@@ -211,7 +188,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
                     className="text-gray-200 hover:bg-gray-700/50"
                   >
                     Base Sepolia (Origin)
-                  </SelectItem>
+                  </SelectItem> */}
                 </div>
 
                 {/* Divider */}
@@ -222,7 +199,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
                   <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
                     Mainnets
                   </div>
-                  {[
+                  {/* {[
                     { value: "ETHEREUM", label: "Ethereum Mainnet" },
                     { value: "BSC", label: "Binance Smart Chain" },
                     { value: "AVALANCHE", label: "Avalanche C-Chain" },
@@ -239,7 +216,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
                     >
                       {network.label}
                     </SelectItem>
-                  ))}
+                  ))} */}
                 </div>
               </div>
             </SelectContent>

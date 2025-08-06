@@ -464,7 +464,7 @@ Respond as Reactor AI:`;
         inputType: 'token' as const,
         nextStep: 'tokenToSell',
         options: [
-          { value: 'ETH', label: '💎 Ethereum (ETH)' },
+          
           { value: 'USDC', label: '💵 USD Coin (USDC)' },
           { value: 'USDT', label: '💵 Tether (USDT)' },
           { value: 'DAI', label: '💵 Dai (DAI)' }
@@ -1274,7 +1274,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
   private getAaveAssets(chainId: number) {
     const assets = {
       11155111: [ // Sepolia
-        { address: 'ETH', symbol: 'ETH', name: 'Ethereum' },
+        
         { address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', symbol: 'LINK', name: 'Chainlink' },
         { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin' },
         { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin' },
@@ -1282,7 +1282,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         { address: '0x88541670e55cc00beefd87eb59edd1b7c511ac9a', symbol: 'AAVE', name: 'Aave Token' }
       ],
       1: [ // Ethereum Mainnet (when supported)
-        { address: 'ETH', symbol: 'ETH', name: 'Ethereum' },
+      
         { address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', symbol: 'AAVE', name: 'Aave Token' },
         { address: '0xA0b86a33E6441b4B576fb3D43bF18E5c73b49c90', symbol: 'USDC', name: 'USD Coin' },
         { address: '0x6B175474E89094C44Da98b954EedeAC495271d0F', symbol: 'DAI', name: 'Dai Stablecoin' },
@@ -1426,7 +1426,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           inputType: 'token' as const,
           nextStep: 'tokenToSell',
           options: [
-            { value: 'ETH', label: '💎 Ethereum (ETH)' },
+           
             { value: 'USDC', label: '💵 USD Coin (USDC)' },
             { value: 'USDT', label: '💵 Tether (USDT)' },
             { value: 'DAI', label: '💵 Dai (DAI)' }
@@ -2349,7 +2349,7 @@ ${strategyDescription}
 
   private getTokenOptionsExcluding(excludeToken?: string) {
     const allTokens = [
-      { value: 'ETH', label: '💎 Ethereum (ETH)' },
+     
       { value: 'USDC', label: '💵 USD Coin (USDC) - Stablecoin' },
       { value: 'USDT', label: '💵 Tether (USDT) - Stablecoin' },
       { value: 'DAI', label: '💵 Dai (DAI) - Stablecoin' },

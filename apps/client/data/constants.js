@@ -2,7 +2,7 @@
 export const BASE_URL = 'https://app.thereactor.in/api'
 
 export const NAVIGATION_ITEMS = [
-    { label: 'Home', path: '/' },
+    // { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
     { 
       label: 'Automations', 
