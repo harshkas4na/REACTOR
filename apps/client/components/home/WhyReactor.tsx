@@ -81,7 +81,7 @@ export default function WhyReactor() {
                 <div className="flex items-center gap-2 mb-2">
                   <p className="text-lg font-semibold leading-8 text-foreground">{feature.name}</p>
                   {feature.status === 'coming_soon' && (
-                    <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                    <span className="inline-flex pl-5 items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
                       Coming Soon
                     </span>
                   )}
