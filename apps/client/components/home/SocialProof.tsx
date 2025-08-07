@@ -41,7 +41,7 @@ export default function SocialProof() {
             <div>
               <h2
                 id="social-proof-heading"
-                className="text-4xl font-bold tracking-tight sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary"
+                className="text-4xl font-bold tracking-tight sm:text-5xl text-transparent bg-clip-text bg-primary/90"
               >
                 Secure, On-Chain Automation You Can Trust.
               </h2>

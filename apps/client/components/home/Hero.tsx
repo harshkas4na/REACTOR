@@ -2,115 +2,25 @@
 import { useState } from "react";
 import { Button } from "@nextui-org/react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   SparklesIcon,
   ShieldExclamationIcon,
   RocketLaunchIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  ClockIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import React from "react";
 
-// SLIDES
-const slides = [
-  {
-    id: 0,
-    title: (
-      <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-        Automate DeFi Without Code
-      </span>
-    ),
-    subtitle:
-      "Deploy powerful DeFi automations in minutes with ready-to-use templates",
-    primaryButton: {
-      text: "Use Automations",
-      href: "#featured-automations",
-      icon: RocketLaunchIcon,
-      isAnchor: true,
-    },
-    status: null,
-  },
-  {
-    id: 1,
-    title: (
-      <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-700">
-        Protect Your Tokens Automatically
-      </span>
-    ),
-    subtitle:
-      "Set up Uniswap stop orders to secure your positions when prices drop",
-    image: "/Uniswap-stop-order.jpg",
-    primaryButton: {
-      text: "Create Stop Order",
-      href: "/automations/stop-order",
-      icon: ShieldExclamationIcon,
-    },
-    status: null,
-  },
-  {
-    id: 2,
-    title: (
-      <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-500">
-        Collect Fees Without Effort
-      </span>
-    ),
-    subtitle:
-      "Automatically collect earned fees from your Uniswap V3 positions 24/7",
-    image: "/fee-collector-9.jpg",
-    primaryButton: {
-      text: "Setup Fee Collector",
-      href: "/automations/fee-collector",
-      icon: CurrencyDollarIcon,
-    },
-    status: "Coming Soon",
-  },
-  {
-    id: 3,
-    title: (
-      <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600">
-        Optimize Your Liquidity Positions
-      </span>
-    ),
-    subtitle:
-      "Keep your Uniswap V3 positions in optimal fee-generating ranges automatically",
-    image: "/range-manager-7.jpg",
-    primaryButton: {
-      text: "Setup Range Manager",
-      href: "/automations/range-manager",
-      icon: ChartBarIcon,
-    },
-    status: "Coming Soon",
-  },
-  {
-    id: 4,
-    title: (
-      <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
-        Prevent Liquidations Automatically
-      </span>
-    ),
-    subtitle:
-      "Automatically manage your Aave health factor to avoid costly liquidations",
-    image: "/aave-protection.jpeg",
-    primaryButton: {
-      text: "Setup Aave Protection",
-      href: "/automations/aave-protection",
-      icon: ShieldExclamationIcon,
-    },
-    status: null,
-  },
-];
-
-// PROTOCOL CARDS (Desktop)
-const protocolCards = [
+// AUTOMATION CARDS (Only available ones)
+const automationCards = [
   {
     id: 1,
     protocol: "Uniswap",
     version: "V2",
     featureName: "Stop Order",
-    slideIndex: 1,
+    description: "Protect your tokens automatically with Uniswap stop orders to secure positions when prices drop",
+    href: "/automations/stop-order",
+    icon: ShieldExclamationIcon,
     gradient: "from-red-500/20 to-red-700/20",
     borderColor: "border-red-500/30",
     textColor: "text-red-300",
@@ -118,32 +28,12 @@ const protocolCards = [
   },
   {
     id: 2,
-    protocol: "Uniswap",
-    version: "V3",
-    featureName: "Fee Collector",
-    slideIndex: 2,
-    gradient: "from-blue-400/20 to-green-500/20",
-    borderColor: "border-blue-500/30",
-    textColor: "text-blue-300",
-    logo: "/images/hero/Uniswap-logo.jpg",
-  },
-  {
-    id: 3,
-    protocol: "Uniswap",
-    version: "V3",
-    featureName: "Range Manager",
-    slideIndex: 3,
-    gradient: "from-purple-500/20 to-blue-600/20",
-    borderColor: "border-purple-500/30",
-    textColor: "text-purple-300",
-    logo: "/images/hero/Uniswap-logo.jpg",
-  },
-  {
-    id: 4,
     protocol: "Aave",
     version: "V3",
     featureName: "Liquidation Protection",
-    slideIndex: 4,
+    description: "Automatically manage your Aave health factor to avoid costly liquidations",
+    href: "/automations/aave-protection",
+    icon: ShieldExclamationIcon,
     gradient: "from-cyan-500/20 to-purple-500/20",
     borderColor: "border-cyan-500/30",
     textColor: "text-cyan-300",
@@ -151,89 +41,36 @@ const protocolCards = [
   },
 ];
 
-// PROTOCOL TABS (Mobile)
-const protocolTabs = protocolCards.map((c) => ({
-  id: c.id,
-  label: `${c.protocol} ${c.version} – ${c.featureName}`,
-  slideIndex: c.slideIndex,
-}));
-
 export default function Hero() {
-  const [activeCard, setActiveCard] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<number | null>(null);
-
-  const getCurrentSlide = () => {
-    if (activeCard) {
-      const card = protocolCards.find((c) => c.id === activeCard);
-      return slides[card?.slideIndex || 0];
-    }
-    if (activeTab) {
-      const tab = protocolTabs.find((t) => t.id === activeTab);
-      return slides[tab?.slideIndex || 0];
-    }
-    return slides[0];
-  };
-
-  const currentSlide = getCurrentSlide();
-  const CurrentIcon = currentSlide.primaryButton.icon;
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
 
   return (
     <section className="relative py-12 sm:py-20 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-        {/* MOBILE TABS */}
-        <div className="lg:hidden mb-6 overflow-x-auto">
-          <div className="flex space-x-3 min-w-max">
-            {protocolTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-full border text-sm whitespace-nowrap transition-all
-                  ${activeTab === tab.id
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-transparent border-zinc-600 text-zinc-300 hover:bg-zinc-800"}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12">
           
           {/* LEFT COLUMN */}
-          <motion.div className="lg:w-1/2 lg:pr-8 mb-10 lg:mb-0">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentSlide.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.4 }}
-              >
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-3 leading-tight">
-                  {currentSlide.title}
-                </h1>
-                <p className="text-lg sm:text-xl md:text-2xl text-zinc-300 mb-6">
-                  {currentSlide.subtitle}
-                </p>
-              </motion.div>
-            </AnimatePresence>
+          <div className="lg:w-1/2 lg:pr-8 mb-10 lg:mb-0">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-3 leading-tight">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+                Automate DeFi Without Code
+              </span>
+            </h1>
+            <p className="text-lg sm:text-xl md:text-2xl text-zinc-300 mb-6">
+              Deploy powerful DeFi automations in minutes with ready-to-use templates
+            </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
-                as={currentSlide.primaryButton.isAnchor ? "a" : Link}
-                href={currentSlide.primaryButton.href}
-                color={
-                  currentSlide.status === "Coming Soon" ? "default" : "primary"
-                }
+                as="a"
+                href="#featured-automations"
+                color="primary"
                 variant="shadow"
                 size="lg"
-                isDisabled={currentSlide.status === "Coming Soon"}
-                startContent={<CurrentIcon className="h-5 w-5" />}
+                startContent={<RocketLaunchIcon className="h-5 w-5" />}
                 className="w-full sm:w-auto rounded-md"
               >
-                {currentSlide.primaryButton.text}
+                Use Automations
               </Button>
               <Button
                 as={Link}
@@ -246,36 +83,33 @@ export default function Hero() {
                 For Developers
               </Button>
             </div>
-          </motion.div>
+          </div>
 
-          {/* RIGHT COLUMN - DESKTOP CARDS */}
-          <motion.div className="hidden lg:block lg:w-1/2">
-            <div className="grid grid-cols-2 gap-4">
-              {protocolCards.map((card) => (
-                <motion.div
-                  key={card.id}
-                  className="relative cursor-pointer group"
-                  onClick={() =>
-                    setActiveCard(activeCard === card.id ? null : card.id)
-                  }
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+          {/* RIGHT COLUMN - DESKTOP CIRCULAR CARDS */}
+          <div className="hidden lg:flex lg:w-1/2 lg:justify-center lg:space-x-12">
+            {automationCards.map((card) => {
+              const CardIcon = card.icon;
+              const isHovered = hoveredCard === card.id;
+              
+              return (
+                <Link key={card.id} href={card.href}>
                   <motion.div
-                    className="w-full aspect-square rounded-xl relative"
-                    style={{ transformStyle: "preserve-3d" }}
-                    animate={{
-                      rotateY: activeCard === card.id ? 180 : 0,
-                    }}
-                    transition={{ duration: 0.7, ease: "easeInOut" }}
+                    className="relative"
+                    onMouseEnter={() => setHoveredCard(card.id)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    {/* FRONT */}
                     <motion.div
-                      className={`absolute inset-0 w-full h-full bg-gradient-to-br ${card.gradient} rounded-xl border ${card.borderColor} flex items-center justify-center`}
-                      style={{ backfaceVisibility: "hidden" }}
+                      className={`w-64 h-64 rounded-full bg-gradient-to-br ${card.gradient} border ${card.borderColor} flex flex-col items-center justify-center p-8 cursor-pointer relative overflow-hidden`}
+                      animate={{
+                        boxShadow: isHovered ? "0 25px 50px rgba(0,0,0,0.4)" : "0 15px 30px rgba(0,0,0,0.2)",
+                      }}
+                      transition={{ duration: 0.3 }}
                     >
-                      <div className="text-center p-3">
-                        <div className="w-20 h-20 mx-auto mb-3 relative">
+                      {/* Card Content */}
+                      <div className="text-center">
+                        <div className="w-20 h-20 mx-auto mb-4 relative">
                           <Image
                             src={card.logo}
                             alt={`${card.protocol} Logo`}
@@ -283,65 +117,89 @@ export default function Hero() {
                             className="object-contain rounded-full"
                           />
                         </div>
-                        <p className={`${card.textColor} font-bold`}>
-                          {card.protocol}
-                        </p>
-                        <div className="text-xs px-3 py-1 bg-white/10 rounded-full text-white/70 inline-block mt-1">
-                          {card.version}
-                        </div>
-                        <p className="text-sm text-white mt-2">
+                        
+                        <h3 className="text-xl font-bold text-white mb-2">
                           {card.featureName}
+                        </h3>
+                        <p className={`${card.textColor} font-semibold text-sm mb-4`}>
+                          {card.protocol} {card.version}
                         </p>
+
+                        <div className="bg-white/10 p-3 rounded-full mx-auto w-12 h-12 flex items-center justify-center mb-3">
+                          <CardIcon className="h-6 w-6 text-white" />
+                        </div>
+
+                        {/* Hover additional info */}
+                        {/* <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ 
+                            opacity: isHovered ? 1 : 0,
+                            height: isHovered ? "auto" : 0
+                          }}
+                          transition={{ duration: 0.3 }}
+                          className="text-center"
+                        >
+                          <div className="text-xs text-white/70 mb-1">
+                            Automate DeFi Operations
+                          </div>
+                          <div className="text-xs text-white/60">
+                            Click to setup →
+                          </div>
+                        </motion.div> */}
                       </div>
                     </motion.div>
-
-                    {/* BACK */}
-                    <motion.div
-                      className={`absolute inset-0 w-full h-full bg-gradient-to-br ${card.gradient.replace(
-                        "/20",
-                        "/30"
-                      )} rounded-xl border ${card.borderColor.replace(
-                        "/30",
-                        "/50"
-                      )} flex items-center justify-center`}
-                      style={{
-                        backfaceVisibility: "hidden",
-                        transform: "rotateY(180deg)",
-                      }}
-                    >
-                      {currentSlide.image && activeCard === card.id ? (
-                        <div className="relative w-full h-full">
-                          <Image
-                            src={currentSlide.image}
-                            alt={`${card.protocol} ${card.version}`}
-                            fill
-                            className="object-cover rounded-xl"
-                          />
-                          {currentSlide.status === "Coming Soon" && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
-                              <div className="text-center">
-                                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-full mb-3 mx-auto w-12 h-12 flex items-center justify-center">
-                                  <ClockIcon className="h-6 w-6 text-white" />
-                                </div>
-                                <h3 className="text-lg font-bold text-white mb-1">
-                                  Coming Soon
-                                </h3>
-                                <p className="text-zinc-300 text-xs">
-                                  In development
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-white/70">Active</p>
-                      )}
-                    </motion.div>
                   </motion.div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* MOBILE/TABLET VERTICAL CARDS */}
+          <div className="lg:hidden space-y-6">
+            {automationCards.map((card) => {
+              const CardIcon = card.icon;
+              
+              return (
+                <Link key={card.id} href={card.href}>
+                  <motion.div
+                    className={`bg-gradient-to-r ${card.gradient} rounded-xl border ${card.borderColor} my-8 p-6 cursor-pointer`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-14 h-14 relative flex-shrink-0">
+                        <Image
+                          src={card.logo}
+                          alt={`${card.protocol} Logo`}
+                          fill
+                          className="object-contain rounded-full"
+                        />
+                      </div>
+                      
+                      <div className="flex-grow">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="text-lg font-bold text-white">
+                            {card.featureName}
+                          </h3>
+                          <CardIcon className="h-5 w-5 text-white/70" />
+                        </div>
+                        <p className={`${card.textColor} font-semibold text-sm mb-2`}>
+                          {card.protocol} {card.version}
+                        </p>
+                        <p className="text-sm text-white/80">
+                          {card.description}
+                        </p>
+                      </div>
+                      
+                      <div className="flex-shrink-0">
+                        <span className="text-white/60 text-sm">→</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
