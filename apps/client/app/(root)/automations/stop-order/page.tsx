@@ -184,11 +184,11 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     nativeCurrency: 'ETH',
     defaultFunding: '0.03',
     rscNetwork: {
-      chainId: '1597',
-      name: 'Reactive Mainnet',
-      rpcUrl: 'https://mainnet-rpc.rnk.dev/',
+      chainId: '5318007',
+      name: 'Reactive Lasna',
+      rpcUrl: 'https://lasna-rpc.rnk.dev/',
       currencySymbol: 'REACT',
-      explorerUrl: 'https://reactscan.net/'
+      explorerUrl: 'https://lasna.reactscan.net'
     }
   },
   {
@@ -200,7 +200,8 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     callbackAddress: '0x0000000000000000000000000000000000000000', // UPDATE WITH DEPLOYED CALLBACK CONTRACT ADDRESS
     rpcUrl: 'https://base.publicnode.com',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.002', // Lower funding for Base (cheaper gas)
+    defaultFunding: '0.002',
+    isComingSoon: true, // Lower funding for Base (cheaper gas)
     rscNetwork: {
       chainId: '1597',
       name: 'Reactive Mainnet',
@@ -218,7 +219,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     callbackAddress: '0xe6a25e1641A17A8BCE5DD591a490d94AADB4919f',
     rpcUrl: 'https://ethereum.publicnode.com',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.03',
+    defaultFunding: '0.01',
     isComingSoon: true,
     rscNetwork: {
       chainId: '1597',
@@ -788,10 +789,10 @@ const SimpleStatusIndicator = ({
       return { type: 'error', message: 'Connect your wallet to continue' };
     }
     if (!connectedChain) {
-      return { type: 'error', message: 'Please switch to a supported network (Base or Sepolia)' };
+      return { type: 'error', message: 'Please switch to a supported network (Sepolia)' };
     }
     if (connectedChain.isComingSoon) {
-      return { type: 'warning', message: `${connectedChain.name} support coming soon - switch to Base or Sepolia` };
+      return { type: 'warning', message: `${connectedChain.name} support coming soon - switch to Sepolia` };
     }
     if (!formData.sellToken || !formData.buyToken) {
       return { type: 'warning', message: 'Select tokens to create stop order' };
@@ -870,7 +871,7 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
       case 'approving':
         return { title: 'Approving Tokens', message: 'Please confirm token approval in your wallet...', color: 'yellow' };
       case 'switching-rsc':
-        return { title: 'Switching to Reactive Mainnet', message: 'Please confirm network switch in your wallet...', color: 'purple' };
+        return { title: 'Switching to Reactive lasna', message: 'Please confirm network switch in your wallet...', color: 'purple' };
       case 'funding-rsc':
         return { title: 'Funding RSC Monitor', message: 'Sending 0.05 REACT to price monitoring system...', color: 'blue' };
       case 'switching-back':
@@ -1201,7 +1202,7 @@ export default function EnhancedStopOrderWithFunctionality() {
     }
 
     if (connectedChain.isComingSoon) {
-      toast.error(`${connectedChain.name} support coming soon. Please switch to Base or Sepolia.`);
+      toast.error(`${connectedChain.name} support coming soon. Please switch to Sepolia.`);
       return;
     }
 
