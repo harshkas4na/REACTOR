@@ -45,19 +45,25 @@ export default function Hero() {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
 
   return (
-    <section className="relative py-12 sm:py-20 overflow-hidden">
+    <section className="relative py-16 sm:py-24 overflow-hidden">
+      {/* subtle vignette */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(800px_300px_at_50%_0%,rgba(255,255,255,0.04),transparent)]" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12">
           
           {/* LEFT COLUMN */}
           <div className="lg:w-1/2 lg:pr-8 mb-10 lg:mb-0">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-3 leading-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-blue-600/30 to-purple-600/30 px-3 py-1.5 text-xs font-medium text-white shadow-sm backdrop-blur mb-4">
+              <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
+              Now supporting Aave V3 + Uniswap stop orders
+            </div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 leading-tight tracking-tight">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-sky-300 to-purple-400">
                 Automate DeFi Without Code
               </span>
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl text-zinc-300 mb-6">
-              Deploy powerful DeFi automations in minutes with ready-to-use templates
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 max-w-xl">
+              Deploy powerful DeFi automations in minutes. Secure positions, protect loans, and optimize yield with audited reactive smart contracts.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -68,14 +74,14 @@ export default function Hero() {
                 variant="shadow"
                 size="lg"
                 startContent={<RocketLaunchIcon className="h-5 w-5" />}
-                className="w-full sm:w-auto rounded-md"
+                className="w-full sm:w-auto rounded-full shadow-[0_0_0_1px_rgba(59,130,246,0.2)]"
               >
                 Use Automations
               </Button>
               <Button
                 as={Link}
                 href="/deploy-reactive-contract"
-                className="w-full sm:w-auto rounded-md"
+                className="w-full sm:w-auto rounded-full"
                 variant="bordered"
                 size="lg"
                 startContent={<SparklesIcon className="h-5 w-5" />}
@@ -101,7 +107,7 @@ export default function Hero() {
                     whileTap={{ scale: 0.95 }}
                   >
                     <motion.div
-                      className={`w-64 h-64 rounded-full bg-gradient-to-br ${card.gradient} border ${card.borderColor} flex flex-col items-center justify-center p-8 cursor-pointer relative overflow-hidden`}
+                      className={`w-64 h-64 rounded-3xl bg-gradient-to-br ${card.gradient} border ${card.borderColor} flex flex-col items-center justify-center p-8 cursor-pointer relative overflow-hidden backdrop-blur-md`}
                       animate={{
                         boxShadow: isHovered ? "0 25px 50px rgba(0,0,0,0.4)" : "0 15px 30px rgba(0,0,0,0.2)",
                       }}
@@ -162,7 +168,7 @@ export default function Hero() {
               return (
                 <Link key={card.id} href={card.href}>
                   <motion.div
-                    className={`bg-gradient-to-r ${card.gradient} rounded-xl border ${card.borderColor} my-8 p-6 cursor-pointer`}
+                    className={`bg-gradient-to-r ${card.gradient} rounded-2xl border ${card.borderColor} my-8 p-6 cursor-pointer backdrop-blur-md`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >

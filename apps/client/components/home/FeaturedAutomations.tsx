@@ -76,7 +76,9 @@ const automations = [
 
 export default function FeaturedAutomations() {
   return (
-<section id="featured-automations" className='relative' aria-labelledby="featured-automations-heading">      <div className="space-y-24 sm:space-y-32">
+<section id="featured-automations" className='relative' aria-labelledby="featured-automations-heading">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(600px_180px_at_50%_100%,rgba(56,189,248,0.05),transparent)]" />
+      <div className="space-y-24 sm:space-y-32">
         {automations.map((automation, index) => (
           <div key={automation.name} className="mx-auto max-w-2xl lg:max-w-none lg:mx-0">
             <div className={`grid items-center grid-cols-1 gap-y-16 gap-x-8 lg:grid-cols-2`}>
@@ -99,14 +101,14 @@ export default function FeaturedAutomations() {
                   {automation.cta.primary ? (
                     <Link
                       href={automation.cta.href}
-                      className="inline-flex items-center justify-center rounded-md px-6 py-3 text-base font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      className="inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
                       {automation.cta.text}
                     </Link>
                   ) : (
                     <button
                       disabled
-                      className="inline-flex items-center justify-center rounded-md px-6 py-3 text-base font-semibold shadow-sm bg-secondary text-secondary-foreground opacity-60 cursor-not-allowed"
+                      className="inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold shadow-sm bg-secondary text-secondary-foreground opacity-60 cursor-not-allowed"
                     >
                       {automation.cta.text}
                     </button>
@@ -114,7 +116,7 @@ export default function FeaturedAutomations() {
                 </div>
               </div>
               <div className={`mt-12 sm:mt-16 lg:mt-0 ${index % 2 === 0 ? 'lg:order-2' : 'lg:order-1'}`}>
-                <div className="relative overflow-hidden rounded-2xl shadow-2xl">
+                <div className="relative overflow-hidden rounded-2xl shadow-2xl border border-primary/10 backdrop-blur-md">
                    <Image
                     src={automation.imageSrc}
                     alt={automation.imageAlt}

@@ -35,13 +35,14 @@ const itemVariants = {
 export default function SocialProof() {
   return (
     <section className='relative' aria-labelledby="social-proof-heading">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(400px_120px_at_0%_0%,rgba(99,102,241,0.08),transparent)]" />
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-2xl lg:max-w-none">
           <div className="grid grid-cols-1 items-center gap-y-16 gap-x-8 lg:grid-cols-2">
             <div>
               <h2
                 id="social-proof-heading"
-                className="text-4xl font-bold tracking-tight sm:text-5xl text-transparent bg-clip-text bg-primary/90"
+                className="text-4xl font-bold tracking-tight sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary"
               >
                 Secure, On-Chain Automation You Can Trust.
               </h2>
@@ -59,7 +60,7 @@ export default function SocialProof() {
               {stats.map((stat) => (
                 <motion.div
                   key={stat.name}
-                  className="flex flex-col-reverse gap-y-2 border-l-4 border-primary/50 pl-6"
+                  className="flex flex-col-reverse gap-y-2 border-l-4 border-primary/30 pl-6 bg-primary/5 rounded-lg py-2"
                   variants={itemVariants}
                 >
                   <dt className="text-base leading-7 text-muted-foreground">

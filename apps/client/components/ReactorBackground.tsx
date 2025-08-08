@@ -1,121 +1,40 @@
 "use client"
-import React from 'react';
+import React from 'react'
 
 export const ReactorBackground = () => {
   return (
-    <>
-      {/* Enhanced gradient background with deep blue */}
-      <div className="absolute inset-0 bg-gradient-radial from-[#5d6ec4] via-[#1b2b6e] to-[#1f358f] opacity-90" />
-      
-      {/* Enhanced cloud layers with blue tints */}
-      <div className="absolute inset-0">
-        {/* Primary rotating gradient with blue */}
-        {/* <div className="absolute inset-0 bg-[conic-gradient(from_0deg_at_50%_50%,rgba(51,147,255,0.15),transparent_120deg)] animate-rotate-slow" /> */}
-        
-        {/* Enhanced cloud effect with blue mix */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(92,138,252,0.2),transparent_60%)] blur-lg " />
-        
-        {/* Additional subtle blue gradients */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_80%,rgba(97, 123, 255, 0.46),transparent_50%)] " />
-      </div>
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      {/* Base gradient */}
+      <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_10%_-10%,rgba(59,130,246,0.12),transparent),radial-gradient(1000px_500px_at_100%_0%,rgba(139,92,246,0.12),transparent),linear-gradient(to_bottom,#0a0b1e_0%,#0b0c25_40%,#0b0b2e_100%)]" />
 
-      {/* Lightning effects with blue tint */}
-      <div className="absolute inset-0">
-        <svg className="w-full h-full" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="lightning-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#3380FF" stopOpacity="0.7" />
-              <stop offset="50%" stopColor="#5C8BF6" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#B5C4FD" stopOpacity="0.3" />
-            </linearGradient>
-            
-            <filter id="lightning-glow">
-              <feGaussianBlur stdDeviation="6" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+      {/* Subtle grid */}
+      <svg className="absolute inset-0 h-full w-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="white" strokeWidth="0.5" />
+          </pattern>
+          <radialGradient id="fade" cx="50%" cy="0%" r="75%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+        <rect width="100%" height="100%" fill="url(#fade)" />
+      </svg>
 
-          <g filter="url(#lightning-glow)">
-            <path
-              className="animate-lightning-primary"
-              d="M300,0 L350,100 L300,200 L400,350"
-              stroke="url(#lightning-gradient)"
-              strokeWidth="3"
-              fill="none"
-            />
-            
-            <path
-              className="animate-lightning-secondary-0"
-              d="M200,0 L220,150 L180,300"
-              stroke="url(#lightning-gradient)"
-              strokeWidth="3"
-              fill="none"
-              opacity="0.4"
-            />
-            {/* <path
-              className="animate-lightning-secondary-0"
-              d="M100,0 L120,120 L300,400"
-              stroke="url(#lightning-gradient)"
-              strokeWidth="2"
-              fill="none"
-              opacity="0.4"
-            /> */}
-          </g>
-        </svg>
-      </div>
+      {/* Animated orbs */}
+      <div className="absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-400/10 blur-3xl animate-[float_16s_ease-in-out_infinite]" />
+      <div className="absolute -right-24 top-10 h-80 w-80 rounded-full bg-gradient-to-br from-fuchsia-500/20 to-violet-400/10 blur-3xl animate-[float_18s_ease-in-out_infinite_2s]" />
+      <div className="absolute left-1/3 bottom-0 h-64 w-64 rounded-full bg-gradient-to-br from-purple-500/10 to-blue-400/10 blur-3xl animate-[float_20s_ease-in-out_infinite_4s]" />
 
       <style jsx>{`
-        .animate-rotate-slow {
-          animation: rotate 20s linear infinite;
-          transform-style: preserve-3d;
-          will-change: transform;
-        }
-        
-        .animate-clouds-slow {
-          animation: drift 15s ease-in-out infinite;
-          transform-style: preserve-3d;
-          will-change: transform;
-        }
-
-        .animate-pulse-slow {
-          animation: pulse 10s ease-in-out infinite;
-        }
-
-        @keyframes rotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes drift {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(5%, 5%); }
-        }
-
-        @keyframes pulse {
-          0%, 100% { opacity: 0.1; }
-          50% { opacity: 0.3; }
-        }
-
-        .animate-lightning-primary {
-          animation: flash 5s infinite;
-        }
-
-        .animate-lightning-secondary-0 {
-          animation: flash 5s infinite 0.5s;
-        }
-
-        @keyframes flash {
-          0%, 100% { opacity: 0; }
-          50% { opacity: 0.3; }
-          52% { opacity: 0.8; }
-          54% { opacity: 0.3; }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+          50% { transform: translateY(-12px) translateX(6px) scale(1.02); }
         }
       `}</style>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default ReactorBackground;
+export default ReactorBackground
