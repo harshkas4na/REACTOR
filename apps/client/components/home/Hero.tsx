@@ -53,8 +53,8 @@ export default function Hero() {
           
           {/* LEFT COLUMN */}
           <div className="lg:w-1/2 lg:pr-8 mb-10 lg:mb-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary mb-4">
-              <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-blue-600/30 to-purple-600/30 px-3 py-1.5 text-xs font-medium text-white shadow-sm backdrop-blur mb-4">
+              <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
               Now supporting Aave V3 + Uniswap stop orders
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 leading-tight tracking-tight">

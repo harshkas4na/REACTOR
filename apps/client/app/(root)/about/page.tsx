@@ -125,10 +125,10 @@ export default function AboutPage() {
         transition={{ duration: 0.5 }}
         className="text-center mb-16"
       >
-        <h1 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+        <h1 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
           About REACTOR
         </h1>
-        <p className="text-xl text-zinc-300 max-w-3xl mx-auto">
+        <p className="text-xl text-foreground max-w-3xl mx-auto">
           REACTOR is a pioneering platform that makes DeFi automation accessible to everyone through Reactive Smart Contracts (RSCs) and intuitive, no-code interfaces.
         </p>
       </motion.div>
@@ -140,15 +140,15 @@ export default function AboutPage() {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mb-16"
       >
-        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 relative pointer-events-auto z-10 border-zinc-800">
+        <Card className="bg-card/70 relative pointer-events-auto z-10 border-border">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-2xl">Our Mission</CardTitle>
+            <CardTitle className="text-foreground text-2xl">Our Mission</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-zinc-300 text-lg leading-relaxed mb-6">
+            <p className="text-foreground/90 text-lg leading-relaxed mb-6">
               REACTOR exists to democratize DeFi automation by removing technical barriers and making sophisticated blockchain operations accessible to traders, investors, and DeFi enthusiasts regardless of their programming knowledge.
             </p>
-            <p className="text-zinc-300 leading-relaxed">
+            <p className="text-foreground/90 leading-relaxed">
               We believe that powerful automation shouldn't be limited to developers. Whether you're protecting your portfolio from market crashes, optimizing your yield farming strategies, or safeguarding lending positions from liquidation, REACTOR provides the tools you need with interfaces that anyone can understand and use.
             </p>
           </CardContent>
@@ -162,45 +162,45 @@ export default function AboutPage() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="mb-16 relative"
       >
-        <h2 className="text-3xl font-bold text-zinc-100 mb-8 text-center">What We Do</h2>
+        <h2 className="text-3xl font-bold text-foreground mb-8 text-center">What We Do</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+          <Card className="bg-card/70 border-border">
             <CardHeader>
               <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mb-4">
                 <Shield className="w-6 h-6 text-blue-400" />
               </div>
-              <CardTitle className="text-zinc-100">Risk Management</CardTitle>
+              <CardTitle className="text-foreground">Risk Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription className="text-zinc-300">
+              <CardDescription className="text-muted-foreground">
                 Automated protection tools like Stop Orders and Aave Liquidation Protection that safeguard your investments from market volatility and liquidation risks 24/7.
               </CardDescription>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+          <Card className="bg-card/70 border-border">
             <CardHeader>
               <div className="w-12 h-12 rounded-full bg-emerald-600/20 flex items-center justify-center mb-4">
                 <Zap className="w-6 h-6 text-emerald-400" />
               </div>
-              <CardTitle className="text-zinc-100">Yield Optimization</CardTitle>
+              <CardTitle className="text-foreground">Yield Optimization</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription className="text-zinc-300">
+              <CardDescription className="text-muted-foreground">
                 Automated yield strategies including Fee Collectors and Range Managers for Uniswap V3 that maximize your earnings without constant monitoring.
               </CardDescription>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+          <Card className="bg-card/70 border-border">
             <CardHeader>
               <div className="w-12 h-12 rounded-full bg-purple-600/20 flex items-center justify-center mb-4">
                 <Code className="w-6 h-6 text-purple-400" />
               </div>
-              <CardTitle className="text-zinc-100">Developer Tools</CardTitle>
+              <CardTitle className="text-foreground">Developer Tools</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription className="text-zinc-300">
+              <CardDescription className="text-muted-foreground">
                 Advanced tools for developers to create custom Reactive Smart Contracts and build sophisticated automation solutions on top of our platform.
               </CardDescription>
             </CardContent>
