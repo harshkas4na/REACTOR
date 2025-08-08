@@ -52,6 +52,7 @@ const itemVariants = {
 export default function WhyReactor() {
   return (
     <section className='relative' aria-labelledby="why-reactor-heading">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(500px_180px_at_100%_0%,rgba(168,85,247,0.06),transparent)]" />
       <div className="mx-auto max-w-2xl sm:text-center">
         <h2 id="why-reactor-heading" className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           Why Automate with REACTOR?
@@ -71,7 +72,7 @@ export default function WhyReactor() {
           {features.map((feature) => (
             <motion.div 
               key={feature.name} 
-              className="relative flex flex-col gap-6 sm:flex-row md:flex-col lg:flex-row"
+              className="relative flex flex-col gap-6 sm:flex-row md:flex-col lg:flex-row rounded-2xl border border-primary/10 bg-background/40 backdrop-blur-md p-6"
               variants={itemVariants}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary sm:shrink-0">

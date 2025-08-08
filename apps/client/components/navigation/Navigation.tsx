@@ -39,7 +39,7 @@ export default function Navigation() {
       <AlphaBanner />
 
       <motion.nav 
-        className="sticky top-0 z-50 w-full border-b border-border "
+        className="sticky top-0 z-50 w-full border-b border-primary/10 backdrop-blur-md bg-background/60 supports-[backdrop-filter]:bg-background/40"
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -73,7 +73,7 @@ export default function Navigation() {
                 <Button
                   onClick={() => setIsAIOpen(true)}
                   variant="ghost"
-                  className="relative overflow-hidden px-3 py-2 text-sm font-medium transition-all duration-300 hover:bg-primary/10 border border-transparent hover:border-primary/20"
+                  className="relative overflow-hidden px-3 py-2 text-sm font-medium transition-all duration-300 hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-full"
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center relative">
@@ -109,12 +109,12 @@ export default function Navigation() {
                     switchNetwork(value);
                   }}
                 >
-                  <SelectTrigger className="w-[120px] lg:w-[180px] text-xs sm:text-sm">
-                    <SelectValue placeholder="Select Network" />
+                  <SelectTrigger className="w-[140px] lg:w-[200px] text-xs sm:text-sm rounded-full bg-background/70 border-border text-foreground">
+                    <SelectValue placeholder="Select Network" className="text-foreground" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background/80 backdrop-blur-md border-border text-foreground">
                     {/* Testnets */}
-                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Testnets
                       </div>
                     <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
@@ -125,10 +125,10 @@ export default function Navigation() {
                     <SelectItem value="BASE_SEPOLIA">Base Sepolia (Origin)</SelectItem> */}
                     
                     {/* Divider */}
-                    <div className="h-px bg-zinc-800 my-1" />
+                    <div className="h-px bg-border my-1" />
                     
                     {/* Mainnets */}
-                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Mainnets
                       </div>
                     {/* <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
@@ -153,7 +153,7 @@ export default function Navigation() {
                     disabled={isLoading}
                     variant={error ? "destructive" : account ? "secondary" : "default"}
                     className={`
-                      relative overflow-hidden px-4 py-2 text-sm font-medium transition-all duration-300
+                      relative overflow-hidden px-4 py-2 text-sm font-medium transition-all duration-300 rounded-full
                       ${account 
                         ? 'bg-gradient-to-r from-primary/20 to-secondary/20 hover:from-primary/30 hover:to-secondary/30 border border-primary/30' 
                         : error 

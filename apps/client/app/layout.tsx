@@ -6,6 +6,7 @@ import Navigation from "@/components/navigation/Navigation";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Web3Provider } from "@/app/_context/Web3Context";
 import ReactorAIWrapper from "@/components/ai/ReactorAIWrapper";
+import ReactorBackground from "@/components/ReactorBackground";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -135,7 +136,8 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <Web3Provider>
             <AutomationProvider>
-              <div className="relative min-h-screen bg-[#1a0b2e] overflow-hidden">
+              <div className="relative min-h-screen bg-[#0b0b2e] overflow-x-hidden">
+                <ReactorBackground />
                 <Navigation />
                 <main className="flex-grow px-4 sm:px-6 lg:px-8">
                   {children}

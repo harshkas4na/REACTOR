@@ -15,7 +15,7 @@ export default function Home() {
           This new structure aligns with our strategy to build trust and explain value.
           We will create these new components in the upcoming steps.
         */}
-        <div className="container mx-auto px-4 py-16 sm:py-24 space-y-24 sm:space-y-32">
+        <div className="container mx-auto px-4 py-12 sm:py-20 space-y-20 sm:space-y-28">
           <SocialProof />
           <WhyReactor />
           <FeaturedAutomations />

@@ -331,24 +331,13 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Apply body styles when AI is open/closed - responsive version
+  // Avoid layout shifts when AI opens; overlay floats above content
   useEffect(() => {
-    if (isOpen && !isMobile) {
-      // Only apply margin on desktop
-      const sidebarWidth = window.innerWidth >= 1024 ? '400px' : '350px';
-      document.body.style.marginRight = sidebarWidth;
-      document.body.style.transition = 'margin-right 0.3s ease-out';
-    } else {
-      document.body.style.marginRight = '0';
-      document.body.style.transition = 'margin-right 0.3s ease-out';
-    }
-
-    // Cleanup on unmount
     return () => {
       document.body.style.marginRight = '0';
       document.body.style.transition = '';
     };
-  }, [isOpen, isMobile]);
+  }, []);
 
   // Generate conversation ID on first open
   useEffect(() => {
@@ -745,10 +734,10 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className={`fixed top-0 right-0 h-full z-50 flex flex-col bg-background border-l border-border shadow-2xl ${
+        className={`fixed top-0 right-0 h-full z-50 flex flex-col bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-l border-border shadow-2xl ${
           isMobile 
             ? 'w-full' 
-            : 'w-[350px] lg:w-[400px]'
+            : 'w-[360px] md:w-[380px] lg:w-[420px]'
         }`}
       >
         {/* Header */}
