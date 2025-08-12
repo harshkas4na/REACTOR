@@ -103,6 +103,8 @@ export class AIAgent {
   private geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   private maxConversationHistory = 6;
 
+  // RE-ENABLE_AAVE_PROTECTION: The original prompt advertised Aave Protection as available on Sepolia.
+  // To re-enable, restore the lines below to indicate availability and adjust flow handling in switch cases.
   // Focused system prompt
   private systemPrompt = `You are Reactor AI, an intelligent assistant for the REACTOR DeFi automation platform.
 
@@ -111,12 +113,12 @@ REACTOR is a blockchain automation platform that makes DeFi automation accessibl
 
 YOUR CORE CAPABILITIES:
 1. **Create Stop Orders**: Guide users through creating automated sell orders to protect investments
-2. **Create Aave Protection**: Help users set up automated liquidation protection for Aave positions  
+2. **Create Aave Protection (Coming Soon)**: Explain the feature and collect interest  
 3. **Educational Support**: Explain Reactor, RSCs, DeFi automation, and our specific automations
 
 SUPPORTED AUTOMATIONS:
 - **Stop Orders** ✅ Available: Automatically sell tokens when price drops
-- **Aave Protection** ✅ Available on Sepolia: Protect against liquidation
+- **Aave Protection** 🚧 Coming Soon: Liquidation protection
 - **Fee Collectors** 🚧 Coming Soon: Auto-harvest Uniswap V3 fees
 - **Range Managers** 🚧 Coming Soon: Optimize LP position ranges
 
@@ -326,7 +328,7 @@ Respond as Reactor AI:`;
       console.log('Message intent:', messageIntent);
 
       // Handle based on intent
-      switch (messageIntent) {
+          switch (messageIntent) {
         case 'CREATE_STOP_ORDER':
           if (conversation.intent !== 'CREATE_STOP_ORDER') {
             this.resetConversationForNewIntent(conversation, 'CREATE_STOP_ORDER');
@@ -335,11 +337,23 @@ Respond as Reactor AI:`;
           return this.handleStopOrderFlow(conversation, context);
         
         case 'CREATE_AAVE_PROTECTION':
-          if (conversation.intent !== 'CREATE_AAVE_PROTECTION') {
-            this.resetConversationForNewIntent(conversation, 'CREATE_AAVE_PROTECTION');
-          }
-          await this.extractAaveEntities(context.message, conversation);
-          return this.handleAaveProtectionFlow(conversation, context);
+          // RE-ENABLE_AAVE_PROTECTION: Original flow disabled. To re-enable, uncomment the lines below and remove the coming soon response.
+          // if (conversation.intent !== 'CREATE_AAVE_PROTECTION') {
+          //   this.resetConversationForNewIntent(conversation, 'CREATE_AAVE_PROTECTION');
+          // }
+          // await this.extractAaveEntities(context.message, conversation);
+          // return this.handleAaveProtectionFlow(conversation, context);
+          return {
+            message: '🚧 **Aave Liquidation Protection** is coming soon!\n\nIn the meantime, you can create a **Stop Order** for price protection, or I can notify you when Aave protection is ready.',
+            intent: 'CREATE_AAVE_PROTECTION' as const,
+            needsUserInput: true,
+            inputType: 'choice' as const,
+            nextStep: 'coming_soon',
+            options: [
+              { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+              { value: 'notify me', label: '🔔 Notify Me When Ready' }
+            ]
+          };
         
         case 'ANSWER_REACTOR_QUESTION':
           return await this.handleReactorQuestions(conversation, context);
@@ -350,8 +364,20 @@ Respond as Reactor AI:`;
             await this.extractStopOrderEntities(context.message, conversation);
             return this.handleStopOrderFlow(conversation, context);
           } else if (conversation.intent === 'CREATE_AAVE_PROTECTION') {
-            await this.extractAaveEntities(context.message, conversation);
-            return this.handleAaveProtectionFlow(conversation, context);
+            // RE-ENABLE_AAVE_PROTECTION: Original flow disabled. To re-enable, uncomment the lines below.
+            // await this.extractAaveEntities(context.message, conversation);
+            // return this.handleAaveProtectionFlow(conversation, context);
+            return {
+              message: '🚧 **Aave Liquidation Protection** is coming soon!\n\nWould you like to set up a **Stop Order** instead while we finish this feature?',
+              intent: 'CREATE_AAVE_PROTECTION' as const,
+              needsUserInput: true,
+              inputType: 'choice' as const,
+              nextStep: 'coming_soon',
+              options: [
+                { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+                { value: 'notify me', label: '🔔 Notify Me When Ready' }
+              ]
+            };
           } else {
             return this.generateHelpResponse(context, conversation);
           }
@@ -1035,8 +1061,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           nextStep: 'amount',
           options: [
             { value: 'all', label: '🎯 All of my tokens' },
-            { value: '50%', label: '⚖️ Half of my tokens' },
-            { value: 'custom', label: '✏️ Custom amount' }
+            { value: '50%', label: '⚖️ Half of my tokens' }
           ]
         };
         
@@ -1453,8 +1478,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
             nextStep: 'amount',
             options: [
               { value: 'all', label: `🎯 All (${data.userBalance} ${data.tokenToSell})` },
-              { value: '50%', label: `⚖️ Half (${(parseFloat(data.userBalance) / 2).toFixed(4)} ${data.tokenToSell})` },
-              { value: 'custom', label: '✏️ Custom amount' }
+              { value: '50%', label: `⚖️ Half (${(parseFloat(data.userBalance) / 2).toFixed(4)} ${data.tokenToSell})` }
             ]
           };
         } else {
@@ -1466,8 +1490,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
             nextStep: 'amount',
             options: [
               { value: 'all', label: '🎯 All of my tokens' },
-              { value: '50%', label: '⚖️ Half of my tokens' },
-              { value: 'custom', label: '✏️ Custom amount' }
+              { value: '50%', label: '⚖️ Half of my tokens' }
             ]
           };
         }
@@ -2239,7 +2262,7 @@ ${strategyDescription}
 
 **💸 Deployment Costs:**
 🏗️ **Protection Contract**: ~0.03 ETH
-🤖 **RSC Monitor**: ~0.05 KOPLI
+🤖 **RSC Monitor**: ~0.05 REACT
 
 **✨ Once deployed**, your protection will:
 • Monitor your health factor 24/7 automatically
@@ -2381,7 +2404,7 @@ ${strategyDescription}
   }
 
   private getRSCCurrency(chainId: number): string {
-    return (chainId === 1 || chainId === 43114) ? "REACT" : "KOPLI";
+    return (chainId === 1 || chainId === 43114) ? "REACT" : "REACT";
   }
 
   private getNetworkName(chainId: number): string {

@@ -26,19 +26,19 @@ const automationCards = [
     textColor: "text-red-300",
     logo: "/images/hero/Uniswap-logo.jpg",
   },
-  {
-    id: 2,
-    protocol: "Aave",
-    version: "V3",
-    featureName: "Liquidation Protection",
-    description: "Automatically manage your Aave health factor to avoid costly liquidations",
-    href: "/automations/aave-protection",
-    icon: ShieldExclamationIcon,
-    gradient: "from-cyan-500/20 to-purple-500/20",
-    borderColor: "border-cyan-500/30",
-    textColor: "text-cyan-300",
-    logo: "/images/hero/Aave-logo.jpg",
-  },
+  // {
+  //   id: 2,
+  //   protocol: "Aave",
+  //   version: "V3",
+  //   featureName: "Liquidation Protection",
+  //   description: "Automatically manage your Aave health factor to avoid costly liquidations",
+  //   href: "/automations/aave-protection",
+  //   icon: ShieldExclamationIcon,
+  //   gradient: "from-cyan-500/20 to-purple-500/20",
+  //   borderColor: "border-cyan-500/30",
+  //   textColor: "text-cyan-300",
+  //   logo: "/images/hero/Aave-logo.jpg",
+  // },
 ];
 
 export default function Hero() {
@@ -55,7 +55,7 @@ export default function Hero() {
           <div className="lg:w-1/2 lg:pr-8 mb-10 lg:mb-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-r from-blue-600/30 to-purple-600/30 px-3 py-1.5 text-xs font-medium text-white shadow-sm backdrop-blur mb-4">
               <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
-              Now supporting Aave V3 + Uniswap stop orders
+              Now supporting Uniswap stop orders
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 leading-tight tracking-tight">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-sky-300 to-purple-400">

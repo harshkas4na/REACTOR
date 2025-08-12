@@ -44,6 +44,7 @@ const featuredAutomations = [
     borderColor: "border-emerald-500/30",
     iconBg: "bg-emerald-500/20",
     iconColor: "text-emerald-400",
+    status: "Coming Soon",
     content: {
       what: "Aave Liquidation Protection continuously monitors your health factor and automatically executes protection strategies when you approach liquidation risk. The system can deposit additional collateral or repay debt to keep your position safe.",
       platforms: [
@@ -58,7 +59,7 @@ const featuredAutomations = [
         "Approve tokens and subscribe to protection",
         "System monitors and protects your position 24/7"
       ],
-      link: "/automations/aave-protection"
+      link: "/about#"
     }
   },
   {

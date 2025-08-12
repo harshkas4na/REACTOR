@@ -9,7 +9,7 @@ export const NAVIGATION_ITEMS = [
       type: 'dropdown',
       items: [
         { label: 'Stop Order', path: '/automations/stop-order' },
-        { label: 'Aave Protection', path: '/automations/aave-protection' }
+        // { label: 'Aave Protection', path: '/automations/aave-protection' }
       ]
     },
     { label: 'Deploy RSC', path: '/deploy-reactive-contract' },

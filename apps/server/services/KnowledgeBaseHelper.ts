@@ -71,10 +71,11 @@ export class KnowledgeBaseHelper {
       lowerMessage.includes('aave liquidation') ||
       lowerMessage.includes('health factor')
     ) {
+      // RE-ENABLE_AAVE_PROTECTION: Replace the coming soon answer with the original availability copy above.
       const aaveProtectionInfo = REACTOR_KNOWLEDGE_BASE.automations.AAVE_PROTECTION;
       return {
-        answer: `🛡️ **Aave Liquidation Protection - Available on Sepolia!**\n\n**What it does:**\n${aaveProtectionInfo.description}\n\n**Key Features:**\n${aaveProtectionInfo.features.map(f => `• ${f}`).join('\n')}\n\n**Supported Networks:**\n${aaveProtectionInfo.supportedChains.map(id => `• ${this.getNetworkName(id)}`).join('\n')}\n\n**Status:** ${aaveProtectionInfo.costEstimate}\n\n💡 **This automation protects your Aave positions from liquidation by monitoring your health factor and automatically managing collateral and debt.**\n\nReady to protect your Aave position? Try it on Sepolia now!` ,
-        relatedTopics: ['Aave', 'Liquidation', 'Health Factor', 'Collateral Management']
+        answer: `🚧 **Aave Liquidation Protection is coming soon!**\n\n**Planned features:**\n${aaveProtectionInfo.features.map(f => `• ${f}`).join('\n')}\n\n**Status:** ${aaveProtectionInfo.costEstimate}\n\nWhile we finish this feature, you can use **Stop Orders** to protect against price drops. Want a notification when Aave protection is ready?`,
+        relatedTopics: ['Stop Orders', 'Health Factor', 'Collateral Management']
       };
     }
     

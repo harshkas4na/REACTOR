@@ -46,7 +46,8 @@ import { toast } from 'react-hot-toast';
 import { ethers } from 'ethers';
 import { AIUtils } from '@/utils/ai';
 import { AIDeploymentHandler } from './AIDeploymentHandler';
-import { AaveDeploymentHandler } from './AaveDeploymentHandler';
+// RE-ENABLE_AAVE_PROTECTION: Uncomment the line below to restore Aave deployment UI when enabling the feature.
+// import { AaveDeploymentHandler } from './AaveDeploymentHandler';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
@@ -508,8 +509,15 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
     if (!config) return;
 
     if (config.protectionType !== undefined) {
-      setDeploymentType('aave_protection');
-      setCurrentDeploymentConfig(config);
+      // RE-ENABLE_AAVE_PROTECTION: Original redirect to Aave flow disabled. To re-enable, restore the three lines below.
+      // setDeploymentType('aave_protection');
+      // setCurrentDeploymentConfig(config);
+      setMessages(prev => [...prev, {
+        id: `msg_${Date.now()}_aave_coming_soon`,
+        type: 'ai',
+        content: '🚧 Aave Liquidation Protection is coming soon! For now, you can create a Stop Order instead.',
+        timestamp: new Date()
+      }]);
     } else if (config.pairAddress) {
       setDeploymentType('stop_order');
       setCurrentDeploymentConfig(config);
@@ -535,7 +543,9 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
       const deployMessage: Message = {
         id: `msg_${Date.now()}_deploy`,
         type: 'ai',
-        content: `🚀 **Perfect!** Let's deploy your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} directly here!\n\nI'll guide you through the deployment process step by step. ✨`,
+        // RE-ENABLE_AAVE_PROTECTION: Restore the dynamic label below when enabling Aave protection flow.
+        // content: `🚀 **Perfect!** Let's deploy your ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} directly here!\n\nI'll guide you through the deployment process step by step. ✨`,
+        content: `🚀 **Perfect!** Let's deploy your stop order directly here!\n\nI'll guide you through the deployment process step by step. ✨`,
         timestamp: new Date(),
         showDeploymentHandler: true
       };
@@ -553,15 +563,16 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
         const redirectMessage: Message = {
           id: `msg_${Date.now()}_redirect`,
           type: 'ai',
-          content: `🚀 **Configuration Saved!** Redirecting you to the ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} page...`,
+          // RE-ENABLE_AAVE_PROTECTION: Restore the dynamic label below when enabling Aave protection flow.
+          // content: `🚀 **Configuration Saved!** Redirecting you to the ${deploymentType === 'aave_protection' ? 'Aave protection' : 'stop order'} page...`,
+          content: `🚀 **Configuration Saved!** Redirecting you to the stop order page...`,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, redirectMessage]);
         
         setTimeout(() => {
-          const redirectPath = deploymentType === 'aave_protection' 
-            ? '/automations/aave-protection?from_ai=true'
-            : '/automations/stop-order?from_ai=true';
+          // RE-ENABLE_AAVE_PROTECTION: Restore conditional path when enabling Aave protection flow.
+          const redirectPath = '/automations/stop-order?from_ai=true';
           router.push(redirectPath);
           onClose();
         }, 1500);
@@ -697,19 +708,14 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
             
             {message.showDeploymentHandler && currentDeploymentConfig && (
               <div className="mt-4">
-                {deploymentType === 'aave_protection' ? (
-                  <AaveDeploymentHandler
-                    automationConfig={currentDeploymentConfig}
-                    onDeploymentComplete={handleDeploymentComplete}
-                    onCancel={handleDeploymentCancel}
-                  />
-                ) : (
+                {
+                  // RE-ENABLE_AAVE_PROTECTION: Restore conditional rendering to include AaveDeploymentHandler when enabling.
                   <AIDeploymentHandler
                     automationConfig={currentDeploymentConfig}
                     onDeploymentComplete={handleDeploymentComplete}
                     onCancel={handleDeploymentCancel}
                   />
-                )}
+                }
               </div>
             )}
           </div>
