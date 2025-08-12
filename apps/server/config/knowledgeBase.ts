@@ -32,7 +32,9 @@ export const REACTOR_KNOWLEDGE_BASE = {
       name: 'Aave Liquidation Protection',
       description: 'Automatically protect your Aave positions from liquidation with smart collateral management and debt repayment strategies',
       supportedChains: [11155111], // Currently Sepolia only, expandable
-      costEstimate: '• Sepolia: ~0.03 ETH + 0.05 Lasna\n• Ethereum Mainnet: Coming soon\n• Avalanche: Coming soon',
+      // RE-ENABLE_AAVE_PROTECTION: Restore the detailed estimate below and remove coming soon when enabling.
+      // costEstimate: '• Sepolia: ~0.03 ETH + 0.05 Lasna\n• Ethereum Mainnet: Coming soon\n• Avalanche: Coming soon',
+      costEstimate: 'Coming soon',
       features: [
         'Real-time health factor monitoring',
         'Automated collateral deposits',

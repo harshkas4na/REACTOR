@@ -33,8 +33,8 @@ const automations = [
     ],
     cta: {
       href: '/automations/aave-protection',
-      text: 'Try Aave Protection',
-      primary: true,
+      text: 'Comming Soon',
+      primary: false,
     },
   },
   {
