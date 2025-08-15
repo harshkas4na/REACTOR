@@ -13,11 +13,11 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import Image from 'next/image'
 import Link from 'next/link'
 import AlphaBanner from './AlphaBanner'
-import ReactorAI from '@/components/ai/ReactorAI'
+// ReactorAI quick-open button removed; ReactorAI remains available elsewhere
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isAIOpen, setIsAIOpen] = useState(false)
+  // Removed AI quick-open state per header simplification
   
   const {
     selectedNetwork,
@@ -65,32 +65,7 @@ export default function Navigation() {
 
             {/* Right Section */}
             <div className="flex items-center justify-end space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
-              {/* ReactorAI Button */}
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button
-                  onClick={() => setIsAIOpen(true)}
-                  variant="ghost"
-                  className="relative overflow-hidden px-3 py-2 text-sm font-medium transition-all duration-300 hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-full"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center relative">
-                      <Sparkles className="w-3 h-3 text-foreground" />
-                      {/* Notification indicator */}
-                      <motion.div 
-                        className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center"
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        <div className="w-1.5 h-1.5 bg-foreground rounded-full" />
-                      </motion.div>
-                    </div>
-                    <span className="hidden sm:inline text-foreground">ReactorAI</span>
-                  </div>
-                </Button>
-              </motion.div>
+              {/* ReactorAI link moved to the main menu */}
 
               {/* Network Select */}
               <div className="hidden md:block">
@@ -109,7 +84,7 @@ export default function Navigation() {
                     switchNetwork(value);
                   }}
                 >
-                  <SelectTrigger className="w-[140px] lg:w-[200px] text-xs sm:text-sm rounded-full bg-background/70 border-border text-foreground">
+                  <SelectTrigger className="w-[140px] lg:w-[200px] text-sm lg:text-base rounded-full bg-background/70 border-border text-foreground">
                     <SelectValue placeholder="Select Network" className="text-foreground" />
                   </SelectTrigger>
                   <SelectContent className="bg-background/80 backdrop-blur-md border-border text-foreground">
@@ -118,27 +93,16 @@ export default function Navigation() {
                         Testnets
                       </div>
                     <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
-                    <SelectItem value="LASNA">Reactive Lasna</SelectItem>
-                    {/* <SelectItem value="BSC_TESTNET">BSC Testnet (Origin)</SelectItem>
-                    <SelectItem value="POLYGON_AMOY">Polygon Amoy (Origin)</SelectItem>
-                    <SelectItem value="AVALANCHE_FUJI">Avalanche Fuji (Origin)</SelectItem>
-                    <SelectItem value="BASE_SEPOLIA">Base Sepolia (Origin)</SelectItem> */}
-                    
+
                     {/* Divider */}
                     <div className="h-px bg-border my-1" />
                     
-                    {/* Mainnets */}
+                    {/* Mainnets (coming soon) */}
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Mainnets
                       </div>
-                    {/* <SelectItem value="ETHEREUM">Ethereum Mainnet</SelectItem>
-                    <SelectItem value="BSC">Binance Smart Chain</SelectItem>
-                    <SelectItem value="AVALANCHE">Avalanche C-Chain</SelectItem>
-                    <SelectItem value="BASE">Base Chain</SelectItem>
-                    <SelectItem value="ARBITRUM">Arbitrum One</SelectItem>
-                    <SelectItem value="SONIC">Sonic Mainnet</SelectItem>
-                    <SelectItem value="HYPEREVM">HyperEVM</SelectItem>
-                    <SelectItem value="REACT">Reactive Mainnet</SelectItem> */}
+                    <SelectItem value="ETHEREUM" disabled>Ethereum Mainnet (Coming Soon)</SelectItem>
+                    <SelectItem value="BASE" disabled>Base Mainnet (Coming Soon)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -202,15 +166,9 @@ export default function Navigation() {
         <MobileMenu 
           isOpen={isMenuOpen} 
           onClose={() => setIsMenuOpen(false)}
-          onOpenAI={() => setIsAIOpen(true)}
         />
       </motion.nav>
 
-      {/* ReactorAI Component */}
-      <ReactorAI 
-        isOpen={isAIOpen}
-        onClose={() => setIsAIOpen(false)}
-      />
     </>
   );
 }

@@ -21,9 +21,9 @@ const automationCards = [
     description: "Protect your tokens automatically with Uniswap stop orders to secure positions when prices drop",
     href: "/automations/stop-order",
     icon: ShieldExclamationIcon,
-    gradient: "from-red-500/20 to-red-700/20",
-    borderColor: "border-red-500/30",
-    textColor: "text-red-300",
+    gradient: "from-purple-500/20 to-blue-700/20",
+    borderColor: "border-purple-400/30",
+    textColor: "text-purple-300",
     logo: "/images/hero/Uniswap-logo.jpg",
   },
   // {
