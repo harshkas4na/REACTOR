@@ -783,44 +783,50 @@ const SimpleStatusIndicator = ({
   hasTokenBalance: boolean;
   isLoadingPair: boolean;
 }) => {
-  // Determine the current status
+    // Determine the current status
   const getStatus = () => {
-    if (!connectedAccount) {
-      return { type: 'error', message: 'Connect your wallet to continue' };
-    }
     if (!connectedChain) {
       return { type: 'error', message: 'Please switch to a supported network (Sepolia)' };
     }
     if (connectedChain.isComingSoon) {
       return { type: 'warning', message: `${connectedChain.name} support coming soon - switch to Sepolia` };
     }
-    if (!formData.sellToken || !formData.buyToken) {
-      return { type: 'warning', message: 'Select tokens to create stop order' };
-    }
     if (isLoadingPair) {
       return { type: 'loading', message: 'Finding trading pair...' };
     }
-    if (!formData.selectedPair) {
+    if (!formData.selectedPair && formData.sellToken && formData.buyToken) {
       return { type: 'error', message: 'Trading pair not found on DEX' };
     }
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      return { type: 'warning', message: 'Enter amount to sell' };
+    
+    // Only show token-related warnings if user has selected tokens
+    if (formData.sellToken && formData.buyToken) {
+      if (!hasTokenBalance) {
+        return { type: 'error', message: 'Insufficient token balance' };
+      }
+      if (!formData.dropPercentage || parseFloat(formData.dropPercentage) <= 0) {
+        return { type: 'warning', message: 'Set stop loss percentage' };
+      }
+      return { type: 'success', message: 'Ready to create stop order!' };
     }
-    if (!hasTokenBalance) {
-      return { type: 'error', message: 'Insufficient token balance' };
-    }
-    if (!formData.dropPercentage || parseFloat(formData.dropPercentage) <= 0) {
-      return { type: 'warning', message: 'Set stop loss percentage' };
-    }
-    return { type: 'success', message: 'Ready to create stop order!' };
+    
+    // No status to show if no tokens selected
+    return null;
   };
 
   const status = getStatus();
 
+  // Don't render anything if no status to show
+  if (!status) {
+    return null;
+  }
+
+  // TypeScript guard - status is now guaranteed to be non-null
+  const safeStatus = status;
+
   const getStatusStyles = () => {
-    switch (status.type) {
+    switch (safeStatus.type) {
       case 'error':
-        return 'bg-red-900/20 border-red-500/30 text-red-200';
+        return 'bg-amber-900/20 border-amber-500/30 text-amber-200';
       case 'warning':
         return 'bg-yellow-900/20 border-yellow-500/30 text-yellow-200';
       case 'loading':
@@ -833,7 +839,7 @@ const SimpleStatusIndicator = ({
   };
 
   const getStatusIcon = () => {
-    switch (status.type) {
+    switch (safeStatus.type) {
       case 'error':
         return <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />;
       case 'warning':
@@ -849,15 +855,19 @@ const SimpleStatusIndicator = ({
 
   return (
     <Alert className={`${getStatusStyles()} mb-6 sm:mb-8 lg:mb-10`}>
-      {getStatusIcon()}
-      <AlertDescription className="text-sm sm:text-base">
-        {status.message}
-        {connectedChain && status.type === 'success' && (
-          <div className="text-xs sm:text-sm mt-1 opacity-80">
-            Cost: ~{connectedChain.defaultFunding} {connectedChain.nativeCurrency} + 0.05 {connectedChain.rscNetwork.currencySymbol} + gas
-          </div>
-        )}
-      </AlertDescription>
+      <div className="flex items-start space-x-3">
+        <div className="flex-shrink-0 mt-0.5">
+          {getStatusIcon()}
+        </div>
+        <AlertDescription className="text-sm sm:text-base flex-1">
+          {safeStatus.message}
+          {connectedChain && safeStatus.type === 'success' && (
+            <div className="text-xs sm:text-sm mt-1 opacity-80">
+              Cost: ~{connectedChain.defaultFunding} {connectedChain.nativeCurrency} + 0.05 {connectedChain.rscNetwork.currencySymbol} + gas
+            </div>
+          )}
+        </AlertDescription>
+      </div>
     </Alert>
   );
 };
@@ -1766,54 +1776,8 @@ export default function EnhancedStopOrderWithFunctionality() {
             Automatically sell your tokens when prices drop - protecting your investments 24/7.
           </p>
           
-          <div className="mb-6 sm:mb-8">
-            <Alert className="bg-blue-900/20 border-blue-500/30">
-              <Info className="h-4 w-4 sm:h-5 sm:w-5" />
-              <AlertDescription className="text-blue-200 text-sm sm:text-base">
-                <span className="font-medium">Currently live on Ethereum Sepolia & Base</span> • 
-                Ethereum Mainnet and Avalanche C-Chain support coming soon
-              </AlertDescription>
-            </Alert>
-          </div>
           
-          <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
-            <CardContent className="p-4 sm:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center flex-shrink-0">
-                    <Shield className="h-4 w-4 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-zinc-100 text-sm sm:text-base">Multi-Chain Protection</h3>
-                    <p className="text-xs sm:text-sm text-zinc-300">Ethereum, Base & Avalanche</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <Clock className="h-4 w-4 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-zinc-100 text-sm sm:text-base">24/7 Monitoring</h3>
-                    <p className="text-xs sm:text-sm text-zinc-300">Never miss a price movement</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3 sm:col-span-2 lg:col-span-1">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <Zap className="h-4 w-4 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-zinc-100 text-sm sm:text-base">Instant Execution</h3>
-                    <p className="text-xs sm:text-sm text-zinc-300">Automatic when triggered</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* Enhanced Funding Requirements Card */}
-          <EnhancedFundingRequirementsCard 
-            connectedChain={connectedChain ?? undefined}
-            connectedAccount={connectedAccount}
-          />
+        
         </motion.div>
 
         {/* Main Interface Container */}
@@ -1877,26 +1841,39 @@ export default function EnhancedStopOrderWithFunctionality() {
                         className="border-0 bg-transparent text-xl sm:text-2xl font-semibold text-zinc-100 placeholder:text-zinc-500 p-0 h-auto focus:ring-2 focus:ring-blue-500"
                       />
                       
-                      <Button
-                        onClick={() => openTokenModal('sell')}
-                        className="bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100 px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base"
-                      >
-                        {formData.sellToken ? (
-                          <div className="flex items-center space-x-1.5 sm:space-x-2">
-                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
-                              {formData.sellToken.symbol.charAt(0)}
+                      <div className="relative group">
+                        <Button
+                          onClick={() => openTokenModal('sell')}
+                          className={`px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base ${
+                            !connectedAccount 
+                              ? 'bg-gray-600/50 border-gray-500 text-gray-400 cursor-not-allowed' 
+                              : 'bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100'
+                          }`}
+                          disabled={!connectedAccount}
+                        >
+                          {formData.sellToken ? (
+                            <div className="flex items-center space-x-1.5 sm:space-x-2">
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
+                                {formData.sellToken.symbol.charAt(0)}
+                              </div>
+                              <span className="hidden sm:inline">{formData.sellToken.symbol}</span>
+                              <span className="sm:hidden">{formData.sellToken.symbol.slice(0, 4)}</span>
+                              <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                             </div>
-                            <span className="hidden sm:inline">{formData.sellToken.symbol}</span>
-                            <span className="sm:hidden">{formData.sellToken.symbol.slice(0, 4)}</span>
-                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-1.5 sm:space-x-2">
-                            <span className="text-xs sm:text-sm">Select token</span>
-                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                          ) : (
+                            <div className="flex items-center space-x-1.5 sm:space-x-2">
+                              <span className="text-xs sm:text-sm">Select token</span>
+                              <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </div>
+                          )}
+                        </Button>
+                        {!connectedAccount && (
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                            Connect your wallet to continue
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
                           </div>
                         )}
-                      </Button>
+                      </div>
                     </div>
                     
                     {formData.sellToken?.balance && (
@@ -1937,26 +1914,39 @@ export default function EnhancedStopOrderWithFunctionality() {
                         </span>
                       </div>
                       
-                      <Button
-                        onClick={() => openTokenModal('buy')}
-                        className="bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100 px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base"
-                      >
-                        {formData.buyToken ? (
-                          <div className="flex items-center space-x-1.5 sm:space-x-2">
-                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
-                              {formData.buyToken.symbol.charAt(0)}
+                      <div className="relative group">
+                        <Button
+                          onClick={() => openTokenModal('buy')}
+                          className={`px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base ${
+                            !connectedAccount 
+                              ? 'bg-gray-600/50 border-gray-500 text-gray-400 cursor-not-allowed' 
+                              : 'bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100'
+                          }`}
+                          disabled={!connectedAccount}
+                        >
+                          {formData.buyToken ? (
+                            <div className="flex items-center space-x-1.5 sm:space-x-2">
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">
+                                {formData.buyToken.symbol.charAt(0)}
+                              </div>
+                              <span className="hidden sm:inline">{formData.buyToken.symbol}</span>
+                              <span className="sm:hidden">{formData.buyToken.symbol.slice(0, 4)}</span>
+                              <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                             </div>
-                            <span className="hidden sm:inline">{formData.buyToken.symbol}</span>
-                            <span className="sm:hidden">{formData.buyToken.symbol.slice(0, 4)}</span>
-                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-1.5 sm:space-x-2">
-                            <span className="text-xs sm:text-sm">Select token</span>
-                            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                          ) : (
+                            <div className="flex items-center space-x-1.5 sm:space-x-2">
+                              <span className="text-xs sm:text-sm">Select token</span>
+                              <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </div>
+                          )}
+                        </Button>
+                        {!connectedAccount && (
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                            Connect your wallet to continue
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
                           </div>
                         )}
-                      </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2035,14 +2025,12 @@ export default function EnhancedStopOrderWithFunctionality() {
                       </div>
                     )}
 
-                    {/* Deployment Status */}
-                    <DeploymentStatus deploymentStep={deploymentStep} />
-
-                    {/* Create Stop Order Button */}
+                    {/* Create Stop Order Button - inactive when wallet not connected; tooltip-style hint via title */}
                     <Button 
                       onClick={handleCreateOrder}
                       className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                       disabled={!isFormValid}
+                      title={!connectedAccount ? 'Connect your wallet to continue' : undefined}
                     >
                       {deploymentStep === 'complete' ? (
                         <div className="flex items-center">
@@ -2074,6 +2062,12 @@ export default function EnhancedStopOrderWithFunctionality() {
             {/* Simple Dashboard Link Component */}
             <DashboardLink />
 
+            {/* Move Funding Requirements right after the interface */}
+            <EnhancedFundingRequirementsCard 
+              connectedChain={connectedChain ?? undefined}
+              connectedAccount={connectedAccount}
+            />
+
             {/* Network Info */}
             {connectedChain && (
               <div className="text-center mt-4 sm:mt-6">
@@ -2089,7 +2083,7 @@ export default function EnhancedStopOrderWithFunctionality() {
             )}
         </div>
 
-        {/* Educational Section */}
+        {/* Educational Section and Multi-Chain block moved down here */}
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6 sm:mt-8">
           <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
             <CardTitle className="text-zinc-100 flex items-center text-lg sm:text-xl">

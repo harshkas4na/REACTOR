@@ -4,15 +4,8 @@ export const BASE_URL = 'https://app.thereactor.in/api'
 export const NAVIGATION_ITEMS = [
     // { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
-    { 
-      label: 'Automations', 
-      type: 'dropdown',
-      items: [
-        { label: 'Stop Order', path: '/automations/stop-order' },
-        // { label: 'Aave Protection', path: '/automations/aave-protection' }
-      ]
-    },
-    { label: 'Deploy RSC', path: '/deploy-reactive-contract' },
+    { label: 'Stop Order', path: '/automations/stop-order' },
+    { label: 'ReactorAI', path: '/about#reactor-ai' },
     // { label: 'Dapp-Automation', path: '/dapp-automation' }
 ]
 

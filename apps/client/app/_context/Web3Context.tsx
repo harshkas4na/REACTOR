@@ -216,7 +216,8 @@ export const SUPPORTED_NETWORKS: SupportedNetworks = {
 export function Web3Provider({ children }: Web3ProviderProps) {
   const [account, setAccount] = useState<string>('');
   const [web3, setWeb3] = useState<Web3 | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<string>('');
+  // Default to Ethereum Sepolia in production; keep empty for dev to reflect current chain
+  const [selectedNetwork, setSelectedNetwork] = useState<string>(process.env.NODE_ENV === 'production' ? 'SEPOLIA' : '');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobileDevice, setIsMobileDevice] = useState<boolean>(false);
