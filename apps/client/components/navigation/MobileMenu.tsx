@@ -79,15 +79,27 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
 
         {/* Navigation Links */}
         {NAVIGATION_ITEMS.map((item) => (
-          <Link
-            key={item.label}
-            href={item.path!}
-            className="text-gray-300 hover:text-primary hover:bg-gray-700 block px-4 py-3 rounded-md text-base font-medium transition-all duration-300 ease-in-out"
-            onClick={handleLinkClick}
-          >
-            {item.label}
-          </Link>
-        ))}
+  <Link
+    key={item.label}
+    href={item.path!}
+    className="text-gray-300 hover:text-primary hover:bg-gray-700 block px-4 py-3 rounded-md text-base font-medium transition-all duration-300 ease-in-out"
+    onClick={handleLinkClick}
+  >
+    {item.label}
+  </Link>
+))}
+
+{/* Add ReactorAI */}
+<button
+  onClick={() => {
+    handleAIClick();
+    onOpenAI?.();
+  }}
+  className="w-full text-left text-gray-300 hover:text-primary hover:bg-gray-700 block px-4 py-3 rounded-md text-base font-medium transition-all duration-300 ease-in-out"
+>
+  ReactorAI
+</button>
+
 
         {/* Network Selection */}
         <div className="pt-4 border-t border-gray-700">

@@ -5,7 +5,7 @@ export const NAVIGATION_ITEMS = [
     // { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
     { label: 'Stop Order', path: '/automations/stop-order' },
-    { label: 'ReactorAI', path: '/about#reactor-ai' },
+    // { label: 'ReactorAI', path: '/about#reactor-ai' },
     // { label: 'Dapp-Automation', path: '/dapp-automation' }
 ]
 

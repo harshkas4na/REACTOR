@@ -13,11 +13,11 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import Image from 'next/image'
 import Link from 'next/link'
 import AlphaBanner from './AlphaBanner'
-// ReactorAI quick-open button removed; ReactorAI remains available elsewhere
+import ReactorAI from '@/components/ai/ReactorAI'
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  // Removed AI quick-open state per header simplification
+  const [isAIOpen, setIsAIOpen] = useState(false)
   
   const {
     selectedNetwork,
@@ -60,13 +60,19 @@ export default function Navigation() {
 
             {/* Desktop Menu */}
             <div className="hidden lg:block flex-shrink-0">
-              <DesktopMenu />
+              <DesktopMenu 
+               isOpen={isMenuOpen} 
+               onClose={() => setIsMenuOpen(false)}
+               onOpenAI={() => setIsAIOpen(true)}
+              />
             </div>
 
             {/* Right Section */}
             <div className="flex items-center justify-end space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
-              {/* ReactorAI link moved to the main menu */}
+              {/* ReactorAI Button */}
+              
 
+              {/* Network Select */}
               {/* Network Select */}
               <div className="hidden md:block">
                 <Select 
@@ -106,6 +112,7 @@ export default function Navigation() {
                   </SelectContent>
                 </Select>
               </div>
+
 
               {/* Wallet Connection */}
               <motion.div
@@ -166,9 +173,15 @@ export default function Navigation() {
         <MobileMenu 
           isOpen={isMenuOpen} 
           onClose={() => setIsMenuOpen(false)}
+          onOpenAI={() => setIsAIOpen(true)}
         />
       </motion.nav>
 
+      {/* ReactorAI Component */}
+      <ReactorAI 
+        isOpen={isAIOpen}
+        onClose={() => setIsAIOpen(false)}
+      />
     </>
   );
 }
