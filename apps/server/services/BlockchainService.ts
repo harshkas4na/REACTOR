@@ -143,7 +143,7 @@ export class BlockchainService {
     // Wrapped native tokens
     'WETH': {
       1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH Mainnet
-      11155111: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9', // WETH Sepolia (verified)
+      11155111: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', // WETH Sepolia (verified)
       43114: '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB' // WETH.e on Avalanche
     },
     'WAVAX': {
@@ -152,7 +152,7 @@ export class BlockchainService {
     // Stablecoins
     'USDC': {
       1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC Mainnet
-      11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // USDC Sepolia (Circle official)
+      11155111: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // USDC Sepolia (Circle official)
       43114: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E' // Native USDC on Avalanche
     },
     'USDC.e': {
@@ -160,7 +160,7 @@ export class BlockchainService {
     },
     'USDT': {
       1: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT Mainnet
-      11155111: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // USDT Sepolia (custom)
+      11155111: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', // USDT Sepolia (custom)
       43114: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7' // USDT on Avalanche
     },
     'USDT.e': {
@@ -168,7 +168,7 @@ export class BlockchainService {
     },
     'DAI': {
       1: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI Mainnet
-      11155111: '0x68194a729C2450ad26072b3D33ADaCbcef39D574', // DAI Sepolia (custom)
+      11155111: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', // DAI Sepolia (custom)
       43114: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70' // DAI.e on Avalanche
     },
     // Bitcoin representations
