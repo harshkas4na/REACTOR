@@ -378,7 +378,8 @@ Respond as Reactor AI:`;
                 // { value: 'notify me', label: '🔔 Notify Me When Ready' }
               ]
             };
-          } else {
+          } 
+          else {
             return this.generateHelpResponse(context, conversation);
           }
       }
@@ -443,7 +444,7 @@ Respond as Reactor AI:`;
     }
 
     return {
-      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n🏦 **Create Aave Protection** - Guard against liquidation\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich automation would you like to create? 🚀`,
+      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich automation would you like to create? 🚀`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: true,
       inputType: 'choice' as const,
@@ -694,13 +695,10 @@ REACTOR is a cutting-edge DeFi automation platform that revolutionizes how users
 • Available on: Ethereum, Avalanche, Sepolia
 • Use case: "Sell my ETH if it drops 10%"
 
-**Aave Liquidation Protection** ✅ **Active on Sepolia**
-• Monitor health factor 24/7
-• Automatically deposit collateral or repay debt
-• Prevent costly liquidation penalties
-• Use case: Protect leveraged positions
+
 
 **🚧 Coming Soon:**
+• **Aave Liquidation Protection**: Protect your aave position from liquidation
 • **Fee Collectors**: Auto-harvest Uniswap V3 fees
 • **Range Managers**: Optimize LP position ranges
 • **Portfolio Automation**: Multi-asset strategies
@@ -2464,7 +2462,7 @@ ${strategyDescription}
 
   private generateErrorResponse(error: any, conversation: ConversationState) {
     return {
-      message: `❌ **Something went wrong!** ${'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Setting up Aave protection\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
+      message: `❌ **Something went wrong!** ${'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'error_recovery',
