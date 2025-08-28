@@ -350,8 +350,8 @@ Respond as Reactor AI:`;
             inputType: 'choice' as const,
             nextStep: 'coming_soon',
             options: [
-              { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
-              { value: 'notify me', label: '🔔 Notify Me When Ready' }
+              { value: 'create stop order', label: '🛡️ Create Stop Order Instead' }
+              // { value: 'notify me', label: '🔔 Notify Me When Ready' }
             ]
           };
         
@@ -375,7 +375,7 @@ Respond as Reactor AI:`;
               nextStep: 'coming_soon',
               options: [
                 { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
-                { value: 'notify me', label: '🔔 Notify Me When Ready' }
+                // { value: 'notify me', label: '🔔 Notify Me When Ready' }
               ]
             };
           } else {
@@ -450,7 +450,7 @@ Respond as Reactor AI:`;
       nextStep: 'blockchain_query_declined',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
-        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 Learn About REACTOR' }
       ]
     };
@@ -489,12 +489,7 @@ Respond as Reactor AI:`;
         needsUserInput: true,
         inputType: 'token' as const,
         nextStep: 'tokenToSell',
-        options: [
-          
-          { value: 'USDC', label: '💵 USD Coin (USDC)' },
-          { value: 'USDT', label: '💵 Tether (USDT)' },
-          { value: 'DAI', label: '💵 Dai (DAI)' }
-        ]
+        
       };
     }
     
@@ -739,7 +734,7 @@ Ready to automate your DeFi strategy? I can help you create your first automatio
         nextStep: 'detailed_reactor_explained',
         options: [
           { value: 'create stop order', label: '🛡️ Create My First Stop Order' },
-          { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+          // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
           { value: 'tell me about rsc', label: '🧠 Learn About RSCs' },
           { value: 'what automations are available', label: '🤖 View All Automations' }
         ]
@@ -810,9 +805,9 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         nextStep: 'detailed_rsc_explained',
         options: [
           { value: 'create stop order', label: '🛡️ Try RSCs with Stop Order' },
-          { value: 'create aave protection', label: '🏦 Try RSCs with Aave Protection' },
-          { value: 'what is reactor', label: '📚 Back to REACTOR Overview' },
-          { value: 'how much does it cost', label: '💰 View Costs' }
+          // { value: 'create aave protection', label: '🏦 Try RSCs with Aave Protection' },
+          { value: 'what is reactor', label: '📚 Back to REACTOR Overview' }
+          // { value: 'how much does it cost', label: '💰 View Costs' }
         ]
       };
       
@@ -885,9 +880,9 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     
     if (lowerMessage.includes('aave') || lowerMessage.includes('liquidation') || lowerMessage.includes('health factor')) {
       return [
-        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
-        { value: 'tell me about health factor', label: '📊 What is Health Factor?' },
-        { value: 'explain liquidation', label: '⚠️ Explain Liquidation' },
+        // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        // { value: 'tell me about health factor', label: '📊 What is Health Factor?' },
+        // { value: 'explain liquidation', label: '⚠️ Explain Liquidation' },
         { value: 'create stop order', label: '🛡️ Create Stop Order Instead' }
       ];
     }
@@ -904,7 +899,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     if (lowerMessage.includes('fee collector') || lowerMessage.includes('range manager')) {
       return [
         { value: 'create stop order', label: '🛡️ Create Stop Order Now' },
-        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'tell me about coming soon features', label: '🚀 Coming Soon Features' }
       ];
     }
@@ -912,7 +907,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
     // Default options
     return [
       { value: 'create stop order', label: '🛡️ Create Stop Order' },
-      { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+      // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
       { value: 'tell me about reactor', label: '📚 Learn About REACTOR' },
       { value: 'what automations are available', label: '🤖 Available Automations' }
     ];
@@ -1059,10 +1054,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           needsUserInput: true,
           inputType: 'amount' as const,
           nextStep: 'amount',
-          options: [
-            { value: 'all', label: '🎯 All of my tokens' },
-            { value: '50%', label: '⚖️ Half of my tokens' }
-          ]
+          
         };
         
         this.addToHistory(conversation, 'assistant', response.message);
@@ -1340,7 +1332,9 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           needsUserInput: true,
           inputType: 'choice' as const,
           nextStep: 'pair_not_found_error',
-         
+          options : [
+            { value: 'Try with another tokens', label: '🛡️ Create a different stop order' },
+          ]
         };
 
       case 'PRICE_FETCH_FAILED':
@@ -1403,7 +1397,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       nextStep: 'after_rejection',
       options: [
         { value: 'create stop order', label: '🛡️ Create a different stop order' },
-        { value: 'create aave protection', label: '🏦 Create Aave protection instead' },
+        // { value: 'create aave protection', label: '🏦 Create Aave protection instead' },
         { value: 'what is reactor', label: '📚 Learn about REACTOR' }      ]
     };
     
@@ -1445,17 +1439,12 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
 
       case 'tokenToSell':
         return {
-          message: "🪙 **Which token** would you like to protect with a stop order?\n\nJust tell me the token name:",
+          message: "🪙 **Which token** would you like to protect with a stop order?\n\nJust tell me the token name or address:",
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'token' as const,
           nextStep: 'tokenToSell',
-          options: [
-           
-            { value: 'USDC', label: '💵 USD Coin (USDC)' },
-            { value: 'USDT', label: '💵 Tether (USDT)' },
-            { value: 'DAI', label: '💵 Dai (DAI)' }
-          ]
+          
         };
 
       case 'tokenToBuy':
@@ -1465,21 +1454,18 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           needsUserInput: true,
           inputType: 'token' as const,
           nextStep: 'tokenToBuy',
-          options: this.getTokenOptionsExcluding(data.tokenToSell)
+          
         };
 
       case 'amount':
         if (data.userBalance) {
           return {
-            message: `💰 Perfect! I can see you have **${data.userBalance} ${data.tokenToSell}**.\n\n**How much** would you like to protect?`,
+            message: `💰 Perfect! I can see you have **${data.userBalance} ${data.tokenToSell}**.\n\n**How much** would you like to protect?\n\nYou can say "all", "half", or a specific amount:`,
             intent: 'CREATE_STOP_ORDER' as const,
             needsUserInput: true,
             inputType: 'amount' as const,
             nextStep: 'amount',
-            options: [
-              { value: 'all', label: `🎯 All (${data.userBalance} ${data.tokenToSell})` },
-              { value: '50%', label: `⚖️ Half (${(parseFloat(data.userBalance) / 2).toFixed(4)} ${data.tokenToSell})` }
-            ]
+            
           };
         } else {
           return {
@@ -1488,10 +1474,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
             needsUserInput: true,
             inputType: 'amount' as const,
             nextStep: 'amount',
-            options: [
-              { value: 'all', label: '🎯 All of my tokens' },
-              { value: '50%', label: '⚖️ Half of my tokens' }
-            ]
+            
           };
         }
 
@@ -1502,12 +1485,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           needsUserInput: true,
           inputType: 'amount' as const,
           nextStep: 'dropPercentage',
-          options: [
-            { value: '5', label: '🔒 5% drop (Conservative protection)' },
-            { value: '10', label: '⚖️ 10% drop (Balanced approach)' },
-            { value: '15', label: '🎯 15% drop (Higher risk tolerance)' },
-            { value: '20', label: '🚀 20% drop (Maximum risk)' }
-          ]
+          
         };
 
       default:
@@ -1923,7 +1901,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
         options: [
           { value: '11155111', label: '🧪 Switch to Sepolia for Testing' },
           { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
-          { value: 'notify me', label: '🔔 Notify Me When Mainnet Ready' }
+          // { value: 'notify me', label: '🔔 Notify Me When Mainnet Ready' }
         ]
       };
       
@@ -2016,7 +1994,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
       inputType: 'choice' as const,
       nextStep: 'after_aave_rejection',
       options: [
-        { value: 'create aave protection', label: '🏦 Create different Aave protection' },
+        // { value: 'create aave protection', label: '🏦 Create different Aave protection' },
         { value: 'create stop order', label: '🛡️ Create stop order instead' },
         { value: 'what is reactor', label: '📚 Learn about REACTOR' }      ]
     };
@@ -2106,8 +2084,8 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           options: [
             { value: minRecommended, label: `⚖️ ${minRecommended} (Recommended)` },
             { value: conservative, label: `🛡️ ${conservative} (Conservative)` },
-            { value: verySafe, label: `🔒 ${verySafe} (Very Safe)` },
-            { value: 'custom', label: '✏️ Custom Value' }
+            { value: verySafe, label: `🔒 ${verySafe} (Very Safe)` }
+            // { value: 'custom', label: '✏️ Custom Value' }
           ]
         };
   
@@ -2471,13 +2449,13 @@ ${strategyDescription}
   // Generate help response for unclear messages
   private generateHelpResponse(context: MessageContext, conversation: ConversationState) {
     return {
-      message: "🤖 **Hi! I'm Reactor AI.** I can help you with DeFi automation!\n\n**I can help you:**\n\n🛡️ **Create Stop Orders**\n• Automatically sell tokens when price drops\n• Protect your investments 24/7\n• Example: \"Create a stop order to protect my ETH\"\n\n🏦 **Create Aave Protection**\n• Guard against liquidation automatically\n• Monitor health factor 24/7\n• Example: \"Create Aave protection for my position\"\n\n📚 **Learn About REACTOR**\n• Understand Reactive Smart Contracts\n• Learn about our automations\n• Example: \"What is Reactor?\" or \"How do RSCs work?\"\n\n**What would you like to do?** 🚀",
+      message: "🤖 **Hi! I'm Reactor AI.** I can help you with DeFi automation!\n\n**I can help you:**\n\n🛡️ **Create Stop Orders**\n• Automatically sell tokens when price drops\n• Protect your investments 24/7\n• Example: \"Create a stop order to protect my ETH\"\n\n• Example: \📚 **Learn About REACTOR**\n• Understand Reactive Smart Contracts\n• Learn about our automations\n• Example: \"What is Reactor?\" or \"How do RSCs work?\"\n\n**What would you like to do?** 🚀",
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'awaiting_command',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
-        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 Learn About REACTOR' },
         { value: 'what automations are available', label: '🤖 View Automations' }
       ]
@@ -2492,7 +2470,7 @@ ${strategyDescription}
       nextStep: 'error_recovery',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
-        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 Learn About REACTOR' }
       ]
     };
@@ -2506,7 +2484,7 @@ ${strategyDescription}
       nextStep: 'knowledge_fallback',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
-        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        // { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 What is REACTOR?' },
         { value: 'tell me about rsc', label: '🧠 What are RSCs?' }
       ]

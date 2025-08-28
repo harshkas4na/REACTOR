@@ -48,9 +48,7 @@ import { AIUtils } from '@/utils/ai';
 import { AIDeploymentHandler } from './AIDeploymentHandler';
 // RE-ENABLE_AAVE_PROTECTION: Uncomment the line below to restore Aave deployment UI when enabling the feature.
 // import { AaveDeploymentHandler } from './AaveDeploymentHandler';
-import ChatHeader from './ChatHeader';
-import MessageList from './MessageList';
-import ChatInput from './ChatInput';
+
 import { FormattedMessage } from './FormattedMessage';
 import { PairInfoDisplay } from './PairInfoDisplay';
 
@@ -350,7 +348,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
       const savedConfig = AIUtils.ConfigManager.peekConfig();
       
       // Add enhanced welcome message
-      let welcomeContent = "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Protect Aave Positions** - Guard your loans against liquidation\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n• **Check Balances** - Get real-time token information\n• **Find Trading Pairs** - Discover available markets\n\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"Protect my Aave position from liquidation\"\n• \"What is Reactor?\"\n• \"How much USDC do I have?\"\n• \"Tell me about RSCs\"";
+      let welcomeContent = "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is Reactor?\"\n• \"Tell me about RSCs\"";
       
       if (savedConfig) {
         welcomeContent += "\n\n🎯 **I found a saved configuration!** You can say \"deploy my automation\" to continue with your previous setup.";
@@ -892,7 +890,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
               <div className="flex flex-wrap gap-1">
                 {[
                   { icon: Shield, label: "Stop Order", text: "Create a stop order" },
-                  { icon: Heart, label: "Protection", text: "Protect my Aave position" },
+                  // { icon: Heart, label: "Protection", text: "Protect my Aave position" },
                   { icon: BookOpen, label: "Learn", text: "What is Reactor?" }
                 ].map((action, index) => (
                   <Button
