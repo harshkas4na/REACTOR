@@ -1,8 +1,8 @@
 import { BlockchainService, EnhancedBlockchainService } from './BlockchainService';
 import { ValidationService } from './ValidationService';
 import { KnowledgeBaseHelper } from './KnowledgeBaseHelper';
-// Remove Gemini imports - we'll use custom model instead
-// import { GoogleGenerativeAI } from '@google/generative-ai';
+// Add these imports at the top of your existing AIAgent.ts
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConversationUtils, MessageAnalysis } from './ConversationUtils';
 import { REACTOR_KNOWLEDGE_BASE } from '../config/knowledgeBase';
 
@@ -13,7 +13,7 @@ interface EmbeddingChunk {
   embeddings: number[];
   metadata: {
     source: string;
-    category: 'reactor_overview' | 'rsc_technical' | 'stop_orders' | 'networks' | 'costs' | 'faq';
+    category: 'reactor_overview' | 'rsc_technical' | 'automations' | 'stop_orders' | 'aave_protection' | 'networks' | 'costs' | 'faq';
     priority: number;
   };
 }
@@ -45,7 +45,7 @@ export interface MessageContext {
 }
 
 export interface ConversationState {
-  intent: 'CREATE_STOP_ORDER' | 'ANSWER_REACTOR_QUESTION' | 'UNKNOWN';
+  intent: 'CREATE_STOP_ORDER' | 'CREATE_AAVE_PROTECTION' | 'ANSWER_REACTOR_QUESTION' | 'UNKNOWN';
   currentStep: string;
   collectedData: {
     connectedWallet?: string;
@@ -63,114 +63,49 @@ export interface ConversationState {
     currentPrice?: number;
     targetPrice?: number;
     customTokenAddresses?: { [symbol: string]: string };
+    // Aave protection specific data
+    protectionType?: string;
+    healthFactorThreshold?: string;
+    targetHealthFactor?: string;
+    collateralAsset?: string;
+    debtAsset?: string;
+    preferDebtRepayment?: boolean;
+    currentHealthFactor?: string;
+    hasAavePosition?: boolean;
+    userAaveAssets?: any[];
   };
   confidence: number;
   nextStep: string;
   lastUpdated: number;
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
-  lastQuestion?: string; // Add this to track context for parameter extraction
 }
 
-// Training patterns for improved NLP recognition (from Chat.tsx)
-const tradingPatterns = [
-  {
-    id: 1,
-    original_request: "Hi can you create a stop order to protect my tokenA for TokenB i want to sell 15 token A when stop-loss hits 15%",
-    sell_currency: "TokenA",
-    buy_currency: "TokenB",
-    threshold: "15%",
-    amount_to_sell: "15"
-  },
-  {
-    id: 2,
-    original_request: "protect my usdc and sell them for receiving usdt at 50% loss",
-    sell_currency: "USDC",
-    buy_currency: "USDT",
-    threshold: "50%",
-    amount_to_sell: "not specified"
-  },
-  {
-    id: 3,
-    original_request: "stop order create 200 usdc sell receive DAI 50 loss % 45",
-    sell_currency: "USDC",
-    buy_currency: "DAI",
-    threshold: "45%",
-    amount_to_sell: "200"
-  },
-  {
-    id: 4,
-    original_request: "lets create a stop order which protects my Xai for Aave when loss % drops to 12%",
-    sell_currency: "XAI",
-    buy_currency: "AAVE",
-    threshold: "12%",
-    amount_to_sell: "not specified"
-  },
-  {
-    id: 5,
-    original_request: "sell my eurs to at 40% loss",
-    sell_currency: "EURS",
-    buy_currency: "not specified",
-    threshold: "40%",
-    amount_to_sell: "not specified"
-  },
-  {
-    id: 6,
-    original_request: "stop order for xavi buy me Pepe instead",
-    sell_currency: "XAVI",
-    buy_currency: "PEPE",
-    threshold: "not specified",
-    amount_to_sell: "not specified"
-  },
-  {
-    id: 7,
-    original_request: "lets create a stop order sell my usdt to get usdc when loss is 20%",
-    sell_currency: "USDT",
-    buy_currency: "USDC",
-    threshold: "20%",
-    amount_to_sell: "not specified"
-  },
-  {
-    id: 8,
-    original_request: "can you protect my tokens i want wbtc to be sold for a loss of 20% and buy weth",
-    sell_currency: "WBTC",
-    buy_currency: "WETH",
-    threshold: "20%",
-    amount_to_sell: "not specified"
-  },
-  {
-    id: 9,
-    original_request: "set up a stop loss for my ETH, sell 100 tokens for USDC when it drops 25%",
-    sell_currency: "ETH",
-    buy_currency: "USDC",
-    threshold: "25%",
-    amount_to_sell: "100"
-  },
-  {
-    id: 10,
-    original_request: "I need protection on my MATIC holdings, convert to DAI if loss reaches 30%",
-    sell_currency: "MATIC",
-    buy_currency: "DAI",
-    threshold: "30%",
-    amount_to_sell: "not specified"
-  }
-];
+interface GeminiResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
+}
 
 export class AIAgent {
   private conversations = new Map<string, ConversationState>();
-  // Remove Gemini-related properties
-  // private genAI: GoogleGenerativeAI;
-  // private embeddingModel = 'gemini-embedding-001';
+  private genAI: GoogleGenerativeAI;
+  private embeddingModel = 'gemini-embedding-001';
   private knowledgeBase: EmbeddingChunk[] = [];
   private embeddingCache = new Map<string, number[]>();
   private ragInitialized = false;
   private blockchainService: EnhancedBlockchainService;
   private validationService: ValidationService;
-  // Replace with custom model endpoint
-  private customModelApiKey: string;
-  private customModelBaseUrl = process.env.CUSTOM_MODEL_BASE_URL || 'https://your-custom-model-api.com/v1/chat';
+  private geminiApiKey: string;
+  private geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   private maxConversationHistory = 6;
 
-  // Focused system prompt for stop orders only
+  // RE-ENABLE_AAVE_PROTECTION: The original prompt advertised Aave Protection as available on Sepolia.
+  // To re-enable, restore the lines below to indicate availability and adjust flow handling in switch cases.
+  // Focused system prompt
   private systemPrompt = `You are Reactor AI, an intelligent assistant for the REACTOR DeFi automation platform.
 
 ABOUT REACTOR:
@@ -178,37 +113,40 @@ REACTOR is a blockchain automation platform that makes DeFi automation accessibl
 
 YOUR CORE CAPABILITIES:
 1. **Create Stop Orders**: Guide users through creating automated sell orders to protect investments
-2. **Educational Support**: Explain Reactor, RSCs, DeFi automation, and stop order concepts
+2. **Create Aave Protection (Coming Soon)**: Explain the feature and collect interest  
+3. **Educational Support**: Explain Reactor, RSCs, DeFi automation, and our specific automations
 
 SUPPORTED AUTOMATIONS:
 - **Stop Orders** ✅ Available: Automatically sell tokens when price drops
+- **Aave Protection** 🚧 Coming Soon: Liquidation protection
+- **Fee Collectors** 🚧 Coming Soon: Auto-harvest Uniswap V3 fees
+- **Range Managers** 🚧 Coming Soon: Optimize LP position ranges
 
 IMPORTANT LIMITATIONS:
 - You do NOT provide blockchain querying services (checking balances, viewing positions, transaction history, etc.)
 - You do NOT provide market data or price information outside of automation setup
-- You focus ONLY on helping users create stop orders and learn about REACTOR
+- You focus ONLY on helping users create automations and learn about REACTOR
 
 FOCUS AREAS:
-- Be helpful and educational about Reactor platform and stop order automation
-- Guide users through stop order creation step by step
-- Explain RSCs, automation concepts, and how stop orders work
+- Be helpful and educational about Reactor platform and automations
+- Guide users through stop order and Aave protection creation
+- Explain RSCs, health factors, liquidation protection, and automation concepts
 - Stay focused on Reactor-specific topics
-- Politely decline blockchain query requests and redirect to stop order creation
+- Politely decline blockchain query requests and redirect to automation creation
 
 TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
 
   constructor(blockchainService: EnhancedBlockchainService, validationService: ValidationService) {
     this.blockchainService = blockchainService;
     this.validationService = validationService;
-    this.customModelApiKey = process.env.CUSTOM_MODEL_API_KEY || '';
+    this.geminiApiKey = process.env.GEMINI_API_KEY || '';
 
-    // Remove Gemini initialization
-    // this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     this.initializeRAGSystem().catch(console.error);
   }
 
   /**
-   * Initialize RAG system with REACTOR knowledge (simplified for stop orders)
+   * Initialize RAG system with REACTOR knowledge
    */
   private async initializeRAGSystem(): Promise<void> {
     if (this.ragInitialized) return;
@@ -225,6 +163,10 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
         metadata: { source: 'Stop_Orders', category: 'stop_orders' as const, priority: 5 }
       },
       {
+        content: `Aave Protection: ${REACTOR_KNOWLEDGE_BASE.automations.AAVE_PROTECTION.description}. Features: ${REACTOR_KNOWLEDGE_BASE.automations.AAVE_PROTECTION.features.join(', ')}. Currently available on Sepolia testnet with Ethereum mainnet coming soon.`,
+        metadata: { source: 'Aave_Protection', category: 'aave_protection' as const, priority: 5 }
+      },
+      {
         content: `RSCs (Reactive Smart Contracts): ${REACTOR_KNOWLEDGE_BASE.faq['what are rscs'].answer}`,
         metadata: { source: 'RSC_Technical', category: 'rsc_technical' as const, priority: 4 }
       },
@@ -234,18 +176,119 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       }
     ];
 
-    // For now, store without embeddings (you can add embedding generation later if needed)
     for (const chunk of knowledgeChunks) {
-      this.knowledgeBase.push({
-        id: `chunk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        content: chunk.content,
-        embeddings: [], // Empty for now
-        metadata: chunk.metadata
-      });
+      try {
+        const embedding = await this.generateEmbedding(chunk.content);
+        this.knowledgeBase.push({
+          id: `chunk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          content: chunk.content,
+          embeddings: embedding,
+          metadata: chunk.metadata
+        });
+        await new Promise(resolve => setTimeout(resolve, 100)); // Rate limiting
+      } catch (error) {
+        console.error(`Failed to generate embedding:`, error);
+      }
     }
 
     this.ragInitialized = true;
     console.log(`✅ RAG system initialized with ${this.knowledgeBase.length} chunks`);
+  }
+
+  /**
+   * Generate embedding with caching
+   */
+  private async generateEmbedding(text: string): Promise<number[]> {
+    const hash = this.hashText(text);
+    
+    if (this.embeddingCache.has(hash)) {
+      return this.embeddingCache.get(hash)!;
+    }
+    
+    const model = this.genAI.getGenerativeModel({ model: this.embeddingModel });
+    const result = await model.embedContent(text);
+    
+    if (!result.embedding?.values) {
+      throw new Error('No embedding values returned');
+    }
+    
+    const embedding = result.embedding.values;
+    this.embeddingCache.set(hash, embedding);
+    return embedding;
+  }
+
+  /**
+   * Process RAG query
+   */
+  private async processRAGQuery(query: string, maxChunks: number = 3): Promise<RAGResponse> {
+    if (!this.ragInitialized) {
+      await this.initializeRAGSystem();
+    }
+
+    const queryEmbedding = await this.generateEmbedding(query);
+    
+    const relevantChunks = this.knowledgeBase
+      .map(chunk => ({
+        ...chunk,
+        similarity: this.cosineSimilarity(queryEmbedding, chunk.embeddings)
+      }))
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, maxChunks);
+
+    const context = relevantChunks
+      .map(chunk => `[${chunk.metadata.source}]: ${chunk.content}`)
+      .join('\n\n');
+
+    const prompt = `${this.systemPrompt}
+
+RETRIEVED CONTEXT:
+${context}
+
+USER QUERY: "${query}"
+
+Respond as Reactor AI:`;
+
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const result = await model.generateContent(prompt);
+    const response = result.response.text();
+
+    const avgSimilarity = relevantChunks.reduce((sum, chunk) => sum + chunk.similarity, 0) / relevantChunks.length;
+    const confidence = Math.min(avgSimilarity * 100, 95);
+
+    return {
+      answer: response,
+      relevantChunks: relevantChunks.map(chunk => ({
+        id: chunk.id,
+        content: chunk.content,
+        embeddings: [],
+        metadata: chunk.metadata
+      })),
+      confidence,
+      sources: relevantChunks.map(chunk => chunk.metadata.source)
+    };
+  }
+
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) throw new Error('Vectors must have same length');
+    
+    let dotProduct = 0, normA = 0, normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  private hashText(text: string): string {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString();
   }
 
   async processMessage(context: MessageContext) {
@@ -261,7 +304,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       console.log('Current intent:', conversation.intent);
       console.log('Current step:', conversation.currentStep);
 
-      // Check for blockchain query requests first
+      // Check for blockchain query requests first (NEW)
       if (this.isBlockchainQueryRequest(context.message)) {
         return this.handleBlockchainQueryDecline(context.message);
       }
@@ -285,13 +328,32 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       console.log('Message intent:', messageIntent);
 
       // Handle based on intent
-      switch (messageIntent) {
+          switch (messageIntent) {
         case 'CREATE_STOP_ORDER':
           if (conversation.intent !== 'CREATE_STOP_ORDER') {
             this.resetConversationForNewIntent(conversation, 'CREATE_STOP_ORDER');
           }
           await this.extractStopOrderEntities(context.message, conversation);
           return this.handleStopOrderFlow(conversation, context);
+        
+        case 'CREATE_AAVE_PROTECTION':
+          // RE-ENABLE_AAVE_PROTECTION: Original flow disabled. To re-enable, uncomment the lines below and remove the coming soon response.
+          // if (conversation.intent !== 'CREATE_AAVE_PROTECTION') {
+          //   this.resetConversationForNewIntent(conversation, 'CREATE_AAVE_PROTECTION');
+          // }
+          // await this.extractAaveEntities(context.message, conversation);
+          // return this.handleAaveProtectionFlow(conversation, context);
+          return {
+            message: '🚧 **Aave Liquidation Protection** is coming soon!\n\nIn the meantime, you can create a **Stop Order** for price protection, or I can notify you when Aave protection is ready.',
+            intent: 'CREATE_AAVE_PROTECTION' as const,
+            needsUserInput: true,
+            inputType: 'choice' as const,
+            nextStep: 'coming_soon',
+            options: [
+              { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+              { value: 'notify me', label: '🔔 Notify Me When Ready' }
+            ]
+          };
         
         case 'ANSWER_REACTOR_QUESTION':
           return await this.handleReactorQuestions(conversation, context);
@@ -301,6 +363,21 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
           if (conversation.intent === 'CREATE_STOP_ORDER') {
             await this.extractStopOrderEntities(context.message, conversation);
             return this.handleStopOrderFlow(conversation, context);
+          } else if (conversation.intent === 'CREATE_AAVE_PROTECTION') {
+            // RE-ENABLE_AAVE_PROTECTION: Original flow disabled. To re-enable, uncomment the lines below.
+            // await this.extractAaveEntities(context.message, conversation);
+            // return this.handleAaveProtectionFlow(conversation, context);
+            return {
+              message: '🚧 **Aave Liquidation Protection** is coming soon!\n\nWould you like to set up a **Stop Order** instead while we finish this feature?',
+              intent: 'CREATE_AAVE_PROTECTION' as const,
+              needsUserInput: true,
+              inputType: 'choice' as const,
+              nextStep: 'coming_soon',
+              options: [
+                { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+                { value: 'notify me', label: '🔔 Notify Me When Ready' }
+              ]
+            };
           } else {
             return this.generateHelpResponse(context, conversation);
           }
@@ -312,319 +389,34 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     }
   }
 
-  // ENHANCED PARAMETER EXTRACTION (from Chat.tsx)
-  
-  // Normalize currency names and validate known currencies
-  private normalizeCurrency(currency: string): string {
-    // Skip common trading/command words that aren't currencies
-    const nonCurrencyWords = ['stop', 'order', 'loss', 'buy', 'sell', 'for', 'and', 'the', 'with', 'from', 'into', 'swap', 'protect'];
-    if (nonCurrencyWords.includes(currency.toLowerCase())) {
-      console.log("Rejecting non-currency word:", currency);
-      return '';
-    }
-    
-    // Create currency mapping from common variations
-    const commonVariations: { [key: string]: string } = {
-      'usdc': 'USDC', 'usd coin': 'USDC', 'usdt': 'USDT', 'tether': 'USDT',
-      'dai': 'DAI', 'ethereum': 'ETH', 'eth': 'ETH', 'bitcoin': 'BTC', 'btc': 'BTC',
-      'matic': 'MATIC', 'polygon': 'MATIC', 'chainlink': 'LINK', 'link': 'LINK',
-      'solana': 'SOL', 'sol': 'SOL', 'binance': 'BNB', 'bnb': 'BNB',
-      'cardano': 'ADA', 'ada': 'ADA', 'avalanche': 'AVAX', 'avax': 'AVAX',
-      'polkadot': 'DOT', 'dot': 'DOT', 'uniswap': 'UNI', 'uni': 'UNI',
-      'algorand': 'ALGO', 'algo': 'ALGO', 'cosmos': 'ATOM', 'atom': 'ATOM',
-      'fantom': 'FTM', 'ftm': 'FTM', 'near': 'NEAR', 'sandbox': 'SAND', 'sand': 'SAND',
-      'decentraland': 'MANA', 'mana': 'MANA', 'dogecoin': 'DOGE', 'doge': 'DOGE',
-      'litecoin': 'LTC', 'ltc': 'LTC', 'cronos': 'CRO', 'cro': 'CRO',
-      'shiba': 'SHIB', 'shib': 'SHIB', 'compound': 'COMP', 'comp': 'COMP',
-      'graph': 'GRT', 'grt': 'GRT', 'aave': 'AAVE', 'luna': 'LUNA',
-      'internet computer': 'ICP', 'icp': 'ICP', 'flow': 'FLOW', 'theta': 'THETA',
-      'enjin': 'ENJ', 'enj': 'ENJ', 'vechain': 'VET', 'vet': 'VET',
-      'hedera': 'HBAR', 'hbar': 'HBAR', 'wrapped bitcoin': 'WBTC', 'wbtc': 'WBTC',
-      'wrapped ethereum': 'WETH', 'weth': 'WETH', 'xai': 'XAI', 'euros': 'EURS',
-      'eurs': 'EURS', 'xavi': 'XAVI', 'pepe': 'PEPE', 'busd': 'BUSD',
-      'tokena': 'TokenA', 'tokenb': 'TokenB'
-    };
-    
-    const normalized = commonVariations[currency.toLowerCase()];
-    if (normalized) {
-      console.log("Currency normalized:", currency, "->", normalized);
-      return normalized;
-    }
-    
-    console.log("Currency not recognized:", currency);
-    return '';
-  }
-
-  // Enhanced parameter extraction function (from Chat.tsx)
-  private extractTradingParams(input: string, lastQuestion?: string): Partial<ConversationState['collectedData']> {
-    const extracted: Partial<ConversationState['collectedData']> = {};
-  
-  // Context-aware extraction based on last question (HIGHEST PRIORITY)
-  if (lastQuestion) {
-    const numberOnly = input.match(/(?:about\s+)?(\d+(?:\.\d+)?)%?$/i);
-    if (numberOnly) {
-      if (lastQuestion.toLowerCase().includes('threshold') || lastQuestion.toLowerCase().includes('percentage')) {
-        extracted.dropPercentage = parseFloat(numberOnly[1]);
-        return extracted;
-      } else if (lastQuestion.toLowerCase().includes('how many') || lastQuestion.toLowerCase().includes('amount')) {
-        extracted.amount = numberOnly[1];
-        return extracted;
-      }
-    }
-    
-    // If it's just a currency name in response to a question - FIXED FIELD NAMES
-    const currencyOnly = input.match(/^([A-Za-z]{3,})$/);
-    if (currencyOnly) {
-      console.log("Currency-only input detected:", currencyOnly[1]);
-      const currency = this.normalizeCurrency(currencyOnly[1]);
-      console.log("Normalized currency result:", currency);
-      console.log("Last question:", lastQuestion);
-      if (currency) {
-        // More specific context detection - check for receive/triggers first
-        if (lastQuestion.toLowerCase().includes('receive') || 
-            lastQuestion.toLowerCase().includes('buy') || 
-            lastQuestion.toLowerCase().includes('want to buy')) {
-          console.log("Setting tokenToBuy to:", currency);
-          extracted.tokenToBuy = currency;
-          return extracted;
-        } else if (lastQuestion.toLowerCase().includes('selling') || 
-                   lastQuestion.toLowerCase().includes('protect') ||
-                   lastQuestion.toLowerCase().includes('which token would you like to protect') ||
-                   lastQuestion.toLowerCase().includes('which currency are you selling')) {
-          console.log("Setting tokenToSell to:", currency);
-          extracted.tokenToSell = currency;
-          return extracted;
-        }
-      }
-    }
-  }
-
-    // Try to match against known patterns for improved accuracy
-    const inputLower = input.toLowerCase();
-    for (const pattern of tradingPatterns) {
-      const patternLower = pattern.original_request.toLowerCase();
-      const inputWords = inputLower.split(/\s+/);
-      const patternWords = patternLower.split(/\s+/);
-      const commonWords = inputWords.filter(word => patternWords.includes(word));
-      const similarity = commonWords.length / Math.max(inputWords.length, patternWords.length);
-      
-      if (similarity > 0.5) {
-        console.log(`Pattern match found (${Math.round(similarity * 100)}%):`, pattern.original_request);
-        
-        const inputHasSellCurrency = pattern.sell_currency === "not specified" || 
-                                   inputLower.includes(pattern.sell_currency.toLowerCase());
-        const inputHasBuyCurrency = pattern.buy_currency === "not specified" || 
-                                  inputLower.includes(pattern.buy_currency.toLowerCase());
-        
-        if (inputHasSellCurrency && inputHasBuyCurrency) {
-          if (pattern.sell_currency !== "not specified" && !extracted.tokenToSell) {
-            extracted.tokenToSell = pattern.sell_currency;
-          }
-          if (pattern.buy_currency !== "not specified" && !extracted.tokenToBuy) {
-            extracted.tokenToBuy = pattern.buy_currency;
-          }
-          if (pattern.threshold !== "not specified" && !extracted.dropPercentage) {
-            extracted.dropPercentage = parseFloat(pattern.threshold.replace('%', ''));
-          }
-          if (pattern.amount_to_sell !== "not specified" && !extracted.amount) {
-            extracted.amount = pattern.amount_to_sell;
-          }
-          break;
-        }
-      }
-    }
-
-    // Enhanced sell/buy currency extraction patterns
-    const sellPatterns = [
-      /(?:set\s+up\s+)?protection\s+for\s+my\s+([A-Za-z]{3,})\s+holdings.*?sell\s+for\s+([A-Za-z]{3,})/i,
-      /protect(?:ion)?\s+(?:for\s+)?my\s+([A-Za-z]{3,})\s+holdings/i,
-      /(?:auto\s+sell|automatically\s+sell)\s+my\s+([A-Za-z]{3,})\s+for\s+([A-Za-z]{3,})/i,
-      /trigger\s+sell\s+order\s+for\s+my\s+([A-Za-z]{3,}),?\s+get\s+([A-Za-z]{3,})/i,
-      /(?:make\s+)?stop\s+order\s+sell\s+(\d+(?:\.\d+)?)\s+([A-Za-z]{3,})\s+get\s+([A-Za-z]{3,})/i,
-      /swap\s+(\d+(?:\.\d+)?)(?!\s*%)\s*([A-Za-z]{3,})\s+for\s+([A-Za-z]{3,})/i,
-      /protect\s+my\s+([A-Za-z]{3,})\s+for\s+([A-Za-z]{3,})\s+.*?sell\s+(\d+(?:\.\d+)?)(?!\s*%)/i,
-      /(?:sell|selling|want\s+to\s+sell|wanna\s+sell)\s+(\d+(?:\.\d+)?)(?!\s*%)\s*([A-Za-z]{3,})/i,
-      /protect\s+my\s+([A-Za-z]{3,})(?!\s*\d)/i,
-      /sell\s+([A-Za-z]{3,})/i,
-    ];
-    
-    let swapPatternMatched = false;
-    
-    for (const pattern of sellPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        console.log("Sell pattern matched:", pattern.source, "with groups:", match);
-        
-        // Handle different pattern types
-        if (pattern.source.includes('protection') && pattern.source.includes('holdings') && pattern.source.includes('sell')) {
-          const sellCurrency = this.normalizeCurrency(match[1]);
-          const buyCurrency = this.normalizeCurrency(match[2]);
-          if (sellCurrency) extracted.tokenToSell = sellCurrency;
-          if (buyCurrency) extracted.tokenToBuy = buyCurrency;
-          swapPatternMatched = true;
-        } else if (pattern.source.includes('auto') && pattern.source.includes('sell')) {
-          const sellCurrency = this.normalizeCurrency(match[1]);
-          const buyCurrency = this.normalizeCurrency(match[2]);
-          if (sellCurrency) extracted.tokenToSell = sellCurrency;
-          if (buyCurrency) extracted.tokenToBuy = buyCurrency;
-          swapPatternMatched = true;
-        } else if (pattern.source.includes('swap')) {
-          const amount = match[1];
-          const sellCurrency = this.normalizeCurrency(match[2]);
-          const buyCurrency = this.normalizeCurrency(match[3]);
-          if (sellCurrency) extracted.tokenToSell = sellCurrency;
-          if (buyCurrency) extracted.tokenToBuy = buyCurrency;
-          if (amount) extracted.amount = amount;
-          swapPatternMatched = true;
-        } else if (pattern.source.includes('(\\d+')) {
-          if (match[2]) {
-            const normalizedCurrency = this.normalizeCurrency(match[2]);
-            if (normalizedCurrency) {
-              extracted.tokenToSell = normalizedCurrency;
-              extracted.amount = match[1];
-            }
-          } else if (match[1]) {
-            const normalizedCurrency = this.normalizeCurrency(match[1]);
-            if (normalizedCurrency) {
-              extracted.tokenToSell = normalizedCurrency;
-            }
-          }
-        } else {
-          const normalizedCurrency = this.normalizeCurrency(match[1]);
-          if (normalizedCurrency) {
-            extracted.tokenToSell = normalizedCurrency;
-          }
-        }
-        break;
-      }
-    }
-
-    // Extract buy currency if not already found
-    if (!swapPatternMatched) {
-      const buyPatterns = [
-        /buy\s+me\s+([A-Za-z]{3,})\s+instead/i,
-        /protect\s+my\s+[A-Za-z]{3,}\s+for\s+([A-Za-z]{3,})/i,
-        /receive\s+([A-Za-z]{3,})/i,
-        /buy\s+([A-Za-z]{3,})/i,
-        /for\s+([A-Za-z]{3,})/i,
-        /get\s+([A-Za-z]{3,})/i,
-      ];
-      
-      for (const pattern of buyPatterns) {
-        const match = input.match(pattern);
-        if (match) {
-          const normalizedCurrency = this.normalizeCurrency(match[1]);
-          if (normalizedCurrency) {
-            extracted.tokenToBuy = normalizedCurrency;
-            break;
-          }
-        }
-      }
-    }
-
-    // Extract amount if not found
-    if (!extracted.amount) {
-      if (input.toLowerCase().includes('all') || input.toLowerCase().includes('everything')) {
-        extracted.amount = 'all';
-      } else if (input.toLowerCase().includes('half')) {
-        extracted.amount = '50%';
-      } else {
-        const amountPatterns = [
-          /(\d+(?:\.\d+)?)\s*(?:coins?|units?|tokens?)/i,
-          /amount.*?(\d+(?:\.\d+)?)/i,
-          /^(\d+(?:\.\d+)?)$/
-        ];
-        
-        for (const pattern of amountPatterns) {
-          const match = input.match(pattern);
-          if (match) {
-            const numStr = match[1];
-            const isPartOfPercentage = input.includes(numStr + '%') || extracted.dropPercentage?.toString() === numStr;
-            if (!isPartOfPercentage) {
-              extracted.amount = numStr;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    console.log("Final extracted params:", extracted);
-    return extracted;
-  }
-
-  private async generateQuestionForMissingData(conversation: ConversationState, missingField: string, context: MessageContext) {
-    const data = conversation.collectedData;
-    
-    switch (missingField) {
-      case 'network':
-        return {
-          message: "🌐 Which network would you like to use?\n\nSupported: Ethereum, Avalanche, or Sepolia\n\nJust tell me the network name:",
-          intent: 'CREATE_STOP_ORDER' as const,
-          needsUserInput: true,
-          inputType: 'network' as const,
-          nextStep: 'network'
-        };
-  
-      case 'tokenToSell':
-        return {
-          message: "Which currency are you selling?",
-          intent: 'CREATE_STOP_ORDER' as const,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          nextStep: 'tokenToSell'
-        };
-  
-      case 'tokenToBuy':
-        return {
-          message: `What currency do you want to buy${data.tokenToSell ? ` with your ${data.tokenToSell}` : ''}?`,
-          intent: 'CREATE_STOP_ORDER' as const,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          nextStep: 'tokenToBuy'
-        };
-  
-      case 'amount':
-        return {
-          message: `How many ${data.tokenToSell || 'coins'} are you selling?`,
-          intent: 'CREATE_STOP_ORDER' as const,
-          needsUserInput: true,
-          inputType: 'amount' as const,
-          nextStep: 'amount'
-        };
-  
-      case 'dropPercentage':
-        return {
-          message: `What's your threshold percentage${data.tokenToSell && data.tokenToBuy ? ` for ${data.tokenToSell} to ${data.tokenToBuy}` : ''}?`,
-          intent: 'CREATE_STOP_ORDER' as const,
-          needsUserInput: true,
-          inputType: 'amount' as const,
-          nextStep: 'dropPercentage'
-        };
-  
-      default:
-        return {
-          message: "Please provide more details about your stop order.",
-          intent: 'CREATE_STOP_ORDER' as const,
-          needsUserInput: true,
-          inputType: 'token' as const,
-          nextStep: 'general'
-        };
-    }
-  }
-
   // NEW: Detect blockchain query requests and decline politely
   private isBlockchainQueryRequest(message: string): boolean {
     const lowerMessage = message.toLowerCase().trim();
     
     const blockchainQueryKeywords = [
+      // Balance queries
       'my balance', 'check balance', 'how much do i have', 'balance of', 'token balance',
       'wallet balance', 'show balance', 'current balance', 'account balance',
-      'my position', 'check position', 'position status', 'current position', 'portfolio',
+      
+      // Position queries
+      'my position', 'check position', 'lending position', 'my aave',
+      'position status', 'current position', 'portfolio', 'my holdings',
+      
+      // Price queries
       'current price', 'price of', 'what is the price', 'token price', 'eth price',
-      'transaction history', 'my transactions', 'recent transactions',
-      'my health factor', 'current health factor', 'liquidation risk',
-      'on chain data', 'blockchain data', 'contract balance'
+      'market price', 'live price', 'real time price',
+      
+      // Transaction queries
+      'transaction history', 'my transactions', 'recent transactions', 'tx history',
+      'transaction status', 'pending transactions',
+      
+      // Health factor queries
+      'my health factor', 'current health factor', 'check health factor',
+      'health factor status', 'liquidation risk',
+      
+      // General blockchain queries
+      'on chain data', 'blockchain data', 'contract balance', 'smart contract data',
+      'defi position', 'yield farming position', 'liquidity position'
     ];
     
     return blockchainQueryKeywords.some(keyword => lowerMessage.includes(keyword));
@@ -638,24 +430,27 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     
     if (lowerMessage.includes('balance')) {
       specificResponse = '**Balance Checking** is not currently available through me.';
-    } else if (lowerMessage.includes('position')) {
+    } else if (lowerMessage.includes('position') || lowerMessage.includes('aave')) {
       specificResponse = '**Position Monitoring** is not currently available through me.';
     } else if (lowerMessage.includes('price')) {
       specificResponse = '**Price Checking** is not currently available through me.';
     } else if (lowerMessage.includes('transaction')) {
       specificResponse = '**Transaction History** is not currently available through me.';
+    } else if (lowerMessage.includes('health factor')) {
+      specificResponse = '**Health Factor Monitoring** is not currently available through me.';
     } else {
       specificResponse = '**Blockchain data queries** are not currently available through me.';
     }
 
     return {
-      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich would you like to do? 🚀`,
+      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n🏦 **Create Aave Protection** - Guard against liquidation\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich automation would you like to create? 🚀`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: true,
       inputType: 'choice' as const,
       nextStep: 'blockchain_query_declined',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 Learn About REACTOR' }
       ]
     };
@@ -665,45 +460,52 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
   private handleAutomationSwitching(message: string, conversation: ConversationState) {
     const lowerMessage = message.toLowerCase().trim();
     
-    // Check for explicit automation switching or reset
-    if (this.isRejectingAction(lowerMessage)) {
-      console.log('🚫 User rejected current flow - resetting');
-      return this.handleStopOrderRejection(conversation);
+    // Check for explicit automation switching
+    if (conversation.intent === 'CREATE_STOP_ORDER' && this.isAaveProtectionCreationIntent(lowerMessage)) {
+      console.log('🔄 User switching from Stop Order to Aave Protection');
+      this.resetConversationForNewIntent(conversation, 'CREATE_AAVE_PROTECTION');
+      
+      return {
+        message: "🔄 **Switching to Aave Protection!**\n\nI've reset our conversation to focus on creating Aave liquidation protection instead.\n\nLet's set up automated protection for your Aave lending position! 🛡️\n\nFirst, which network is your Aave position on?",
+        intent: 'CREATE_AAVE_PROTECTION' as const,
+        needsUserInput: true,
+        inputType: 'network' as const,
+        nextStep: 'aave_network',
+        options: [
+          { value: '11155111', label: '🧪 Sepolia Testnet (Available Now)' },
+          { value: '1', label: '🔷 Ethereum Mainnet (Coming Soon)' },
+          { value: '43114', label: '🔺 Avalanche (Coming Soon)' }
+        ]
+      };
+    }
+    
+    if (conversation.intent === 'CREATE_AAVE_PROTECTION' && this.isStopOrderCreationIntent(lowerMessage)) {
+      console.log('🔄 User switching from Aave Protection to Stop Order');
+      this.resetConversationForNewIntent(conversation, 'CREATE_STOP_ORDER');
+      
+      return {
+        message: "🔄 **Switching to Stop Order Creation!**\n\nI've reset our conversation to focus on creating a stop order instead.\n\nLet's protect your tokens from price drops! 🛡️\n\nWhich token would you like to protect with a stop order?",
+        intent: 'CREATE_STOP_ORDER' as const,
+        needsUserInput: true,
+        inputType: 'token' as const,
+        nextStep: 'tokenToSell',
+        options: [
+          
+          { value: 'USDC', label: '💵 USD Coin (USDC)' },
+          { value: 'USDT', label: '💵 Tether (USDT)' },
+          { value: 'DAI', label: '💵 Dai (DAI)' }
+        ]
+      };
     }
     
     return null;
-  }
-
-  // Enhanced rejection detection
-  private isRejectingAction(message: string): boolean {
-    const lowerMessage = message.toLowerCase().trim();
-    
-    if (this.isStopOrderCreationIntent(lowerMessage)) {
-      return false;
-    }
-    
-    const rejectionPhrases = [
-      'no', 'nope', 'nah', 'cancel', 'abort', 'quit', 'exit',
-      'forget it', 'never mind', 'not now', 'maybe later', 'not interested',
-      'change my mind', 'go back', 'restart', 'reset',
-      'don\'t want', 'not this', 'something else', 'different approach'
-    ];
-    
-    return rejectionPhrases.some(phrase => {
-      if (phrase === 'stop' || phrase === 'different') {
-        if (lowerMessage.includes('create') || lowerMessage.includes('make') || 
-            lowerMessage.includes('set up') || lowerMessage.includes('automation')) {
-          return false;
-        }
-      }
-      return lowerMessage.includes(phrase);
-    });
   }
 
   // Reset conversation state for new automation intent
   private resetConversationForNewIntent(conversation: ConversationState, newIntent: ConversationState['intent']) {
     console.log(`🔄 Resetting conversation from ${conversation.intent} to ${newIntent}`);
     
+    // Keep basic connection info but reset automation-specific data
     const connectedWallet = conversation.collectedData.connectedWallet;
     const selectedNetwork = conversation.collectedData.selectedNetwork;
     
@@ -715,11 +517,46 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     };
     conversation.confidence = 0;
     conversation.nextStep = '';
-    conversation.lastQuestion = '';
     
+    // Keep conversation history but add a reset marker
     conversation.conversationHistory.push({ 
       role: 'assistant', 
       content: `[RESET: Switched to ${newIntent}]` 
+    });
+  }
+
+  public getConversationCount(): number {
+    return this.conversations ? Object.keys(this.conversations).length : 0;
+  }
+
+  // Enhanced rejection detection
+  private isRejectingAction(message: string): boolean {
+    const lowerMessage = message.toLowerCase().trim();
+    
+    // Don't treat automation creation requests as rejections
+    if (this.isStopOrderCreationIntent(lowerMessage) || this.isAaveProtectionCreationIntent(lowerMessage)) {
+      return false;
+    }
+    
+    // Check for explicit rejection phrases (more specific)
+    const rejectionPhrases = [
+      'no', 'nope', 'nah', 'cancel', 'abort', 'quit', 'exit',
+      'forget it', 'never mind', 'not now', 'maybe later', 'not interested',
+      'change my mind', 'go back', 'restart', 'reset',
+      'don\'t want', 'not this', 'something else', 'different approach',
+      'try something different', 'not what I want'
+    ];
+    
+    // Check for rejection patterns but exclude automation creation contexts
+    return rejectionPhrases.some(phrase => {
+      if (phrase === 'stop' || phrase === 'different') {
+        // For ambiguous words, check context
+        if (lowerMessage.includes('create') || lowerMessage.includes('make') || 
+            lowerMessage.includes('set up') || lowerMessage.includes('automation')) {
+          return false; // This is automation creation, not rejection
+        }
+      }
+      return lowerMessage.includes(phrase);
     });
   }
 
@@ -729,10 +566,17 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     
     console.log('Classifying intent for:', lowerMessage);
 
+    // Check for stop order creation intents
     if (this.isStopOrderCreationIntent(lowerMessage)) {
       return 'CREATE_STOP_ORDER';
     }
 
+    // Check for Aave protection creation intents
+    if (this.isAaveProtectionCreationIntent(lowerMessage)) {
+      return 'CREATE_AAVE_PROTECTION';
+    }
+
+    // Check for Reactor/automation questions
     if (this.isReactorQuestionIntent(lowerMessage)) {
       return 'ANSWER_REACTOR_QUESTION';
     }
@@ -740,52 +584,440 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     return 'UNKNOWN';
   }
 
-  // Detect stop order creation intent
+  // Detect stop order creation intent (ENHANCED)
   private isStopOrderCreationIntent(message: string): boolean {
     const stopOrderCreationKeywords = [
       'create stop order', 'make stop order', 'set up stop order', 'setup stop order',
       'create automation', 'protect my', 'sell when', 'sell if',
       'automatic sell', 'stop loss', 'price drop', 'create order',
       'automate sell', 'trigger sell', 'liquidate when', 'exit position',
-      'protect investment', 'cut losses', 'emergency sell', 'stop order'
+      'protect investment', 'cut losses', 'emergency sell', 'stop order',
+      'new stop order', 'build stop order', 'configure stop order'
     ];
     
     return stopOrderCreationKeywords.some(keyword => message.includes(keyword));
   }
 
-  // Detect Reactor-related questions
-  private isReactorQuestionIntent(message: string): boolean {
-    const reactorQuestionKeywords = [
-      'what is reactor', 'about reactor', 'how does reactor work',
-      'what are rsc', 'reactive smart contract', 'how do rsc work',
-      'what automations', 'tell me about stop order', 'explain stop order',
-      'what networks', 'what chains', 'how much does it cost',
-      'coming soon', 'future features'
+  // Detect Aave protection creation intent (ENHANCED)
+  private isAaveProtectionCreationIntent(message: string): boolean {
+    const aaveProtectionCreationKeywords = [
+      'create aave protection', 'set up aave protection', 'make aave protection',
+      'protect my aave', 'aave liquidation protection', 'create liquidation protection',
+      'protect aave position', 'guard against liquidation', 'prevent liquidation',
+      'health factor protection', 'aave automation', 'automated aave protection',
+      'aave protection', 'new aave protection', 'build aave protection'
     ];
     
+    return aaveProtectionCreationKeywords.some(keyword => message.includes(keyword));
+  }
+
+  // Detect Reactor-related questions (ENHANCED)
+  private isReactorQuestionIntent(message: string): boolean {
+    const reactorQuestionKeywords = [
+      // About Reactor platform
+      'what is reactor', 'about reactor', 'how does reactor work',
+      'tell me about reactor', 'explain reactor', 'reactor detail',
+      'reactor in detail', 'more about reactor', 'comprehensive reactor',
+      
+      // About RSCs
+      'what are rsc', 'reactive smart contract', 'how do rsc work',
+      'tell me about rsc', 'explain rsc', 'rsc detail', 'rsc in detail',
+      'more about rsc', 'comprehensive rsc',
+      
+      // About automations
+      'what automations', 'tell me about stop order', 'explain stop order',
+      'tell me about aave protection', 'explain aave protection',
+      'what is aave protection', 'how does aave protection work',
+      'tell me about fee collector', 'explain fee collector',
+      'tell me about range manager', 'explain range manager',
+      'available automations', 'supported automations',
+      
+      // About concepts
+      'what is health factor', 'explain health factor', 'tell me about health factor',
+      'what is liquidation', 'explain liquidation', 'tell me about liquidation',
+      
+      // General platform questions
+      'how much does it cost', 'what networks', 'what chains',
+      'coming soon', 'future features', 'roadmap', 'supported networks',
+      'supported tokens', 'how it works', 'benefits', 'advantages',
+      'why reactor', 'why use reactor'
+    ];
+    
+    // Check for direct keyword matches
     const hasKeywordMatch = reactorQuestionKeywords.some(keyword => message.includes(keyword));
     
+    // Check for question patterns with reactor-related terms
     const hasQuestionPattern = message.includes('?') && (
       message.includes('reactor') || 
       message.includes('rsc') || 
       message.includes('automation') ||
-      message.includes('stop order')
+      message.includes('aave') ||
+      message.includes('stop order') ||
+      message.includes('health factor') ||
+      message.includes('liquidation') ||
+      message.includes('cross chain') ||
+      message.includes('defi')
     );
     
-    return hasKeywordMatch || hasQuestionPattern;
+    // Check for detailed requests
+    const isDetailedRequest = (message.includes('detail') || message.includes('more') || 
+                              message.includes('comprehensive') || message.includes('explain') ||
+                              message.includes('how does') || message.includes('in depth')) &&
+                             (message.includes('reactor') || message.includes('rsc') || 
+                              message.includes('automation'));
+    
+    return hasKeywordMatch || hasQuestionPattern || isDetailedRequest;
   }
 
-  
+  // Handle Reactor-specific questions (ENHANCED)
+  private async handleReactorQuestions(conversation: ConversationState, context: MessageContext) {
+    const lowerMessage = context.message.toLowerCase();
 
-  // Enhanced stop order flow handling
+    // Check if user is asking for detailed information
+    const isDetailedRequest = lowerMessage.includes('detail') || lowerMessage.includes('more') || 
+                             lowerMessage.includes('comprehensive') || lowerMessage.includes('explain') ||
+                             lowerMessage.includes('how does') || lowerMessage.includes('in depth');
+
+    // Enhanced knowledge base for detailed questions
+    if (lowerMessage.includes('reactor') && (isDetailedRequest || lowerMessage.includes('tell me about reactor'))) {
+      const detailedReactorInfo = `🚀 **REACTOR - Comprehensive Overview**
+
+**What is REACTOR?**
+REACTOR is a cutting-edge DeFi automation platform that revolutionizes how users interact with blockchain protocols. Built on Reactive Smart Contracts (RSCs), it enables autonomous, event-driven operations across multiple blockchain networks.
+
+**🧠 Core Technology - Reactive Smart Contracts (RSCs):**
+• **Event-Driven Architecture**: Contracts that automatically react to blockchain events
+• **Inversion of Control**: Instead of users calling contracts, contracts observe and act
+• **Cross-Chain Operations**: Monitor events on one chain, execute on another
+• **24/7 Autonomous Monitoring**: No manual intervention required
+
+**🛡️ Available Automations:**
+
+**Stop Orders** ✅ **Active**
+• Automatically sell tokens when price drops below threshold
+• Protect investments from market volatility
+• Available on: Ethereum, Avalanche, Sepolia
+• Use case: "Sell my ETH if it drops 10%"
+
+**Aave Liquidation Protection** ✅ **Active on Sepolia**
+• Monitor health factor 24/7
+• Automatically deposit collateral or repay debt
+• Prevent costly liquidation penalties
+• Use case: Protect leveraged positions
+
+**🚧 Coming Soon:**
+• **Fee Collectors**: Auto-harvest Uniswap V3 fees
+• **Range Managers**: Optimize LP position ranges
+• **Portfolio Automation**: Multi-asset strategies
+
+**🌐 Cross-Chain Support:**
+• Ethereum Mainnet & Sepolia
+• Avalanche C-Chain
+• Arbitrum, Base, Polygon, BSC
+• More networks being added
+
+**💡 Why Choose REACTOR?**
+• **No Coding Required**: Intuitive interfaces for everyone
+• **Gas Efficient**: Optimized for minimal costs
+• **Secure**: Audited smart contracts
+• **Community Driven**: Open template library
+• **24/7 Operation**: Truly autonomous automation
+
+**🔧 Technical Benefits:**
+• Full EVM compatibility
+• Event-driven triggers
+• Cross-chain state management
+• Automated callbacks
+• Real-time monitoring
+
+Ready to automate your DeFi strategy? I can help you create your first automation! 🎯`;
+
+      const response = {
+        message: detailedReactorInfo,
+        intent: 'ANSWER_REACTOR_QUESTION' as const,
+        needsUserInput: false,
+        nextStep: 'detailed_reactor_explained',
+        options: [
+          { value: 'create stop order', label: '🛡️ Create My First Stop Order' },
+          { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+          { value: 'tell me about rsc', label: '🧠 Learn About RSCs' },
+          { value: 'what automations are available', label: '🤖 View All Automations' }
+        ]
+      };
+      
+      this.addToHistory(conversation, 'assistant', response.message);
+      return response;
+    }
+
+    // Enhanced RSC explanation
+    if (lowerMessage.includes('rsc') || (lowerMessage.includes('reactive smart contract') && isDetailedRequest)) {
+      const detailedRSCInfo = `🧠 **Reactive Smart Contracts (RSCs) - Deep Dive**
+
+**What Makes RSCs Revolutionary?**
+Traditional smart contracts are "passive" - they only execute when someone calls them. RSCs are "reactive" - they actively monitor blockchain events and automatically execute when conditions are met.
+
+**🔄 How RSCs Work:**
+
+**1. Event Monitoring**
+• RSCs continuously watch for specific blockchain events
+• They can monitor multiple contracts and chains simultaneously
+• Use topic filters to identify relevant events
+
+**2. Automatic Triggering**
+• When target events occur, RSCs automatically process them
+• No human intervention or manual transactions required
+• Executes based on predefined logic and conditions
+
+**3. Cross-Chain Execution**
+• Monitor events on Chain A, execute functions on Chain B
+• Unified automation across different blockchain networks
+• Seamless inter-chain communication
+
+**🏗️ Technical Architecture:**
+
+**Core Components:**
+• **AbstractReactive**: Base contract for monitoring capabilities
+• **System Contract**: Special contract at \`0x...fffFfF\`
+• **Event Listeners**: Filter and capture relevant events
+• **Execution Engine**: Process events and determine actions
+• **Callback System**: Execute functions on target chains
+
+**🎯 Real-World Example - Stop Order:**
+1. RSC monitors ETH/USDC price on Uniswap
+2. Detects when price drops 10% (event triggered)
+3. Automatically executes swap function on destination chain
+4. Your ETH is sold for USDC without manual intervention
+
+**💪 RSC Advantages:**
+• **Automation**: Reduces manual monitoring and intervention
+• **Reliability**: Guaranteed execution when conditions are met
+• **Efficiency**: Gas-optimized operations
+• **Flexibility**: Customizable for various use cases
+• **Scalability**: Handles multiple automations simultaneously
+
+**🔧 Development Benefits:**
+• Built on proven smart contract technology
+• Full EVM compatibility
+• Extensive testing and auditing
+• Open-source and transparent
+
+RSCs represent the future of DeFi - truly autonomous, intelligent contracts that work for you 24/7! 🚀`;
+
+      const response = {
+        message: detailedRSCInfo,
+        intent: 'ANSWER_REACTOR_QUESTION' as const,
+        needsUserInput: false,
+        nextStep: 'detailed_rsc_explained',
+        options: [
+          { value: 'create stop order', label: '🛡️ Try RSCs with Stop Order' },
+          { value: 'create aave protection', label: '🏦 Try RSCs with Aave Protection' },
+          { value: 'what is reactor', label: '📚 Back to REACTOR Overview' },
+          { value: 'how much does it cost', label: '💰 View Costs' }
+        ]
+      };
+      
+      this.addToHistory(conversation, 'assistant', response.message);
+      return response;
+    }
+
+    // Check knowledge base for other topics
+    if (typeof KnowledgeBaseHelper?.enhancedSearch === 'function') {
+      const knowledgeResult = KnowledgeBaseHelper.enhancedSearch(context.message);
+      if (knowledgeResult) {
+        const response = {
+          message: knowledgeResult.answer,
+          intent: 'ANSWER_REACTOR_QUESTION' as const,
+          needsUserInput: false,
+          nextStep: `knowledge_${knowledgeResult.source}`,
+          options: this.generateReactorRelatedOptions(context.message)
+        };
+        
+        this.addToHistory(conversation, 'assistant', response.message);
+        return response;
+      }
+    }
+
+    // Check for automation-specific questions
+    if (typeof KnowledgeBaseHelper?.isQuestionAboutAutomation === 'function' && 
+        KnowledgeBaseHelper.isQuestionAboutAutomation(lowerMessage)) {
+      if (typeof KnowledgeBaseHelper?.getAutomationAnswer === 'function') {
+        const automationAnswer = KnowledgeBaseHelper.getAutomationAnswer(lowerMessage);
+        if (automationAnswer) {
+          const response = {
+            message: automationAnswer.answer,
+            intent: 'ANSWER_REACTOR_QUESTION' as const,
+            needsUserInput: false,
+            nextStep: 'automation_explained',
+            options: automationAnswer.relatedTopics.map(topic => ({
+              value: topic.toLowerCase().replace(/\s+/g, '_'),
+              label: topic
+            }))
+          };
+          
+          this.addToHistory(conversation, 'assistant', response.message);
+          return response;
+        }
+      }
+    }
+
+    // Use Gemini for complex Reactor questions only if knowledge base doesn't have answer
+    try {
+      const aiResponse = await this.callGeminiAPI(conversation, context);
+      const response = {
+        message: aiResponse,
+        intent: 'ANSWER_REACTOR_QUESTION' as const,
+        needsUserInput: false,
+        nextStep: 'gemini_response',
+        options: this.generateReactorRelatedOptions(context.message)
+      };
+      
+      this.addToHistory(conversation, 'assistant', response.message);
+      return response;
+    } catch (error: any) {
+      console.error('Gemini API Error:', error);
+      return this.getReactorKnowledgeFallback(context.message);
+    }
+  }
+
+  // Generate related options for Reactor topics
+  private generateReactorRelatedOptions(message: string): Array<{value: string, label: string}> {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('aave') || lowerMessage.includes('liquidation') || lowerMessage.includes('health factor')) {
+      return [
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        { value: 'tell me about health factor', label: '📊 What is Health Factor?' },
+        { value: 'explain liquidation', label: '⚠️ Explain Liquidation' },
+        { value: 'create stop order', label: '🛡️ Create Stop Order Instead' }
+      ];
+    }
+    
+    if (lowerMessage.includes('stop order') || lowerMessage.includes('stop loss')) {
+      return [
+        { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'tell me about rsc', label: '🧠 Learn About RSCs' },
+        { value: 'what networks supported', label: '🌐 Supported Networks' },
+        { value: 'how much does it cost', label: '💰 View Costs' }
+      ];
+    }
+    
+    if (lowerMessage.includes('fee collector') || lowerMessage.includes('range manager')) {
+      return [
+        { value: 'create stop order', label: '🛡️ Create Stop Order Now' },
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        { value: 'tell me about coming soon features', label: '🚀 Coming Soon Features' }
+      ];
+    }
+    
+    // Default options
+    return [
+      { value: 'create stop order', label: '🛡️ Create Stop Order' },
+      { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+      { value: 'tell me about reactor', label: '📚 Learn About REACTOR' },
+      { value: 'what automations are available', label: '🤖 Available Automations' }
+    ];
+  }
+
+  // COMPLETE STOP ORDER FLOW IMPLEMENTATION
+  
+  // Extract entities for stop orders
+  private async extractStopOrderEntities(message: string, conversation: ConversationState) {
+    console.log('Extracting stop order entities from:', message);
+    
+    if (conversation.currentStep === 'initial') {
+      this.extractInitialStopOrderEntities(message, conversation);
+    } else {
+      this.extractFocusedStopOrderEntity(message, conversation);
+    }
+  }
+
+  private extractInitialStopOrderEntities(message: string, conversation: ConversationState) {
+    const { collectedData } = conversation;
+    const lowerMessage = message.toLowerCase();
+    
+    // Extract tokens
+    const tokens = this.extractAllTokens(message);
+    if (tokens.length > 0) {
+      const roles = this.parseTokenRolesFromSentence(lowerMessage, tokens);
+      if (roles.sellToken) collectedData.tokenToSell = roles.sellToken;
+      if (roles.buyToken) collectedData.tokenToBuy = roles.buyToken;
+      if (!collectedData.tokenToSell) collectedData.tokenToSell = tokens[0];
+      if (!collectedData.tokenToBuy && tokens.length > 1) collectedData.tokenToBuy = tokens[1];
+    }
+
+    // Extract percentage
+    const percentageMatch = lowerMessage.match(/\b(\d+(?:\.\d+)?)\s*%/);
+    if (percentageMatch) {
+      collectedData.dropPercentage = parseFloat(percentageMatch[1]);
+    }
+
+    // Extract amount
+    if (lowerMessage.includes('all') || lowerMessage.includes('everything')) {
+      collectedData.amount = 'all';
+    } else if (lowerMessage.includes('half')) {
+      collectedData.amount = '50%';
+    }
+  }
+
+  private extractFocusedStopOrderEntity(message: string, conversation: ConversationState) {
+    const { collectedData, currentStep } = conversation;
+    const lowerMessage = message.toLowerCase();
+
+    switch (currentStep) {
+      case 'tokenToSell':
+      case 'tokenToBuy':
+        const addressPattern = /0x[a-fA-F0-9]{40}/;
+        if (!addressPattern.test(message)) {
+          const token = this.extractToken(message);
+          if (token) {
+            collectedData[currentStep] = token;
+            console.log(`Set ${currentStep}: ${token}`);
+          }
+        }
+        break;
+
+      case 'amount':
+        if (lowerMessage.includes('all') || lowerMessage.includes('everything')) {
+          collectedData.amount = 'all';
+        } else if (lowerMessage.includes('half') || lowerMessage.includes('50%')) {
+          collectedData.amount = '50%';
+        } else {
+          const amountMatch = message.match(/\b(\d+(?:\.\d+)?)/);
+          if (amountMatch) {
+            collectedData.amount = amountMatch[1];
+          }
+        }
+        break;
+
+      case 'dropPercentage':
+        const percentageMatch = message.match(/\b(\d+(?:\.\d+)?)/);
+        if (percentageMatch) {
+          collectedData.dropPercentage = parseFloat(percentageMatch[1]);
+        }
+        break;
+
+      case 'network':
+        if (lowerMessage.includes('ethereum') || lowerMessage.includes('mainnet')) {
+          collectedData.selectedNetwork = 1;
+        } else if (lowerMessage.includes('avalanche')) {
+          collectedData.selectedNetwork = 43114;
+        } else if (lowerMessage.includes('sepolia') || lowerMessage.includes('testnet')) {
+          collectedData.selectedNetwork = 11155111;
+        }
+        break;
+    }
+  }
+
+  // Enhanced stop order flow handling with rejection support and improved error handling
   private async handleStopOrderFlow(conversation: ConversationState, context: MessageContext) {
     const data = conversation.collectedData;
     
     console.log('Handling stop order flow');
     console.log('Current data:', data);
     console.log('Current step:', conversation.currentStep);
+    console.log('Message:', context.message);
     
-    // Handle rejection/cancellation
+    // Handle rejection/cancellation with reset
     if (this.isRejectingAction(context.message)) {
       console.log('🚫 User rejected stop order configuration - resetting');
       return this.handleStopOrderRejection(conversation);
@@ -811,7 +1043,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       }
     }
     
-    // Handle balance/liquidity confirmation steps
+    // Handle balance confirmation with reset option
     if (conversation.currentStep === 'confirm_insufficient_balance') {
       if (this.isConfirmingAction(context.message)) {
         console.log('User confirmed to proceed with insufficient balance');
@@ -833,12 +1065,12 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
           ]
         };
         
-        conversation.lastQuestion = response.message;
         this.addToHistory(conversation, 'assistant', response.message);
         return response;
       }
     }
     
+    // Handle liquidity confirmation with reset option
     if (conversation.currentStep === 'confirm_low_liquidity') {
       if (this.isConfirmingAction(context.message)) {
         console.log('User confirmed to proceed with low liquidity');
@@ -850,14 +1082,14 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
         data.pairAddress = undefined;
         
         const response = {
-          message: `Good choice! Let's try a different token pair.\n\n🔄 **Which token** should you receive when the stop order triggers instead?\n\n💡 *Popular liquid pairs often include USDC, USDT, or ETH*\n\nJust tell me the token name:`,
+          message: `Good choice! Let's try a different token pair.\n\n🔄 **Which token** should you receive when the stop order triggers instead?\n\n💡 *Popular liquid pairs often include USDC, USDT, or ETH*`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'token' as const,
-          nextStep: 'tokenToBuy'
+          nextStep: 'tokenToBuy',
+          options: this.getTokenOptionsExcluding(data.tokenToSell)
         };
         
-        conversation.lastQuestion = response.message;
         this.addToHistory(conversation, 'assistant', response.message);
         return response;
       }
@@ -868,7 +1100,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     console.log('Missing data:', missingData);
     
     if (missingData.length === 0) {
-      // Fetch real blockchain data before validation
+      // NEW: Improved blockchain data fetching with specific error handling
       if (!data.userBalance || !data.pairAddress || !data.currentPrice) {
         console.log('📊 Fetching real blockchain data before validation...');
         
@@ -883,7 +1115,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
         }
       }
       
-      // Run validation checks
+      // Run validation checks with improved error handling
       if (conversation.currentStep !== 'proceed_to_balance_check' && 
           conversation.currentStep !== 'proceed_to_final_confirmation') {
         
@@ -910,10 +1142,11 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
           }
         } catch (error: any) {
           console.error('Liquidity check failed:', error);
+          // Continue with flow despite liquidity check failure
         }
       }
       
-      // Check balance
+      // Check balance with improved error handling
       if (conversation.currentStep !== 'proceed_to_final_confirmation') {
         try {
           const balanceCheck = await this.checkInsufficientBalance(conversation);
@@ -938,6 +1171,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
           }
         } catch (error: any) {
           console.error('Balance check failed:', error);
+          // Continue with flow despite balance check failure
         }
       }
       
@@ -972,7 +1206,6 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     console.log('Set currentStep to:', conversation.currentStep);
     
     const response = await this.generateQuestionForMissingData(conversation, nextMissing, context);
-    conversation.lastQuestion = response.message;
     this.addToHistory(conversation, 'assistant', response.message);
     
     return response;
@@ -982,7 +1215,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
   private async fetchRealBlockchainDataWithSpecificErrors(conversation: ConversationState) {
     const data = conversation.collectedData;
     
-    // Fetch user balance
+    // Fetch user balance with specific error handling
     if (data.connectedWallet && data.tokenToSell && data.selectedNetwork && !data.userBalance) {
       try {
         console.log(`🏦 Fetching ${data.tokenToSell} balance...`);
@@ -1004,7 +1237,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       }
     }
 
-    // Fetch pair address and price
+    // Fetch pair address with specific error handling
     if (data.tokenToSell && data.tokenToBuy && data.selectedNetwork && !data.pairAddress) {
       try {
         console.log(`🔍 Finding trading pair ${data.tokenToSell}/${data.tokenToBuy}...`);
@@ -1026,6 +1259,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
         data.pairAddress = pairAddress;
         console.log(`✅ Pair found: ${pairAddress}`);
         
+        // Fetch price with specific error handling
         try {
           const currentPrice = await this.blockchainService.getCurrentPriceEnhanced(
             data.tokenToSell,
@@ -1050,7 +1284,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
         }
       } catch (error: any) {
         if (error instanceof BlockchainDataError) {
-          throw error;
+          throw error; // Re-throw specific errors
         }
         console.error('❌ Error fetching pair data:', error);
         throw new BlockchainDataError(
@@ -1061,66 +1295,82 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       }
     }
   }
+  // Get Aave Assets for Network (helper method)
+  private getAaveAssets(chainId: number) {
+    const assets = {
+      11155111: [ // Sepolia
+        
+        { address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5', symbol: 'LINK', name: 'Chainlink' },
+        { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin' },
+        { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin' },
+        { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD' },
+        { address: '0x88541670e55cc00beefd87eb59edd1b7c511ac9a', symbol: 'AAVE', name: 'Aave Token' }
+      ],
+      1: [ // Ethereum Mainnet (when supported)
+      
+        { address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', symbol: 'AAVE', name: 'Aave Token' },
+        { address: '0xA0b86a33E6441b4B576fb3D43bF18E5c73b49c90', symbol: 'USDC', name: 'USD Coin' },
+        { address: '0x6B175474E89094C44Da98b954EedeAC495271d0F', symbol: 'DAI', name: 'Dai Stablecoin' },
+        { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', symbol: 'USDT', name: 'Tether USD' }
+      ]
+    };
+    
+    return assets[chainId as keyof typeof assets] || assets[11155111];
+  }
 
-  // Handle specific blockchain errors
+  // NEW: Handle specific blockchain errors with tailored responses
   private handleSpecificBlockchainError(error: BlockchainDataError, conversation: ConversationState) {
     const data = conversation.collectedData;
     
     switch (error.type) {
       case 'BALANCE_FETCH_FAILED':
         return {
-          message: `💰 **Unable to Check ${data.tokenToSell} Balance**\n\n❌ ${error.message}\n\n**This might be because:**\n• Network connectivity issues\n• The token contract might be temporarily unavailable\n• The token might not exist on this network\n\n**What would you like to do?**`,
+          message: `💰 **Unable to Check ${data.tokenToSell} Balance**\n\n\n\n**This might be because:**\n• Network connectivity issues\n• The token contract might be temporarily unavailable\n• The token might not exist on this network\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
           nextStep: 'balance_fetch_error',
-          options: [
-            { value: 'retry', label: '🔄 Try Again' },
-            { value: 'different token', label: '🪙 Try Different Token' },
-            { value: 'proceed anyway', label: '▶️ Proceed Anyway' }
-          ]
+         
         };
 
       case 'PAIR_NOT_FOUND':
         return {
-          message: `🔍 **Trading Pair Not Found**\n\n❌ ${error.message}\n\n**This means:**\n• These tokens cannot be directly traded on this network\n• You might need to use different tokens\n• The pair might exist on a different network\n\n**What would you like to do?**`,
+          message: `🔍 **Trading Pair Not Found**\n\n\n\n**This means:**\n• These tokens cannot be directly traded on this network\n• You might need to use different tokens\n• The pair might exist on a different network\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
           nextStep: 'pair_not_found_error',
-          options: [
-            { value: 'different tokens', label: '🔄 Try Different Tokens' },
-            { value: 'different network', label: '🌐 Switch Network' },
-            { value: 'restart', label: '🆕 Start Over' }
-          ]
+         
         };
 
       case 'PRICE_FETCH_FAILED':
         return {
-          message: `📊 **Unable to Get Current Price**\n\n❌ ${error.message}\n\n**This usually means:**\n• The trading pair has very low liquidity\n• Price oracles might be temporarily unavailable\n• Network congestion is affecting data retrieval\n\n**What would you like to do?**`,
+          message: `📊 **Unable to Get Current Price**\n\n\n\n**This usually means:**\n• The trading pair has very low liquidity\n• Price oracles might be temporarily unavailable\n• Network congestion is affecting data retrieval\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
           nextStep: 'price_fetch_error',
-          options: [
-            { value: 'retry', label: '🔄 Try Again' },
-            { value: 'different pair', label: '🔄 Try Different Pair' },
-            { value: 'proceed anyway', label: '▶️ Proceed Anyway' }
-          ]
+          
         };
 
       case 'NETWORK_ERROR':
         return {
-          message: `🌐 **Network Connectivity Issue**\n\n❌ ${error.message}\n\n**This is usually temporary and caused by:**\n• High network congestion\n• RPC endpoint issues\n• Temporary service outages\n\n**What would you like to do?**`,
+          message: `🌐 **Network Connectivity Issue**\n\n\n\n**This is usually temporary and caused by:**\n• High network congestion\n• RPC endpoint issues\n• Temporary service outages\n\n**What would you like to do?**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'choice' as const,
           nextStep: 'network_error',
-          options: [
-            { value: 'retry', label: '🔄 Try Again' },
-            { value: 'wait', label: '⏳ Wait and Retry' },
-            { value: 'restart', label: '🆕 Start Over' }
-          ]
+          
+        };
+
+      case 'TOKEN_INVALID':
+        return {
+          message: `🪙 **Invalid Token**\n\n\n\n**This means:**\n• The token symbol might be incorrect\n• The token might not exist on this network\n• You might need to provide a contract address\n\n**What would you like to do?**`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'token_invalid_error',
+          
         };
 
       default:
@@ -1128,10 +1378,11 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     }
   }
 
-  // Handle stop order rejection
+  // Handle stop order rejection with reset and options
   private handleStopOrderRejection(conversation: ConversationState) {
     console.log('🚫 Handling stop order rejection');
     
+    // Reset the conversation state but keep connection info
     const connectedWallet = conversation.collectedData.connectedWallet;
     const selectedNetwork = conversation.collectedData.selectedNetwork;
     
@@ -1143,7 +1394,6 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     };
     conversation.confidence = 0;
     conversation.nextStep = '';
-    conversation.lastQuestion = '';
     
     const response = {
       message: "No problem! I've cleared the stop order configuration. 🔄\n\n**What would you like to do instead?**\n\nI can help you with:",
@@ -1153,14 +1403,14 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       nextStep: 'after_rejection',
       options: [
         { value: 'create stop order', label: '🛡️ Create a different stop order' },
-        { value: 'what is reactor', label: '📚 Learn about REACTOR' }
-      ]
+        { value: 'create aave protection', label: '🏦 Create Aave protection instead' },
+        { value: 'what is reactor', label: '📚 Learn about REACTOR' }      ]
     };
     
     this.addToHistory(conversation, 'assistant', response.message);
     return response;
   }
-
+  
   private identifyMissingStopOrderData(conversation: ConversationState): string[] {
     const missing: string[] = [];
     const data = conversation.collectedData;
@@ -1175,7 +1425,102 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
     return missing;
   }
 
-  
+  private async generateQuestionForMissingData(conversation: ConversationState, missingField: string, context: MessageContext) {
+    const data = conversation.collectedData;
+    
+    switch (missingField) {
+      case 'network':
+        return {
+          message: "🌐 **Which network** would you like to use for your stop order?\n\nEach network has different costs and features:",
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'network' as const,
+          nextStep: 'network',
+          options: [
+            { value: '1', label: '🔷 Ethereum Mainnet (Higher fees, most liquid)' },
+            { value: '43114', label: '🔺 Avalanche C-Chain (Lower fees, fast)' },
+            { value: '11155111', label: '🧪 Sepolia Testnet (For testing)' }
+          ]
+        };
+
+      case 'tokenToSell':
+        return {
+          message: "🪙 **Which token** would you like to protect with a stop order?\n\nJust tell me the token name:",
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'token' as const,
+          nextStep: 'tokenToSell',
+          options: [
+           
+            { value: 'USDC', label: '💵 USD Coin (USDC)' },
+            { value: 'USDT', label: '💵 Tether (USDT)' },
+            { value: 'DAI', label: '💵 Dai (DAI)' }
+          ]
+        };
+
+      case 'tokenToBuy':
+        return {
+          message: `🔄 Great! You want to protect your **${data.tokenToSell}**.\n\n**Which token** should you receive when the stop order triggers?\n\n💡 *Stablecoins like USDC preserve value during market downturns*`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'token' as const,
+          nextStep: 'tokenToBuy',
+          options: this.getTokenOptionsExcluding(data.tokenToSell)
+        };
+
+      case 'amount':
+        if (data.userBalance) {
+          return {
+            message: `💰 Perfect! I can see you have **${data.userBalance} ${data.tokenToSell}**.\n\n**How much** would you like to protect?`,
+            intent: 'CREATE_STOP_ORDER' as const,
+            needsUserInput: true,
+            inputType: 'amount' as const,
+            nextStep: 'amount',
+            options: [
+              { value: 'all', label: `🎯 All (${data.userBalance} ${data.tokenToSell})` },
+              { value: '50%', label: `⚖️ Half (${(parseFloat(data.userBalance) / 2).toFixed(4)} ${data.tokenToSell})` }
+            ]
+          };
+        } else {
+          return {
+            message: `💰 **How much ${data.tokenToSell}** would you like to protect?\n\nYou can say "all", "half", or a specific amount:`,
+            intent: 'CREATE_STOP_ORDER' as const,
+            needsUserInput: true,
+            inputType: 'amount' as const,
+            nextStep: 'amount',
+            options: [
+              { value: 'all', label: '🎯 All of my tokens' },
+              { value: '50%', label: '⚖️ Half of my tokens' }
+            ]
+          };
+        }
+
+      case 'dropPercentage':
+        return {
+          message: `📉 **At what percentage drop** should the stop order trigger?\n\nFor example: "10%" means sell when ${data.tokenToSell} price drops 10% from current level.`,
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'amount' as const,
+          nextStep: 'dropPercentage',
+          options: [
+            { value: '5', label: '🔒 5% drop (Conservative protection)' },
+            { value: '10', label: '⚖️ 10% drop (Balanced approach)' },
+            { value: '15', label: '🎯 15% drop (Higher risk tolerance)' },
+            { value: '20', label: '🚀 20% drop (Maximum risk)' }
+          ]
+        };
+
+      default:
+        return {
+          message: "🤔 I need a bit more information to set up your stop order. What would you like to configure?",
+          intent: 'CREATE_STOP_ORDER' as const,
+          needsUserInput: true,
+          inputType: 'token' as const,
+          nextStep: 'general'
+        };
+    }
+  }
+
   private async checkInsufficientBalance(conversation: ConversationState): Promise<{
     hasInsufficientBalance: boolean;
     message?: string;
@@ -1333,7 +1678,7 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
       };
     } catch (error: any) {
       console.error('Error preparing final configuration:', error);
-      throw new Error(`Failed to prepare configuration: ${error.message}`);
+      throw new Error(`Failed to prepare configuration: `);
     }
   }
 
@@ -1369,140 +1714,651 @@ TONE: Conversational, educational, and enthusiastic about DeFi automation.`;
 **Ready to deploy your automated protection?** 🚀`;
   }
 
-  // Handle Reactor-specific questions using custom model
-  private async handleReactorQuestions(conversation: ConversationState, context: MessageContext) {
-    try {
-      // Use custom model instead of Gemini
-      const response = await this.callCustomModelAPI(conversation, context);
+  // COMPLETE AAVE PROTECTION FLOW IMPLEMENTATION
+  
+  // Extract entities for Aave protection  
+  private async extractAaveEntities(message: string, conversation: ConversationState) {
+    console.log('Extracting Aave entities from:', message);
+    
+    const { collectedData, currentStep } = conversation;
+    const lowerMessage = message.toLowerCase();
+  
+    switch (currentStep) {
+      case 'protectionType':
+        if (lowerMessage.includes('collateral') && lowerMessage.includes('only')) {
+          collectedData.protectionType = '0';
+        } else if (lowerMessage.includes('debt') && lowerMessage.includes('only')) {
+          collectedData.protectionType = '1';
+        } else if (lowerMessage.includes('combined') || lowerMessage.includes('both')) {
+          collectedData.protectionType = '2';
+        } else if (lowerMessage.includes('0') || lowerMessage.includes('first')) {
+          collectedData.protectionType = '0';
+        } else if (lowerMessage.includes('1') || lowerMessage.includes('second')) {
+          collectedData.protectionType = '1';
+        } else if (lowerMessage.includes('2') || lowerMessage.includes('third')) {
+          collectedData.protectionType = '2';
+        }
+        break;
+  
+      case 'healthFactorThreshold':
+      case 'targetHealthFactor':
+        const healthFactorMatch = message.match(/\b(\d+(?:\.\d+)?)\b/);
+        if (healthFactorMatch) {
+          const value = parseFloat(healthFactorMatch[1]);
+          if (value >= 1.0 && value <= 10.0) {
+            collectedData[currentStep] = value.toString();
+            console.log(`Set ${currentStep}: ${value}`);
+          }
+        }
+        break;
+  
+      case 'collateralAsset':
+      case 'debtAsset':
+        const addressPattern = /0x[a-fA-F0-9]{40}/;
+        const addressMatch = message.match(addressPattern);
+        if (addressMatch) {
+          collectedData[currentStep] = addressMatch[0];
+        } else {
+          const aaveAssets = this.getAaveAssets(collectedData.selectedNetwork || 11155111);
+          const matchedAsset = aaveAssets.find(asset => 
+            lowerMessage.includes(asset.symbol.toLowerCase())
+          );
+          if (matchedAsset) {
+            collectedData[currentStep] = matchedAsset.address;
+            console.log(`Set ${currentStep}: ${matchedAsset.symbol} (${matchedAsset.address})`);
+          }
+        }
+        break;
+  
+      case 'preferDebtRepayment':
+        if (lowerMessage.includes('debt') || lowerMessage.includes('repay') || lowerMessage.includes('true')) {
+          collectedData.preferDebtRepayment = true;
+        } else if (lowerMessage.includes('collateral') || lowerMessage.includes('deposit') || lowerMessage.includes('false')) {
+          collectedData.preferDebtRepayment = false;
+        }
+        break;
+  
+      case 'aave_network':
+        if (lowerMessage.includes('sepolia') || lowerMessage.includes('testnet') || lowerMessage.includes('11155111')) {
+          collectedData.selectedNetwork = 11155111;
+        } else if (lowerMessage.includes('ethereum') || lowerMessage.includes('mainnet') || lowerMessage.includes('1')) {
+          collectedData.selectedNetwork = 1;
+        } else if (lowerMessage.includes('avalanche') || lowerMessage.includes('43114')) {
+          collectedData.selectedNetwork = 43114;
+        }
+        break;
+    }
+  }
+  private validateHealthFactorThresholds(conversation: ConversationState): {
+    isValid: boolean;
+    message?: string;
+  } {
+    const data = conversation.collectedData;
+    
+    if (!data.healthFactorThreshold || !data.targetHealthFactor) {
+      return { isValid: true }; // Skip validation if values aren't set yet
+    }
+    
+    const triggerThreshold = parseFloat(data.healthFactorThreshold);
+    const targetThreshold = parseFloat(data.targetHealthFactor);
+    
+    if (isNaN(triggerThreshold) || isNaN(targetThreshold)) {
+      return { isValid: true }; // Skip validation if values are invalid
+    }
+    
+    if (targetThreshold <= triggerThreshold) {
+      const recommendedTarget = (triggerThreshold + 0.3).toFixed(1);
+      const message = `⚠️ **Invalid Health Factor Configuration**\n\n**Target Health Factor (${targetThreshold})** must be **HIGHER** than **Trigger Threshold (${triggerThreshold})**\n\n**Why?** When protection triggers at ${triggerThreshold}, it needs to restore your health factor to a safer level (${targetThreshold}). A higher target ensures you stay above the trigger point after protection executes.\n\n**Example:** If trigger = ${triggerThreshold}, target should be at least ${recommendedTarget}\n\n**Recommended minimum:** ${recommendedTarget}\n**Conservative:** ${(triggerThreshold + 0.5).toFixed(1)}\n**Very safe:** ${(triggerThreshold + 0.8).toFixed(1)}\n\nPlease choose a higher target health factor:`;
       
-      const result = {
-        message: response,
-        intent: 'ANSWER_REACTOR_QUESTION' as const,
-        needsUserInput: false,
-        nextStep: 'reactor_question_answered',
+      return {
+        isValid: false,
+        message
+      };
+    }
+    
+    return { isValid: true };
+  }
+  
+  
+
+  // Enhanced Aave Protection Flow Handler with rejection support
+  private async handleAaveProtectionFlow(conversation: ConversationState, context: MessageContext) {
+    const data = conversation.collectedData;
+    
+    console.log('Handling Aave protection flow');
+    console.log('Current data:', data);
+    console.log('Current step:', conversation.currentStep);
+    console.log('Message:', context.message);
+  
+    // Handle rejection/cancellation with reset
+    if (this.isRejectingAction(context.message)) {
+      console.log('🚫 User rejected Aave protection configuration - resetting');
+      return this.handleAaveProtectionRejection(conversation);
+    }
+  
+    // Handle confirmation steps
+    if (conversation.currentStep === 'final_aave_confirmation' && this.isConfirmingAction(context.message)) {
+      try {
+        const aaveConfig = await this.prepareAaveConfig(conversation);
+        
+        const response = {
+          message: "🚀 **Perfect!** Redirecting you to subscribe your Aave liquidation protection...\n\nYour configuration has been prepared and will be loaded automatically. You'll just need to sign the transactions! ✨",
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: false,
+          automationConfig: aaveConfig,
+          nextStep: 'deploy_aave'
+        };
+        
+        this.addToHistory(conversation, 'assistant', response.message);
+        return response;
+      } catch (error: any) {
+        return this.generateErrorResponse(error, conversation);
+      }
+    }
+  
+    // ENHANCED: Threshold validation after collecting target health factor
+    if (data.healthFactorThreshold && data.targetHealthFactor) {
+      const validation = this.validateHealthFactorThresholds(conversation);
+      
+      if (!validation.isValid) {
+        // Reset target health factor and ask again with warning
+        const triggerValue = data.healthFactorThreshold;
+        data.targetHealthFactor = undefined;
+        conversation.currentStep = 'targetHealthFactor';
+        
+        const minRecommended = (parseFloat(triggerValue) + 0.3).toFixed(1);
+        const conservative = (parseFloat(triggerValue) + 0.5).toFixed(1);
+        const verySafe = (parseFloat(triggerValue) + 0.8).toFixed(1);
+        
+        const response = {
+          message: validation.message!,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'number' as const,
+          nextStep: 'targetHealthFactor',
+          options: [
+            { value: minRecommended, label: `⚖️ ${minRecommended} (Recommended Minimum)` },
+            { value: conservative, label: `🛡️ ${conservative} (Conservative)` },
+            { value: verySafe, label: `🔒 ${verySafe} (Very Safe)` },
+            { value: 'custom', label: '✏️ Custom Value (Higher than ' + triggerValue + ')' }
+          ]
+        };
+        
+        this.addToHistory(conversation, 'assistant', response.message);
+        return response;
+      }
+    }
+  
+    // Check for network requirement first
+    if (!data.selectedNetwork) {
+      conversation.currentStep = 'aave_network';
+      
+      const response = {
+        message: "🌐 **Aave Liquidation Protection Setup**\n\nFirst, which network is your Aave position on?\n\n**Currently supported:**\n• **Sepolia Testnet** - Full support for testing\n• **Ethereum Mainnet** - Coming soon\n• **Avalanche** - Coming soon",
+        intent: 'CREATE_AAVE_PROTECTION' as const,
+        needsUserInput: true,
+        inputType: 'network' as const,
+        nextStep: 'aave_network',
         options: [
-          { value: 'create stop order', label: '🛡️ Create Stop Order' },
-          { value: 'what is reactor', label: '📚 Learn More About REACTOR' }
+          { value: '11155111', label: '🧪 Sepolia Testnet (Available Now)' },
+          { value: '1', label: '🔷 Ethereum Mainnet (Coming Soon)' },
+          { value: '43114', label: '🔺 Avalanche (Coming Soon)' }
         ]
       };
       
-      this.addToHistory(conversation, 'assistant', result.message);
-      return result;
-    } catch (error: any) {
-      console.error('Custom model API Error:', error);
-      return this.getReactorKnowledgeFallback(context.message);
+      this.addToHistory(conversation, 'assistant', response.message);
+      return response;
+    }
+  
+    // Check if network is supported
+    if (data.selectedNetwork && data.selectedNetwork !== 11155111) {
+      const networkName = this.getNetworkName(data.selectedNetwork);
+      
+      const response = {
+        message: `🚧 **${networkName} - Coming Soon!**\n\nAave liquidation protection is currently available on **Sepolia Testnet** for testing purposes.\n\n**Ethereum Mainnet** and **Avalanche** support is coming soon!\n\n**Would you like to:**`,
+        intent: 'CREATE_AAVE_PROTECTION' as const,
+        needsUserInput: true,
+        inputType: 'choice' as const,
+        nextStep: 'unsupported_network',
+        options: [
+          { value: '11155111', label: '🧪 Switch to Sepolia for Testing' },
+          { value: 'create stop order', label: '🛡️ Create Stop Order Instead' },
+          { value: 'notify me', label: '🔔 Notify Me When Mainnet Ready' }
+        ]
+      };
+      
+      this.addToHistory(conversation, 'assistant', response.message);
+      return response;
+    }
+  
+    // Check if user has connected wallet
+    if (!data.connectedWallet) {
+      const response = {
+        message: "🔗 **Wallet Connection Required**\n\nTo set up Aave liquidation protection, I need to check your Aave position.\n\nPlease connect your wallet first!",
+        intent: 'CREATE_AAVE_PROTECTION' as const,
+        needsUserInput: false,
+        nextStep: 'wallet_required'
+      };
+      
+      this.addToHistory(conversation, 'assistant', response.message);
+      return response;
+    }
+  
+    // For Aave protection, we skip the actual position checking since we can't query blockchain
+    // Instead, we assume the user knows they have a position and proceed with configuration
+    if (data.hasAavePosition === undefined) {
+      data.hasAavePosition = true; // Assume position exists
+    }
+  
+    // Identify missing data and ask for next piece
+    const missingData = this.identifyMissingAaveData(conversation);
+    console.log('Missing Aave data:', missingData);
+  
+    if (missingData.length === 0) {
+      // All data collected, show final confirmation
+      try {
+        const aaveConfig = await this.prepareAaveConfig(conversation);
+        const confirmationMessage = this.generateAaveConfirmationMessage(conversation, aaveConfig);
+        
+        conversation.currentStep = 'final_aave_confirmation';
+        
+        const response = {
+          message: confirmationMessage,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'confirmation' as const,
+          automationConfig: aaveConfig,
+          nextStep: 'final_aave_confirmation',
+        };
+        
+        this.addToHistory(conversation, 'assistant', response.message);
+        return response;
+      } catch (error: any) {
+        return this.generateErrorResponse(error, conversation);
+      }
+    }
+  
+    // Ask for the next missing piece of data
+    const nextMissing = missingData[0];
+    conversation.currentStep = nextMissing;
+    
+    console.log('Asking for Aave data:', nextMissing);
+    console.log('Set currentStep to:', conversation.currentStep);
+    
+    const response = await this.generateAaveQuestion(conversation, nextMissing, context);
+    this.addToHistory(conversation, 'assistant', response.message);
+    
+    return response;
+  }
+  
+
+  // Handle Aave protection rejection with reset and options
+  private handleAaveProtectionRejection(conversation: ConversationState) {
+    console.log('🚫 Handling Aave protection rejection');
+    
+    // Reset the conversation state but keep connection info
+    const connectedWallet = conversation.collectedData.connectedWallet;
+    const selectedNetwork = conversation.collectedData.selectedNetwork;
+    
+    conversation.intent = 'UNKNOWN';
+    conversation.currentStep = 'initial';
+    conversation.collectedData = {
+      connectedWallet,
+      selectedNetwork
+    };
+    conversation.confidence = 0;
+    conversation.nextStep = '';
+    
+    const response = {
+      message: "No problem! I've cleared the Aave protection configuration. 🔄\n\n**What would you like to do instead?**\n\nI can help you with:",
+      intent: 'ANSWER_REACTOR_QUESTION' as const,
+      needsUserInput: true,
+      inputType: 'choice' as const,
+      nextStep: 'after_aave_rejection',
+      options: [
+        { value: 'create aave protection', label: '🏦 Create different Aave protection' },
+        { value: 'create stop order', label: '🛡️ Create stop order instead' },
+        { value: 'what is reactor', label: '📚 Learn about REACTOR' }      ]
+    };
+    
+    this.addToHistory(conversation, 'assistant', response.message);
+    return response;
+  }
+
+  // Identify Missing Aave Data Helper
+  private identifyMissingAaveData(conversation: ConversationState): string[] {
+    const missing: string[] = [];
+    const data = conversation.collectedData;
+    
+    // Check in order of importance
+    if (!data.protectionType) missing.push('protectionType');
+    if (!data.healthFactorThreshold) missing.push('healthFactorThreshold');
+    if (!data.targetHealthFactor) missing.push('targetHealthFactor');
+    if (!data.collateralAsset && (data.protectionType === '0' || data.protectionType === '2')) {
+      missing.push('collateralAsset');
+    }
+    if (!data.debtAsset && (data.protectionType === '1' || data.protectionType === '2')) {
+      missing.push('debtAsset');
+    }
+    if (data.protectionType === '2' && data.preferDebtRepayment === undefined) {
+      missing.push('preferDebtRepayment');
+    }
+    
+    console.log('Missing Aave data identified:', missing);
+    return missing;
+  }
+
+  // Generate Aave-Specific Questions
+  private async generateAaveQuestion(conversation: ConversationState, missingField: string, context: MessageContext) {
+    const data = conversation.collectedData;
+    
+    switch (missingField) {
+      case 'protectionType':
+        return {
+          message: `🛡️ **Choose Your Protection Strategy**\n\nHow would you like to protect your Aave position from liquidation?\n\n**Strategy Options:**`,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'protectionType',
+          options: [
+            { 
+              value: '0', 
+              label: '💰 Collateral Deposit Only'
+            },
+            { 
+              value: '1', 
+              label: '💳 Debt Repayment Only'
+            },
+            { 
+              value: '2', 
+              label: '🔄 Combined Protection'
+            }
+          ]
+        };
+  
+      case 'healthFactorThreshold':
+        return {
+          message: `📊 **Set Your Health Factor Trigger Threshold**\n\n${data.currentHealthFactor ? `Your current health factor: **${data.currentHealthFactor}**\n\n` : ''}At what health factor should protection trigger?\n\n**Recommended:** 1.2 (safe margin above liquidation at 1.0)\n**Conservative:** 1.3-1.5 (extra safety)\n**Aggressive:** 1.1 (close to liquidation risk)\n\n💡 *Lower values = closer to liquidation risk*`,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'number' as const,
+          nextStep: 'healthFactorThreshold',
+          options: [
+            { value: '1.2', label: '⚖️ 1.2 (Recommended)' },
+            { value: '1.3', label: '🛡️ 1.3 (Conservative)' },
+            { value: '1.5', label: '🔒 1.5 (Very Safe)' },
+            { value: 'custom', label: '✏️ Custom Value' }
+          ]
+        };
+  
+      case 'targetHealthFactor':
+        const triggerValue = data.healthFactorThreshold;
+        const minRecommended = triggerValue ? (parseFloat(triggerValue) + 0.3).toFixed(1) : '1.5';
+        const conservative = triggerValue ? (parseFloat(triggerValue) + 0.5).toFixed(1) : '1.8';
+        const verySafe = triggerValue ? (parseFloat(triggerValue) + 0.8).toFixed(1) : '2.0';
+        
+        return {
+          message: `🎯 **Set Your Target Health Factor**\n\nAfter protection triggers at **${triggerValue}**, what should be the target health factor?\n\n**⚠️ IMPORTANT:** Target must be **HIGHER** than trigger threshold (${triggerValue})\n\n**Recommended:** ${minRecommended} (${triggerValue ? (parseFloat(minRecommended) - parseFloat(triggerValue)).toFixed(1) : '0.3'} point safety margin)\n**Conservative:** ${conservative}+ (maximum safety)\n**Balanced:** Good efficiency vs safety\n\n💡 *Higher values = safer but more capital needed*\n\n**Why higher?** Protection deposits collateral or repays debt to restore your health factor. If the target is too close to the trigger, you might need protection again soon!`,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'number' as const,
+          nextStep: 'targetHealthFactor',
+          options: [
+            { value: minRecommended, label: `⚖️ ${minRecommended} (Recommended)` },
+            { value: conservative, label: `🛡️ ${conservative} (Conservative)` },
+            { value: verySafe, label: `🔒 ${verySafe} (Very Safe)` },
+            { value: 'custom', label: '✏️ Custom Value' }
+          ]
+        };
+  
+      case 'collateralAsset':
+        const collateralAssets = this.getAaveAssets(data.selectedNetwork || 11155111);
+        return {
+          message: `💰 **Select Collateral Asset**\n\nWhich token will you use for automatic collateral deposits?\n\n**You must have sufficient balance of this token for protection to work.**\n\n**Available Aave assets:**`,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'collateralAsset',
+          options: collateralAssets.map(asset => ({
+            value: asset.address,
+            label: `${asset.symbol} - ${asset.name}`
+          }))
+        };
+  
+      case 'debtAsset':
+        const debtAssets = this.getAaveAssets(data.selectedNetwork || 11155111);
+        return {
+          message: `💳 **Select Debt Asset**\n\nWhich token will you use for automatic debt repayment?\n\n**You must have sufficient balance of this token for protection to work.**\n\n**Available Aave assets:**`,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'debtAsset',
+          options: debtAssets.map(asset => ({
+            value: asset.address,
+            label: `${asset.symbol} - ${asset.name}`
+          }))
+        };
+  
+      case 'preferDebtRepayment':
+        return {
+          message: `🔄 **Combined Strategy Preference**\n\nSince you chose combined protection, which strategy should be tried first?\n\n**Strategy Order:**\n• **Primary**: Tried first when health factor drops\n• **Backup**: Used if primary strategy fails\n\n**Recommendation:** Prefer debt repayment in volatile markets, collateral deposit in stable markets.`,
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'preferDebtRepayment',
+          options: [
+            { 
+              value: 'true', 
+              label: '💳 Prefer Debt Repayment First'
+            },
+            { 
+              value: 'false', 
+              label: '💰 Prefer Collateral Deposit First'
+            }
+          ]
+        };
+  
+      case 'aave_network':
+        return {
+          message: "🌐 **Aave Liquidation Protection Setup**\n\nFirst, which network is your Aave position on?\n\n**Currently supported:**\n• **Sepolia Testnet** - Full support for testing\n• **Ethereum Mainnet** - Coming soon\n• **Avalanche** - Coming soon",
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'network' as const,
+          nextStep: 'aave_network',
+          options: [
+            { value: '11155111', label: '🧪 Sepolia Testnet (Available Now)' },
+            { value: '1', label: '🔷 Ethereum Mainnet (Coming Soon)' },
+            { value: '43114', label: '🔺 Avalanche (Coming Soon)' }
+          ]
+        };
+  
+      default:
+        return {
+          message: "🤔 I need a bit more information to set up your Aave protection. What would you like to configure?",
+          intent: 'CREATE_AAVE_PROTECTION' as const,
+          needsUserInput: true,
+          inputType: 'choice' as const,
+          nextStep: 'general_aave'
+        };
     }
   }
 
-  // CUSTOM MODEL API INTEGRATION
-  private async callCustomModelAPI(conversation: ConversationState, context: MessageContext): Promise<string> {
-    const userContext = this.buildUserContext(conversation, context);
-    const conversationHistory = this.formatConversationHistory(conversation);
+  // Prepare Final Aave Configuration
+  private async prepareAaveConfig(conversation: ConversationState) {
+    const data = conversation.collectedData;
     
-    const prompt = `${this.systemPrompt}
+    if (!data.protectionType || !data.healthFactorThreshold || !data.targetHealthFactor || 
+        !data.selectedNetwork || !data.connectedWallet) {
+      throw new Error('Missing required information for Aave protection');
+    }
 
-CURRENT USER CONTEXT:
-${userContext}
+    // Validate protection strategy requirements
+    if ((data.protectionType === '0' || data.protectionType === '2') && !data.collateralAsset) {
+      throw new Error('Collateral asset is required for this protection strategy');
+    }
 
-CONVERSATION HISTORY:
-${conversationHistory}
-
-USER MESSAGE: "${context.message}"
-
-INSTRUCTIONS:
-1. Focus only on REACTOR platform, RSCs, and stop order automation
-2. Be helpful and educational about DeFi automation concepts
-3. Use emojis and clear formatting
-4. If asked about general DeFi topics not related to REACTOR, redirect to our platform capabilities
-5. Include actionable next steps when appropriate
-
-Respond as Reactor AI:`;
+    if ((data.protectionType === '1' || data.protectionType === '2') && !data.debtAsset) {
+      throw new Error('Debt asset is required for this protection strategy');
+    }
 
     try {
-      const response = await fetch(this.customModelBaseUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.customModelApiKey}`
-        },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'system',
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 800
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Custom model API error: ${response.status}`);
-      }
-      
-      const data:any = await response.json();
-      
-      // Adapt this based on your custom model's response format
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        return data.choices[0].message.content;
-      } else if (data.response) {
-        return data.response;
-      } else {
-        throw new Error('Invalid response format from custom model API');
-      }
-    } catch (error) {
-      console.error('Custom model API call failed:', error);
-      throw error;
-    }
-  }
-
-  // Handle custom token address input
-  private async handleTokenAddressInput(message: string, conversation: ConversationState) {
-    const addressPattern = /(0x[a-fA-F0-9]{40})/;
-    const match = message.match(addressPattern);
-
-    if (!match) return null;
-
-    const tokenAddress = match[0];
-    const networkId = conversation.collectedData.selectedNetwork;
-
-    if (!networkId) {
-      return { 
-        message: "🌐 Please select a network before providing a custom token address.", 
-        intent: conversation.intent,
-        needsUserInput: true,
-        inputType: 'network' as const,
-        nextStep: 'network'
-      };
-    }
-
-    const validation = await this.blockchainService.validateTokenAddress(tokenAddress, networkId);
-
-    if (validation.isValid && validation.tokenInfo) {
-      const { symbol, name } = validation.tokenInfo;
-      
-      if (!conversation.collectedData.customTokenAddresses) {
-        conversation.collectedData.customTokenAddresses = {};
-      }
-      conversation.collectedData.customTokenAddresses[symbol] = tokenAddress;
-      
-      conversation.collectedData[conversation.currentStep as 'tokenToSell' | 'tokenToBuy'] = symbol;
-      
-      return this.handleStopOrderFlow(conversation, { message } as MessageContext);
-    } else {
-      const networkName = this.getNetworkName(networkId);
       return {
-        message: `❌ **Invalid Token Address for ${networkName}**\n\n${validation.error}\n\nPlease provide a valid ERC-20 token contract address.`,
-        intent: conversation.intent,
-        needsUserInput: true,
-        inputType: 'token' as const,
-        nextStep: conversation.currentStep
+        chainId: data.selectedNetwork.toString(),
+        userAddress: data.connectedWallet,
+        protectionType: data.protectionType,
+        healthFactorThreshold: data.healthFactorThreshold,
+        targetHealthFactor: data.targetHealthFactor,
+        collateralAsset: data.collateralAsset || '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // Default USDC
+        debtAsset: data.debtAsset || '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // Default USDC
+        preferDebtRepayment: data.preferDebtRepayment || false,
+        currentHealthFactor: data.currentHealthFactor,
+        hasAavePosition: data.hasAavePosition,
+        deploymentReady: true
       };
+    } catch (error: any) {
+      console.error('Error preparing Aave configuration:', error);
+      throw new Error(`Failed to prepare Aave configuration: `);
     }
   }
 
-  // UTILITY METHODS
+  // Generate Aave Confirmation Message
+  private generateAaveConfirmationMessage(conversation: ConversationState, config: any): string {
+    const data = conversation.collectedData;
+    const networkName = this.getNetworkName(parseInt(config.chainId));
+    const protectionTypeNames = {
+      '0': 'Collateral Deposit Only',
+      '1': 'Debt Repayment Only', 
+      '2': 'Combined Protection'
+    };
+
+    const collateralAssetName = this.getAssetNameFromAddress(config.collateralAsset, parseInt(config.chainId));
+    const debtAssetName = this.getAssetNameFromAddress(config.debtAsset, parseInt(config.chainId));
+
+    let strategyDescription = '';
+    switch (config.protectionType) {
+      case '0':
+        strategyDescription = `• Automatically deposit ${collateralAssetName} when health factor drops`;
+        break;
+      case '1':
+        strategyDescription = `• Automatically repay debt using ${debtAssetName} when health factor drops`;
+        break;
+      case '2':
+        const primaryStrategy = config.preferDebtRepayment ? 'debt repayment' : 'collateral deposit';
+        const backupStrategy = config.preferDebtRepayment ? 'collateral deposit' : 'debt repayment';
+        strategyDescription = `• Try ${primaryStrategy} first, then ${backupStrategy} if needed\n• Uses ${debtAssetName} for repayment and ${collateralAssetName} for collateral`;
+        break;
+    }
+
+    return `🛡️ **Aave Liquidation Protection Ready!**
+
+**📋 Your Configuration:**
+🏦 **Strategy**: ${protectionTypeNames[config.protectionType as keyof typeof protectionTypeNames]}
+📊 **Trigger Threshold**: ${config.healthFactorThreshold}
+🎯 **Target Health Factor**: ${config.targetHealthFactor}
+🌐 **Network**: ${networkName}
+${config.currentHealthFactor ? `📈 **Current Health Factor**: ${config.currentHealthFactor}\n` : ''}
+**🔧 Protection Logic:**
+${strategyDescription}
+
+**💸 Deployment Costs:**
+🏗️ **Protection Contract**: ~0.03 ETH
+🤖 **RSC Monitor**: ~0.05 REACT
+
+**✨ Once deployed**, your protection will:
+• Monitor your health factor 24/7 automatically
+• Execute protection instantly when threshold is hit
+• Prevent costly liquidation penalties
+• Require no manual intervention
+
+**⚠️ Requirements:**
+• Keep sufficient ${collateralAssetName}${config.protectionType === '2' ? ` and ${debtAssetName}` : ''} balance in your wallet
+• Approve the protection contract to spend your tokens
+• Maintain funding for ongoing protection
+
+**Ready to subscribe to your automated Aave protection?** 🚀`;
+  }
+
+  
+
+  // Get Asset Name from Address
+  private getAssetNameFromAddress(address: string, chainId: number): string {
+    const assets = this.getAaveAssets(chainId);
+    const asset = assets.find(a => a.address.toLowerCase() === address.toLowerCase());
+    return asset ? asset.symbol : 'Unknown Asset';
+  }
+
+  // TOKEN EXTRACTION AND UTILITY METHODS
+
+  // Helper methods for token extraction
+  private extractToken(message: string): string | undefined {
+    const tokenPattern = /\b(ETH|ETHEREUM|USDC|USDT|DAI|WBTC|AVAX|AVALANCHE|LINK)\b/gi;
+    const match = message.match(tokenPattern);
+    if (!match) return undefined;
+    
+    const upper = match[0].toUpperCase();
+    if (upper === 'ETHEREUM') return 'ETH';
+    if (upper === 'AVALANCHE') return 'AVAX';
+    return upper;
+  }
+
+  private extractAllTokens(message: string): string[] {
+    const tokenPattern = /\b(ETH|ETHEREUM|USDC|USDT|DAI|WBTC|AVAX|AVALANCHE|LINK)\b/gi;
+    const matches = message.match(tokenPattern) || [];
+    return [...new Set(matches.map(token => {
+      const upper = token.toUpperCase();
+      if (upper === 'ETHEREUM') return 'ETH';
+      if (upper === 'AVALANCHE') return 'AVAX';
+      return upper;
+    }))];
+  }
+
+  private parseTokenRolesFromSentence(message: string, tokens: string[]): { sellToken?: string; buyToken?: string } {
+    if (tokens.length < 2) return {};
+    
+    const lowerMessage = message.toLowerCase();
+    console.log('Parsing token roles from sentence:', message);
+    console.log('Available tokens:', tokens);
+    
+    const uniqueTokens = tokens.filter((token, index, arr) => arr.indexOf(token) === index);
+    if (uniqueTokens.length < 2) return {};
+    
+    // Pattern 1: "sell [A] for [B]" or "sell [A] to [B]"
+    const sellForPattern = /\b(?:sell|selling)\s+(\w+)\s+(?:for|to|into)\s+(\w+)\b/i;
+    const sellForMatch = lowerMessage.match(sellForPattern);
+    if (sellForMatch) {
+      const potentialSell = sellForMatch[1].toUpperCase();
+      const potentialBuy = sellForMatch[2].toUpperCase();
+      
+      const normalizedSell = potentialSell === 'ETHEREUM' ? 'ETH' : (potentialSell === 'AVALANCHE' ? 'AVAX' : potentialSell);
+      const normalizedBuy = potentialBuy === 'ETHEREUM' ? 'ETH' : (potentialBuy === 'AVALANCHE' ? 'AVAX' : potentialBuy);
+      
+      if (tokens.includes(normalizedSell) && tokens.includes(normalizedBuy)) {
+        console.log('Found sell-for pattern:', { sell: normalizedSell, buy: normalizedBuy });
+        return { sellToken: normalizedSell, buyToken: normalizedBuy };
+      }
+    }
+    
+    // Pattern 2: "trade [A] for [B]" or "swap [A] for [B]"
+    const tradeForPattern = /\b(?:trade|trading|swap|swapping)\s+(\w+)\s+(?:for|to|into)\s+(\w+)\b/i;
+    const tradeForMatch = lowerMessage.match(tradeForPattern);
+    if (tradeForMatch) {
+      const potentialSell = tradeForMatch[1].toUpperCase();
+      const potentialBuy = tradeForMatch[2].toUpperCase();
+      
+      const normalizedSell = potentialSell === 'ETHEREUM' ? 'ETH' : (potentialSell === 'AVALANCHE' ? 'AVAX' : potentialSell);
+      const normalizedBuy = potentialBuy === 'ETHEREUM' ? 'ETH' : (potentialBuy === 'AVALANCHE' ? 'AVAX' : potentialBuy);
+      
+      if (tokens.includes(normalizedSell) && tokens.includes(normalizedBuy)) {
+        console.log('Found trade-for pattern:', { sell: normalizedSell, buy: normalizedBuy });
+        return { sellToken: normalizedSell, buyToken: normalizedBuy };
+      }
+    }
+    
+    console.log('No clear pattern found, tokens will be assigned based on context');
+    return {};
+  }
+
+  // VALIDATION AND UTILITY METHODS
 
   private isConfirmingAction(message: string): boolean {
     const confirmationWords = [
@@ -1512,6 +2368,18 @@ Respond as Reactor AI:`;
     
     const lowerMessage = message.toLowerCase().trim();
     return confirmationWords.some(word => lowerMessage.includes(word));
+  }
+
+  private getTokenOptionsExcluding(excludeToken?: string) {
+    const allTokens = [
+     
+      { value: 'USDC', label: '💵 USD Coin (USDC) - Stablecoin' },
+      { value: 'USDT', label: '💵 Tether (USDT) - Stablecoin' },
+      { value: 'DAI', label: '💵 Dai (DAI) - Stablecoin' },
+      { value: 'WBTC', label: '₿ Wrapped Bitcoin (WBTC)' }
+    ];
+    
+    return allTokens.filter(token => token.value !== excludeToken);
   }
 
   private calculateThresholdValues(currentPrice: number, targetPrice: number): { coefficient: number, threshold: number } {
@@ -1548,29 +2416,83 @@ Respond as Reactor AI:`;
     return networkNames[chainId] || `Network ${chainId}`;
   }
 
+  // HANDLE TOKEN ADDRESS INPUT
+
+  private async handleTokenAddressInput(message: string, conversation: ConversationState) {
+    const addressPattern = /(0x[a-fA-F0-9]{40})/;
+    const match = message.match(addressPattern);
+
+    if (!match) return null;
+
+    const tokenAddress = match[0];
+    const networkId = conversation.collectedData.selectedNetwork;
+
+    if (!networkId) {
+      return { 
+        message: "🌐 Please select a network before providing a custom token address.", 
+        intent: conversation.intent,
+        needsUserInput: true,
+        inputType: 'network' as const,
+        nextStep: 'network'
+      };
+    }
+
+    const validation = await this.blockchainService.validateTokenAddress(tokenAddress, networkId);
+
+    if (validation.isValid && validation.tokenInfo) {
+      const { symbol, name } = validation.tokenInfo;
+      
+      if (!conversation.collectedData.customTokenAddresses) {
+        conversation.collectedData.customTokenAddresses = {};
+      }
+      conversation.collectedData.customTokenAddresses[symbol] = tokenAddress;
+      
+      conversation.collectedData[conversation.currentStep as 'tokenToSell' | 'tokenToBuy'] = symbol;
+      
+      if (conversation.intent === 'CREATE_STOP_ORDER') {
+        return this.handleStopOrderFlow(conversation, { message } as MessageContext);
+      } else {
+        return this.handleAaveProtectionFlow(conversation, { message } as MessageContext);
+      }
+    } else {
+      const networkName = this.getNetworkName(networkId);
+      return {
+        message: `❌ **Invalid Token Address for ${networkName}**\n\n${validation.error}\n\nPlease provide a valid ERC-20 token contract address.`,
+        intent: conversation.intent,
+        needsUserInput: true,
+        inputType: 'token' as const,
+        nextStep: conversation.currentStep
+      };
+    }
+  }
+
   // RESPONSE GENERATION METHODS
 
+  // Generate help response for unclear messages
   private generateHelpResponse(context: MessageContext, conversation: ConversationState) {
     return {
-      message: "🤖 **Hi! I'm Reactor AI.** I can help you with DeFi automation!\n\n**I can help you:**\n\n🛡️ **Create Stop Orders**\n• Automatically sell tokens when price drops\n• Protect your investments 24/7\n• Example: \"Create a stop order to protect my ETH\"\n\n📚 **Learn About REACTOR**\n• Understand Reactive Smart Contracts\n• Learn about our automations\n• Example: \"What is Reactor?\" or \"How do RSCs work?\"\n\n**What would you like to do?** 🚀",
+      message: "🤖 **Hi! I'm Reactor AI.** I can help you with DeFi automation!\n\n**I can help you:**\n\n🛡️ **Create Stop Orders**\n• Automatically sell tokens when price drops\n• Protect your investments 24/7\n• Example: \"Create a stop order to protect my ETH\"\n\n🏦 **Create Aave Protection**\n• Guard against liquidation automatically\n• Monitor health factor 24/7\n• Example: \"Create Aave protection for my position\"\n\n📚 **Learn About REACTOR**\n• Understand Reactive Smart Contracts\n• Learn about our automations\n• Example: \"What is Reactor?\" or \"How do RSCs work?\"\n\n**What would you like to do?** 🚀",
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'awaiting_command',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
-        { value: 'what is reactor', label: '📚 Learn About REACTOR' }
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
+        { value: 'what is reactor', label: '📚 Learn About REACTOR' },
+        { value: 'what automations are available', label: '🤖 View Automations' }
       ]
     };
   }
 
   private generateErrorResponse(error: any, conversation: ConversationState) {
     return {
-      message: `❌ **Something went wrong!** ${error.message || 'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
+      message: `❌ **Something went wrong!** ${'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Setting up Aave protection\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'error_recovery',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 Learn About REACTOR' }
       ]
     };
@@ -1578,16 +2500,69 @@ Respond as Reactor AI:`;
 
   private getReactorKnowledgeFallback(message: string) {
     return {
-      message: `📚 **I'm here to help with REACTOR!** I specialize in:\n\n**🤖 Automation Creation:**\n• Stop Orders - Protect investments from price drops\n\n**📖 Education:**\n• How REACTOR works\n• Reactive Smart Contracts (RSCs)\n• DeFi automation concepts\n• Platform features and capabilities\n\nWhat would you like to know about REACTOR? 🎯`,
+      message: `📚 **I'm here to help with REACTOR!** I specialize in:\n\n**🤖 Automation Creation:**\n• Stop Orders - Protect investments from price drops\n• Aave Protection - Guard against liquidation\n\n**📖 Education:**\n• How REACTOR works\n• Reactive Smart Contracts (RSCs)\n• DeFi automation concepts\n• Platform features and capabilities\n\n**🚀 Coming Soon:**\n• Fee Collectors - Auto-harvest Uniswap V3 fees\n• Range Managers - Optimize LP positions\n\nWhat would you like to know about REACTOR? 🎯`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'knowledge_fallback',
       options: [
         { value: 'create stop order', label: '🛡️ Create Stop Order' },
+        { value: 'create aave protection', label: '🏦 Create Aave Protection' },
         { value: 'what is reactor', label: '📚 What is REACTOR?' },
         { value: 'tell me about rsc', label: '🧠 What are RSCs?' }
       ]
     };
+  }
+
+  // GEMINI API INTEGRATION
+
+  private async callGeminiAPI(conversation: ConversationState, context: MessageContext): Promise<string> {
+    const userContext = this.buildUserContext(conversation, context);
+    const conversationHistory = this.formatConversationHistory(conversation);
+    
+    const prompt = `${this.systemPrompt}
+
+CURRENT USER CONTEXT:
+${userContext}
+
+CONVERSATION HISTORY:
+${conversationHistory}
+
+USER MESSAGE: "${context.message}"
+
+INSTRUCTIONS:
+1. Focus only on REACTOR platform, RSCs, and our specific automations
+2. Be helpful and educational about DeFi automation concepts
+3. Use emojis and clear formatting
+4. If asked about general DeFi topics not related to REACTOR, redirect to our platform capabilities
+5. Include actionable next steps when appropriate
+
+Respond as Reactor AI:`;
+
+    try {
+      const response = await fetch(`${this.geminiBaseUrl}?key=${this.geminiApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7, topK: 40, topP: 0.9, maxOutputTokens: 800
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+      
+      const data = await response.json() as GeminiResponse;
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response format from Gemini API');
+      }
+      return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+      console.error('Gemini API call failed:', error);
+      throw error;
+    }
   }
 
   private buildUserContext(conversation: ConversationState, context: MessageContext): string {
@@ -1605,6 +2580,13 @@ Respond as Reactor AI:`;
       if (data.amount) contextStr += `- Amount: ${data.amount}\n`;
       if (data.dropPercentage) contextStr += `- Drop percentage: ${data.dropPercentage}%\n`;
     }
+
+    if (conversation.intent === 'CREATE_AAVE_PROTECTION') {
+      contextStr += `- Creating Aave protection\n`;
+      if (data.protectionType) contextStr += `- Protection type: ${data.protectionType}\n`;
+      if (data.healthFactorThreshold) contextStr += `- Health factor threshold: ${data.healthFactorThreshold}\n`;
+      if (data.targetHealthFactor) contextStr += `- Target health factor: ${data.targetHealthFactor}\n`;
+    }
     
     return contextStr || '- No previous context';
   }
@@ -1620,6 +2602,9 @@ Respond as Reactor AI:`;
       .join('\n');
   }
 
+  // UTILITY METHODS
+
+  // Utility methods
   private addToHistory(conversation: ConversationState, role: 'user' | 'assistant', content: string) {
     conversation.conversationHistory.push({ role, content });
     
@@ -1645,102 +2630,6 @@ Respond as Reactor AI:`;
     conversation.lastUpdated = Date.now();
     
     return conversation;
-  }
-
-  private async extractStopOrderEntities(message: string, conversation: ConversationState) {
-    console.log('Extracting stop order entities from:', message);
-    console.log('Current conversation lastQuestion:', conversation.lastQuestion);
-    console.log('Current step:', conversation.currentStep);
-    
-    // PRIORITY 1: Handle direct context-aware responses first
-    if (conversation.lastQuestion && conversation.currentStep) {
-      const directResponse = this.handleDirectResponse(message, conversation.currentStep, conversation.lastQuestion);
-      if (directResponse) {
-        // Apply the direct response immediately
-        Object.assign(conversation.collectedData, directResponse);
-        console.log('Applied direct response:', directResponse);
-        return;
-      }
-    }
-    
-    // PRIORITY 2: Use existing extraction logic as fallback
-    const extracted = this.extractTradingParams(message, conversation.lastQuestion);
-    console.log('Extracted from extractTradingParams:', extracted);
-    
-    // Update conversation data with extracted parameters
-    if (extracted.tokenToSell) {
-      conversation.collectedData.tokenToSell = extracted.tokenToSell;
-      console.log('Set tokenToSell to:', extracted.tokenToSell);
-    }
-    if (extracted.tokenToBuy) {
-      conversation.collectedData.tokenToBuy = extracted.tokenToBuy;
-      console.log('Set tokenToBuy to:', extracted.tokenToBuy);
-    }
-    if (extracted.amount) {
-      conversation.collectedData.amount = extracted.amount;
-      console.log('Set amount to:', extracted.amount);
-    }
-    if (extracted.dropPercentage) {
-      conversation.collectedData.dropPercentage = extracted.dropPercentage;
-      console.log('Set dropPercentage to:', extracted.dropPercentage);
-    }
-    
-    console.log('Updated conversation data:', conversation.collectedData);
-  }
-  
-  // NEW METHOD: Handle direct responses based on current step context
-  private handleDirectResponse(message: string, currentStep: string, lastQuestion: string): Partial<ConversationState['collectedData']> | null {
-    const trimmedMessage = message.trim().toLowerCase();
-    
-    // Handle single currency responses
-    const currencyMatch = message.match(/^([A-Za-z]{3,10})$/i);
-    if (currencyMatch) {
-      const currency = this.normalizeCurrency(currencyMatch[1]);
-      if (currency) {
-        console.log(`Direct currency response: ${currency} for step: ${currentStep}`);
-        
-        if (currentStep === 'tokenToSell') {
-          return { tokenToSell: currency };
-        } else if (currentStep === 'tokenToBuy') {
-          return { tokenToBuy: currency };
-        }
-      }
-    }
-    
-    // Handle single number responses for amount
-    const numberMatch = message.match(/^(\d+(?:\.\d+)?)$/);
-    if (numberMatch) {
-      const number = numberMatch[1];
-      console.log(`Direct number response: ${number} for step: ${currentStep}`);
-      
-      if (currentStep === 'amount') {
-        return { amount: number };
-      } else if (currentStep === 'dropPercentage') {
-        return { dropPercentage: parseFloat(number) };
-      }
-    }
-    
-    // Handle percentage responses
-    const percentMatch = message.match(/^(\d+(?:\.\d+)?)%?$/);
-    if (percentMatch && currentStep === 'dropPercentage') {
-      return { dropPercentage: parseFloat(percentMatch[1]) };
-    }
-    
-    // Handle special amount keywords
-    if (currentStep === 'amount') {
-      if (trimmedMessage === 'all' || trimmedMessage === 'everything') {
-        return { amount: 'all' };
-      } else if (trimmedMessage === 'half') {
-        return { amount: '50%' };
-      }
-    }
-    
-    console.log('No direct response pattern matched');
-    return null;
-  }
-
-  public getConversationCount(): number {
-    return this.conversations ? Object.keys(this.conversations).length : 0;
   }
 
   public cleanupOldConversations(maxAgeMs: number = 30 * 60 * 1000) {
