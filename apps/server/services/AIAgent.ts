@@ -90,6 +90,14 @@ interface GeminiResponse {
   }>;
 }
 
+// Supported testnet tokens with addresses
+interface SupportedToken {
+  symbol: string;
+  name: string;
+  address: string;
+  description: string;
+}
+
 export class AIAgent {
   private conversations = new Map<string, ConversationState>();
   private genAI: GoogleGenerativeAI;
@@ -102,6 +110,40 @@ export class AIAgent {
   private geminiApiKey: string;
   private geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   private maxConversationHistory = 6;
+
+  // Supported testnet tokens (Sepolia network)
+  private supportedTestnetTokens: SupportedToken[] = [
+    {
+      symbol: 'WETH',
+      name: 'Wrapped Ethereum',
+      address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+      description: 'Wrapped ETH for trading'
+    },
+    {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8',
+      description: 'Stablecoin pegged to USD'
+    },
+    {
+      symbol: 'USDT',
+      name: 'Tether USD',
+      address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0',
+      description: 'Stablecoin pegged to USD'
+    },
+    {
+      symbol: 'DAI',
+      name: 'Dai Stablecoin',
+      address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357',
+      description: 'Decentralized stablecoin'
+    },
+    {
+      symbol: 'LINK',
+      name: 'Chainlink',
+      address: '0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5',
+      description: 'Oracle network token'
+    }
+  ];
 
   // RE-ENABLE_AAVE_PROTECTION: The original prompt advertised Aave Protection as available on Sepolia.
   // To re-enable, restore the lines below to indicate availability and adjust flow handling in switch cases.
@@ -378,8 +420,7 @@ Respond as Reactor AI:`;
                 // { value: 'notify me', label: '🔔 Notify Me When Ready' }
               ]
             };
-          } 
-          else {
+          } else {
             return this.generateHelpResponse(context, conversation);
           }
       }
@@ -444,7 +485,7 @@ Respond as Reactor AI:`;
     }
 
     return {
-      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich automation would you like to create? 🚀`,
+      message: `🚧 **Feature Coming Soon!**\n\n${specificResponse}\n\nWe're actively working on adding comprehensive blockchain querying capabilities to Reactor AI. This will include balance checking, position monitoring, and real-time data analysis.\n\n**What I can help you with right now:**\n\n🛡️ **Create Stop Orders** - Protect your investments automatically\n🏦 **Create Aave Protection** - Guard against liquidation\n📚 **Learn About REACTOR** - Understand our platform and RSCs\n\nWhich automation would you like to create? 🚀`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: true,
       inputType: 'choice' as const,
@@ -695,10 +736,13 @@ REACTOR is a cutting-edge DeFi automation platform that revolutionizes how users
 • Available on: Ethereum, Avalanche, Sepolia
 • Use case: "Sell my ETH if it drops 10%"
 
-
+**Aave Liquidation Protection** ✅ **Active on Sepolia**
+• Monitor health factor 24/7
+• Automatically deposit collateral or repay debt
+• Prevent costly liquidation penalties
+• Use case: Protect leveraged positions
 
 **🚧 Coming Soon:**
-• **Aave Liquidation Protection**: Protect your aave position from liquidation
 • **Fee Collectors**: Auto-harvest Uniswap V3 fees
 • **Range Managers**: Optimize LP position ranges
 • **Portfolio Automation**: Multi-asset strategies
@@ -1123,7 +1167,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
               nextStep: 'confirm_low_liquidity',
               options: [
                 { value: 'yes proceed', label: '⚠️ Yes, proceed with this risk' },
-                { value: 'no different', label: '🔄 No, try different tokens' }
+                { value: 'create different stop order', label: '🔄 No, try different tokens' }
               ]
             };
             
@@ -1331,7 +1375,7 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
           inputType: 'choice' as const,
           nextStep: 'pair_not_found_error',
           options : [
-            { value: 'Try with another tokens', label: '🛡️ Create a different stop order' },
+            { value: 'Create a different stop order', label: '🛡️ Create another stop order' },
           ]
         };
 
@@ -1437,22 +1481,42 @@ RSCs represent the future of DeFi - truly autonomous, intelligent contracts that
 
       case 'tokenToSell':
         return {
-          message: "🪙 **Which token** would you like to protect with a stop order?\n\nJust tell me the token name or address:",
+          message: `🪙 **Which token** would you like to protect with a stop order?\n\n**📋 
+          \n\n**💡 For other tokens:** Please provide the contract address\n**⚠️ Note:** Stop orders don't work with native ETH\n\n**🚰 Need testnet tokens?** Get them from: https://app.aave.com/faucet/
+          Supported testnet tokens:**`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'token' as const,
           nextStep: 'tokenToSell',
+          options: [
+            ...this.supportedTestnetTokens.map(token => ({
+              value: token.symbol,
+              label: `${token.symbol} - ${token.name}`,
+              description: `${token.address.slice(0, 10)}...${token.address.slice(-8)}`
+            }))
+          ]
           
         };
 
       case 'tokenToBuy':
         return {
-          message: `🔄 Great! You want to protect your **${data.tokenToSell}**.\n\n**Which token** should you receive when the stop order triggers?\n\n💡 *Stablecoins like USDC preserve value during market downturns*`,
+          message: `🔄 Great! You want to protect your **${data.tokenToSell}**.\n\n**Which token** should you receive when the stop order triggers?\n\n**📋
+          \n\n**💡 For other tokens:** Please provide the contract address\n**⚠️ Note:** Stop orders don't work with native ETH\n\n**🚰 Need testnet tokens?** Get them from: https://app.aave.com/faucet/
+          Supported testnet tokens:**\n\n💡 *Stablecoins like USDC preserve value during market downturns*`,
           intent: 'CREATE_STOP_ORDER' as const,
           needsUserInput: true,
           inputType: 'token' as const,
           nextStep: 'tokenToBuy',
-          
+          options: [
+            ...this.supportedTestnetTokens
+              .filter(token => token.symbol !== data.tokenToSell)
+              .map(token => ({
+                value: token.symbol,
+                label: `${token.symbol} - ${token.name}`,
+                description: `${token.address.slice(0, 10)}...${token.address.slice(-8)}`
+              }))
+          ],
+          customMessage: `\n\n**💡 For other tokens:** Please provide the contract address\n\n**🚰 Need testnet tokens?** Get them from: https://app.aave.com/faucet/`
         };
 
       case 'amount':
@@ -2267,7 +2331,8 @@ ${strategyDescription}
 
   // Helper methods for token extraction
   private extractToken(message: string): string | undefined {
-    const tokenPattern = /\b(ETH|ETHEREUM|USDC|USDT|DAI|WBTC|AVAX|AVALANCHE|LINK)\b/gi;
+    // Enhanced token pattern to include supported testnet tokens
+    const tokenPattern = new RegExp(`\\b(${this.supportedTestnetTokens.map(t => t.symbol).join('|')}|ETH|ETHEREUM|AVAX|AVALANCHE)\\b`, 'gi');
     const match = message.match(tokenPattern);
     if (!match) return undefined;
     
@@ -2278,7 +2343,8 @@ ${strategyDescription}
   }
 
   private extractAllTokens(message: string): string[] {
-    const tokenPattern = /\b(ETH|ETHEREUM|USDC|USDT|DAI|WBTC|AVAX|AVALANCHE|LINK)\b/gi;
+    // Enhanced token pattern to include supported testnet tokens
+    const tokenPattern = new RegExp(`\\b(${this.supportedTestnetTokens.map(t => t.symbol).join('|')}|ETH|ETHEREUM|AVAX|AVALANCHE)\\b`, 'gi');
     const matches = message.match(tokenPattern) || [];
     return [...new Set(matches.map(token => {
       const upper = token.toUpperCase();
@@ -2347,15 +2413,20 @@ ${strategyDescription}
   }
 
   private getTokenOptionsExcluding(excludeToken?: string) {
-    const allTokens = [
-     
-      { value: 'USDC', label: '💵 USD Coin (USDC) - Stablecoin' },
-      { value: 'USDT', label: '💵 Tether (USDT) - Stablecoin' },
-      { value: 'DAI', label: '💵 Dai (DAI) - Stablecoin' },
-      { value: 'WBTC', label: '₿ Wrapped Bitcoin (WBTC)' }
-    ];
+    const filteredTokens = this.supportedTestnetTokens.filter(token => token.symbol !== excludeToken);
     
-    return allTokens.filter(token => token.value !== excludeToken);
+    return [
+      ...filteredTokens.map(token => ({
+        value: token.symbol,
+        label: `${token.symbol} - ${token.name}`,
+        description: `${token.address.slice(0, 10)}...${token.address.slice(-8)}`
+      })),
+      {
+        value: 'custom',
+        label: '📝 Other token (provide contract address)',
+        description: 'For tokens not listed above'
+      }
+    ];
   }
 
   private calculateThresholdValues(currentPrice: number, targetPrice: number): { coefficient: number, threshold: number } {
@@ -2462,7 +2533,7 @@ ${strategyDescription}
 
   private generateErrorResponse(error: any, conversation: ConversationState) {
     return {
-      message: `❌ **Something went wrong!** ${'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
+      message: `❌ **Something went wrong!** ${'Please try again.'}\n\n**I can help you with:**\n• Creating stop orders\n• Setting up Aave protection\n• Learning about REACTOR\n\nWhat would you like to do? 🔄`,
       intent: 'ANSWER_REACTOR_QUESTION' as const,
       needsUserInput: false,
       nextStep: 'error_recovery',
