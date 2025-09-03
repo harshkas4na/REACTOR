@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   CheckCircle, 
-  Pause, 
-  Play, 
   X, 
   RefreshCw, 
   TrendingDown, 
@@ -19,11 +17,18 @@ import {
   Plus,
   Eye,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Layers,
+  Clock,
+  Shield,
+  BarChart3,
+  ArrowRight,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// ===== CONFIGURATION FROM STOP ORDER PAGE =====
+// ===== CONFIGURATION FROM MAIN STOP ORDER PAGE =====
 interface ChainConfig {
   id: string;
   name: string;
@@ -35,6 +40,13 @@ interface ChainConfig {
   nativeCurrency: string;
   defaultFunding: string;
   isComingSoon?: boolean;
+  rscNetwork: {
+    chainId: string;
+    name: string;
+    rpcUrl: string;
+    currencySymbol: string;
+    explorerUrl: string;
+  };
 }
 
 const SUPPORTED_CHAINS: ChainConfig[] = [
@@ -44,111 +56,70 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     dexName: 'Uniswap V2',
     routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
     factoryAddress: '0x7e0987e5b3a30e3f2828572bb659a548460a3003',
-    callbackAddress: '0xAff550C16085915eeA2D7fc3C72A47f9bA5C47cC',
+    callbackAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
     rpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.03'
-  },
-  {
-    id: '1',
-    name: 'Ethereum Mainnet',
-    dexName: 'Uniswap V2',
-    routerAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-    factoryAddress: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
-    callbackAddress: '0xe6a25e1641A17A8BCE5DD591a490d94AADB4919f',
-    rpcUrl: 'https://ethereum.publicnode.com',
-    nativeCurrency: 'ETH',
     defaultFunding: '0.03',
-    isComingSoon: true
-  },
-  {
-    id: '43114',
-    name: 'Avalanche C-Chain',
-    dexName: 'Pangolin',
-    routerAddress: '0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106',
-    factoryAddress: '0xefa94DE7a4656D787667C749f7E1223D71E9FD88',
-    callbackAddress: '0xe6a25e1641A17A8BCE5DD591a490d94AADB4919f',
-    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
-    nativeCurrency: 'AVAX',
-    defaultFunding: '0.03',
-    isComingSoon: true
+    rscNetwork: {
+      chainId: '5318007',
+      name: 'Reactive Lasna',
+      rpcUrl: 'https://lasna-rpc.rnk.dev/',
+      currencySymbol: 'REACT',
+      explorerUrl: 'https://lasna.reactscan.net'
+    }
   }
 ];
 
-// Contract addresses
-const CONTRACT_ADDRESSES = {
-  CALLBACK: '0xAff550C16085915eeA2D7fc3C72A47f9bA5C47cC',
-  RSC: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
+// ===== CONTRACT ADDRESS MANAGEMENT =====
+interface UserContractAddresses {
+  reactiveContract: string;
+  callbackContract: string;
+  deployedAt: number;
+  chainId: string;
+  deployer: string;
+}
+
+const getContractStorageKey = (userAddress: string, chainId: string): string => {
+  return `stop-order-contracts-${userAddress.toLowerCase()}-${chainId}`;
 };
 
-// ===== INTERFACES =====
-enum OrderStatus {
-  Active = 0,
-  Paused = 1,
-  Cancelled = 2,
-  Executed = 3,
-  Failed = 4
-}
+const getStoredContracts = (userAddress: string, chainId: string): UserContractAddresses | null => {
+  try {
+    const key = getContractStorageKey(userAddress, chainId);
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.error('Error reading stored contracts:', error);
+    return null;
+  }
+};
 
-interface Token {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  balance?: string;
-}
-
-interface StopOrder {
-  id: number;
-  client: string;
-  pair: string;
-  tokenSell: Token;
-  tokenBuy: Token;
-  amount: string;
-  sellToken0: boolean;
-  coefficient: string;
-  threshold: string;
-  status: OrderStatus;
-  createdAt: number;
-  executedAt: number;
-  retryCount: number;
-  lastExecutionAttempt: number;
-  currentPrice?: string;
-  dropPercentage?: number;
-  triggerPrice?: string;
-}
-
-// ===== SIMPLIFIED ABI =====
-const STOP_ORDER_ABI = [
+// ===== UPDATED ABIs FOR MULTI-ORDER SYSTEM =====
+const REACTIVE_STOP_ORDER_ABI = [
   {
-    "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
-    "name": "getUserOrders",
-    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
-    "stateMutability": "view",
+    "inputs": [{ "internalType": "uint256", "name": "orderId", "type": "uint256" }],
+    "name": "cancelStopOrder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "uint256", "name": "orderId", "type": "uint256"}],
-    "name": "getOrder",
+    "inputs": [{ "internalType": "uint256", "name": "orderId", "type": "uint256" }],
+    "name": "getStopOrder",
     "outputs": [
       {
         "components": [
-          {"internalType": "uint256", "name": "id", "type": "uint256"},
-          {"internalType": "address", "name": "client", "type": "address"},
-          {"internalType": "address", "name": "pair", "type": "address"},
-          {"internalType": "address", "name": "tokenSell", "type": "address"},
-          {"internalType": "address", "name": "tokenBuy", "type": "address"},
-          {"internalType": "uint256", "name": "amount", "type": "uint256"},
-          {"internalType": "bool", "name": "sellToken0", "type": "bool"},
-          {"internalType": "uint256", "name": "coefficient", "type": "uint256"},
-          {"internalType": "uint256", "name": "threshold", "type": "uint256"},
-          {"internalType": "uint8", "name": "status", "type": "uint8"},
-          {"internalType": "uint256", "name": "createdAt", "type": "uint256"},
-          {"internalType": "uint256", "name": "executedAt", "type": "uint256"},
-          {"internalType": "uint8", "name": "retryCount", "type": "uint8"},
-          {"internalType": "uint256", "name": "lastExecutionAttempt", "type": "uint256"}
+          { "internalType": "address", "name": "pair", "type": "address" },
+          { "internalType": "address", "name": "client", "type": "address" },
+          { "internalType": "bool", "name": "token0", "type": "bool" },
+          { "internalType": "uint256", "name": "coefficient", "type": "uint256" },
+          { "internalType": "uint256", "name": "threshold", "type": "uint256" },
+          { "internalType": "uint8", "name": "status", "type": "uint8" },
+          { "internalType": "bool", "name": "triggered", "type": "bool" },
+          { "internalType": "uint256", "name": "createdAt", "type": "uint256" },
+          { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }
         ],
-        "internalType": "struct StopOrderCallback.StopOrder",
+        "internalType": "struct StopOrder",
         "name": "",
         "type": "tuple"
       }
@@ -157,33 +128,49 @@ const STOP_ORDER_ABI = [
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "uint256", "name": "orderId", "type": "uint256"}],
-    "name": "pauseStopOrder",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "getUserActiveOrders",
+    "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
+    "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "uint256", "name": "orderId", "type": "uint256"}],
-    "name": "resumeStopOrder",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "getUserExecutedOrders",
+    "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
+    "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "uint256", "name": "orderId", "type": "uint256"}],
-    "name": "cancelStopOrder",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "getUserCancelledOrders",
+    "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
+    "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [
-      {"internalType": "address", "name": "pair", "type": "address"},
-      {"internalType": "bool", "name": "sellToken0", "type": "bool"}
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "getAllUserOrders",
+    "outputs": [
+      { "internalType": "uint256[]", "name": "active", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "executed", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "cancelled", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "failed", "type": "uint256[]" }
     ],
-    "name": "getCurrentPrice",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextOrderId",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getDeployer",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
   }
@@ -224,6 +211,43 @@ const TOKEN_ABI = [
   "function balanceOf(address) view returns (uint256)"
 ];
 
+// ===== INTERFACES =====
+enum OrderStatus {
+  Active = 0,
+  Cancelled = 1,
+  Executed = 2,
+  Failed = 3
+}
+
+interface Token {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance?: string;
+}
+
+interface StopOrder {
+  id: number;
+  pair: string;
+  client: string;
+  token0: boolean;
+  coefficient: string;
+  threshold: string;
+  status: OrderStatus;
+  triggered: boolean;
+  createdAt: number;
+  updatedAt: number;
+  // Derived fields
+  tokenSell?: Token;
+  tokenBuy?: Token;
+  amount?: string;
+  currentPrice?: string;
+  dropPercentage?: number;
+  triggerPrice?: string;
+  contractAddress?: string;
+}
+
 // ===== UTILITY FUNCTIONS =====
 const formatTokenBalance = (balance: string): string => {
   const num = parseFloat(balance);
@@ -240,10 +264,24 @@ const formatTimeAgo = (timestamp: number) => {
   const diff = now - timestamp;
   const days = Math.floor(diff / (60 * 60 * 24));
   const hours = Math.floor((diff % (60 * 60 * 24)) / (60 * 60));
+  const minutes = Math.floor((diff % (60 * 60)) / 60);
   
   if (days > 0) return `${days}d ago`;
   if (hours > 0) return `${hours}h ago`;
-  return 'Recently';
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'Just now';
+};
+
+const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx' = 'address'): string => {
+  const explorers: Record<string, string> = {
+    '1': 'https://etherscan.io',
+    '11155111': 'https://sepolia.etherscan.io',
+  };
+  
+  const baseUrl = explorers[chainId];
+  if (!baseUrl) return '#';
+  
+  return `${baseUrl}/${type}/${address}`;
 };
 
 // ===== STATUS CONFIGURATION =====
@@ -252,75 +290,66 @@ const STATUS_CONFIG = {
     label: 'Active',
     color: 'text-green-400',
     bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/20',
     icon: Activity
-  },
-  [OrderStatus.Paused]: {
-    label: 'Paused',
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/10',
-    icon: Pause
   },
   [OrderStatus.Executed]: {
     label: 'Executed',
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
+    borderColor: 'border-blue-500/20',
     icon: CheckCircle
   },
   [OrderStatus.Cancelled]: {
     label: 'Cancelled',
     color: 'text-gray-400',
     bgColor: 'bg-gray-500/10',
+    borderColor: 'border-gray-500/20',
     icon: X
   },
   [OrderStatus.Failed]: {
     label: 'Failed',
     color: 'text-red-400',
     bgColor: 'bg-red-500/10',
+    borderColor: 'border-red-500/20',
     icon: AlertCircle
   }
 };
 
-// ===== MAIN COMPONENT =====
-export default function SimpleStopOrderDashboard() {
+// ===== MAIN DASHBOARD COMPONENT =====
+export default function UpdatedStopOrderDashboard() {
   const [orders, setOrders] = useState<StopOrder[]>([]);
   const [connectedAccount, setConnectedAccount] = useState<string>('');
   const [connectedChain, setConnectedChain] = useState<ChainConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<{ [key: number]: string }>({});
+  const [userContracts, setUserContracts] = useState<UserContractAddresses | null>(null);
+  const [contractsValid, setContractsValid] = useState(false);
 
-  // ===== BLOCKCHAIN FUNCTIONS =====
+  // ===== TOKEN AND PAIR DATA FETCHING =====
   const fetchTokenInfo = async (address: string, provider: ethers.BrowserProvider): Promise<Token> => {
     try {
       const tokenContract = new ethers.Contract(address, TOKEN_ABI, provider);
-      const [symbol, name, decimals, balanceWei] = await Promise.all([
+      const [symbol, name, decimals] = await Promise.all([
         tokenContract.symbol(),
         tokenContract.name(),
-        tokenContract.decimals(),
-        tokenContract.balanceOf(connectedAccount)
+        tokenContract.decimals()
       ]);
 
-      console.log('Token info raw:', { symbol, name, decimals, balanceWei });
-      const balance = ethers.formatUnits(balanceWei, Number(decimals));
-
-      const tokenInfo = {
+      return {
         address,
         symbol,
         name,
-        decimals: Number(decimals), // Convert BigInt to number
-        balance: parseFloat(balance).toFixed(6)
+        decimals: Number(decimals)
       };
-
-      console.log('Processed token info:', tokenInfo);
-      return tokenInfo;
     } catch (error) {
       console.error('Error fetching token info for', address, ':', error);
       return {
         address,
         symbol: 'UNKNOWN',
         name: 'Unknown Token',
-        decimals: 18,
-        balance: '0'
+        decimals: 18
       };
     }
   };
@@ -343,111 +372,174 @@ export default function SimpleStopOrderDashboard() {
     }
   };
 
-  // FIXED: Correct calculation for threshold-based orders
   const calculateOrderMetrics = async (orderData: any, provider: ethers.BrowserProvider) => {
     try {
-      // Get current pair price
-      const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.sellToken0, provider);
-      
-      // Calculate the trigger price from threshold
+      const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.token0, provider);
       const coefficient = Number(orderData.coefficient);
       const threshold = Number(orderData.threshold);
       const triggerPrice = threshold / coefficient;
       
-      // Try to estimate the drop percentage
-      // Since we don't know the original price exactly, we'll use current price as approximation
-      // This won't be 100% accurate but much better than the old calculation
       let dropPercentage = 0;
       if (currentPrice > 0 && triggerPrice > 0) {
         dropPercentage = ((currentPrice - triggerPrice) / currentPrice) * 100;
-        // Ensure it's positive and reasonable (clamp between 0-50%)
         dropPercentage = Math.max(0, Math.min(50, dropPercentage));
       }
-
-      console.log('Order metrics calculation:', {
-        coefficient,
-        threshold,
-        currentPrice,
-        triggerPrice,
-        calculatedDropPercentage: dropPercentage
-      });
 
       return {
         currentPrice: currentPrice.toFixed(6),
         triggerPrice: triggerPrice.toFixed(6),
-        dropPercentage: Math.round(dropPercentage * 10) / 10 // Round to 1 decimal place
+        dropPercentage: Math.round(dropPercentage * 10) / 10
       };
     } catch (error) {
       console.error('Error calculating order metrics:', error);
       return {
         currentPrice: '0',
-        triggerPrice: '0', 
+        triggerPrice: '0',
         dropPercentage: 0
       };
     }
   };
 
+  // ===== CONTRACT VALIDATION =====
+  const validateStoredContracts = async (
+    contracts: UserContractAddresses,
+    provider: ethers.BrowserProvider,
+    userAddress: string
+  ): Promise<boolean> => {
+    try {
+      console.log('Validating stored contracts:', contracts);
+      
+      const reactiveContract = new ethers.Contract(
+        contracts.reactiveContract,
+        REACTIVE_STOP_ORDER_ABI,
+        provider
+      );
+      
+      const deployer = await reactiveContract.getDeployer();
+      
+      if (deployer.toLowerCase() !== userAddress.toLowerCase()) {
+        console.error('User is not the deployer of stored reactive contract');
+        return false;
+      }
+      
+      const callbackCode = await provider.getCode(contracts.callbackContract);
+      if (callbackCode === '0x') {
+        console.error('Callback contract not found at stored address');
+        return false;
+      }
+      
+      console.log('Contract validation successful');
+      return true;
+    } catch (error) {
+      console.error('Contract validation failed:', error);
+      return false;
+    }
+  };
+
+  // ===== ORDER FETCHING =====
   const fetchUserOrders = async () => {
     if (!connectedAccount || !connectedChain) return;
 
     console.log('Fetching orders for account:', connectedAccount, 'on chain:', connectedChain.name);
     setIsLoading(true);
+    
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
-      // Use chain-specific callback address
-      const callbackAddress = connectedChain.callbackAddress;
-      const contract = new ethers.Contract(callbackAddress, STOP_ORDER_ABI, provider);
-
-      console.log('Using contract address:', callbackAddress);
-      console.log('Connected to network:', await provider.getNetwork());
-
-      // Get user's order IDs
-      const orderIds = await contract.getUserOrders(connectedAccount);
-      console.log('Order IDs returned:', orderIds);
       
-      if (orderIds.length === 0) {
+      // Check for user's deployed contracts
+      const stored = getStoredContracts(connectedAccount, connectedChain.id);
+      console.log('Stored contracts found:', stored);
+      
+      if (!stored) {
+        console.log('No contracts found for user');
+        setOrders([]);
+        setUserContracts(null);
+        setContractsValid(false);
+        return;
+      }
+
+      // Validate contracts
+      const valid = await validateStoredContracts(stored, provider, connectedAccount);
+      
+      if (!valid) {
+        console.log('Stored contracts are invalid, clearing...');
+        const key = getContractStorageKey(connectedAccount, connectedChain.id);
+        localStorage.removeItem(key);
+        setOrders([]);
+        setUserContracts(null);
+        setContractsValid(false);
+        return;
+      }
+
+      setUserContracts(stored);
+      setContractsValid(true);
+
+      const reactiveContract = new ethers.Contract(
+        stored.reactiveContract,
+        REACTIVE_STOP_ORDER_ABI,
+        provider
+      );
+
+      console.log('Using reactive contract address:', stored.reactiveContract);
+
+      // Get all user's orders
+      const [activeOrders, executedOrders, cancelledOrders] = await reactiveContract.getAllUserOrders(connectedAccount);
+      const allOrderIds = [...activeOrders, ...executedOrders, ...cancelledOrders];
+      
+      console.log('All order IDs:', allOrderIds);
+      
+      if (allOrderIds.length === 0) {
         console.log('No orders found for user');
         setOrders([]);
         return;
       }
 
       // Fetch all order details
-      const orderPromises = orderIds.map(async (orderId: bigint) => {
+      const orderPromises = allOrderIds.map(async (orderId: bigint) => {
         try {
           console.log('Fetching order:', Number(orderId));
-          const orderData = await contract.getOrder(orderId);
+          const orderData = await reactiveContract.getStopOrder(orderId);
           console.log('Raw order data:', orderData);
           
-          // Fetch token information
-          const [tokenSell, tokenBuy] = await Promise.all([
-            fetchTokenInfo(orderData.tokenSell, provider),
-            fetchTokenInfo(orderData.tokenBuy, provider)
+          // Get pair token information
+          const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, provider);
+          const [token0Address, token1Address] = await Promise.all([
+            pairContract.token0(),
+            pairContract.token1()
           ]);
 
-          // FIXED: Use new calculation method
+          const [token0Info, token1Info] = await Promise.all([
+            fetchTokenInfo(token0Address, provider),
+            fetchTokenInfo(token1Address, provider)
+          ]);
+
+          // Determine sell and buy tokens based on order direction
+          const tokenSell = orderData.token0 ? token0Info : token1Info;
+          const tokenBuy = orderData.token0 ? token1Info : token0Info;
+
+          // Calculate metrics
           const metrics = await calculateOrderMetrics(orderData, provider);
 
           const order: StopOrder = {
-            id: Number(orderData.id),
-            client: orderData.client,
+            id: Number(orderId),
             pair: orderData.pair,
-            tokenSell,
-            tokenBuy,
-            amount: ethers.formatUnits(orderData.amount, Number(tokenSell.decimals)),
-            sellToken0: orderData.sellToken0,
+            client: orderData.client,
+            token0: orderData.token0,
             coefficient: orderData.coefficient.toString(),
             threshold: orderData.threshold.toString(),
-            status: Number(orderData.status), // Convert BigInt to number
+            status: Number(orderData.status),
+            triggered: orderData.triggered,
             createdAt: Number(orderData.createdAt),
-            executedAt: Number(orderData.executedAt),
-            retryCount: Number(orderData.retryCount),
-            lastExecutionAttempt: Number(orderData.lastExecutionAttempt),
+            updatedAt: Number(orderData.updatedAt),
+            tokenSell,
+            tokenBuy,
             currentPrice: metrics.currentPrice,
             dropPercentage: metrics.dropPercentage,
-            triggerPrice: metrics.triggerPrice
+            triggerPrice: metrics.triggerPrice,
+            contractAddress: stored.reactiveContract
           };
 
-          console.log('Processed order with fixed metrics:', order);
+          console.log('Processed order:', order);
           return order;
         } catch (error) {
           console.error('Error fetching order:', orderId, error);
@@ -458,17 +550,17 @@ export default function SimpleStopOrderDashboard() {
       const resolvedOrders = await Promise.all(orderPromises);
       const validOrders = resolvedOrders.filter(order => order !== null) as StopOrder[];
       
-      console.log('Valid orders before sorting:', validOrders);
-      console.log('Order statuses:', validOrders.map(o => ({ id: o.id, status: o.status, statusType: typeof o.status })));
-      
       // Sort by creation time (newest first)
       validOrders.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('Final orders with corrected calculations:', validOrders);
+      console.log('Final orders:', validOrders);
       setOrders(validOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('Failed to load orders');
+      setOrders([]);
+      setUserContracts(null);
+      setContractsValid(false);
     } finally {
       setIsLoading(false);
     }
@@ -482,52 +574,8 @@ export default function SimpleStopOrderDashboard() {
   };
 
   // ===== ACTION HANDLERS =====
-  const handlePauseOrder = async (orderId: number) => {
-    if (!connectedChain) return;
-    
-    setActionLoading(prev => ({ ...prev, [orderId]: 'pausing' }));
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(connectedChain.callbackAddress, STOP_ORDER_ABI, signer);
-
-      const tx = await contract.pauseStopOrder(orderId);
-      await tx.wait();
-
-      toast.success('Order paused successfully');
-      await fetchUserOrders();
-    } catch (error: any) {
-      console.error('Error pausing order:', error);
-      toast.error(error.reason || 'Failed to pause order');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [orderId]: '' }));
-    }
-  };
-
-  const handleResumeOrder = async (orderId: number) => {
-    if (!connectedChain) return;
-    
-    setActionLoading(prev => ({ ...prev, [orderId]: 'resuming' }));
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(connectedChain.callbackAddress, STOP_ORDER_ABI, signer);
-
-      const tx = await contract.resumeStopOrder(orderId);
-      await tx.wait();
-
-      toast.success('Order resumed successfully');
-      await fetchUserOrders();
-    } catch (error: any) {
-      console.error('Error resuming order:', error);
-      toast.error(error.reason || 'Failed to resume order');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [orderId]: '' }));
-    }
-  };
-
   const handleCancelOrder = async (orderId: number) => {
-    if (!connectedChain) return;
+    if (!connectedChain || !userContracts) return;
     
     if (!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
       return;
@@ -537,16 +585,27 @@ export default function SimpleStopOrderDashboard() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(connectedChain.callbackAddress, STOP_ORDER_ABI, signer);
+      const reactiveContract = new ethers.Contract(
+        userContracts.reactiveContract,
+        REACTIVE_STOP_ORDER_ABI,
+        signer
+      );
 
-      const tx = await contract.cancelStopOrder(orderId);
+      const tx = await reactiveContract.cancelStopOrder(orderId);
       await tx.wait();
 
       toast.success('Order cancelled successfully');
       await fetchUserOrders();
     } catch (error: any) {
       console.error('Error cancelling order:', error);
-      toast.error(error.reason || 'Failed to cancel order');
+      
+      if (error.message.includes('Only deployer can call')) {
+        toast.error('Access denied: You can only cancel orders on contracts you deployed');
+      } else if (error.message.includes('User denied') || error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else {
+        toast.error(error.reason || 'Failed to cancel order');
+      }
     } finally {
       setActionLoading(prev => ({ ...prev, [orderId]: '' }));
     }
@@ -585,10 +644,148 @@ export default function SimpleStopOrderDashboard() {
     }
   }, [connectedAccount, connectedChain]);
 
-  // ===== RENDER =====
+  // ===== RENDER FUNCTIONS =====
+  const renderOrderCard = (order: StopOrder) => {
+    const statusConfig = STATUS_CONFIG[order.status];
+    const StatusIcon = statusConfig.icon;
+    const loadingAction = actionLoading[order.id];
+    const isActive = order.status === OrderStatus.Active;
+
+    return (
+      <Card 
+        key={order.id} 
+        className={`relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ${statusConfig.borderColor}`}
+      >
+        <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center text-sm font-bold text-white">
+                #{order.id}
+              </div>
+              <div>
+                <CardTitle className="text-lg text-zinc-100 flex items-center space-x-2">
+                  <span>{order.tokenSell?.symbol} → {order.tokenBuy?.symbol}</span>
+                  {isActive && <Activity className="w-4 h-4 text-green-400" />}
+                </CardTitle>
+                <CardDescription className="text-zinc-300">
+                  Created {formatTimeAgo(order.createdAt)}
+                </CardDescription>
+              </div>
+            </div>
+            <div className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color} ${statusConfig.borderColor} border`}>
+              <StatusIcon className="w-4 h-4" />
+              <span>{statusConfig.label}</span>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-6 space-y-4">
+          {/* Order Details */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-zinc-400 mb-1">Current Price</p>
+              <p className="text-lg font-semibold text-zinc-200">
+                {order.currentPrice || '0.000000'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-zinc-400 mb-1">Trigger Price</p>
+              <p className="text-lg font-semibold text-red-300">
+                {order.triggerPrice || '0.000000'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-zinc-400 mb-1">Drop Threshold</p>
+              <p className="text-lg font-semibold text-yellow-300">
+                -{order.dropPercentage || 0}%
+              </p>
+            </div>
+          </div>
+
+          {/* Token Information */}
+          <div className="bg-zinc-800/30 rounded-lg p-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-zinc-400 mb-1">Selling</p>
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center text-xs font-bold">
+                    {order.tokenSell?.symbol.charAt(0)}
+                  </div>
+                  <span className="text-sm font-medium text-zinc-200">
+                    {order.tokenSell?.symbol}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 mb-1">Buying</p>
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center text-xs font-bold">
+                    {order.tokenBuy?.symbol.charAt(0)}
+                  </div>
+                  <span className="text-sm font-medium text-zinc-200">
+                    {order.tokenBuy?.symbol}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Contract Information */}
+          <div className="bg-zinc-800/20 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Layers className="w-4 h-4 text-blue-400" />
+                <span className="text-sm text-zinc-400">Contract:</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <code className="text-xs bg-zinc-900 px-2 py-1 rounded text-zinc-300">
+                  {order.contractAddress?.slice(0, 6)}...{order.contractAddress?.slice(-4)}
+                </code>
+                <Link 
+                  href={getExplorerUrl(order.contractAddress || '', connectedChain?.id || '11155111')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          {isActive && (
+            <div className="flex space-x-2 pt-2">
+              <Button
+                onClick={() => handleCancelOrder(order.id)}
+                disabled={!!loadingAction}
+                variant="outline"
+                className="bg-red-900/20 border-red-700 text-red-300 hover:bg-red-800/30 flex-1"
+              >
+                {loadingAction === 'cancelling' ? (
+                  <div className="flex items-center">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Cancelling...
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel Order
+                  </div>
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // ===== MAIN RENDER =====
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-400 mx-auto mb-4" />
           <p className="text-zinc-200">Loading your stop orders...</p>
@@ -597,20 +794,15 @@ export default function SimpleStopOrderDashboard() {
     );
   }
 
-  const activeOrders = orders.filter(order => 
-    order.status === OrderStatus.Active || order.status === OrderStatus.Paused
-  );
+  const activeOrders = orders.filter(order => order.status === OrderStatus.Active);
   const completedOrders = orders.filter(order => 
-    order.status === OrderStatus.Executed || order.status === OrderStatus.Cancelled || order.status === OrderStatus.Failed
+    order.status === OrderStatus.Executed || 
+    order.status === OrderStatus.Cancelled || 
+    order.status === OrderStatus.Failed
   );
-
-  console.log('OrderStatus enum values:', { Active: OrderStatus.Active, Paused: OrderStatus.Paused, Executed: OrderStatus.Executed });
-  console.log('All orders:', orders);
-  console.log('Active orders:', activeOrders);
-  console.log('Completed orders:', completedOrders);
 
   return (
-    <div className="min-h-screen relative py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -639,7 +831,7 @@ export default function SimpleStopOrderDashboard() {
                 Refresh
               </Button>
               <Link href="/automations/stop-order">
-                <Button className="bg-primary hover:bg-primary/90">
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Order
                 </Button>
@@ -647,35 +839,94 @@ export default function SimpleStopOrderDashboard() {
             </div>
           </div>
 
-          {/* Connected Account */}
-          {connectedAccount && (
-            <Alert className="mb-6 bg-blue-900/20 border-blue-500/50">
-              <Eye className="h-4 w-4 text-blue-400" />
-              <AlertDescription className="text-zinc-200">
-                Wallet: <span className="font-mono text-blue-300">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
-                {connectedChain && (
-                  <span className="ml-4">
-                    Network: <span className="text-green-300">{connectedChain.name}</span>
-                  </span>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Connected Account & Contract Info */}
+          <div className="space-y-4">
+            {connectedAccount && (
+              <Alert className="bg-blue-900/20 border-blue-500/50">
+                <Eye className="h-4 w-4 text-blue-400" />
+                <AlertDescription className="text-zinc-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      Wallet: <span className="font-mono text-blue-300">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
+                      {connectedChain && (
+                        <span className="ml-4">
+                          Network: <span className="text-green-300">{connectedChain.name}</span>
+                        </span>
+                      )}
+                    </div>
+                    {userContracts && contractsValid && (
+                      <div className="flex items-center space-x-2">
+                        <Layers className="w-4 h-4 text-green-400" />
+                        <span className="text-green-300 text-sm">Multi-Order Contracts Active</span>
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Contract Details Card */}
+            {userContracts && contractsValid && (
+              <Card className="bg-gradient-to-br from-green-900/30 to-blue-900/30 border-green-500/30">
+                <CardHeader className="p-4">
+                  <CardTitle className="text-lg text-green-200 flex items-center">
+                    <Shield className="w-5 h-5 mr-2" />
+                    Your Smart Contract System
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-zinc-400 mb-1">Reactive Contract</p>
+                      <div className="flex items-center space-x-2">
+                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-green-300 flex-1">
+                          {userContracts.reactiveContract}
+                        </code>
+                        <Link 
+                          href={getExplorerUrl(userContracts.reactiveContract, connectedChain?.id || '11155111')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <ExternalLink className="w-3 h-3" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-zinc-400 mb-1">Callback Contract</p>
+                      <div className="flex items-center space-x-2">
+                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-green-300 flex-1">
+                          {userContracts.callbackContract}
+                        </code>
+                        <Link 
+                          href={getExplorerUrl(userContracts.callbackContract, connectedChain?.id || '11155111')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <ExternalLink className="w-3 h-3" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 p-2 bg-green-900/20 rounded-lg">
+                    <p className="text-xs text-green-300">
+                      💰 Cost-efficient system active! Additional orders will only cost gas fees.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             <Card className="bg-gradient-to-br from-green-900/40 to-blue-900/40 border-zinc-800">
               <CardContent className="p-4 text-center">
                 <h3 className="text-2xl font-bold text-green-300">{activeOrders.length}</h3>
                 <p className="text-sm text-zinc-400">Active Orders</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 border-zinc-800">
-              <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-yellow-300">
-                  {orders.filter(o => o.status === OrderStatus.Paused).length}
-                </h3>
-                <p className="text-sm text-zinc-400">Paused</p>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border-zinc-800">
@@ -684,6 +935,14 @@ export default function SimpleStopOrderDashboard() {
                   {orders.filter(o => o.status === OrderStatus.Executed).length}
                 </h3>
                 <p className="text-sm text-zinc-400">Executed</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-gray-900/40 to-slate-900/40 border-zinc-800">
+              <CardContent className="p-4 text-center">
+                <h3 className="text-2xl font-bold text-gray-300">
+                  {orders.filter(o => o.status === OrderStatus.Cancelled).length}
+                </h3>
+                <p className="text-sm text-zinc-400">Cancelled</p>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 border-zinc-800">
@@ -695,259 +954,89 @@ export default function SimpleStopOrderDashboard() {
           </div>
         </motion.div>
 
-        {/* Active Orders Table */}
-        {isLoading ? (
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-8">
-            <CardContent className="py-12">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-400 mx-auto mb-4" />
-                <p className="text-zinc-200">Loading orders...</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : activeOrders.length > 0 ? (
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mb-8">
-            <CardHeader>
-              <CardTitle className="text-zinc-100 flex items-center">
-                <Activity className="w-5 h-5 mr-2 text-green-400" />
+        {/* Active Orders */}
+        {activeOrders.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-12"
+          >
+            <div className="flex items-center mb-6">
+              <Activity className="w-6 h-6 text-green-400 mr-2" />
+              <h2 className="text-2xl font-bold text-zinc-100">
                 Active Orders ({activeOrders.length})
-              </CardTitle>
-              <CardDescription className="text-zinc-300">
-                Your currently monitored stop loss orders
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-zinc-700">
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Order</th>
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Amount & Trigger</th>
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Current Price</th>
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Status</th>
-                      <th className="text-center py-3 px-2 text-zinc-400 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeOrders.map((order) => {
-                      const statusConfig = STATUS_CONFIG[order.status];
-                      const StatusIcon = statusConfig.icon;
-                      const loadingAction = actionLoading[order.id];
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {activeOrders.map(renderOrderCard)}
+            </div>
+          </motion.div>
+        )}
 
-                      return (
-                        <tr key={order.id} className="border-b border-zinc-800 hover:bg-zinc-800/30">
-                          <td className="py-4 px-2">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center text-sm font-bold text-white">
-                                #{order.id}
-                              </div>
-                              <div>
-                                <div className="font-medium text-zinc-100">
-                                  {order.tokenSell.symbol} → {order.tokenBuy.symbol}
-                                </div>
-                                <div className="text-xs text-zinc-400 space-y-1">
-                                  <div>
-                                    {order.tokenSell.symbol}: {formatTokenBalance(order.tokenSell.balance || '0')}
-                                  </div>
-                                  <div>
-                                    {order.tokenBuy.symbol}: {formatTokenBalance(order.tokenBuy.balance || '0')}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className="space-y-1">
-                              <div className="font-medium text-zinc-200">
-                                {parseFloat(order.amount).toFixed(4)} {order.tokenSell.symbol}
-                              </div>
-                              <div className="text-sm text-red-300">
-                                -{order.dropPercentage}% drop
-                              </div>
-                              <div className="text-xs text-zinc-400">
-                                Trigger: {order.triggerPrice}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className="space-y-1">
-                              <div className="font-medium text-zinc-200">
-                                {order.currentPrice}
-                              </div>
-                              <div className="text-xs text-zinc-400">
-                                {formatTimeAgo(order.createdAt)}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
-                              <StatusIcon className="w-3 h-3" />
-                              <span>{statusConfig.label}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className="flex items-center justify-center space-x-2">
-                              {order.status === OrderStatus.Active ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handlePauseOrder(order.id)}
-                                  disabled={!!loadingAction}
-                                  className="bg-yellow-900/20 border-yellow-700 text-yellow-300 hover:bg-yellow-800/30 px-2 py-1 h-auto text-xs"
-                                >
-                                  {loadingAction === 'pausing' ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <Pause className="w-3 h-3 mr-1" />
-                                      Pause
-                                    </>
-                                  )}
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleResumeOrder(order.id)}
-                                  disabled={!!loadingAction}
-                                  className="bg-green-900/20 border-green-700 text-green-300 hover:bg-green-800/30 px-2 py-1 h-auto text-xs"
-                                >
-                                  {loadingAction === 'resuming' ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <Play className="w-3 h-3 mr-1" />
-                                      Resume
-                                    </>
-                                  )}
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleCancelOrder(order.id)}
-                                disabled={!!loadingAction}
-                                className="bg-red-900/20 border-red-700 text-red-300 hover:bg-red-800/30 px-2 py-1 h-auto text-xs"
-                              >
-                                {loadingAction === 'cancelling' ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <X className="w-3 h-3 mr-1" />
-                                    Cancel
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {/* Completed Orders Table */}
-        {!isLoading && completedOrders.length > 0 && (
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-zinc-100 flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2 text-blue-400" />
+        {/* Completed Orders */}
+        {completedOrders.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <div className="flex items-center mb-6">
+              <CheckCircle className="w-6 h-6 text-blue-400 mr-2" />
+              <h2 className="text-2xl font-bold text-zinc-100">
                 Order History ({completedOrders.length})
-              </CardTitle>
-              <CardDescription className="text-zinc-300">
-                Your completed, cancelled, and failed orders
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-zinc-700">
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Order</th>
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Amount & Trigger</th>
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Status</th>
-                      <th className="text-left py-3 px-2 text-zinc-400 font-medium">Completed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {completedOrders.map((order) => {
-                      const statusConfig = STATUS_CONFIG[order.status];
-                      const StatusIcon = statusConfig.icon;
-
-                      return (
-                        <tr key={order.id} className="border-b border-zinc-800 hover:bg-zinc-800/30">
-                          <td className="py-4 px-2">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-gray-400 to-gray-600 flex items-center justify-center text-sm font-bold text-white">
-                                #{order.id}
-                              </div>
-                              <div>
-                                <div className="font-medium text-zinc-100">
-                                  {order.tokenSell.symbol} → {order.tokenBuy.symbol}
-                                </div>
-                                <div className="text-xs text-zinc-400">
-                                  {formatTimeAgo(order.createdAt)}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className="space-y-1">
-                              <div className="font-medium text-zinc-200">
-                                {parseFloat(order.amount).toFixed(4)} {order.tokenSell.symbol}
-                              </div>
-                              <div className="text-sm text-zinc-400">
-                                -{order.dropPercentage}% trigger
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
-                              <StatusIcon className="w-3 h-3" />
-                              <span>{statusConfig.label}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className="text-sm text-zinc-400">
-                              {order.executedAt > 0 
-                                ? formatTimeAgo(order.executedAt)
-                                : 'N/A'
-                              }
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {completedOrders.map(renderOrderCard)}
+            </div>
+          </motion.div>
         )}
 
         {/* Empty State */}
-        {!isLoading && orders.length === 0 && (
+        {!userContracts && orders.length === 0 && !isLoading && (
           <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
-            <CardContent className="py-12">
+            <CardContent className="py-16">
               <div className="text-center">
-                <Target className="w-16 h-16 text-zinc-400 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-zinc-200 mb-2">No stop orders found</h3>
-                <p className="text-zinc-400 mb-6">
-                  Create your first stop order to automatically protect your investments
+                <Target className="w-20 h-20 text-zinc-400 mx-auto mb-6" />
+                <h3 className="text-2xl font-medium text-zinc-200 mb-4">No stop orders found</h3>
+                <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                  You haven't created any stop orders yet. Start protecting your investments with automated stop-loss orders.
                 </p>
                 <Link href="/automations/stop-order">
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Stop Order
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8 py-3">
+                    <Plus className="w-5 h-5 mr-2" />
+                    Create Your First Stop Order
                   </Button>
                 </Link>
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* No Contracts But User Has Wallet */}
+        {!userContracts && connectedAccount && !isLoading && (
+          <Alert className="bg-amber-900/20 border-amber-500/30 text-amber-200 mt-8">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-medium">Multi-Order System Ready</p>
+                <p className="text-sm">
+                  Your first stop order will deploy personal smart contracts. Additional orders will use the same contracts at much lower cost!
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Network Warning */}
+        {connectedChain?.isComingSoon && (
+          <Alert className="bg-yellow-900/20 border-yellow-500/30 text-yellow-200 mt-8">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <span className="font-medium">{connectedChain.name} support coming soon.</span> Please switch to Ethereum Sepolia to create and manage stop orders.
+            </AlertDescription>
+          </Alert>
         )}
       </div>
     </div>
