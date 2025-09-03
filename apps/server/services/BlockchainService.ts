@@ -182,6 +182,7 @@ export class BlockchainService {
     // Additional DeFi tokens
     'LINK': {
       1: '0x514910771AF9Ca656af840dff83E8264EcF986CA', // Chainlink Mainnet
+      11155111: '0xf8fb3713d459d7c1018bd0a49d19b4c44290ebe5', // Chainlink Sepolia (custom)
       43114: '0x5947BB275c521040051D82396192181b413227A3' // LINK.e on Avalanche
     },
     'AAVE': {
