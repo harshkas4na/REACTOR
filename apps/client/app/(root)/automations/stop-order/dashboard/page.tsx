@@ -79,41 +79,154 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
 ];
 
 // ===== STORAGE CONTRACT CONFIGURATION =====
-const STORAGE_CONTRACT_ADDRESS = '0xc8d3a69E93610cdC2B06f3D8f82aAe762BF2162b';
+const STORAGE_CONTRACT_ADDRESS = '0xb8d45940841de248B434c82F691b343fdBD945E0';
 
 // Storage Contract ABI (useful functions only)
-const STORAGE_CONTRACT_ABI = [
-  {
-    "inputs": [
-      {"internalType": "address", "name": "user", "type": "address"}
-    ],
-    "name": "getUserContracts",
-    "outputs": [
-      {
-        "components": [
-          {"internalType": "address", "name": "callbackContract", "type": "address"},
-          {"internalType": "address", "name": "rscContract", "type": "address"},
-          {"internalType": "uint256", "name": "chainId", "type": "uint256"}
-        ],
-        "internalType": "struct UserContracts",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"internalType": "address", "name": "user", "type": "address"}
-    ],
-    "name": "hasUserContracts",
-    "outputs": [
-      {"internalType": "bool", "name": "", "type": "bool"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+const STORAGE_CONTRACT_ABI = 
+  [
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "callbackContract",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "rscContract",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "chainId",
+				"type": "uint256"
+			}
+		],
+		"name": "ContractStored",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "getUserContracts",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "address",
+						"name": "callbackContract",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "rscContract",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "chainId",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct UserContracts",
+				"name": "",
+				"type": "tuple"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "hasUserContracts",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "callbackContract",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "rscContract",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "chainId",
+				"type": "uint256"
+			}
+		],
+		"name": "storeUserContracts",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "userContracts",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "callbackContract",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "rscContract",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "chainId",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
 ];
 
 // ===== CONTRACT ADDRESS MANAGEMENT =====
@@ -1164,7 +1277,7 @@ export default function UpdatedStopOrderDashboard() {
             <div className="bg-slate-800/50 p-3 rounded-lg">
               <p className="text-sm text-slate-400 mb-1">Current Price</p>
               <p className="text-base font-semibold text-slate-200">
-                {order.currentPrice || '0.000000'}
+                {Number(order.currentPrice) || '0.000000'}
               </p>
             </div>
             <div className="bg-slate-800/50 p-3 rounded-lg">
@@ -1173,12 +1286,12 @@ export default function UpdatedStopOrderDashboard() {
                 {order.triggerPrice || '0.000000'}
               </p>
             </div>
-            <div className="bg-slate-800/50 p-3 rounded-lg">
+            {/* <div className="bg-slate-800/50 p-3 rounded-lg">
               <p className="text-sm text-slate-400 mb-1">Drop Threshold</p>
               <p className="text-base font-semibold text-amber-300">
                 -{order.dropPercentage || 0}%
               </p>
-            </div>
+            </div> */}
           </div>
 
           {/* Token Information */}
@@ -1464,7 +1577,7 @@ export default function UpdatedStopOrderDashboard() {
                   Additional orders will automatically discover and use the same contracts at much lower cost.
                 </p>
                 <p className="text-xs text-blue-300 mt-2">
-                  Storage Contract: {STORAGE_CONTRACT_ADDRESS.slice(0, 8)}...{STORAGE_CONTRACT_ADDRESS.slice(-6)} (Reactive Network)
+                  Storage Contract: {STORAGE_CONTRACT_ADDRESS.slice(0, 8)}...{STORAGE_CONTRACT_ADDRESS.slice(-6)} (Reactive Lasna)
                 </p>
               </div>
             </AlertDescription>
