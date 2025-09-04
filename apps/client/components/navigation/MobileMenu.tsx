@@ -89,7 +89,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
   </Link>
 ))}
 
-{/* Add ReactorAI */}
+{/* Add ReactorAI
 <button
   onClick={() => {
     handleAIClick();
@@ -98,7 +98,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
   className="w-full text-left text-gray-300 hover:text-primary hover:bg-gray-700 block px-4 py-3 rounded-md text-base font-medium transition-all duration-300 ease-in-out"
 >
   ReactorAI
-</button>
+</button> */}
 
 
         {/* Network Selection */}
