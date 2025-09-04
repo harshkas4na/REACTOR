@@ -1433,12 +1433,12 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
         }
       };
   
-      (window as any).clearAllContracts = () => {
-        const allKeys = Object.keys(localStorage);
-        const contractKeys = allKeys.filter(key => key.startsWith('stop-order-contracts-'));
-        contractKeys.forEach(key => localStorage.removeItem(key));
-        console.log('🗑️ Cleared all stored contracts');
-      };
+      // (window as any).clearAllContracts = () => {
+      //   const allKeys = Object.keys(localStorage);
+      //   const contractKeys = allKeys.filter(key => key.startsWith('stop-order-contracts-'));
+      //   contractKeys.forEach(key => localStorage.removeItem(key));
+      //   console.log('🗑️ Cleared all stored contracts');
+      // };
     }
   }, []);
 

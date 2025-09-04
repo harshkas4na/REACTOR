@@ -361,12 +361,12 @@ const ContractBalanceManager = ({
     try {
       setBalances(prev => ({ ...prev, isLoading: true }));
 
-      // Fetch callback contract balance (Sepolia)
-      const sepoliaProvider = new ethers.JsonRpcProvider(connectedChain.rpcUrl);
+      // Fetch callback contract balance (Sepolia) - Use specific Sepolia RPC
+      const sepoliaProvider = new ethers.JsonRpcProvider(connectedChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
       const callbackBalance = await sepoliaProvider.getBalance(userContracts.callbackContract);
       const callbackBalanceFormatted = ethers.formatEther(callbackBalance);
 
-      // Fetch RSC contract balance (Lasna)
+      // Fetch RSC contract balance (Lasna) - Use specific Lasna RPC
       const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
       const rscBalance = await rscProvider.getBalance(userContracts.reactiveContract);
       const rscBalanceFormatted = ethers.formatEther(rscBalance);
@@ -412,7 +412,6 @@ const ContractBalanceManager = ({
           rpcUrls: ['https://lasna-rpc.rnk.dev/'],
           blockExplorerUrls: ['https://lasna.reactscan.net'],
         } : null;
-     
 
         if (chainConfig) {
           await window.ethereum.request({
@@ -492,8 +491,10 @@ const ContractBalanceManager = ({
   const callbackLow = callbackBalanceNum < MIN_CALLBACK_BALANCE;
   const rscLow = rscBalanceNum < MIN_RSC_BALANCE;
 
+  const [showFundingOptions, setShowFundingOptions] = useState(false);
+
   return (
-    <Card className="">
+    <Card className="border-slate-700 bg-slate-900/50">
       <CardHeader className="border-b border-slate-700 pb-4">
         <CardTitle className="text-slate-200 flex items-center justify-between">
           <div className="flex items-center">
@@ -629,14 +630,62 @@ const ContractBalanceManager = ({
           </div>
         </div>
 
-        {/* Status Summary */}
+        {/* Status Summary and Optional Funding */}
         <div className="pt-3 border-t border-slate-700">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-slate-400">Last updated:</span>
-            <span className="text-slate-300">
-              {balances.lastUpdated ? formatTimeAgo(balances.lastUpdated / 1000) : 'Never'}
-            </span>
+            <div className="flex items-center space-x-3">
+              <span className="text-slate-300">
+                {balances.lastUpdated ? formatTimeAgo(balances.lastUpdated / 1000) : 'Never'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFundingOptions(!showFundingOptions)}
+                className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 h-6"
+              >
+                {showFundingOptions ? 'Hide' : 'Manage'} Funding
+              </Button>
+            </div>
           </div>
+          
+          {/* Optional Funding Controls */}
+          {showFundingOptions && (
+            <div className="mt-3 p-3 bg-slate-800/30 rounded-lg border border-slate-600/30">
+              <p className="text-xs text-slate-400 mb-3">Add funds to your contracts for extended operation</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleFundCallback()}
+                  disabled={isFunding.callback}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-slate-600 hover:border-slate-500"
+                >
+                  {isFunding.callback ? (
+                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                  ) : (
+                    <Zap className="w-3 h-3 mr-1" />
+                  )}
+                  Add 0.01 ETH
+                </Button>
+                <Button
+                  onClick={() => handleFundRSC()}
+                  disabled={isFunding.rsc}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-slate-600 hover:border-slate-500"
+                >
+                  {isFunding.rsc ? (
+                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                  ) : (
+                    <Zap className="w-3 h-3 mr-1" />
+                  )}
+                  Add 0.1 REACT
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {(callbackLow || rscLow) && (
             <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
               Low contract balances may prevent order execution. Fund contracts to ensure reliability.
@@ -666,7 +715,7 @@ export default function UpdatedStopOrderDashboard() {
   });
 
   // ===== TOKEN AND PAIR DATA FETCHING =====
-  const fetchTokenInfo = async (address: string, provider: ethers.BrowserProvider): Promise<Token> => {
+  const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcProvider): Promise<Token> => {
     try {
       const tokenContract = new ethers.Contract(address, TOKEN_ABI, provider);
       const [symbol, name, decimals] = await Promise.all([
@@ -692,7 +741,7 @@ export default function UpdatedStopOrderDashboard() {
     }
   };
 
-  const getCurrentPairPrice = async (pairAddress: string, sellToken0: boolean, provider: ethers.BrowserProvider): Promise<number> => {
+  const getCurrentPairPrice = async (pairAddress: string, sellToken0: boolean, provider: ethers.JsonRpcProvider): Promise<number> => {
     try {
       const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
       const [reserve0, reserve1] = await pairContract.getReserves();
@@ -710,7 +759,7 @@ export default function UpdatedStopOrderDashboard() {
     }
   };
 
-  const calculateOrderMetrics = async (orderData: any, provider: ethers.BrowserProvider) => {
+  const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcProvider) => {
     try {
       const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.token0, provider);
       const coefficient = Number(orderData.coefficient);
@@ -741,7 +790,8 @@ export default function UpdatedStopOrderDashboard() {
   // ===== CONTRACT VALIDATION =====
   const validateStoredContracts = async (
     contracts: UserContractAddresses,
-    provider: ethers.BrowserProvider,
+    rscProvider: ethers.JsonRpcProvider,
+    sepoliaProvider: ethers.JsonRpcProvider,
     userAddress: string
   ): Promise<boolean> => {
     try {
@@ -750,7 +800,7 @@ export default function UpdatedStopOrderDashboard() {
       const reactiveContract = new ethers.Contract(
         contracts.reactiveContract,
         REACTIVE_STOP_ORDER_ABI,
-        provider
+        rscProvider
       );
       
       const deployer = await reactiveContract.getDeployer();
@@ -760,7 +810,7 @@ export default function UpdatedStopOrderDashboard() {
         return false;
       }
       
-      const callbackCode = await provider.getCode(contracts.callbackContract);
+      const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
       if (callbackCode === '0x') {
         console.error('Callback contract not found at stored address');
         return false;
@@ -774,18 +824,23 @@ export default function UpdatedStopOrderDashboard() {
     }
   };
 
-  // ===== ORDER FETCHING =====
+  // ===== ORDER FETCHING WITH PROPER PROVIDERS =====
   const fetchUserOrders = async () => {
-    if (!connectedAccount || !connectedChain) return;
+    if (!connectedAccount) return;
 
-    console.log('Fetching orders for account:', connectedAccount, 'on chain:', connectedChain.name);
+    console.log('Fetching orders for account:', connectedAccount);
     setIsLoading(true);
     
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Always use the first supported chain (Sepolia) for contract storage
+      const targetChain = SUPPORTED_CHAINS[0]; // This will be Sepolia
+      
+      // Create proper providers for each network regardless of user's current network
+      const sepoliaProvider = new ethers.JsonRpcProvider(targetChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
+      const rscProvider = new ethers.JsonRpcProvider(targetChain.rscNetwork.rpcUrl);
       
       // Check for user's deployed contracts
-      const stored = getStoredContracts(connectedAccount, connectedChain.id);
+      const stored = getStoredContracts(connectedAccount, targetChain.id);
       console.log('Stored contracts found:', stored);
       
       if (!stored) {
@@ -796,12 +851,12 @@ export default function UpdatedStopOrderDashboard() {
         return;
       }
 
-      // Validate contracts
-      const valid = await validateStoredContracts(stored, provider, connectedAccount);
+      // Validate contracts using proper providers
+      const valid = await validateStoredContracts(stored, rscProvider, sepoliaProvider, connectedAccount);
       
       if (!valid) {
         console.log('Stored contracts are invalid, clearing...');
-        const key = getContractStorageKey(connectedAccount, connectedChain.id);
+        const key = getContractStorageKey(connectedAccount, targetChain.id);
         localStorage.removeItem(key);
         setOrders([]);
         setUserContracts(null);
@@ -811,16 +866,17 @@ export default function UpdatedStopOrderDashboard() {
 
       setUserContracts(stored);
       setContractsValid(true);
+      setConnectedChain(targetChain); // Set the connected chain for the dashboard
 
       const reactiveContract = new ethers.Contract(
         stored.reactiveContract,
         REACTIVE_STOP_ORDER_ABI,
-        provider
+        rscProvider
       );
 
       console.log('Using reactive contract address:', stored.reactiveContract);
 
-      // Get all user's orders
+      // Get all user's orders from RSC network
       const [activeOrders, executedOrders, cancelledOrders] = await reactiveContract.getAllUserOrders(connectedAccount);
       const allOrderIds = [...activeOrders, ...executedOrders, ...cancelledOrders];
       
@@ -839,24 +895,24 @@ export default function UpdatedStopOrderDashboard() {
           const orderData = await reactiveContract.getStopOrder(orderId);
           console.log('Raw order data:', orderData);
           
-          // Get pair token information
-          const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, provider);
+          // Get pair token information using Sepolia provider
+          const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, sepoliaProvider);
           const [token0Address, token1Address] = await Promise.all([
             pairContract.token0(),
             pairContract.token1()
           ]);
 
           const [token0Info, token1Info] = await Promise.all([
-            fetchTokenInfo(token0Address, provider),
-            fetchTokenInfo(token1Address, provider)
+            fetchTokenInfo(token0Address, sepoliaProvider),
+            fetchTokenInfo(token1Address, sepoliaProvider)
           ]);
 
           // Determine sell and buy tokens based on order direction
           const tokenSell = orderData.token0 ? token0Info : token1Info;
           const tokenBuy = orderData.token0 ? token1Info : token0Info;
 
-          // Calculate metrics
-          const metrics = await calculateOrderMetrics(orderData, provider);
+          // Calculate metrics using Sepolia provider
+          const metrics = await calculateOrderMetrics(orderData, sepoliaProvider);
 
           const order: StopOrder = {
             id: Number(orderId),
@@ -921,6 +977,29 @@ export default function UpdatedStopOrderDashboard() {
 
     setActionLoading(prev => ({ ...prev, [orderId]: 'cancelling' }));
     try {
+      // Need to switch to RSC network to cancel order
+      const rscChainIdHex = `0x${parseInt(connectedChain.rscNetwork.chainId).toString(16)}`;
+      
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: rscChainIdHex }],
+        });
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: rscChainIdHex,
+              chainName: 'Reactive Lasna',
+              nativeCurrency: { name: 'REACT', symbol: 'REACT', decimals: 18 },
+              rpcUrls: ['https://lasna-rpc.rnk.dev/'],
+              blockExplorerUrls: ['https://lasna.reactscan.net'],
+            }],
+          });
+        }
+      }
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const reactiveContract = new ethers.Contract(
@@ -955,18 +1034,11 @@ export default function UpdatedStopOrderDashboard() {
       if (typeof window !== 'undefined' && window.ethereum) {
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
-          const [accounts, network] = await Promise.all([
-            provider.listAccounts(),
-            provider.getNetwork()
-          ]);
+          const accounts = await provider.listAccounts();
 
           if (accounts.length > 0) {
             setConnectedAccount(accounts[0].address);
           }
-
-          const chainId = network.chainId.toString();
-          const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
-          setConnectedChain(chain || null);
         } catch (error) {
           console.error('Error detecting connection:', error);
         }
@@ -977,10 +1049,10 @@ export default function UpdatedStopOrderDashboard() {
   }, []);
 
   useEffect(() => {
-    if (connectedAccount && connectedChain) {
+    if (connectedAccount) {
       fetchUserOrders();
     }
-  }, [connectedAccount, connectedChain]);
+  }, [connectedAccount]);
 
   // ===== RENDER FUNCTIONS =====
   const renderOrderCard = (order: StopOrder) => {
@@ -1140,7 +1212,7 @@ export default function UpdatedStopOrderDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -1163,13 +1235,13 @@ export default function UpdatedStopOrderDashboard() {
                 onClick={refreshData}
                 disabled={isRefreshing}
                 variant="outline"
-                className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                className="border-slate-600 text-slate-300 hover:bg-slate-800/50"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Link href="/automations/stop-order">
-                <Button className="bg-slate-700 hover:bg-slate-600 text-slate-100">
+                <Button className="bg-primary/50 hover:bg-primary/60 text-slate-100">
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Order
                 </Button>
@@ -1179,7 +1251,7 @@ export default function UpdatedStopOrderDashboard() {
 
           {/* Connected Account Info */}
           {connectedAccount && (
-            <Alert className="bg-slate-800/50 border-slate-600 mb-6">
+            <Alert className="bg-slate-800/50 border-slate-600/50 mb-6">
               <Eye className="h-4 w-4 text-slate-400" />
               <AlertDescription className="text-slate-300">
                 <div className="flex items-center justify-between">
@@ -1187,7 +1259,7 @@ export default function UpdatedStopOrderDashboard() {
                     Wallet: <span className="font-mono text-slate-200">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
                     {connectedChain && (
                       <span className="ml-4">
-                        Network: <span className="text-slate-200">{connectedChain.name}</span>
+                        Data from: <span className="text-slate-200">{connectedChain.name} + {connectedChain.rscNetwork.name}</span>
                       </span>
                     )}
                   </div>
@@ -1301,7 +1373,7 @@ export default function UpdatedStopOrderDashboard() {
                   You haven't created any stop orders yet. Start protecting your investments with automated stop-loss orders.
                 </p>
                 <Link href="/automations/stop-order">
-                  <Button className="bg-slate-700 hover:bg-slate-600 text-slate-100 text-lg px-8 py-3">
+                  <Button className="bg-primary/50 hover:bg-primary/60 text-slate-100 text-lg px-8 py-3">
                     <Plus className="w-5 h-5 mr-2" />
                     Create Your First Stop Order
                   </Button>
@@ -1322,16 +1394,6 @@ export default function UpdatedStopOrderDashboard() {
                   Your first stop order will deploy personal smart contracts. Additional orders will use the same contracts at much lower cost.
                 </p>
               </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Network Warning */}
-        {connectedChain?.isComingSoon && (
-          <Alert className="bg-amber-900/20 border-amber-600/30 text-amber-200 mt-8">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <span className="font-medium">{connectedChain.name} support coming soon.</span> Please switch to Ethereum Sepolia to create and manage stop orders.
             </AlertDescription>
           </Alert>
         )}
