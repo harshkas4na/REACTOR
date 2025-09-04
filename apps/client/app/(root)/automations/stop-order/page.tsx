@@ -86,31 +86,172 @@ interface UserContractAddresses {
 
 // Storage key format: stop-order-contracts-{userAddress}-{chainId}
 const getContractStorageKey = (userAddress: string, chainId: string): string => {
-  return `stop-order-contracts-${userAddress.toLowerCase()}-${chainId}`;
+  const normalizedAddress = userAddress.toLowerCase().trim();
+  const key = `stop-order-contracts-${normalizedAddress}-${chainId}`;
+  console.log('🔑 Generated storage key:', key);
+  return key;
 };
 
 const getStoredContracts = (userAddress: string, chainId: string): UserContractAddresses | null => {
+  console.log('🔍 RETRIEVAL: Starting getStoredContracts');
+  console.log('🔍 Input userAddress:', userAddress);
+  console.log('🔍 Normalized userAddress:', userAddress.toLowerCase().trim());
+  console.log('🔍 Input chainId:', chainId);
+  
   try {
+    // Check if localStorage is available
+    if (typeof window === 'undefined') {
+      console.log('ℹ️ RETRIEVAL: Window undefined (SSR)');
+      return null;
+    }
+
+    if (typeof Storage === "undefined") {
+      console.log('ℹ️ RETRIEVAL: localStorage not supported');
+      return null;
+    }
+    
     const key = getContractStorageKey(userAddress, chainId);
+    console.log('🔍 Using retrieval key:', key);
+    
+    // List all localStorage keys for debugging
+    console.log('🔍 All localStorage keys:', Object.keys(localStorage));
+    
+    // Try to find any keys that might match (for debugging)
+    const matchingKeys = Object.keys(localStorage).filter(k => k.includes('stop-order-contracts'));
+    console.log('🔍 Matching stop-order keys found:', matchingKeys);
+    
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
+    console.log('🔍 Raw retrieved data:', stored);
+    
+    if (!stored || stored === 'null' || stored === 'undefined') {
+      console.log('ℹ️ RETRIEVAL: No valid data found in storage');
+      return null;
+    }
+    
+    try {
+      const parsed = JSON.parse(stored) as UserContractAddresses;
+      console.log('✅ RETRIEVAL SUCCESS: Found and parsed contracts:', parsed);
+      
+      // Validate the structure
+      if (!parsed.reactiveContract || !parsed.callbackContract || !parsed.deployer) {
+        console.error('❌ RETRIEVAL ERROR: Invalid contract structure');
+        return null;
+      }
+      
+      // Check if the deployer matches (case-insensitive)
+      const normalizedStoredDeployer = parsed.deployer.toLowerCase().trim();
+      const normalizedInputAddress = userAddress.toLowerCase().trim();
+      
+      if (normalizedStoredDeployer !== normalizedInputAddress) {
+        console.error('❌ RETRIEVAL ERROR: Deployer address mismatch');
+        console.error('❌ Stored deployer:', normalizedStoredDeployer);
+        console.error('❌ Input address:', normalizedInputAddress);
+        return null;
+      }
+      
+      return parsed;
+    } catch (parseError) {
+      console.error('❌ RETRIEVAL PARSE ERROR:', parseError);
+      console.error('❌ Raw data that failed to parse:', stored);
+      return null;
+    }
+    
   } catch (error) {
-    console.error('Error reading stored contracts:', error);
+    console.error('❌ RETRIEVAL ERROR:', error);
     return null;
   }
 };
+
+// ===== ENHANCED STORAGE FUNCTIONS WITH DEBUG LOGGING =====
 
 const storeContractAddresses = (
   userAddress: string, 
   chainId: string, 
   contracts: UserContractAddresses
-): void => {
+): boolean => {
+  console.log('💾 STORAGE: Starting storeContractAddresses');
+  console.log('💾 Input userAddress:', userAddress);
+  console.log('💾 Normalized userAddress:', userAddress.toLowerCase().trim());
+  console.log('💾 Input chainId:', chainId);
+  console.log('💾 Input contracts:', contracts);
+  
   try {
+    // Check if localStorage is available
+    if (typeof window === 'undefined') {
+      console.error('❌ STORAGE ERROR: Window is undefined (SSR)');
+      return false;
+    }
+
+    if (typeof Storage === "undefined") {
+      console.error('❌ STORAGE ERROR: localStorage not supported');
+      return false;
+    }
+
+    // Test localStorage is working
+    const testKey = 'localStorage-test';
+    try {
+      localStorage.setItem(testKey, 'test');
+      const testValue = localStorage.getItem(testKey);
+      localStorage.removeItem(testKey);
+      if (testValue !== 'test') {
+        console.error('❌ STORAGE ERROR: localStorage test failed');
+        return false;
+      }
+    } catch (testError) {
+      console.error('❌ STORAGE ERROR: localStorage test exception:', testError);
+      return false;
+    }
+
+    // Normalize the contracts data to ensure consistent addresses
+    const normalizedContracts = {
+      ...contracts,
+      deployer: userAddress.toLowerCase().trim() // Ensure consistent casing
+    };
+    
     const key = getContractStorageKey(userAddress, chainId);
-    localStorage.setItem(key, JSON.stringify(contracts));
-    console.log('Stored contract addresses:', contracts);
-  } catch (error) {
-    console.error('Error storing contract addresses:', error);
+    const dataToStore = JSON.stringify(normalizedContracts);
+    
+    console.log('💾 Storage key:', key);
+    console.log('💾 Data to store:', dataToStore);
+    
+    // Store the data
+    localStorage.setItem(key, dataToStore);
+    console.log('💾 localStorage.setItem completed');
+    
+    // Immediate verification
+    const verification = localStorage.getItem(key);
+    console.log('💾 Immediate verification read:', verification);
+    
+    if (!verification) {
+      console.error('❌ STORAGE FAILED: No data found after storing');
+      return false;
+    }
+    
+    try {
+      const parsed = JSON.parse(verification);
+      console.log('✅ STORAGE SUCCESS: Data stored and verified:', parsed);
+      
+      // Double-check the parsed data matches what we stored
+      if (parsed.reactiveContract !== contracts.reactiveContract || 
+          parsed.callbackContract !== contracts.callbackContract) {
+        console.error('❌ STORAGE VERIFICATION FAILED: Data mismatch');
+        return false;
+      }
+      
+      return true;
+    } catch (parseError) {
+      console.error('❌ STORAGE VERIFICATION FAILED: Parse error:', parseError);
+      return false;
+    }
+    
+  } catch (error: any) {
+    console.error('❌ STORAGE ERROR:', error);
+    console.error('❌ Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack
+    });
+    return false;
   }
 };
 
@@ -121,34 +262,60 @@ const validateStoredContracts = async (
   userAddress: string
 ): Promise<boolean> => {
   try {
-    console.log('Validating stored contracts:', contracts);
+    console.log('🔐 Validating stored contracts:', contracts);
     
-    // Check if reactive contract exists and user is the deployer
+    // Normalize addresses for comparison
+    const normalizedUserAddress = userAddress.toLowerCase().trim();
+    const normalizedContractDeployer = contracts.deployer.toLowerCase().trim();
+    
+    // First check: User must be the deployer
+    if (normalizedUserAddress !== normalizedContractDeployer) {
+      console.error('❌ VALIDATION FAILED: User is not the deployer');
+      console.error('❌ User address:', normalizedUserAddress);
+      console.error('❌ Contract deployer:', normalizedContractDeployer);
+      return false;
+    }
+    
+    // Check if reactive contract exists and is valid
     const reactiveContract = new ethers.Contract(
       contracts.reactiveContract,
-      REACTIVE_STOP_ORDER_ABI.abi,
+      REACTIVE_STOP_ORDER_ABI,
       rscProvider
     );
     
-    // Verify contract exists by calling a view function
-    const deployer = await reactiveContract.getDeployer();
-    
-    if (deployer.toLowerCase() !== userAddress.toLowerCase()) {
-      console.error('User is not the deployer of stored reactive contract');
+    try {
+      // Try to call a view function to verify contract exists
+      const deployer = await reactiveContract.getDeployer();
+      const normalizedContractDeployerFromChain = deployer.toLowerCase().trim();
+      
+      if (normalizedContractDeployerFromChain !== normalizedUserAddress) {
+        console.error('❌ VALIDATION FAILED: On-chain deployer mismatch');
+        console.error('❌ Expected:', normalizedUserAddress);
+        console.error('❌ On-chain:', normalizedContractDeployerFromChain);
+        return false;
+      }
+    } catch (contractError) {
+      console.error('❌ VALIDATION FAILED: Cannot read from reactive contract:', contractError);
       return false;
     }
     
-    // Check callback contract exists (basic existence check)
-    const callbackCode = await rscProvider.getCode(contracts.callbackContract);
-    if (callbackCode === '0x') {
-      console.error('Callback contract not found at stored address');
+    // Check callback contract exists (on Sepolia)
+    try {
+      const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
+      const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
+      if (callbackCode === '0x' || callbackCode === '0x0') {
+        console.error('❌ VALIDATION FAILED: Callback contract not found');
+        return false;
+      }
+    } catch (sepoliaError) {
+      console.error('❌ VALIDATION FAILED: Cannot verify callback contract:', sepoliaError);
       return false;
     }
     
-    console.log('Contract validation successful');
+    console.log('✅ VALIDATION SUCCESS: All contracts verified');
     return true;
   } catch (error) {
-    console.error('Contract validation failed:', error);
+    console.error('❌ VALIDATION ERROR:', error);
     return false;
   }
 };
@@ -247,7 +414,7 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
   ]
 };
 
-// ===== TOKEN SERVICE CLASS =====
+// ===== ENHANCED TOKEN SERVICE CLASS WITH ETHPLORER API =====
 class TokenService {
   private static cache = new Map<string, { data: Token[]; timestamp: number }>();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -269,7 +436,7 @@ class TokenService {
     });
   }
 
-  // Fetch all tokens for a user on a specific network
+  // Main method to fetch all tokens for a user on a specific network
   static async fetchUserTokens(chainId: string, address: string): Promise<Token[]> {
     const cacheKey = `${chainId}-${address}`;
     
@@ -279,19 +446,128 @@ class TokenService {
       return cachedTokens;
     }
 
-    // For simplicity, return popular tokens with balances
-    return this.fetchPopularTokensWithBalances(chainId, address);
+    // Try Ethplorer API first, then fallback to popular tokens method
+    const tokens = await this.fetchTokensFromEthplorer(chainId, address);
+    
+    this.setCachedTokens(cacheKey, tokens);
+    return tokens;
   }
 
-  // Fallback method for networks - Only ERC20 tokens
+  // NEW: Fetch tokens using Ethplorer API
+  private static async fetchTokensFromEthplorer(chainId: string, address: string): Promise<Token[]> {
+    try {
+      console.log('Fetching tokens from Ethplorer API for address:', address);
+      
+      // Determine the correct API endpoint based on chain
+      let apiUrl: string;
+      if (chainId === '11155111') { // Sepolia
+        apiUrl = `https://sepolia-api.ethplorer.io/getAddressInfo/${address}?apiKey=freekey`;
+      } else if (chainId === '1') { // Mainnet
+        apiUrl = `https://api.ethplorer.io/getAddressInfo/${address}?apiKey=freekey`;
+      } else {
+        // For unsupported chains, fallback to popular tokens method
+        console.log(`Ethplorer API not available for chain ${chainId}, using fallback method`);
+        return this.fetchPopularTokensWithBalances(chainId, address);
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ethplorer API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data) {
+        throw new Error('Empty response from Ethplorer API');
+      }
+
+      // Parse the response and convert to our Token interface
+      const tokens: Token[] = [];
+
+      // Process ERC20 tokens from the API response
+      if (data.tokens && Array.isArray(data.tokens)) {
+        for (const tokenData of data.tokens) {
+          try {
+            const tokenInfo = tokenData.tokenInfo;
+            if (!tokenInfo || !tokenInfo.address || !tokenInfo.symbol || !tokenInfo.name) {
+              continue; // Skip invalid token data
+            }
+
+            const decimals = parseInt(tokenInfo.decimals) || 18;
+            const rawBalance = tokenData.balance || tokenData.rawBalance || '0';
+            
+            // Convert balance from raw to decimal format
+            let balance = '0';
+            if (rawBalance && rawBalance !== '0') {
+              try {
+                const balanceWei = BigInt(rawBalance);
+                balance = ethers.formatUnits(balanceWei, decimals);
+                const balanceNumber = parseFloat(balance);
+                balance = balanceNumber > 0 ? balanceNumber.toFixed(6) : '0';
+              } catch (balanceError) {
+                console.warn('Error parsing balance for token:', tokenInfo.symbol, balanceError);
+                balance = '0';
+              }
+            }
+
+            // Only include tokens with positive balance
+            if (parseFloat(balance) > 0) {
+              tokens.push({
+                address: tokenInfo.address,
+                symbol: tokenInfo.symbol,
+                name: tokenInfo.name,
+                decimals: decimals,
+                balance: balance,
+                logoURI: `https://tokens.1inch.io/${tokenInfo.address.toLowerCase()}.png`
+              });
+            }
+          } catch (tokenError) {
+            console.warn('Error processing token data:', tokenError, tokenData);
+          }
+        }
+      }
+
+      console.log(`Successfully fetched ${tokens.length} tokens with positive balance from Ethplorer`);
+      
+      // If we got tokens from Ethplorer, return them
+      if (tokens.length > 0) {
+        return tokens;
+      }
+
+      // If no tokens found via Ethplorer, fallback to popular tokens method
+      console.log('No tokens found via Ethplorer, falling back to popular tokens method');
+      return this.fetchPopularTokensWithBalances(chainId, address);
+
+    } catch (error) {
+      console.error('Error fetching tokens from Ethplorer API:', error);
+      
+      // Fallback to popular tokens method on any error
+      console.log('Falling back to popular tokens method due to Ethplorer API error');
+      return this.fetchPopularTokensWithBalances(chainId, address);
+    }
+  }
+
+  // Enhanced fallback method for networks - Only ERC20 tokens
   private static async fetchPopularTokensWithBalances(chainId: string, address: string): Promise<Token[]> {
     if (typeof window === 'undefined' || !window.ethereum) {
       return [];
     }
 
     try {
+      console.log('Fetching balances for popular tokens as fallback method');
       const provider = new ethers.BrowserProvider(window.ethereum);
       const popularTokens = POPULAR_TOKENS[chainId] || [];
+      
+      if (popularTokens.length === 0) {
+        console.log(`No popular tokens defined for chain ${chainId}`);
+        return [];
+      }
       
       const tokensWithBalances = await Promise.all(
         popularTokens.map(async (token) => {
@@ -321,9 +597,7 @@ class TokenService {
         parseFloat(token.balance || '0') > 0
       );
 
-      // Fix: cacheKey is not defined in this scope, so reconstruct it here
-      const cacheKey = `${chainId}-${address}`;
-      this.setCachedTokens(cacheKey, result);
+      console.log(`Found ${result.length} popular tokens with positive balance`);
       return result;
     } catch (error) {
       console.error('Error fetching popular tokens:', error);
@@ -331,7 +605,7 @@ class TokenService {
     }
   }
 
-  // Fetch individual token information
+  // Fetch individual token information - enhanced with better error handling
   static async fetchTokenInfo(address: string, userAddress: string): Promise<Token | null> {
     if (typeof window === 'undefined' || !window.ethereum) {
       return null;
@@ -1127,6 +1401,48 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     }));
   }, [formData.selectedPair, formData.sellToken0]);
 
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).debugContracts = () => {
+        console.log('🐛 DEBUG: All stored contract keys:');
+        try {
+          const allKeys = Object.keys(localStorage);
+          const contractKeys = allKeys.filter(key => key.startsWith('stop-order-contracts-'));
+          
+          if (contractKeys.length === 0) {
+            console.log('🐛 No stored contracts found');
+            return;
+          }
+          
+          contractKeys.forEach(key => {
+            try {
+              const data = localStorage.getItem(key);
+              console.log(`🐛 Key: ${key}`);
+              console.log(`🐛 Data: ${data}`);
+              if (data) {
+                const parsed = JSON.parse(data);
+                console.log(`🐛 Parsed:`, parsed);
+              }
+            } catch (e) {
+              console.log(`🐛 Error parsing ${key}:`, e);
+            }
+          });
+        } catch (error) {
+          console.error('🐛 Debug error:', error);
+        }
+      };
+  
+      (window as any).clearAllContracts = () => {
+        const allKeys = Object.keys(localStorage);
+        const contractKeys = allKeys.filter(key => key.startsWith('stop-order-contracts-'));
+        contractKeys.forEach(key => localStorage.removeItem(key));
+        console.log('🗑️ Cleared all stored contracts');
+      };
+    }
+  }, []);
+
+
   // ===== ENHANCED DEPLOYMENT FUNCTION WITH FULL IMPLEMENTATION =====
   const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1220,7 +1536,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
         
         const reactiveContract = new ethers.Contract(
           existingContracts.reactiveContract,
-          REACTIVE_STOP_ORDER_ABI.abi,
+          REACTIVE_STOP_ORDER_ABI,
           rscSigner
         );
 
@@ -1270,7 +1586,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
           formData.sellToken0,
           coefficient,
           threshold,
-          { gasLimit: 300000 }
+          { gasLimit: 500000 }
         );
 
         const receipt = await addOrderTx.wait();
@@ -1394,7 +1710,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
 
         // Create reactive contract factory and deploy with first order
         const ReactiveFactory = new ethers.ContractFactory(
-          REACTIVE_STOP_ORDER_ABI.abi,
+          REACTIVE_STOP_ORDER_ABI,
           REACTIVE_CONTRACT_BYTECODE,
           rscSigner2
         );
@@ -1408,7 +1724,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
           threshold,
           { 
             value: ethers.parseEther("1"), // Fund with 1 REACT for operations
-            gasLimit: 3000000 
+            gasLimit: 5000000 
           }
         );
         
@@ -1447,21 +1763,46 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
           toast.success('Tokens approved for new contract');
         }
 
-        // Step 4: Store contract addresses
+        // Step 4: Store contract addresses with extensive logging
+        console.log('📦 DEPLOYMENT SUCCESS: About to store contract addresses');
+        console.log('📦 Reactive contract address:', reactiveContractAddress);
+        console.log('📦 Callback contract address:', callbackContractAddress);
+        console.log('📦 Connected account:', connectedAccount);
+        console.log('📦 Original chain ID:', originalChainId);
+        
         const newContracts: UserContractAddresses = {
           reactiveContract: reactiveContractAddress,
           callbackContract: callbackContractAddress,
           deployedAt: Date.now(),
           chainId: originalChainId,
-          deployer: connectedAccount
+          deployer: connectedAccount.toLowerCase().trim() // Ensure consistent casing
         };
-
-        storeContractAddresses(connectedAccount, originalChainId, newContracts);
-        setExistingContracts(newContracts);
-        setContractsValid(true);
-
-        toast.success('Contracts deployed successfully!');
-        setDeploymentStep('complete');
+        
+        console.log('📦 Contract object created:', newContracts);
+        
+        // Call storage function with error handling
+        const storageSuccess = storeContractAddresses(connectedAccount, originalChainId, newContracts);
+        
+        if (storageSuccess) {
+          console.log('✅ CONTRACT STORAGE: Successfully stored contracts');
+          
+          // Update state only if storage was successful
+          setExistingContracts(newContracts);
+          setContractsValid(true);
+          
+          // Show success message
+          toast.success('Contracts stored successfully! Future orders will be cheaper.');
+        } else {
+          console.error('❌ CONTRACT STORAGE: Failed to store contracts');
+          
+          // Still update state so the app works, but warn user
+          setExistingContracts(newContracts);
+          setContractsValid(true);
+          
+          toast.error('Contracts deployed but not saved locally. You may pay full price for next order.');
+        }
+        
+        console.log('📦 State updated with new contracts');
       }
 
       toast.success('🎉 Your stop order is now active and monitoring prices 24/7');
