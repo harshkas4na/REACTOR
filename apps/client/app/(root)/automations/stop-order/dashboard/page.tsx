@@ -1,6 +1,6 @@
 'use client'
 import { ethers } from 'ethers';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,11 @@ import {
   BarChart3,
   ArrowRight,
   AlertTriangle,
-  Info
+  Info,
+  Wallet,
+  DollarSign,
+  Zap,
+  Settings
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -46,6 +50,8 @@ interface ChainConfig {
     rpcUrl: string;
     currencySymbol: string;
     explorerUrl: string;
+    callbackProxyAddress: string;
+    systemContractAddress: string;
   };
 }
 
@@ -54,18 +60,20 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     id: '11155111', 
     name: 'Ethereum Sepolia',
     dexName: 'Uniswap V2',
-    routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
-    factoryAddress: '0x7e0987e5b3a30e3f2828572bb659a548460a3003',
-    callbackAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
-    rpcUrl: 'https://rpc.sepolia.org',
+    routerAddress: '0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008',
+    factoryAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
+    callbackAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.03',
+    defaultFunding: '0.00001',
     rscNetwork: {
       chainId: '5318007',
       name: 'Reactive Lasna',
       rpcUrl: 'https://lasna-rpc.rnk.dev/',
       currencySymbol: 'REACT',
-      explorerUrl: 'https://lasna.reactscan.net'
+      explorerUrl: 'https://lasna.reactscan.net',
+      callbackProxyAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
+      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
     }
   }
 ];
@@ -248,6 +256,13 @@ interface StopOrder {
   contractAddress?: string;
 }
 
+interface ContractBalances {
+  callbackBalance: string;
+  rscBalance: string;
+  isLoading: boolean;
+  lastUpdated: number;
+}
+
 // ===== UTILITY FUNCTIONS =====
 const formatTokenBalance = (balance: string): string => {
   const num = parseFloat(balance);
@@ -276,6 +291,7 @@ const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx'
   const explorers: Record<string, string> = {
     '1': 'https://etherscan.io',
     '11155111': 'https://sepolia.etherscan.io',
+    '5318007': 'https://lasna.reactscan.net',
   };
   
   const baseUrl = explorers[chainId];
@@ -284,36 +300,352 @@ const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx'
   return `${baseUrl}/${type}/${address}`;
 };
 
-// ===== STATUS CONFIGURATION =====
+// ===== STATUS CONFIGURATION (PROFESSIONAL COLORS) =====
 const STATUS_CONFIG = {
   [OrderStatus.Active]: {
     label: 'Active',
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/20',
+    color: 'text-emerald-300',
+    bgColor: 'bg-emerald-500/10',
+    borderColor: 'border-emerald-500/30',
     icon: Activity
   },
   [OrderStatus.Executed]: {
     label: 'Executed',
-    color: 'text-blue-400',
+    color: 'text-blue-300',
     bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/20',
+    borderColor: 'border-blue-500/30',
     icon: CheckCircle
   },
   [OrderStatus.Cancelled]: {
     label: 'Cancelled',
-    color: 'text-gray-400',
-    bgColor: 'bg-gray-500/10',
-    borderColor: 'border-gray-500/20',
+    color: 'text-slate-300',
+    bgColor: 'bg-slate-500/10',
+    borderColor: 'border-slate-500/30',
     icon: X
   },
   [OrderStatus.Failed]: {
     label: 'Failed',
-    color: 'text-red-400',
+    color: 'text-red-300',
     bgColor: 'bg-red-500/10',
-    borderColor: 'border-red-500/20',
+    borderColor: 'border-red-500/30',
     icon: AlertCircle
   }
+};
+
+// ===== CONTRACT BALANCE MANAGEMENT COMPONENT =====
+const ContractBalanceManager = ({ 
+  userContracts, 
+  connectedChain, 
+  onBalanceUpdate 
+}: {
+  userContracts: UserContractAddresses;
+  connectedChain: ChainConfig;
+  onBalanceUpdate: (balances: ContractBalances) => void;
+}) => {
+  const [balances, setBalances] = useState<ContractBalances>({
+    callbackBalance: '0',
+    rscBalance: '0',
+    isLoading: true,
+    lastUpdated: 0
+  });
+  const [isFunding, setIsFunding] = useState<{ callback: boolean; rsc: boolean }>({
+    callback: false,
+    rsc: false
+  });
+
+  // Define minimum safe balances
+  const MIN_CALLBACK_BALANCE = 0.001; // 0.001 ETH
+  const MIN_RSC_BALANCE = 0.01; // 0.01 REACT
+
+  const fetchBalances = useCallback(async () => {
+    try {
+      setBalances(prev => ({ ...prev, isLoading: true }));
+
+      // Fetch callback contract balance (Sepolia)
+      const sepoliaProvider = new ethers.JsonRpcProvider(connectedChain.rpcUrl);
+      const callbackBalance = await sepoliaProvider.getBalance(userContracts.callbackContract);
+      const callbackBalanceFormatted = ethers.formatEther(callbackBalance);
+
+      // Fetch RSC contract balance (Lasna)
+      const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
+      const rscBalance = await rscProvider.getBalance(userContracts.reactiveContract);
+      const rscBalanceFormatted = ethers.formatEther(rscBalance);
+
+      const newBalances = {
+        callbackBalance: callbackBalanceFormatted,
+        rscBalance: rscBalanceFormatted,
+        isLoading: false,
+        lastUpdated: Date.now()
+      };
+
+      setBalances(newBalances);
+      onBalanceUpdate(newBalances);
+    } catch (error) {
+      console.error('Error fetching contract balances:', error);
+      setBalances(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [userContracts, connectedChain, onBalanceUpdate]);
+
+  useEffect(() => {
+    fetchBalances();
+    // Refresh balances every 30 seconds
+    const interval = setInterval(fetchBalances, 30000);
+    return () => clearInterval(interval);
+  }, [fetchBalances]);
+
+  const switchNetwork = async (targetChainId: string) => {
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
+
+    try {
+      const targetChainIdHex = `0x${parseInt(targetChainId).toString(16)}`;
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: targetChainIdHex }],
+      });
+    } catch (error: any) {
+      if (error.code === 4902) {
+        // Chain not added, need to add it first
+        const chainConfig = targetChainId === '5318007' ? {
+          chainId: `0x${parseInt(targetChainId).toString(16)}`,
+          chainName: 'Reactive Lasna',
+          nativeCurrency: { name: 'REACT', symbol: 'REACT', decimals: 18 },
+          rpcUrls: ['https://lasna-rpc.rnk.dev/'],
+          blockExplorerUrls: ['https://lasna.reactscan.net'],
+        } : null;
+     
+
+        if (chainConfig) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [chainConfig],
+          });
+        }
+      }
+      throw error;
+    }
+  };
+
+  const handleFundCallback = async () => {
+    try {
+      setIsFunding(prev => ({ ...prev, callback: true }));
+      
+      // Switch to Sepolia if not already
+      await switchNetwork(connectedChain.id);
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const fundingAmount = '0.01'; // 0.01 ETH
+      const tx = await signer.sendTransaction({
+        to: userContracts.callbackContract,
+        value: ethers.parseEther(fundingAmount),
+      });
+      
+      await tx.wait();
+      toast.success('Callback contract funded successfully');
+      await fetchBalances();
+    } catch (error: any) {
+      console.error('Error funding callback contract:', error);
+      if (error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else {
+        toast.error('Failed to fund callback contract');
+      }
+    } finally {
+      setIsFunding(prev => ({ ...prev, callback: false }));
+    }
+  };
+
+  const handleFundRSC = async () => {
+    try {
+      setIsFunding(prev => ({ ...prev, rsc: true }));
+      
+      // Switch to RSC network
+      await switchNetwork(connectedChain.rscNetwork.chainId);
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const fundingAmount = '0.1'; // 0.1 REACT
+      const tx = await signer.sendTransaction({
+        to: userContracts.reactiveContract,
+        value: ethers.parseEther(fundingAmount),
+      });
+      
+      await tx.wait();
+      toast.success('RSC contract funded successfully');
+      await fetchBalances();
+    } catch (error: any) {
+      console.error('Error funding RSC contract:', error);
+      if (error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else {
+        toast.error('Failed to fund RSC contract');
+      }
+    } finally {
+      setIsFunding(prev => ({ ...prev, rsc: false }));
+    }
+  };
+
+  const callbackBalanceNum = parseFloat(balances.callbackBalance);
+  const rscBalanceNum = parseFloat(balances.rscBalance);
+  const callbackLow = callbackBalanceNum < MIN_CALLBACK_BALANCE;
+  const rscLow = rscBalanceNum < MIN_RSC_BALANCE;
+
+  return (
+    <Card className="">
+      <CardHeader className="border-b border-slate-700 pb-4">
+        <CardTitle className="text-slate-200 flex items-center justify-between">
+          <div className="flex items-center">
+            <Settings className="w-5 h-5 mr-2 text-slate-400" />
+            Contract Management
+          </div>
+          <Button
+            onClick={fetchBalances}
+            disabled={balances.isLoading}
+            variant="outline"
+            size="sm"
+            className="border-slate-600 text-slate-300 hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 ${balances.isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+        </CardTitle>
+        <CardDescription className="text-slate-400">
+          Monitor and fund your smart contracts for optimal performance
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 space-y-6">
+        {/* Callback Contract */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-slate-300 font-medium">Callback Contract (Sepolia)</h4>
+              <p className="text-xs text-slate-500 font-mono">
+                {userContracts.callbackContract.slice(0, 10)}...{userContracts.callbackContract.slice(-8)}
+              </p>
+            </div>
+            <Link 
+              href={getExplorerUrl(userContracts.callbackContract, connectedChain.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <ExternalLink className="w-4 h-4 text-slate-400" />
+              </Button>
+            </Link>
+          </div>
+          
+          <div className={`p-3 rounded-lg border ${callbackLow ? 'border-amber-500/30 bg-amber-500/10' : 'border-slate-600 bg-slate-800/30'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Wallet className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-300 font-medium">
+                    {balances.isLoading ? 'Loading...' : `${parseFloat(balances.callbackBalance).toFixed(6)} ETH`}
+                  </span>
+                  {callbackLow && <AlertTriangle className="w-4 h-4 text-amber-400" />}
+                </div>
+                {callbackLow && (
+                  <p className="text-xs text-amber-300 mt-1">
+                    Balance below safe limit ({MIN_CALLBACK_BALANCE} ETH)
+                  </p>
+                )}
+              </div>
+              {callbackLow && (
+                <Button
+                  onClick={handleFundCallback}
+                  disabled={isFunding.callback}
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {isFunding.callback ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <div className="flex items-center">
+                      <Zap className="w-4 h-4 mr-1" />
+                      Fund
+                    </div>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RSC Contract */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-slate-300 font-medium">Reactive Contract (Lasna)</h4>
+              <p className="text-xs text-slate-500 font-mono">
+                {userContracts.reactiveContract.slice(0, 10)}...{userContracts.reactiveContract.slice(-8)}
+              </p>
+            </div>
+            <Link 
+              href={getExplorerUrl(userContracts.reactiveContract, connectedChain.rscNetwork.chainId)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <ExternalLink className="w-4 h-4 text-slate-400" />
+              </Button>
+            </Link>
+          </div>
+          
+          <div className={`p-3 rounded-lg border ${rscLow ? 'border-amber-500/30 bg-amber-500/10' : 'border-slate-600 bg-slate-800/30'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Wallet className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-300 font-medium">
+                    {balances.isLoading ? 'Loading...' : `${parseFloat(balances.rscBalance).toFixed(6)} REACT`}
+                  </span>
+                  {rscLow && <AlertTriangle className="w-4 h-4 text-amber-400" />}
+                </div>
+                {rscLow && (
+                  <p className="text-xs text-amber-300 mt-1">
+                    Balance below safe limit ({MIN_RSC_BALANCE} REACT)
+                  </p>
+                )}
+              </div>
+              {rscLow && (
+                <Button
+                  onClick={handleFundRSC}
+                  disabled={isFunding.rsc}
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {isFunding.rsc ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <div className="flex items-center">
+                      <Zap className="w-4 h-4 mr-1" />
+                      Fund
+                    </div>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Status Summary */}
+        <div className="pt-3 border-t border-slate-700">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-400">Last updated:</span>
+            <span className="text-slate-300">
+              {balances.lastUpdated ? formatTimeAgo(balances.lastUpdated / 1000) : 'Never'}
+            </span>
+          </div>
+          {(callbackLow || rscLow) && (
+            <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
+              Low contract balances may prevent order execution. Fund contracts to ensure reliability.
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
 // ===== MAIN DASHBOARD COMPONENT =====
@@ -326,6 +658,12 @@ export default function UpdatedStopOrderDashboard() {
   const [actionLoading, setActionLoading] = useState<{ [key: number]: string }>({});
   const [userContracts, setUserContracts] = useState<UserContractAddresses | null>(null);
   const [contractsValid, setContractsValid] = useState(false);
+  const [contractBalances, setContractBalances] = useState<ContractBalances>({
+    callbackBalance: '0',
+    rscBalance: '0',
+    isLoading: true,
+    lastUpdated: 0
+  });
 
   // ===== TOKEN AND PAIR DATA FETCHING =====
   const fetchTokenInfo = async (address: string, provider: ethers.BrowserProvider): Promise<Token> => {
@@ -654,75 +992,75 @@ export default function UpdatedStopOrderDashboard() {
     return (
       <Card 
         key={order.id} 
-        className={`relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 ${statusConfig.borderColor}`}
+        className={`border-slate-700 bg-slate-900/50 ${statusConfig.borderColor}`}
       >
-        <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
+        <CardHeader className="border-b border-slate-700 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center text-sm font-bold text-white">
+              <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-200">
                 #{order.id}
               </div>
               <div>
-                <CardTitle className="text-lg text-zinc-100 flex items-center space-x-2">
+                <CardTitle className="text-lg text-slate-200 flex items-center space-x-2">
                   <span>{order.tokenSell?.symbol} → {order.tokenBuy?.symbol}</span>
-                  {isActive && <Activity className="w-4 h-4 text-green-400" />}
+                  {isActive && <Activity className="w-4 h-4 text-emerald-400" />}
                 </CardTitle>
-                <CardDescription className="text-zinc-300">
+                <CardDescription className="text-slate-400">
                   Created {formatTimeAgo(order.createdAt)}
                 </CardDescription>
               </div>
             </div>
-            <div className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color} ${statusConfig.borderColor} border`}>
+            <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-lg text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color} ${statusConfig.borderColor} border`}>
               <StatusIcon className="w-4 h-4" />
               <span>{statusConfig.label}</span>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:p-6 space-y-4">
+        <CardContent className="p-6 space-y-4">
           {/* Order Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-zinc-400 mb-1">Current Price</p>
-              <p className="text-lg font-semibold text-zinc-200">
+            <div className="bg-slate-800/50 p-3 rounded-lg">
+              <p className="text-sm text-slate-400 mb-1">Current Price</p>
+              <p className="text-base font-semibold text-slate-200">
                 {order.currentPrice || '0.000000'}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-zinc-400 mb-1">Trigger Price</p>
-              <p className="text-lg font-semibold text-red-300">
+            <div className="bg-slate-800/50 p-3 rounded-lg">
+              <p className="text-sm text-slate-400 mb-1">Trigger Price</p>
+              <p className="text-base font-semibold text-red-300">
                 {order.triggerPrice || '0.000000'}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-zinc-400 mb-1">Drop Threshold</p>
-              <p className="text-lg font-semibold text-yellow-300">
+            <div className="bg-slate-800/50 p-3 rounded-lg">
+              <p className="text-sm text-slate-400 mb-1">Drop Threshold</p>
+              <p className="text-base font-semibold text-amber-300">
                 -{order.dropPercentage || 0}%
               </p>
             </div>
           </div>
 
           {/* Token Information */}
-          <div className="bg-zinc-800/30 rounded-lg p-3">
+          <div className="bg-slate-800/30 rounded-lg p-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-zinc-400 mb-1">Selling</p>
+                <p className="text-xs text-slate-400 mb-2">Selling</p>
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center text-xs font-bold">
+                  <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold">
                     {order.tokenSell?.symbol.charAt(0)}
                   </div>
-                  <span className="text-sm font-medium text-zinc-200">
+                  <span className="text-sm font-medium text-slate-200">
                     {order.tokenSell?.symbol}
                   </span>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-zinc-400 mb-1">Buying</p>
+                <p className="text-xs text-slate-400 mb-2">Buying</p>
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center text-xs font-bold">
+                  <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-bold">
                     {order.tokenBuy?.symbol.charAt(0)}
                   </div>
-                  <span className="text-sm font-medium text-zinc-200">
+                  <span className="text-sm font-medium text-slate-200">
                     {order.tokenBuy?.symbol}
                   </span>
                 </div>
@@ -731,18 +1069,18 @@ export default function UpdatedStopOrderDashboard() {
           </div>
 
           {/* Contract Information */}
-          <div className="bg-zinc-800/20 rounded-lg p-3">
+          <div className="bg-slate-800/20 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Layers className="w-4 h-4 text-blue-400" />
-                <span className="text-sm text-zinc-400">Contract:</span>
+                <Layers className="w-4 h-4 text-slate-400" />
+                <span className="text-sm text-slate-400">Contract:</span>
               </div>
               <div className="flex items-center space-x-2">
-                <code className="text-xs bg-zinc-900 px-2 py-1 rounded text-zinc-300">
+                <code className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">
                   {order.contractAddress?.slice(0, 6)}...{order.contractAddress?.slice(-4)}
                 </code>
                 <Link 
-                  href={getExplorerUrl(order.contractAddress || '', connectedChain?.id || '11155111')}
+                  href={getExplorerUrl(order.contractAddress || '', connectedChain?.rscNetwork.chainId || '5318007')}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -785,10 +1123,10 @@ export default function UpdatedStopOrderDashboard() {
   // ===== MAIN RENDER =====
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400 mx-auto mb-4" />
-          <p className="text-zinc-200">Loading your stop orders...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
+          <p className="text-slate-300">Loading your stop orders...</p>
         </div>
       </div>
     );
@@ -802,7 +1140,7 @@ export default function UpdatedStopOrderDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-950 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -813,10 +1151,10 @@ export default function UpdatedStopOrderDashboard() {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 mb-2">
+              <h1 className="text-3xl font-bold text-slate-100 mb-2">
                 Stop Orders Dashboard
               </h1>
-              <p className="text-lg text-zinc-300">
+              <p className="text-lg text-slate-400">
                 Monitor and manage your automated stop loss orders
               </p>
             </div>
@@ -825,13 +1163,13 @@ export default function UpdatedStopOrderDashboard() {
                 onClick={refreshData}
                 disabled={isRefreshing}
                 variant="outline"
-                className="bg-blue-900/20 border-zinc-700 text-zinc-200 hover:bg-blue-800/30"
+                className="border-slate-600 text-slate-300 hover:bg-slate-800"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Link href="/automations/stop-order">
-                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                <Button className="bg-slate-700 hover:bg-slate-600 text-slate-100">
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Order
                 </Button>
@@ -839,132 +1177,91 @@ export default function UpdatedStopOrderDashboard() {
             </div>
           </div>
 
-          {/* Connected Account & Contract Info */}
-          <div className="space-y-4">
-            {connectedAccount && (
-              <Alert className="bg-blue-900/20 border-blue-500/50">
-                <Eye className="h-4 w-4 text-blue-400" />
-                <AlertDescription className="text-zinc-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      Wallet: <span className="font-mono text-blue-300">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
-                      {connectedChain && (
-                        <span className="ml-4">
-                          Network: <span className="text-green-300">{connectedChain.name}</span>
-                        </span>
-                      )}
-                    </div>
-                    {userContracts && contractsValid && (
-                      <div className="flex items-center space-x-2">
-                        <Layers className="w-4 h-4 text-green-400" />
-                        <span className="text-green-300 text-sm">Multi-Order Contracts Active</span>
-                      </div>
+          {/* Connected Account Info */}
+          {connectedAccount && (
+            <Alert className="bg-slate-800/50 border-slate-600 mb-6">
+              <Eye className="h-4 w-4 text-slate-400" />
+              <AlertDescription className="text-slate-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    Wallet: <span className="font-mono text-slate-200">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
+                    {connectedChain && (
+                      <span className="ml-4">
+                        Network: <span className="text-slate-200">{connectedChain.name}</span>
+                      </span>
                     )}
                   </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Contract Details Card */}
-            {userContracts && contractsValid && (
-              <Card className="bg-gradient-to-br from-green-900/30 to-blue-900/30 border-green-500/30">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-lg text-green-200 flex items-center">
-                    <Shield className="w-5 h-5 mr-2" />
-                    Your Smart Contract System
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-zinc-400 mb-1">Reactive Contract</p>
-                      <div className="flex items-center space-x-2">
-                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-green-300 flex-1">
-                          {userContracts.reactiveContract}
-                        </code>
-                        <Link 
-                          href={getExplorerUrl(userContracts.reactiveContract, connectedChain?.id || '11155111')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <ExternalLink className="w-3 h-3" />
-                          </Button>
-                        </Link>
-                      </div>
+                  {userContracts && contractsValid && (
+                    <div className="flex items-center space-x-2">
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                      <span className="text-emerald-300 text-sm">Multi-Order System Active</span>
                     </div>
-                    <div>
-                      <p className="text-sm text-zinc-400 mb-1">Callback Contract</p>
-                      <div className="flex items-center space-x-2">
-                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-green-300 flex-1">
-                          {userContracts.callbackContract}
-                        </code>
-                        <Link 
-                          href={getExplorerUrl(userContracts.callbackContract, connectedChain?.id || '11155111')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <ExternalLink className="w-3 h-3" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-3 p-2 bg-green-900/20 rounded-lg">
-                    <p className="text-xs text-green-300">
-                      💰 Cost-efficient system active! Additional orders will only cost gas fees.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <Card className="bg-gradient-to-br from-green-900/40 to-blue-900/40 border-zinc-800">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <Card className="border-slate-700 bg-slate-900/50">
               <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-green-300">{activeOrders.length}</h3>
-                <p className="text-sm text-zinc-400">Active Orders</p>
+                <h3 className="text-2xl font-bold text-emerald-300">{activeOrders.length}</h3>
+                <p className="text-sm text-slate-400">Active Orders</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border-zinc-800">
+            <Card className="border-slate-700 bg-slate-900/50">
               <CardContent className="p-4 text-center">
                 <h3 className="text-2xl font-bold text-blue-300">
                   {orders.filter(o => o.status === OrderStatus.Executed).length}
                 </h3>
-                <p className="text-sm text-zinc-400">Executed</p>
+                <p className="text-sm text-slate-400">Executed</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-gray-900/40 to-slate-900/40 border-zinc-800">
+            <Card className="border-slate-700 bg-slate-900/50">
               <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-gray-300">
+                <h3 className="text-2xl font-bold text-slate-300">
                   {orders.filter(o => o.status === OrderStatus.Cancelled).length}
                 </h3>
-                <p className="text-sm text-zinc-400">Cancelled</p>
+                <p className="text-sm text-slate-400">Cancelled</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 border-zinc-800">
+            <Card className="border-slate-700 bg-slate-900/50">
               <CardContent className="p-4 text-center">
-                <h3 className="text-2xl font-bold text-purple-300">{orders.length}</h3>
-                <p className="text-sm text-zinc-400">Total Orders</p>
+                <h3 className="text-2xl font-bold text-slate-300">{orders.length}</h3>
+                <p className="text-sm text-slate-400">Total Orders</p>
               </CardContent>
             </Card>
           </div>
         </motion.div>
+
+        {/* Contract Balance Management - Show only if user has contracts */}
+        {userContracts && contractsValid && connectedChain && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-8"
+          >
+            <ContractBalanceManager 
+              userContracts={userContracts}
+              connectedChain={connectedChain}
+              onBalanceUpdate={setContractBalances}
+            />
+          </motion.div>
+        )}
 
         {/* Active Orders */}
         {activeOrders.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
             className="mb-12"
           >
             <div className="flex items-center mb-6">
-              <Activity className="w-6 h-6 text-green-400 mr-2" />
-              <h2 className="text-2xl font-bold text-zinc-100">
+              <Activity className="w-6 h-6 text-emerald-400 mr-2" />
+              <h2 className="text-2xl font-bold text-slate-100">
                 Active Orders ({activeOrders.length})
               </h2>
             </div>
@@ -979,11 +1276,11 @@ export default function UpdatedStopOrderDashboard() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
           >
             <div className="flex items-center mb-6">
               <CheckCircle className="w-6 h-6 text-blue-400 mr-2" />
-              <h2 className="text-2xl font-bold text-zinc-100">
+              <h2 className="text-2xl font-bold text-slate-100">
                 Order History ({completedOrders.length})
               </h2>
             </div>
@@ -995,16 +1292,16 @@ export default function UpdatedStopOrderDashboard() {
 
         {/* Empty State */}
         {!userContracts && orders.length === 0 && !isLoading && (
-          <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800">
+          <Card className="border-slate-700 bg-slate-900/50">
             <CardContent className="py-16">
               <div className="text-center">
-                <Target className="w-20 h-20 text-zinc-400 mx-auto mb-6" />
-                <h3 className="text-2xl font-medium text-zinc-200 mb-4">No stop orders found</h3>
-                <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                <Target className="w-20 h-20 text-slate-400 mx-auto mb-6" />
+                <h3 className="text-2xl font-medium text-slate-200 mb-4">No stop orders found</h3>
+                <p className="text-slate-400 mb-8 max-w-md mx-auto">
                   You haven't created any stop orders yet. Start protecting your investments with automated stop-loss orders.
                 </p>
                 <Link href="/automations/stop-order">
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8 py-3">
+                  <Button className="bg-slate-700 hover:bg-slate-600 text-slate-100 text-lg px-8 py-3">
                     <Plus className="w-5 h-5 mr-2" />
                     Create Your First Stop Order
                   </Button>
@@ -1014,15 +1311,15 @@ export default function UpdatedStopOrderDashboard() {
           </Card>
         )}
 
-        {/* No Contracts But User Has Wallet */}
+        {/* No Contracts Warning */}
         {!userContracts && connectedAccount && !isLoading && (
-          <Alert className="bg-amber-900/20 border-amber-500/30 text-amber-200 mt-8">
+          <Alert className="bg-amber-900/20 border-amber-600/30 text-amber-200 mt-8">
             <Info className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2">
                 <p className="font-medium">Multi-Order System Ready</p>
                 <p className="text-sm">
-                  Your first stop order will deploy personal smart contracts. Additional orders will use the same contracts at much lower cost!
+                  Your first stop order will deploy personal smart contracts. Additional orders will use the same contracts at much lower cost.
                 </p>
               </div>
             </AlertDescription>
@@ -1031,7 +1328,7 @@ export default function UpdatedStopOrderDashboard() {
 
         {/* Network Warning */}
         {connectedChain?.isComingSoon && (
-          <Alert className="bg-yellow-900/20 border-yellow-500/30 text-yellow-200 mt-8">
+          <Alert className="bg-amber-900/20 border-amber-600/30 text-amber-200 mt-8">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <span className="font-medium">{connectedChain.name} support coming soon.</span> Please switch to Ethereum Sepolia to create and manage stop orders.

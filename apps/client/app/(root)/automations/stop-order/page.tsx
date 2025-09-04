@@ -1444,47 +1444,51 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
 
 
   // ===== ENHANCED DEPLOYMENT FUNCTION WITH FULL IMPLEMENTATION =====
-  const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!connectedChain || !formData.selectedPair || !formData.sellToken || !formData.buyToken) {
+    toast.error('Please complete all required fields');
+    return;
+  }
+
+  if (connectedChain.isComingSoon) {
+    toast.error(`${connectedChain.name} support coming soon. Please switch to Sepolia.`);
+    return;
+  }
+
+  const originalChainId = connectedChain.id;
+  const rscChainId = connectedChain.rscNetwork.chainId;
+  
+  try {
+    setIsDeploymentActive(true);
+    console.log('🚀 Starting deployment process...');
     
-    if (!connectedChain || !formData.selectedPair || !formData.sellToken || !formData.buyToken) {
-      toast.error('Please complete all required fields');
-      return;
+    // Step 1: Check existing contracts
+    setDeploymentStep('checking-contracts');
+    await checkExistingContracts();
+
+    // Ensure we're on the original chain
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const currentNetwork = await provider.getNetwork();
+    
+    if (currentNetwork.chainId.toString() !== originalChainId) {
+      console.log('Switching to original chain first...');
+      await switchNetwork(originalChainId);
     }
 
-    if (connectedChain.isComingSoon) {
-      toast.error(`${connectedChain.name} support coming soon. Please switch to Sepolia.`);
-      return;
-    }
+    const requiredAmount = ethers.parseUnits(formData.amount, formData.sellToken.decimals);
 
-    const originalChainId = connectedChain.id;
-    const rscChainId = connectedChain.rscNetwork.chainId;
-    
-    try {
-      setIsDeploymentActive(true);
-      console.log('🚀 Starting deployment process...');
+    if (existingContracts && contractsValid) {
+      // ===== ADDITIONAL ORDER FLOW - Much cheaper! =====
+      console.log('📝 Adding order to existing contracts...');
       
-      // Step 1: Check existing contracts
-      setDeploymentStep('checking-contracts');
-      await checkExistingContracts();
-
-      // Ensure we're on the original chain
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const currentNetwork = await provider.getNetwork();
-      
-      if (currentNetwork.chainId.toString() !== originalChainId) {
-        console.log('Switching to original chain first...');
-        await switchNetwork(originalChainId);
-      }
-
-      // Step 2: Check and approve tokens if needed
+      // Step 1: Check and approve tokens for callback contract
       setDeploymentStep('checking-approval');
       
       const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
-      const tokenToApprove = formData.sellToken;
-
       const tokenContract = new ethers.Contract(
-        tokenToApprove.address,
+        formData.sellToken.address,
         [
           'function approve(address spender, uint256 amount) returns (bool)',
           'function allowance(address owner, address spender) view returns (uint256)'
@@ -1492,355 +1496,327 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
         signer
       );
 
-      const requiredAmount = ethers.parseUnits(formData.amount, tokenToApprove.decimals);
-      
-      // Determine the spender address based on whether we have existing contracts
-      let spenderAddress: string;
-      
-      if (existingContracts && contractsValid) {
-        // For existing contracts, approve the callback contract directly
-        spenderAddress = existingContracts.callbackContract;
+      const spenderAddress = existingContracts.callbackContract;
+      const currentAllowance = await tokenContract.allowance(connectedAccount, spenderAddress);
+
+      if (currentAllowance < requiredAmount) {
+        setDeploymentStep('approving');
         
-        const currentAllowance = await tokenContract.allowance(connectedAccount, spenderAddress);
-
-        if (currentAllowance < requiredAmount) {
-          setDeploymentStep('approving');
-          
-          if (currentAllowance > 0) {
-            const resetTx = await tokenContract.approve(spenderAddress, 0);
-            await resetTx.wait();
-          }
-
-          const approvalTx = await tokenContract.approve(spenderAddress, requiredAmount);
-          await approvalTx.wait();
-          toast.success('Token approval confirmed');
-        } else {
-          toast.success('Tokens already approved');
+        if (currentAllowance > 0) {
+          const resetTx = await tokenContract.approve(spenderAddress, 0);
+          await resetTx.wait();
         }
+
+        const approvalTx = await tokenContract.approve(spenderAddress, requiredAmount);
+        await approvalTx.wait();
+        toast.success('Token approval confirmed');
+      } else {
+        toast.success('Tokens already approved');
       }
 
-      if (existingContracts && contractsValid) {
-        // ===== ADDITIONAL ORDER FLOW - Much cheaper! =====
-        console.log('📝 Adding order to existing contracts...');
-        setDeploymentStep('switching-rsc');
-        
-        // Switch to RSC network to create the order
-        await switchToRSCNetwork();
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        setDeploymentStep('creating-order');
-        
-        const rscProvider = new ethers.BrowserProvider(window.ethereum);
-        const rscSigner = await rscProvider.getSigner();
-        
-        const reactiveContract = new ethers.Contract(
-          existingContracts.reactiveContract,
-          REACTIVE_STOP_ORDER_ABI,
-          rscSigner
-        );
+      // Step 2: Switch to RSC network to create the order
+      setDeploymentStep('switching-rsc');
+      await switchToRSCNetwork();
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setDeploymentStep('creating-order');
+      
+      const rscProvider = new ethers.BrowserProvider(window.ethereum);
+      const rscSigner = await rscProvider.getSigner();
+      
+      const reactiveContract = new ethers.Contract(
+        existingContracts.reactiveContract,
+        REACTIVE_STOP_ORDER_ABI,
+        rscSigner
+      );
 
-        // Calculate parameters
-        const dropPercent = parseFloat(formData.dropPercentage);
-        const coefficient = 1000;
+      // Calculate parameters
+      const dropPercent = parseFloat(formData.dropPercentage);
+      const coefficient = 1000;
 
-        const reserve0 = parseFloat(formData.selectedPair.reserve0);
-        const reserve1 = parseFloat(formData.selectedPair.reserve1);
-        
-        if (reserve0 <= 0 || reserve1 <= 0) {
-          throw new Error('Invalid pair reserves - no liquidity available');
-        }
+      const reserve0 = parseFloat(formData.selectedPair.reserve0);
+      const reserve1 = parseFloat(formData.selectedPair.reserve1);
+      
+      if (reserve0 <= 0 || reserve1 <= 0) {
+        throw new Error('Invalid pair reserves - no liquidity available');
+      }
 
-        const currentPrice = formData.sellToken0 
-          ? reserve1 / reserve0
-          : reserve0 / reserve1;
+      const currentPrice = formData.sellToken0 
+        ? reserve1 / reserve0
+        : reserve0 / reserve1;
 
-        if (currentPrice <= 0 || !isFinite(currentPrice)) {
-          throw new Error('Invalid current price calculated from reserves');
-        }
+      if (currentPrice <= 0 || !isFinite(currentPrice)) {
+        throw new Error('Invalid current price calculated from reserves');
+      }
 
-        const stopPrice = currentPrice * (1 - dropPercent / 100);
-        
-        if (stopPrice <= 0) {
-          throw new Error('Invalid stop price - check your drop percentage');
-        }
-        
-        const threshold = Math.floor(stopPrice * coefficient);
-        
-        if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
-          throw new Error('Invalid threshold calculated - check parameters');
-        }
+      const stopPrice = currentPrice * (1 - dropPercent / 100);
+      
+      if (stopPrice <= 0) {
+        throw new Error('Invalid stop price - check your drop percentage');
+      }
+      
+      const threshold = Math.floor(stopPrice * coefficient);
+      
+      if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
+        throw new Error('Invalid threshold calculated - check parameters');
+      }
 
-        console.log('Adding order with params:', {
-          pair: formData.selectedPair.pairAddress,
-          client: connectedAccount,
-          sellToken0: formData.sellToken0,
-          coefficient,
-          threshold
-        });
+      console.log('Adding order with params:', {
+        pair: formData.selectedPair.pairAddress,
+        client: connectedAccount,
+        sellToken0: formData.sellToken0,
+        coefficient,
+        threshold
+      });
 
-        // Add order to existing reactive contract
-        const addOrderTx = await reactiveContract.createStopOrder(
-          formData.selectedPair.pairAddress,
-          connectedAccount,
-          formData.sellToken0,
-          coefficient,
-          threshold,
-          { gasLimit: 500000 }
-        );
+      // Add order to existing reactive contract
+      const addOrderTx = await reactiveContract.createStopOrder(
+        formData.selectedPair.pairAddress,
+        connectedAccount,
+        formData.sellToken0,
+        coefficient,
+        threshold,
+        { gasLimit: 500000 }
+      );
 
-        const receipt = await addOrderTx.wait();
-        
-        // Extract order ID from logs
-        let orderId = null;
-        if (receipt.logs) {
-          const orderCreatedEvent = receipt.logs.find((log: any) => {
-            try {
-              const parsed = reactiveContract.interface.parseLog({
-                topics: log.topics,
-                data: log.data
-              });
-              return parsed && parsed.name === 'StopOrderCreated';
-            } catch {
-              return false;
-            }
-          });
-          
-          if (orderCreatedEvent) {
+      const receipt = await addOrderTx.wait();
+      
+      // Extract order ID from logs
+      let orderId = null;
+      if (receipt.logs) {
+        const orderCreatedEvent = receipt.logs.find((log: any) => {
+          try {
             const parsed = reactiveContract.interface.parseLog({
-              topics: orderCreatedEvent.topics,
-              data: orderCreatedEvent.data
+              topics: log.topics,
+              data: log.data
             });
-            if (parsed) {
-              orderId = parsed.args.orderId.toString();
-            }
+            return parsed && parsed.name === 'StopOrderCreated';
+          } catch {
+            return false;
           }
-        }
-        
-        toast.success(`Additional stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
-        setDeploymentStep('complete');
-        
-      } else {
-        // ===== FIRST ORDER FLOW - Full deployment =====
-        console.log('🏗️ Deploying new contracts for first order...');
-        
-       
-        
-       
-
-        // Step 1: Deploy callback contract on original chain (Sepolia)
-        setDeploymentStep('deploying-callback');
-        
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
-        const sepoliaSigner = await sepoliaProvider.getSigner();
-        
-        console.log('Deploying callback contract...');
-        
-        // Create callback contract factory
-        const CallbackFactory = new ethers.ContractFactory(
-          CALLBACK_STOP_ORDER_ABI.abi,
-          CALLBACK_CONTRACT_BYTECODE,
-          sepoliaSigner
-        );
-        
-        const callbackContract = await CallbackFactory.deploy(
-          connectedChain.rscNetwork.callbackProxyAddress,
-          connectedChain.routerAddress,
-          { 
-            value: ethers.parseEther(formData.destinationFunding),
-            gasLimit: 2000000 
-          }
-        );
-        
-        await callbackContract.waitForDeployment();
-        const callbackContractAddress = await callbackContract.getAddress();
-        console.log('Callback contract deployed at:', callbackContractAddress);
-        
-        toast.success('Callback contract deployed');
-
-        // Step 2: Deploy reactive contract with first order on RSC network
-        setDeploymentStep('deploying-reactive');
-        console.log('Switching back to RSC to deploy reactive contract...');
-        await switchToRSCNetwork();
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
-        const rscSigner2 = await rscProvider2.getSigner();
-
-        // Calculate parameters for first order
-        const dropPercent = parseFloat(formData.dropPercentage);
-        const coefficient = 1000;
-
-        const reserve0 = parseFloat(formData.selectedPair.reserve0);
-        const reserve1 = parseFloat(formData.selectedPair.reserve1);
-        
-        if (reserve0 <= 0 || reserve1 <= 0) {
-          throw new Error('Invalid pair reserves - no liquidity available');
-        }
-
-        const currentPrice = formData.sellToken0 
-          ? reserve1 / reserve0
-          : reserve0 / reserve1;
-
-        if (currentPrice <= 0 || !isFinite(currentPrice)) {
-          throw new Error('Invalid current price calculated from reserves');
-        }
-
-        const stopPrice = currentPrice * (1 - dropPercent / 100);
-        
-        if (stopPrice <= 0) {
-          throw new Error('Invalid stop price - check your drop percentage');
-        }
-        
-        const threshold = Math.floor(stopPrice * coefficient);
-
-        console.log('Deploying reactive contract with first order...');
-        console.log('Constructor params:', {
-          pair: formData.selectedPair.pairAddress,
-          callback: callbackContractAddress,
-          client: connectedAccount,
-          sellToken0: formData.sellToken0,
-          coefficient,
-          threshold
         });
-
-        // Create reactive contract factory and deploy with first order
-        const ReactiveFactory = new ethers.ContractFactory(
-          REACTIVE_STOP_ORDER_ABI,
-          REACTIVE_CONTRACT_BYTECODE,
-          rscSigner2
-        );
         
-        const reactiveContract = await ReactiveFactory.deploy(
-          formData.selectedPair.pairAddress,
-          callbackContractAddress,
-          connectedAccount,
-          formData.sellToken0,
-          coefficient,
-          threshold,
-          { 
-            value: ethers.parseEther("1"), // Fund with 1 REACT for operations
-            gasLimit: 5000000 
+        if (orderCreatedEvent) {
+          const parsed = reactiveContract.interface.parseLog({
+            topics: orderCreatedEvent.topics,
+            data: orderCreatedEvent.data
+          });
+          if (parsed) {
+            orderId = parsed.args.orderId.toString();
           }
-        );
-        
-        await reactiveContract.waitForDeployment();
-        const reactiveContractAddress = await reactiveContract.getAddress();
-        console.log('Reactive contract deployed at:', reactiveContractAddress);
-
-        // Step 3: Switch back to original chain and approve tokens
-        await switchNetwork(originalChainId);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const finalProvider = new ethers.BrowserProvider(window.ethereum);
-        const finalSigner = await finalProvider.getSigner();
-        
-        const finalTokenContract = new ethers.Contract(
-          tokenToApprove.address,
-          [
-            'function approve(address spender, uint256 amount) returns (bool)',
-            'function allowance(address owner, address spender) view returns (uint256)'
-          ],
-          finalSigner
-        );
-
-        const currentAllowance = await finalTokenContract.allowance(connectedAccount, callbackContractAddress);
-
-        if (currentAllowance < requiredAmount) {
-          setDeploymentStep('approving');
-          
-          if (currentAllowance > 0) {
-            const resetTx = await finalTokenContract.approve(callbackContractAddress, 0);
-            await resetTx.wait();
-          }
-
-          const approvalTx = await finalTokenContract.approve(callbackContractAddress, requiredAmount);
-          await approvalTx.wait();
-          toast.success('Tokens approved for new contract');
         }
-
-        // Step 4: Store contract addresses with extensive logging
-        console.log('📦 DEPLOYMENT SUCCESS: About to store contract addresses');
-        console.log('📦 Reactive contract address:', reactiveContractAddress);
-        console.log('📦 Callback contract address:', callbackContractAddress);
-        console.log('📦 Connected account:', connectedAccount);
-        console.log('📦 Original chain ID:', originalChainId);
-        
-        const newContracts: UserContractAddresses = {
-          reactiveContract: reactiveContractAddress,
-          callbackContract: callbackContractAddress,
-          deployedAt: Date.now(),
-          chainId: originalChainId,
-          deployer: connectedAccount.toLowerCase().trim() // Ensure consistent casing
-        };
-        
-        console.log('📦 Contract object created:', newContracts);
-        
-        // Call storage function with error handling
-        const storageSuccess = storeContractAddresses(connectedAccount, originalChainId, newContracts);
-        
-        if (storageSuccess) {
-          console.log('✅ CONTRACT STORAGE: Successfully stored contracts');
-          
-          // Update state only if storage was successful
-          setExistingContracts(newContracts);
-          setContractsValid(true);
-          
-          // Show success message
-          toast.success('Contracts stored successfully! Future orders will be cheaper.');
-        } else {
-          console.error('❌ CONTRACT STORAGE: Failed to store contracts');
-          
-          // Still update state so the app works, but warn user
-          setExistingContracts(newContracts);
-          setContractsValid(true);
-          
-          toast.error('Contracts deployed but not saved locally. You may pay full price for next order.');
-        }
-        
-        console.log('📦 State updated with new contracts');
-      }
-
-      toast.success('🎉 Your stop order is now active and monitoring prices 24/7');
-      console.log('✅ Deployment completed successfully!');
-      
-    } catch (error: any) {
-      console.error('❌ Error creating stop order:', error);
-      setDeploymentStep('idle');
-      
-      // Enhanced error recovery
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const currentNetwork = await provider.getNetwork();
-        if (currentNetwork.chainId.toString() !== originalChainId) {
-          console.log('Attempting to switch back to original network after error...');
-          await switchNetwork(originalChainId);
-          toast('Switched back to original network');
-        }
-      } catch (switchBackError) {
-        console.error('Failed to switch back to original network:', switchBackError);
-        toast('Please manually switch back to your original network');
       }
       
-      // Enhanced error messages
-      if (error.message.includes('User denied') || error.code === 4001) {
-        toast.error('Transaction cancelled by user');
-      } else if (error.message.includes('insufficient funds')) {
-        toast.error('Insufficient funds for transaction');
-      } else if (error.message.includes('Only deployer can call')) {
-        toast.error('Access denied: You can only add orders to contracts you deployed');
+      toast.success(`Additional stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
+      setDeploymentStep('complete');
+      
+    } else {
+      // ===== FIRST ORDER FLOW - Full deployment =====
+      console.log('🏗️ Deploying new contracts for first order...');
+      
+      // Step 1: Deploy callback contract on original chain (Sepolia)
+      setDeploymentStep('deploying-callback');
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
+      const sepoliaSigner = await sepoliaProvider.getSigner();
+      
+      console.log('Deploying callback contract...');
+      
+      // Create callback contract factory
+      const CallbackFactory = new ethers.ContractFactory(
+        CALLBACK_STOP_ORDER_ABI.abi,
+        CALLBACK_CONTRACT_BYTECODE,
+        sepoliaSigner
+      );
+      
+      const callbackContract = await CallbackFactory.deploy(
+        connectedChain.rscNetwork.callbackProxyAddress,
+        connectedChain.routerAddress,
+        { 
+          value: ethers.parseEther(formData.destinationFunding),
+          gasLimit: 2000000 
+        }
+      );
+      
+      await callbackContract.waitForDeployment();
+      const callbackContractAddress = await callbackContract.getAddress();
+      console.log('Callback contract deployed at:', callbackContractAddress);
+      
+      toast.success('Callback contract deployed');
+
+      // Step 2: Deploy reactive contract with first order on RSC network
+      setDeploymentStep('deploying-reactive');
+      console.log('Switching back to RSC to deploy reactive contract...');
+      await switchToRSCNetwork();
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
+      const rscSigner2 = await rscProvider2.getSigner();
+
+      // Calculate parameters for first order
+      const dropPercent = parseFloat(formData.dropPercentage);
+      const coefficient = 1000;
+
+      const reserve0 = parseFloat(formData.selectedPair.reserve0);
+      const reserve1 = parseFloat(formData.selectedPair.reserve1);
+      
+      if (reserve0 <= 0 || reserve1 <= 0) {
+        throw new Error('Invalid pair reserves - no liquidity available');
+      }
+
+      const currentPrice = formData.sellToken0 
+        ? reserve1 / reserve0
+        : reserve0 / reserve1;
+
+      if (currentPrice <= 0 || !isFinite(currentPrice)) {
+        throw new Error('Invalid current price calculated from reserves');
+      }
+
+      const stopPrice = currentPrice * (1 - dropPercent / 100);
+      
+      if (stopPrice <= 0) {
+        throw new Error('Invalid stop price - check your drop percentage');
+      }
+      
+      const threshold = Math.floor(stopPrice * coefficient);
+
+      console.log('Deploying reactive contract with first order...');
+      console.log('Constructor params:', {
+        pair: formData.selectedPair.pairAddress,
+        callback: callbackContractAddress,
+        client: connectedAccount,
+        sellToken0: formData.sellToken0,
+        coefficient,
+        threshold
+      });
+
+      // Create reactive contract factory and deploy with first order
+      const ReactiveFactory = new ethers.ContractFactory(
+        REACTIVE_STOP_ORDER_ABI,
+        REACTIVE_CONTRACT_BYTECODE,
+        rscSigner2
+      );
+      
+      const reactiveContract = await ReactiveFactory.deploy(
+        formData.selectedPair.pairAddress,
+        callbackContractAddress,
+        connectedAccount,
+        formData.sellToken0,
+        coefficient,
+        threshold,
+        { 
+          value: ethers.parseEther("1"), // Fund with 1 REACT for operations
+          gasLimit: 5000000 
+        }
+      );
+      
+      await reactiveContract.waitForDeployment();
+      const reactiveContractAddress = await reactiveContract.getAddress();
+      console.log('Reactive contract deployed at:', reactiveContractAddress);
+
+      // Step 3: Switch back to original chain and approve tokens
+      await switchNetwork(originalChainId);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const finalProvider = new ethers.BrowserProvider(window.ethereum);
+      const finalSigner = await finalProvider.getSigner();
+      
+      const finalTokenContract = new ethers.Contract(
+        formData.sellToken.address,
+        [
+          'function approve(address spender, uint256 amount) returns (bool)',
+          'function allowance(address owner, address spender) view returns (uint256)'
+        ],
+        finalSigner
+      );
+
+      const currentAllowance = await finalTokenContract.allowance(connectedAccount, callbackContractAddress);
+
+      if (currentAllowance < requiredAmount) {
+        setDeploymentStep('approving');
+        
+        if (currentAllowance > 0) {
+          const resetTx = await finalTokenContract.approve(callbackContractAddress, 0);
+          await resetTx.wait();
+        }
+
+        const approvalTx = await finalTokenContract.approve(callbackContractAddress, requiredAmount);
+        await approvalTx.wait();
+        toast.success('Tokens approved for new contract');
+      }
+
+      // Step 4: Store contract addresses
+      console.log('📦 DEPLOYMENT SUCCESS: About to store contract addresses');
+      
+      const newContracts: UserContractAddresses = {
+        reactiveContract: reactiveContractAddress,
+        callbackContract: callbackContractAddress,
+        deployedAt: Date.now(),
+        chainId: originalChainId,
+        deployer: connectedAccount.toLowerCase().trim()
+      };
+      
+      const storageSuccess = storeContractAddresses(connectedAccount, originalChainId, newContracts);
+      
+      if (storageSuccess) {
+        console.log('✅ CONTRACT STORAGE: Successfully stored contracts');
+        setExistingContracts(newContracts);
+        setContractsValid(true);
+        toast.success('Contracts stored successfully! Future orders will be cheaper.');
       } else {
-        toast.error(error.message || 'Failed to create stop order');
+        console.error('❌ CONTRACT STORAGE: Failed to store contracts');
+        setExistingContracts(newContracts);
+        setContractsValid(true);
+        toast.error('Contracts deployed but not saved locally. You may pay full price for next order.');
       }
-    } finally {
-      setIsDeploymentActive(false);
-      console.log('🏁 Deployment process ended');
     }
-  }, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, checkExistingContracts, switchNetwork, switchToRSCNetwork]);
+
+    toast.success('Your stop order is now active and monitoring prices 24/7');
+    setDeploymentStep('complete');
+    console.log('✅ Deployment completed successfully!');
+    
+    // Auto-redirect to dashboard after 2 seconds
+    setTimeout(() => {
+      window.location.href = '/automations/stop-order/dashboard';
+    }, 2000);
+    
+  } catch (error: any) {
+    console.error('❌ Error creating stop order:', error);
+    setDeploymentStep('idle');
+    
+    // Enhanced error recovery
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() !== originalChainId) {
+        console.log('Attempting to switch back to original network after error...');
+        await switchNetwork(originalChainId);
+        toast('Switched back to original network');
+      }
+    } catch (switchBackError) {
+      console.error('Failed to switch back to original network:', switchBackError);
+      toast('Please manually switch back to your original network');
+    }
+    
+    // Enhanced error messages
+    if (error.message.includes('User denied') || error.code === 4001) {
+      toast.error('Transaction cancelled by user');
+    } else if (error.message.includes('insufficient funds')) {
+      toast.error('Insufficient funds for transaction');
+    } else if (error.message.includes('Only deployer can call')) {
+      toast.error('Access denied: You can only add orders to contracts you deployed');
+    } else {
+      toast.error(error.message || 'Failed to create stop order');
+    }
+  } finally {
+    setIsDeploymentActive(false);
+    console.log('🏁 Deployment process ended');
+  }
+}, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, checkExistingContracts, switchNetwork, switchToRSCNetwork]);
 
   // Auto-detect connected chain and account
   useEffect(() => {
@@ -2460,41 +2436,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
             </CardContent>
           </Card>
 
-          {/* Contract Status Card - Show existing contracts info */}
-          {existingContracts && contractsValid && (
-            <Card className="relative bg-gradient-to-br from-green-900/30 to-blue-900/30 border-zinc-800 mx-auto max-w-2xl">
-              <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
-                <CardTitle className="text-lg sm:text-xl text-zinc-100 flex items-center">
-                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-400" />
-                  Your Stop Order Contracts
-                </CardTitle>
-                <CardDescription className="text-zinc-300 text-sm sm:text-base">
-                  Active smart contracts for your stop orders
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <p className="text-sm text-zinc-400">Reactive Contract</p>
-                    <p className="text-xs font-mono bg-zinc-800 p-2 rounded break-all">
-                      {existingContracts.reactiveContract}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-zinc-400">Callback Contract</p>
-                    <p className="text-xs font-mono bg-zinc-800 p-2 rounded break-all">
-                      {existingContracts.callbackContract}
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3">
-                  <p className="text-sm text-green-300">
-                    💰 <span className="font-medium">Cost Savings Active:</span> Additional stop orders will only cost gas fees!
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+         
 
           {/* Simple Dashboard Link Component */}
           <DashboardLink />
