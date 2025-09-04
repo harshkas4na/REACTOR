@@ -7,10 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { rscByteCodeSepolia } from '@/data/automations/range-manager/RSCByteCode';
-import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrderByteCode';
-import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
-import rscABISepolia from '@/data/automations/range-manager/RSCABISepolia.json';
 import {
   Dialog,
   DialogContent,
@@ -65,123 +61,19 @@ import {
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
+import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrderByteCode';
+import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
+import rscABISepolia from '@/data/automations/stop-order/RSCABISepolia.json';
+import { rscByteCodeSepolia } from '@/data/automations/stop-order/RSCByteCode';
 
-// ===== UPDATED ABIs FOR NEW ARCHITECTURE =====
+// ===== CONTRACT ABIs =====
+const REACTIVE_STOP_ORDER_ABI = rscABISepolia;
 
-// Updated Reactive Contract ABI (Multi-Order Contract)
-const REACTIVE_STOP_ORDER_ABI = [
-  // Constructor is handled during deployment, not needed in interface
-  {
-    "inputs": [
-      { "internalType": "address", "name": "_pair", "type": "address" },
-      { "internalType": "address", "name": "_client", "type": "address" },
-      { "internalType": "bool", "name": "_token0", "type": "bool" },
-      { "internalType": "uint256", "name": "_coefficient", "type": "uint256" },
-      { "internalType": "uint256", "name": "_threshold", "type": "uint256" }
-    ],
-    "name": "createStopOrder",
-    "outputs": [{ "internalType": "uint256", "name": "orderId", "type": "uint256" }],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "uint256", "name": "orderId", "type": "uint256" }],
-    "name": "cancelStopOrder",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "uint256", "name": "orderId", "type": "uint256" }],
-    "name": "getStopOrder",
-    "outputs": [
-      {
-        "components": [
-          { "internalType": "address", "name": "pair", "type": "address" },
-          { "internalType": "address", "name": "client", "type": "address" },
-          { "internalType": "bool", "name": "token0", "type": "bool" },
-          { "internalType": "uint256", "name": "coefficient", "type": "uint256" },
-          { "internalType": "uint256", "name": "threshold", "type": "uint256" },
-          { "internalType": "uint8", "name": "status", "type": "uint8" }, // OrderStatus enum
-          { "internalType": "bool", "name": "triggered", "type": "bool" },
-          { "internalType": "uint256", "name": "createdAt", "type": "uint256" },
-          { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }
-        ],
-        "internalType": "struct StopOrder",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
-    "name": "getUserActiveOrders",
-    "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
-    "name": "getUserExecutedOrders",
-    "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
-    "name": "getUserCancelledOrders",
-    "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
-    "name": "getAllUserOrders",
-    "outputs": [
-      { "internalType": "uint256[]", "name": "active", "type": "uint256[]" },
-      { "internalType": "uint256[]", "name": "executed", "type": "uint256[]" },
-      { "internalType": "uint256[]", "name": "cancelled", "type": "uint256[]" },
-      { "internalType": "uint256[]", "name": "failed", "type": "uint256[]" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "nextOrderId",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getDeployer",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
+const CALLBACK_STOP_ORDER_ABI =stopOrderABISepolia;
 
-// Updated Callback Contract ABI (Per-User Deployment)
-const CALLBACK_CONTRACT_ABI = [
-  {
-    "inputs": [
-      { "internalType": "address", "name": "sender", "type": "address" },
-      { "internalType": "address", "name": "pair", "type": "address" },
-      { "internalType": "address", "name": "client", "type": "address" },
-      { "internalType": "bool", "name": "is_token0", "type": "bool" },
-      { "internalType": "uint256", "name": "coefficient", "type": "uint256" },
-      { "internalType": "uint256", "name": "threshold", "type": "uint256" },
-      { "internalType": "uint256", "name": "orderId", "type": "uint256" }
-    ],
-    "name": "stop",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+// Contract bytecodes (these would come from your build artifacts)
+const REACTIVE_CONTRACT_BYTECODE = rscByteCodeSepolia; // Your reactive contract bytecode
+const CALLBACK_CONTRACT_BYTECODE = stopOrderByteCodeSepolia; // Your callback contract bytecode
 
 // ===== CONTRACT ADDRESS MANAGEMENT =====
 interface UserContractAddresses {
@@ -225,7 +117,7 @@ const storeContractAddresses = (
 // ===== CONTRACT VALIDATION =====
 const validateStoredContracts = async (
   contracts: UserContractAddresses,
-  provider: ethers.BrowserProvider,
+  rscProvider: ethers.BrowserProvider,
   userAddress: string
 ): Promise<boolean> => {
   try {
@@ -234,8 +126,8 @@ const validateStoredContracts = async (
     // Check if reactive contract exists and user is the deployer
     const reactiveContract = new ethers.Contract(
       contracts.reactiveContract,
-      REACTIVE_STOP_ORDER_ABI,
-      provider
+      REACTIVE_STOP_ORDER_ABI.abi,
+      rscProvider
     );
     
     // Verify contract exists by calling a view function
@@ -247,7 +139,7 @@ const validateStoredContracts = async (
     }
     
     // Check callback contract exists (basic existence check)
-    const callbackCode = await provider.getCode(contracts.callbackContract);
+    const callbackCode = await rscProvider.getCode(contracts.callbackContract);
     if (callbackCode === '0x') {
       console.error('Callback contract not found at stored address');
       return false;
@@ -303,7 +195,7 @@ interface ChainConfig {
   dexName: string;
   routerAddress: string;
   factoryAddress: string;
-  callbackAddress: string; // Shared callback proxy for deployment
+  callbackAddress: string; // Callback proxy address for RSC system
   rpcUrl?: string;
   nativeCurrency: string;
   defaultFunding: string;
@@ -314,10 +206,12 @@ interface ChainConfig {
     rpcUrl: string;
     currencySymbol: string;
     explorerUrl: string;
+    callbackProxyAddress: string; // Callback proxy on RSC network
+    systemContractAddress: string; // RSC system contract
   };
 }
 
-type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'switching-back' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete';
+type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete';
 
 // ===== CONFIGURATION DATA =====
 const SUPPORTED_CHAINS: ChainConfig[] = [
@@ -325,18 +219,20 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     id: '11155111', 
     name: 'Ethereum Sepolia',
     dexName: 'Uniswap V2',
-    routerAddress: '0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3',
-    factoryAddress: '0x7e0987e5b3a30e3f2828572bb659a548460a3003',
-    callbackAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003', // Callback proxy for deployment
-    rpcUrl: 'https://rpc.sepolia.org',
+    routerAddress: '0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008',
+    factoryAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
+    callbackAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA', // Callback proxy on Sepolia
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.03',
+    defaultFunding: '0.00001',
     rscNetwork: {
       chainId: '5318007',
       name: 'Reactive Lasna',
       rpcUrl: 'https://lasna-rpc.rnk.dev/',
       currencySymbol: 'REACT',
-      explorerUrl: 'https://lasna.reactscan.net'
+      explorerUrl: 'https://lasna.reactscan.net',
+      callbackProxyAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
+      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
     }
   }
 ];
@@ -349,12 +245,6 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
     { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
     { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
   ]
-};
-
-// Contract addresses
-const CONTRACT_ADDRESSES = {
-  CALLBACK_PROXY: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
-  RSC: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
 };
 
 // ===== TOKEN SERVICE CLASS =====
@@ -786,11 +676,16 @@ const EnhancedStatusIndicator = ({
     
     // Only show token-related warnings if user has selected tokens
     if (formData.sellToken && formData.buyToken) {
-      if (!hasTokenBalance) {
+      // Don't show insufficient balance error if no amount is entered yet
+      if (formData.amount && parseFloat(formData.amount) > 0 && !hasTokenBalance) {
         return { type: 'error', message: 'Insufficient token balance' };
       }
       if (!formData.dropPercentage || parseFloat(formData.dropPercentage) <= 0) {
         return { type: 'warning', message: 'Set stop loss percentage' };
+      }
+      // Don't show ready status until amount is entered
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        return { type: 'warning', message: 'Enter amount to sell' };
       }
 
       // Show contract status information
@@ -892,13 +787,11 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
       case 'switching-rsc':
         return { title: 'Switching to Reactive Network', message: 'Please confirm network switch in your wallet...', color: 'purple' };
       case 'funding-rsc':
-        return { title: 'Funding RSC Monitor', message: 'Sending 0.05 REACT to price monitoring system...', color: 'blue' };
-      case 'switching-back':
-        return { title: 'Switching Back to Origin Chain', message: 'Please confirm network switch back to your original chain...', color: 'purple' };
+        return { title: 'Funding RSC System', message: 'Sending 0.05 REACT to the system contract...', color: 'blue' };
       case 'deploying-callback':
-        return { title: 'Deploying Callback Contract', message: 'Creating your personal callback contract...', color: 'green' };
+        return { title: 'Deploying Callback Contract', message: 'Creating your personal callback contract on Sepolia...', color: 'green' };
       case 'deploying-reactive':
-        return { title: 'Deploying Reactive Contract', message: 'Creating your multi-order stop loss contract...', color: 'green' };
+        return { title: 'Deploying Reactive Contract', message: 'Creating your multi-order stop loss contract on Reactive Network...', color: 'green' };
       case 'creating-order':
         return { title: 'Creating Stop Order', message: 'Adding stop order to your contract...', color: 'green' };
       case 'complete':
@@ -970,7 +863,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     coefficient: '1000',
     threshold: '',
     amount: '',
-    destinationFunding: '0.03',
+    destinationFunding: '0.00001',
     rscFunding: '0.05',
     dropPercentage: '10',
     currentPrice: '',
@@ -1011,7 +904,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
         if (mountedRef.current) {
           setDeploymentStep('idle');
         }
-      }, 1000);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [formData.sellToken, formData.buyToken, formData.amount, formData.dropPercentage, deploymentStep]);
@@ -1042,24 +935,40 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
           console.log(`Chain ${targetChainId} not added to wallet, attempting to add it`);
           
           let chainConfig;
-          const chain = SUPPORTED_CHAINS.find(c => c.id === targetChainId);
-          if (!chain) throw new Error('Chain not supported');
           
-          chainConfig = {
-            chainId: targetChainIdHex,
-            chainName: chain.name,
-            nativeCurrency: {
-              name: chain.nativeCurrency,
-              symbol: chain.nativeCurrency,
-              decimals: 18
-            },
-            rpcUrls: [chain.rpcUrl || ''],
-            blockExplorerUrls: [
-              chain.id === '1' ? 'https://etherscan.io' : 
-              chain.id === '11155111' ? 'https://sepolia.etherscan.io' :
-              ''
-            ]
-          };
+          // Handle RSC network addition
+          if (targetChainId === '5318007') {
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: 'Reactive Lasna',
+              nativeCurrency: {
+                name: 'REACT',
+                symbol: 'REACT',
+                decimals: 18
+              },
+              rpcUrls: ['https://lasna-rpc.rnk.dev/'],
+              blockExplorerUrls: ['https://lasna.reactscan.net']
+            };
+          } else {
+            const chain = SUPPORTED_CHAINS.find(c => c.id === targetChainId);
+            if (!chain) throw new Error('Chain not supported');
+            
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: chain.name,
+              nativeCurrency: {
+                name: chain.nativeCurrency,
+                symbol: chain.nativeCurrency,
+                decimals: 18
+              },
+              rpcUrls: [chain.rpcUrl || ''],
+              blockExplorerUrls: [
+                chain.id === '1' ? 'https://etherscan.io' : 
+                chain.id === '11155111' ? 'https://sepolia.etherscan.io' :
+                ''
+              ]
+            };
+          }
           
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
@@ -1095,99 +1004,30 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
   const switchToRSCNetwork = useCallback(async () => {
     if (!connectedChain) throw new Error('No chain selected');
     
-    const rscNetwork = connectedChain.rscNetwork;
-    const rscChainIdHex = `0x${parseInt(rscNetwork.chainId).toString(16)}`;
+    const rscNetworkChainId = connectedChain.rscNetwork.chainId;
+    console.log(`Switching to RSC network: ${rscNetworkChainId}`);
     
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const currentNetwork = await provider.getNetwork();
-      if (currentNetwork.chainId.toString() === rscNetwork.chainId) {
-        console.log(`Already on ${rscNetwork.name}`);
-        return true;
-      }
+    return switchNetwork(rscNetworkChainId);
+  }, [connectedChain, switchNetwork]);
 
-      console.log(`Switching to ${rscNetwork.name}...`);
-      
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: rscChainIdHex }],
-        });
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          console.log(`${rscNetwork.name} not added to wallet, attempting to add it`);
-          
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: rscChainIdHex,
-              chainName: rscNetwork.name,
-              nativeCurrency: {
-                name: rscNetwork.currencySymbol,
-                symbol: rscNetwork.currencySymbol,
-                decimals: 18
-              },
-              rpcUrls: [rscNetwork.rpcUrl],
-              blockExplorerUrls: [rscNetwork.explorerUrl]
-            }],
-          });
-        } else {
-          throw switchError;
-        }
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      let attempts = 0;
-      let switched = false;
-      
-      while (attempts < 3 && !switched) {
-        try {
-          const updatedProvider = new ethers.BrowserProvider(window.ethereum);
-          const updatedNetwork = await updatedProvider.getNetwork();
-          
-          if (updatedNetwork.chainId.toString() === rscNetwork.chainId) {
-            switched = true;
-            console.log(`Successfully switched to ${rscNetwork.name} (attempt ${attempts + 1})`);
-          } else {
-            console.log(`Network not switched yet, attempt ${attempts + 1}, got: ${updatedNetwork.chainId}`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        } catch (verifyError) {
-          console.log(`Verification attempt ${attempts + 1} failed:`, verifyError);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        attempts++;
-      }
-      
-      if (!switched) {
-        throw new Error(`Failed to verify RSC network switch after ${attempts} attempts`);
-      }
-      
-      toast.success(`Switched to ${rscNetwork.name}`);
-      return true;
-      
-    } catch (error: any) {
-      if (error.code === 4001) {
-        throw new Error('User rejected the request to switch networks');
-      }
-      throw new Error(`Failed to switch to RSC network: ${error.message || 'Unknown error'}`);
-    }
-  }, [connectedChain]);
-
-  // NEW: Check for existing contracts
+  // NEW: Check for existing contracts on RSC network
   const checkExistingContracts = useCallback(async () => {
     if (!connectedAccount || !connectedChain) return;
 
     setIsCheckingContracts(true);
     try {
+      // Check stored contracts for the origin chain
       const stored = getStoredContracts(connectedAccount, connectedChain.id);
       console.log('Stored contracts found:', stored);
       
       if (stored) {
-        console.log('Validating stored contracts...');
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const valid = await validateStoredContracts(stored, provider, connectedAccount);
+        console.log('Validating stored contracts on RSC network...');
+        
+        // Create RSC provider to validate contracts
+        const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
+        
+        // Validate contracts exist on RSC network
+        const valid = await validateStoredContracts(stored, rscProvider as any, connectedAccount);
         
         if (valid) {
           console.log('Contracts are valid, user can add additional orders');
@@ -1287,7 +1127,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     }));
   }, [formData.selectedPair, formData.sellToken0]);
 
-  // NEW: Enhanced deployment function with multi-order support
+  // ===== ENHANCED DEPLOYMENT FUNCTION WITH FULL IMPLEMENTATION =====
   const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -1302,6 +1142,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     }
 
     const originalChainId = connectedChain.id;
+    const rscChainId = connectedChain.rscNetwork.chainId;
     
     try {
       setIsDeploymentActive(true);
@@ -1311,6 +1152,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
       setDeploymentStep('checking-contracts');
       await checkExistingContracts();
 
+      // Ensure we're on the original chain
       const provider = new ethers.BrowserProvider(window.ethereum);
       const currentNetwork = await provider.getNetwork();
       
@@ -1336,20 +1178,24 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
 
       const requiredAmount = ethers.parseUnits(formData.amount, tokenToApprove.decimals);
       
-      // For existing contracts, approve to the user's callback contract
-      // For new contracts, we'll approve later after deployment
+      // Determine the spender address based on whether we have existing contracts
+      let spenderAddress: string;
+      
       if (existingContracts && contractsValid) {
-        const currentAllowance = await tokenContract.allowance(connectedAccount, existingContracts.callbackContract);
+        // For existing contracts, approve the callback contract directly
+        spenderAddress = existingContracts.callbackContract;
+        
+        const currentAllowance = await tokenContract.allowance(connectedAccount, spenderAddress);
 
         if (currentAllowance < requiredAmount) {
           setDeploymentStep('approving');
           
           if (currentAllowance > 0) {
-            const resetTx = await tokenContract.approve(existingContracts.callbackContract, 0);
+            const resetTx = await tokenContract.approve(spenderAddress, 0);
             await resetTx.wait();
           }
 
-          const approvalTx = await tokenContract.approve(existingContracts.callbackContract, requiredAmount);
+          const approvalTx = await tokenContract.approve(spenderAddress, requiredAmount);
           await approvalTx.wait();
           toast.success('Token approval confirmed');
         } else {
@@ -1358,14 +1204,24 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
       }
 
       if (existingContracts && contractsValid) {
-        // ADDITIONAL ORDER FLOW - Much cheaper!
+        // ===== ADDITIONAL ORDER FLOW - Much cheaper! =====
         console.log('📝 Adding order to existing contracts...');
+        setDeploymentStep('switching-rsc');
+        
+        // Switch to RSC network to create the order
+        await switchToRSCNetwork();
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         setDeploymentStep('creating-order');
+        
+        const rscProvider = new ethers.BrowserProvider(window.ethereum);
+        const rscSigner = await rscProvider.getSigner();
         
         const reactiveContract = new ethers.Contract(
           existingContracts.reactiveContract,
-          REACTIVE_STOP_ORDER_ABI,
-          signer
+          REACTIVE_STOP_ORDER_ABI.abi,
+          rscSigner
         );
 
         // Calculate parameters
@@ -1421,59 +1277,83 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
         
         // Extract order ID from logs
         let orderId = null;
-        const orderCreatedEvent = receipt.logs.find((log: any) => 
-          log.topics && log.topics[0] === ethers.id('StopOrderCreated(uint256,address,address,bool,uint256,uint256)')
-        );
-        
-        if (orderCreatedEvent && orderCreatedEvent.topics && orderCreatedEvent.topics[1]) {
-          orderId = parseInt(orderCreatedEvent.topics[1], 16);
+        if (receipt.logs) {
+          const orderCreatedEvent = receipt.logs.find((log: any) => {
+            try {
+              const parsed = reactiveContract.interface.parseLog({
+                topics: log.topics,
+                data: log.data
+              });
+              return parsed && parsed.name === 'StopOrderCreated';
+            } catch {
+              return false;
+            }
+          });
+          
+          if (orderCreatedEvent) {
+            const parsed = reactiveContract.interface.parseLog({
+              topics: orderCreatedEvent.topics,
+              data: orderCreatedEvent.data
+            });
+            if (parsed) {
+              orderId = parsed.args.orderId.toString();
+            }
+          }
         }
         
         toast.success(`Additional stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
         setDeploymentStep('complete');
         
       } else {
-        // FIRST ORDER FLOW - Full deployment
+        // ===== FIRST ORDER FLOW - Full deployment =====
         console.log('🏗️ Deploying new contracts for first order...');
         
-        // Step 3: Switch to RSC network and fund it
-        setDeploymentStep('switching-rsc');
-        await switchToRSCNetwork();
+       
         
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        console.log('Network settled, creating fresh provider for RSC funding...');
-        
-        setDeploymentStep('funding-rsc');
-        
-        const rscProvider = new ethers.BrowserProvider(window.ethereum);
-        const rscSigner = await rscProvider.getSigner();
-        
-        const rscFundingTx = await rscSigner.sendTransaction({
-          to: CONTRACT_ADDRESSES.RSC,
-          value: ethers.parseEther(formData.rscFunding),
-          gasLimit: 21000
-        });
-        await rscFundingTx.wait();
+       
 
-        // Step 4: Switch back to original chain
-        setDeploymentStep('switching-back');
-        console.log(`Switching back to original chain: ${originalChainId}`);
-        await switchNetwork(originalChainId);
-        
-        const finalProvider = new ethers.BrowserProvider(window.ethereum);
-        const finalSigner = await finalProvider.getSigner();
-
-        // Step 5: Deploy callback contract
+        // Step 1: Deploy callback contract on original chain (Sepolia)
         setDeploymentStep('deploying-callback');
+        
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
+        const sepoliaSigner = await sepoliaProvider.getSigner();
+        
         console.log('Deploying callback contract...');
         
-        // We'll need the actual callback contract bytecode here
-        // For now, using a placeholder - this needs to be replaced with actual deployment
-        const callbackContractAddress = '0x' + Math.random().toString(16).substr(2, 40); // PLACEHOLDER
+        // Create callback contract factory
+        const CallbackFactory = new ethers.ContractFactory(
+          CALLBACK_STOP_ORDER_ABI.abi,
+          CALLBACK_CONTRACT_BYTECODE,
+          sepoliaSigner
+        );
         
-        // Step 6: Deploy reactive contract with first order
+        const callbackContract = await CallbackFactory.deploy(
+          connectedChain.rscNetwork.callbackProxyAddress,
+          connectedChain.routerAddress,
+          { 
+            value: ethers.parseEther(formData.destinationFunding),
+            gasLimit: 2000000 
+          }
+        );
+        
+        await callbackContract.waitForDeployment();
+        const callbackContractAddress = await callbackContract.getAddress();
+        console.log('Callback contract deployed at:', callbackContractAddress);
+        
+        toast.success('Callback contract deployed');
+
+        // Step 2: Deploy reactive contract with first order on RSC network
         setDeploymentStep('deploying-reactive');
-        console.log('Deploying reactive contract with first order...');
+        console.log('Switching back to RSC to deploy reactive contract...');
+        await switchToRSCNetwork();
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
+        const rscSigner2 = await rscProvider2.getSigner();
 
         // Calculate parameters for first order
         const dropPercent = parseFloat(formData.dropPercentage);
@@ -1502,24 +1382,72 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
         
         const threshold = Math.floor(stopPrice * coefficient);
 
-        // We'll need the actual reactive contract bytecode here
-        // This is a placeholder deployment
-        const reactiveContractAddress = '0x' + Math.random().toString(16).substr(2, 40); // PLACEHOLDER
+        console.log('Deploying reactive contract with first order...');
+        console.log('Constructor params:', {
+          pair: formData.selectedPair.pairAddress,
+          callback: callbackContractAddress,
+          client: connectedAccount,
+          sellToken0: formData.sellToken0,
+          coefficient,
+          threshold
+        });
 
-        // Step 7: Approve tokens for the new callback contract
-        const currentAllowance = await tokenContract.allowance(connectedAccount, callbackContractAddress);
+        // Create reactive contract factory and deploy with first order
+        const ReactiveFactory = new ethers.ContractFactory(
+          REACTIVE_STOP_ORDER_ABI.abi,
+          REACTIVE_CONTRACT_BYTECODE,
+          rscSigner2
+        );
+        
+        const reactiveContract = await ReactiveFactory.deploy(
+          formData.selectedPair.pairAddress,
+          callbackContractAddress,
+          connectedAccount,
+          formData.sellToken0,
+          coefficient,
+          threshold,
+          { 
+            value: ethers.parseEther("1"), // Fund with 1 REACT for operations
+            gasLimit: 3000000 
+          }
+        );
+        
+        await reactiveContract.waitForDeployment();
+        const reactiveContractAddress = await reactiveContract.getAddress();
+        console.log('Reactive contract deployed at:', reactiveContractAddress);
+
+        // Step 3: Switch back to original chain and approve tokens
+        await switchNetwork(originalChainId);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const finalProvider = new ethers.BrowserProvider(window.ethereum);
+        const finalSigner = await finalProvider.getSigner();
+        
+        const finalTokenContract = new ethers.Contract(
+          tokenToApprove.address,
+          [
+            'function approve(address spender, uint256 amount) returns (bool)',
+            'function allowance(address owner, address spender) view returns (uint256)'
+          ],
+          finalSigner
+        );
+
+        const currentAllowance = await finalTokenContract.allowance(connectedAccount, callbackContractAddress);
 
         if (currentAllowance < requiredAmount) {
+          setDeploymentStep('approving');
+          
           if (currentAllowance > 0) {
-            const resetTx = await tokenContract.approve(callbackContractAddress, 0);
+            const resetTx = await finalTokenContract.approve(callbackContractAddress, 0);
             await resetTx.wait();
           }
 
-          const approvalTx = await tokenContract.approve(callbackContractAddress, requiredAmount);
+          const approvalTx = await finalTokenContract.approve(callbackContractAddress, requiredAmount);
           await approvalTx.wait();
+          toast.success('Tokens approved for new contract');
         }
 
-        // Step 8: Store contract addresses
+        // Step 4: Store contract addresses
         const newContracts: UserContractAddresses = {
           reactiveContract: reactiveContractAddress,
           callbackContract: callbackContractAddress,
