@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// ===== CONFIGURATION FROM MAIN STOP ORDER PAGE =====
+// ===== CONFIGURATION =====
 interface ChainConfig {
   id: string;
   name: string;
@@ -78,6 +78,44 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
   }
 ];
 
+// ===== STORAGE CONTRACT CONFIGURATION =====
+const STORAGE_CONTRACT_ADDRESS = '0xc8d3a69E93610cdC2B06f3D8f82aAe762BF2162b';
+
+// Storage Contract ABI (useful functions only)
+const STORAGE_CONTRACT_ABI = [
+  {
+    "inputs": [
+      {"internalType": "address", "name": "user", "type": "address"}
+    ],
+    "name": "getUserContracts",
+    "outputs": [
+      {
+        "components": [
+          {"internalType": "address", "name": "callbackContract", "type": "address"},
+          {"internalType": "address", "name": "rscContract", "type": "address"},
+          {"internalType": "uint256", "name": "chainId", "type": "uint256"}
+        ],
+        "internalType": "struct UserContracts",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "user", "type": "address"}
+    ],
+    "name": "hasUserContracts",
+    "outputs": [
+      {"internalType": "bool", "name": "", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
 // ===== CONTRACT ADDRESS MANAGEMENT =====
 interface UserContractAddresses {
   reactiveContract: string;
@@ -87,17 +125,50 @@ interface UserContractAddresses {
   deployer: string;
 }
 
-const getContractStorageKey = (userAddress: string, chainId: string): string => {
-  return `stop-order-contracts-${userAddress.toLowerCase()}-${chainId}`;
-};
-
-const getStoredContracts = (userAddress: string, chainId: string): UserContractAddresses | null => {
+// ===== STORAGE CONTRACT FUNCTIONS =====
+const getStoredContracts = async (
+  userAddress: string, 
+  chainId: string,
+  rscProvider: ethers.JsonRpcProvider
+): Promise<UserContractAddresses | null> => {
   try {
-    const key = getContractStorageKey(userAddress, chainId);
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
+    console.log('🔍 DASHBOARD: Fetching contracts from storage contract for user:', userAddress);
+    
+    const storageContract = new ethers.Contract(
+      STORAGE_CONTRACT_ADDRESS,
+      STORAGE_CONTRACT_ABI,
+      rscProvider
+    );
+    
+    // Check if user has contracts
+    const hasContracts = await storageContract.hasUserContracts(userAddress);
+    if (!hasContracts) {
+      console.log('ℹ️ DASHBOARD: No contracts found for user in storage');
+      return null;
+    }
+    
+    // Get user contracts
+    const userContracts = await storageContract.getUserContracts(userAddress);
+    
+    if (userContracts.rscContract === ethers.ZeroAddress) {
+      console.log('ℹ️ DASHBOARD: No valid RSC contract found for user');
+      return null;
+    }
+    
+    // Convert to our interface format
+    const contracts: UserContractAddresses = {
+      reactiveContract: userContracts.rscContract,
+      callbackContract: userContracts.callbackContract,
+      deployedAt: Date.now(), // We don't have deployment time from storage contract
+      chainId: userContracts.chainId.toString(),
+      deployer: userAddress.toLowerCase()
+    };
+    
+    console.log('✅ DASHBOARD: Successfully retrieved contracts from storage:', contracts);
+    return contracts;
+    
   } catch (error) {
-    console.error('Error reading stored contracts:', error);
+    console.error('❌ DASHBOARD: Error fetching contracts from storage:', error);
     return null;
   }
 };
@@ -300,7 +371,7 @@ const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx'
   return `${baseUrl}/${type}/${address}`;
 };
 
-// ===== STATUS CONFIGURATION (PROFESSIONAL COLORS) =====
+// ===== STATUS CONFIGURATION =====
 const STATUS_CONFIG = {
   [OrderStatus.Active]: {
     label: 'Active',
@@ -329,6 +400,43 @@ const STATUS_CONFIG = {
     bgColor: 'bg-red-500/10',
     borderColor: 'border-red-500/30',
     icon: AlertCircle
+  }
+};
+
+// ===== CONTRACT VALIDATION =====
+const validateStoredContracts = async (
+  contracts: UserContractAddresses,
+  rscProvider: ethers.JsonRpcProvider,
+  sepoliaProvider: ethers.JsonRpcProvider,
+  userAddress: string
+): Promise<boolean> => {
+  try {
+    console.log('Validating stored contracts:', contracts);
+    
+    const reactiveContract = new ethers.Contract(
+      contracts.reactiveContract,
+      REACTIVE_STOP_ORDER_ABI,
+      rscProvider
+    );
+    
+    const deployer = await reactiveContract.getDeployer();
+    
+    if (deployer.toLowerCase() !== userAddress.toLowerCase()) {
+      console.error('User is not the deployer of stored reactive contract');
+      return false;
+    }
+    
+    const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
+    if (callbackCode === '0x') {
+      console.error('Callback contract not found at stored address');
+      return false;
+    }
+    
+    console.log('Contract validation successful');
+    return true;
+  } catch (error) {
+    console.error('Contract validation failed:', error);
+    return false;
   }
 };
 
@@ -361,12 +469,12 @@ const ContractBalanceManager = ({
     try {
       setBalances(prev => ({ ...prev, isLoading: true }));
 
-      // Fetch callback contract balance (Sepolia) - Use specific Sepolia RPC
+      // Fetch callback contract balance (Sepolia)
       const sepoliaProvider = new ethers.JsonRpcProvider(connectedChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
       const callbackBalance = await sepoliaProvider.getBalance(userContracts.callbackContract);
       const callbackBalanceFormatted = ethers.formatEther(callbackBalance);
 
-      // Fetch RSC contract balance (Lasna) - Use specific Lasna RPC
+      // Fetch RSC contract balance (Lasna)
       const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
       const rscBalance = await rscProvider.getBalance(userContracts.reactiveContract);
       const rscBalanceFormatted = ethers.formatEther(rscBalance);
@@ -787,48 +895,11 @@ export default function UpdatedStopOrderDashboard() {
     }
   };
 
-  // ===== CONTRACT VALIDATION =====
-  const validateStoredContracts = async (
-    contracts: UserContractAddresses,
-    rscProvider: ethers.JsonRpcProvider,
-    sepoliaProvider: ethers.JsonRpcProvider,
-    userAddress: string
-  ): Promise<boolean> => {
-    try {
-      console.log('Validating stored contracts:', contracts);
-      
-      const reactiveContract = new ethers.Contract(
-        contracts.reactiveContract,
-        REACTIVE_STOP_ORDER_ABI,
-        rscProvider
-      );
-      
-      const deployer = await reactiveContract.getDeployer();
-      
-      if (deployer.toLowerCase() !== userAddress.toLowerCase()) {
-        console.error('User is not the deployer of stored reactive contract');
-        return false;
-      }
-      
-      const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
-      if (callbackCode === '0x') {
-        console.error('Callback contract not found at stored address');
-        return false;
-      }
-      
-      console.log('Contract validation successful');
-      return true;
-    } catch (error) {
-      console.error('Contract validation failed:', error);
-      return false;
-    }
-  };
-
-  // ===== ORDER FETCHING WITH PROPER PROVIDERS =====
+  // ===== ORDER FETCHING WITH STORAGE CONTRACT =====
   const fetchUserOrders = async () => {
     if (!connectedAccount) return;
 
-    console.log('Fetching orders for account:', connectedAccount);
+    console.log('🔍 DASHBOARD: Fetching orders for account:', connectedAccount);
     setIsLoading(true);
     
     try {
@@ -839,12 +910,12 @@ export default function UpdatedStopOrderDashboard() {
       const sepoliaProvider = new ethers.JsonRpcProvider(targetChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
       const rscProvider = new ethers.JsonRpcProvider(targetChain.rscNetwork.rpcUrl);
       
-      // Check for user's deployed contracts
-      const stored = getStoredContracts(connectedAccount, targetChain.id);
-      console.log('Stored contracts found:', stored);
+      // Check for user's deployed contracts using storage contract
+      const stored = await getStoredContracts(connectedAccount, targetChain.id, rscProvider);
+      console.log('🔍 DASHBOARD: Storage contract query result:', stored);
       
       if (!stored) {
-        console.log('No contracts found for user');
+        console.log('ℹ️ DASHBOARD: No contracts found for user');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -855,9 +926,7 @@ export default function UpdatedStopOrderDashboard() {
       const valid = await validateStoredContracts(stored, rscProvider, sepoliaProvider, connectedAccount);
       
       if (!valid) {
-        console.log('Stored contracts are invalid, clearing...');
-        const key = getContractStorageKey(connectedAccount, targetChain.id);
-        localStorage.removeItem(key);
+        console.log('❌ DASHBOARD: Stored contracts are invalid');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -874,16 +943,16 @@ export default function UpdatedStopOrderDashboard() {
         rscProvider
       );
 
-      console.log('Using reactive contract address:', stored.reactiveContract);
+      console.log('📋 DASHBOARD: Using reactive contract address:', stored.reactiveContract);
 
       // Get all user's orders from RSC network
       const [activeOrders, executedOrders, cancelledOrders] = await reactiveContract.getAllUserOrders(connectedAccount);
       const allOrderIds = [...activeOrders, ...executedOrders, ...cancelledOrders];
       
-      console.log('All order IDs:', allOrderIds);
+      console.log('📋 DASHBOARD: All order IDs:', allOrderIds);
       
       if (allOrderIds.length === 0) {
-        console.log('No orders found for user');
+        console.log('ℹ️ DASHBOARD: No orders found for user');
         setOrders([]);
         return;
       }
@@ -891,9 +960,9 @@ export default function UpdatedStopOrderDashboard() {
       // Fetch all order details
       const orderPromises = allOrderIds.map(async (orderId: bigint) => {
         try {
-          console.log('Fetching order:', Number(orderId));
+          console.log('📋 DASHBOARD: Fetching order:', Number(orderId));
           const orderData = await reactiveContract.getStopOrder(orderId);
-          console.log('Raw order data:', orderData);
+          console.log('📋 DASHBOARD: Raw order data:', orderData);
           
           // Get pair token information using Sepolia provider
           const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, sepoliaProvider);
@@ -933,10 +1002,10 @@ export default function UpdatedStopOrderDashboard() {
             contractAddress: stored.reactiveContract
           };
 
-          console.log('Processed order:', order);
+          console.log('✅ DASHBOARD: Processed order:', order);
           return order;
         } catch (error) {
-          console.error('Error fetching order:', orderId, error);
+          console.error('❌ DASHBOARD: Error fetching order:', orderId, error);
           return null;
         }
       });
@@ -947,10 +1016,10 @@ export default function UpdatedStopOrderDashboard() {
       // Sort by creation time (newest first)
       validOrders.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('Final orders:', validOrders);
+      console.log('✅ DASHBOARD: Final orders:', validOrders);
       setOrders(validOrders);
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error('❌ DASHBOARD: Error fetching orders:', error);
       toast.error('Failed to load orders');
       setOrders([]);
       setUserContracts(null);
@@ -1266,7 +1335,7 @@ export default function UpdatedStopOrderDashboard() {
                   {userContracts && contractsValid && (
                     <div className="flex items-center space-x-2">
                       <Shield className="w-4 h-4 text-emerald-400" />
-                      <span className="text-emerald-300 text-sm">Multi-Order System Active</span>
+                      <span className="text-emerald-300 text-sm">Storage Contract System Active</span>
                     </div>
                   )}
                 </div>
@@ -1383,15 +1452,19 @@ export default function UpdatedStopOrderDashboard() {
           </Card>
         )}
 
-        {/* No Contracts Warning */}
+        {/* Storage Contract System Info */}
         {!userContracts && connectedAccount && !isLoading && (
-          <Alert className="bg-amber-900/20 border-amber-600/30 text-amber-200 mt-8">
+          <Alert className="bg-blue-900/20 border-blue-600/30 text-blue-200 mt-8">
             <Info className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2">
-                <p className="font-medium">Multi-Order System Ready</p>
+                <p className="font-medium">Storage Contract System Ready</p>
                 <p className="text-sm">
-                  Your first stop order will deploy personal smart contracts. Additional orders will use the same contracts at much lower cost.
+                  Your first stop order will deploy personal smart contracts and register them in our storage system. 
+                  Additional orders will automatically discover and use the same contracts at much lower cost.
+                </p>
+                <p className="text-xs text-blue-300 mt-2">
+                  Storage Contract: {STORAGE_CONTRACT_ADDRESS.slice(0, 8)}...{STORAGE_CONTRACT_ADDRESS.slice(-6)} (Reactive Network)
                 </p>
               </div>
             </AlertDescription>
