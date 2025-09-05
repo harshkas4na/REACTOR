@@ -93,7 +93,7 @@ export default function Navigation() {
                   <SelectTrigger className="w-[140px] lg:w-[200px] text-sm lg:text-base rounded-full bg-background/70 border-border text-foreground">
                     <SelectValue placeholder="Select Network" className="text-foreground" />
                   </SelectTrigger>
-                  <SelectContent className="bg-background/80 backdrop-blur-md border-border text-foreground">
+                  <SelectContent defaultValue={'Ethereum Sepolia'} className="bg-background/80 backdrop-blur-md border-border text-foreground">
                     {/* Testnets */}
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Testnets
