@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   CheckCircle, 
   X, 
@@ -28,7 +30,10 @@ import {
   Wallet,
   DollarSign,
   Zap,
-  Settings
+  Settings,
+  Download,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -79,7 +84,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
 ];
 
 // ===== STORAGE CONTRACT CONFIGURATION =====
-const STORAGE_CONTRACT_ADDRESS = '0xb8d45940841de248B434c82F691b343fdBD945E0';
+const STORAGE_CONTRACT_ADDRESS = '0xB7ef2Aaf39E0a6177E3F4Fca1439D8627faA3EC6';
 
 // Storage Contract ABI (useful functions only)
 const STORAGE_CONTRACT_ABI = 
@@ -286,7 +291,7 @@ const getStoredContracts = async (
   }
 };
 
-// ===== UPDATED ABIs FOR MULTI-ORDER SYSTEM =====
+// ===== UPDATED ABIs FOR MULTI-ORDER SYSTEM WITH WITHDRAWAL FUNCTIONS =====
 const REACTIVE_STOP_ORDER_ABI = [
   {
     "inputs": [{ "internalType": "uint256", "name": "orderId", "type": "uint256" }],
@@ -365,6 +370,72 @@ const REACTIVE_STOP_ORDER_ABI = [
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
+  },
+  // Withdrawal functions
+  {
+    "inputs": [
+      { "internalType": "address", "name": "to", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "withdrawETH",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "to", "type": "address" }],
+    "name": "withdrawAllETH",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Events
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "ETHWithdrawn",
+    "type": "event"
+  }
+];
+
+const CALLBACK_CONTRACT_ABI = [
+  {
+    "inputs": [],
+    "name": "getDeployer",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // Withdrawal functions
+  {
+    "inputs": [
+      { "internalType": "address", "name": "to", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "withdrawETH",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "to", "type": "address" }],
+    "name": "withdrawAllETH",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Events
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "ETHWithdrawn",
+    "type": "event"
   }
 ];
 
@@ -535,15 +606,15 @@ const validateStoredContracts = async (
     const deployer = await reactiveContract.getDeployer();
     
     if (deployer.toLowerCase() !== userAddress.toLowerCase()) {
-      console.error('User is not the deployer of stored reactive contract');
+      console.log('User is not the deployer of stored reactive contract');
       return false;
     }
     
-    const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
-    if (callbackCode === '0x') {
-      console.error('Callback contract not found at stored address');
-      return false;
-    }
+    // const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
+    // if (callbackCode === '0x') {
+    //   console.log('Callback contract not found at stored address');
+    //   return false;
+    // }
     
     console.log('Contract validation successful');
     return true;
@@ -557,11 +628,13 @@ const validateStoredContracts = async (
 const ContractBalanceManager = ({ 
   userContracts, 
   connectedChain, 
-  onBalanceUpdate 
+  onBalanceUpdate,
+  connectedAccount 
 }: {
   userContracts: UserContractAddresses;
   connectedChain: ChainConfig;
   onBalanceUpdate: (balances: ContractBalances) => void;
+  connectedAccount: string;
 }) => {
   const [balances, setBalances] = useState<ContractBalances>({
     callbackBalance: '0',
@@ -573,10 +646,25 @@ const ContractBalanceManager = ({
     callback: false,
     rsc: false
   });
+  const [isWithdrawing, setIsWithdrawing] = useState<{ callback: boolean; rsc: boolean }>({
+    callback: false,
+    rsc: false
+  });
 
   // Define minimum safe balances
   const MIN_CALLBACK_BALANCE = 0.001; // 0.001 ETH
   const MIN_RSC_BALANCE = 0.01; // 0.01 REACT
+
+  // Funding input states
+  const [callbackFundingAmount, setCallbackFundingAmount] = useState('0.01');
+  const [rscFundingAmount, setRscFundingAmount] = useState('0.1');
+  const [withdrawalAmounts, setWithdrawalAmounts] = useState({
+    callback: '',
+    rsc: ''
+  });
+
+  const [showFundingOptions, setShowFundingOptions] = useState(false);
+  const [showWithdrawalOptions, setShowWithdrawalOptions] = useState(false);
 
   const fetchBalances = useCallback(async () => {
     try {
@@ -647,6 +735,11 @@ const ContractBalanceManager = ({
 
   const handleFundCallback = async () => {
     try {
+      if (!callbackFundingAmount || parseFloat(callbackFundingAmount) <= 0) {
+        toast.error('Please enter a valid funding amount');
+        return;
+      }
+
       setIsFunding(prev => ({ ...prev, callback: true }));
       
       // Switch to Sepolia if not already
@@ -655,14 +748,13 @@ const ContractBalanceManager = ({
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
-      const fundingAmount = '0.01'; // 0.01 ETH
       const tx = await signer.sendTransaction({
         to: userContracts.callbackContract,
-        value: ethers.parseEther(fundingAmount),
+        value: ethers.parseEther(callbackFundingAmount),
       });
       
       await tx.wait();
-      toast.success('Callback contract funded successfully');
+      toast.success(`Callback contract funded with ${callbackFundingAmount} ETH`);
       await fetchBalances();
     } catch (error: any) {
       console.error('Error funding callback contract:', error);
@@ -678,6 +770,11 @@ const ContractBalanceManager = ({
 
   const handleFundRSC = async () => {
     try {
+      if (!rscFundingAmount || parseFloat(rscFundingAmount) <= 0) {
+        toast.error('Please enter a valid funding amount');
+        return;
+      }
+
       setIsFunding(prev => ({ ...prev, rsc: true }));
       
       // Switch to RSC network
@@ -686,14 +783,13 @@ const ContractBalanceManager = ({
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
-      const fundingAmount = '0.1'; // 0.1 REACT
       const tx = await signer.sendTransaction({
         to: userContracts.reactiveContract,
-        value: ethers.parseEther(fundingAmount),
+        value: ethers.parseEther(rscFundingAmount),
       });
       
       await tx.wait();
-      toast.success('RSC contract funded successfully');
+      toast.success(`RSC contract funded with ${rscFundingAmount} REACT`);
       await fetchBalances();
     } catch (error: any) {
       console.error('Error funding RSC contract:', error);
@@ -707,12 +803,132 @@ const ContractBalanceManager = ({
     }
   };
 
+  const handleWithdrawCallback = async (withdrawAll: boolean = false) => {
+    try {
+      if (!withdrawAll && (!withdrawalAmounts.callback || parseFloat(withdrawalAmounts.callback) <= 0)) {
+        toast.error('Please enter a valid withdrawal amount');
+        return;
+      }
+
+      const availableBalance = parseFloat(balances.callbackBalance);
+      const withdrawAmount = withdrawAll ? availableBalance : parseFloat(withdrawalAmounts.callback);
+
+      if (withdrawAmount > availableBalance) {
+        toast.error('Withdrawal amount exceeds available balance');
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to withdraw ${withdrawAll ? 'all' : withdrawAmount} ETH from the callback contract?`)) {
+        return;
+      }
+
+      setIsWithdrawing(prev => ({ ...prev, callback: true }));
+      
+      // Switch to Sepolia
+      await switchNetwork(connectedChain.id);
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const callbackContract = new ethers.Contract(
+        userContracts.callbackContract,
+        CALLBACK_CONTRACT_ABI,
+        signer
+      );
+
+      let tx;
+      if (withdrawAll) {
+        tx = await callbackContract.withdrawAllETH(connectedAccount);
+      } else {
+        tx = await callbackContract.withdrawETH(
+          connectedAccount,
+          ethers.parseEther(withdrawalAmounts.callback)
+        );
+      }
+      
+      await tx.wait();
+      toast.success(`Successfully withdrew ${withdrawAll ? 'all' : withdrawAmount} ETH from callback contract`);
+      setWithdrawalAmounts(prev => ({ ...prev, callback: '' }));
+      await fetchBalances();
+    } catch (error: any) {
+      console.error('Error withdrawing from callback contract:', error);
+      if (error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else if (error.message.includes('Only deployer')) {
+        toast.error('Only the contract deployer can withdraw funds');
+      } else {
+        toast.error('Failed to withdraw from callback contract');
+      }
+    } finally {
+      setIsWithdrawing(prev => ({ ...prev, callback: false }));
+    }
+  };
+
+  const handleWithdrawRSC = async (withdrawAll: boolean = false) => {
+    try {
+      if (!withdrawAll && (!withdrawalAmounts.rsc || parseFloat(withdrawalAmounts.rsc) <= 0)) {
+        toast.error('Please enter a valid withdrawal amount');
+        return;
+      }
+
+      const availableBalance = parseFloat(balances.rscBalance);
+      const withdrawAmount = withdrawAll ? availableBalance : parseFloat(withdrawalAmounts.rsc);
+
+      if (withdrawAmount > availableBalance) {
+        toast.error('Withdrawal amount exceeds available balance');
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to withdraw ${withdrawAll ? 'all' : withdrawAmount} REACT from the RSC contract?`)) {
+        return;
+      }
+
+      setIsWithdrawing(prev => ({ ...prev, rsc: true }));
+      
+      // Switch to RSC network
+      await switchNetwork(connectedChain.rscNetwork.chainId);
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const reactiveContract = new ethers.Contract(
+        userContracts.reactiveContract,
+        REACTIVE_STOP_ORDER_ABI,
+        signer
+      );
+
+      let tx;
+      if (withdrawAll) {
+        tx = await reactiveContract.withdrawAllETH(connectedAccount);
+      } else {
+        tx = await reactiveContract.withdrawETH(
+          connectedAccount,
+          ethers.parseEther(withdrawalAmounts.rsc)
+        );
+      }
+      
+      await tx.wait();
+      toast.success(`Successfully withdrew ${withdrawAll ? 'all' : withdrawAmount} REACT from RSC contract`);
+      setWithdrawalAmounts(prev => ({ ...prev, rsc: '' }));
+      await fetchBalances();
+    } catch (error: any) {
+      console.error('Error withdrawing from RSC contract:', error);
+      if (error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else if (error.message.includes('Only deployer')) {
+        toast.error('Only the contract deployer can withdraw funds');
+      } else {
+        toast.error('Failed to withdraw from RSC contract');
+      }
+    } finally {
+      setIsWithdrawing(prev => ({ ...prev, rsc: false }));
+    }
+  };
+
   const callbackBalanceNum = parseFloat(balances.callbackBalance);
   const rscBalanceNum = parseFloat(balances.rscBalance);
   const callbackLow = callbackBalanceNum < MIN_CALLBACK_BALANCE;
   const rscLow = rscBalanceNum < MIN_RSC_BALANCE;
-
-  const [showFundingOptions, setShowFundingOptions] = useState(false);
 
   return (
     <Card className="border-slate-700 bg-slate-900/50">
@@ -733,7 +949,7 @@ const ContractBalanceManager = ({
           </Button>
         </CardTitle>
         <CardDescription className="text-slate-400">
-          Monitor and fund your smart contracts for optimal performance
+          Monitor, fund, and withdraw from your smart contracts
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-6">
@@ -851,64 +1067,205 @@ const ContractBalanceManager = ({
           </div>
         </div>
 
-        {/* Status Summary and Optional Funding */}
+        {/* Management Options */}
         <div className="pt-3 border-t border-slate-700">
-          <div className="flex items-center justify-between text-sm mb-2">
+          <div className="flex items-center justify-between text-sm mb-3">
             <span className="text-slate-400">Last updated:</span>
-            <div className="flex items-center space-x-3">
-              <span className="text-slate-300">
-                {balances.lastUpdated ? formatTimeAgo(balances.lastUpdated / 1000) : 'Never'}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFundingOptions(!showFundingOptions)}
-                className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 h-6"
-              >
-                {showFundingOptions ? 'Hide' : 'Manage'} Funding
-              </Button>
-            </div>
+            <span className="text-slate-300">
+              {balances.lastUpdated ? formatTimeAgo(balances.lastUpdated / 1000) : 'Never'}
+            </span>
           </div>
           
-          {/* Optional Funding Controls */}
-          {showFundingOptions && (
-            <div className="mt-3 p-3 bg-slate-800/30 rounded-lg border border-slate-600/30">
-              <p className="text-xs text-slate-400 mb-3">Add funds to your contracts for extended operation</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  onClick={() => handleFundCallback()}
-                  disabled={isFunding.callback}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs border-slate-600 hover:border-slate-500"
-                >
-                  {isFunding.callback ? (
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                  ) : (
-                    <Zap className="w-3 h-3 mr-1" />
-                  )}
-                  Add 0.01 ETH
-                </Button>
-                <Button
-                  onClick={() => handleFundRSC()}
-                  disabled={isFunding.rsc}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs border-slate-600 hover:border-slate-500"
-                >
-                  {isFunding.rsc ? (
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                  ) : (
-                    <Zap className="w-3 h-3 mr-1" />
-                  )}
-                  Add 0.1 REACT
-                </Button>
+          <div className="space-y-2">
+            {/* Funding Options */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFundingOptions(!showFundingOptions)}
+              className="w-full justify-between text-slate-300 hover:text-slate-100 hover:bg-slate-800/50"
+            >
+              <div className="flex items-center">
+                <Zap className="w-4 h-4 mr-2" />
+                Fund Contracts
               </div>
-            </div>
-          )}
+              {showFundingOptions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+            
+            {showFundingOptions && (
+              <div className="mt-3 p-4 bg-slate-800/30 rounded-lg border border-slate-600/30 space-y-4">
+                {/* Callback Funding */}
+                <div className="space-y-2">
+                  <Label className="text-slate-300 text-sm">Fund Callback Contract (ETH)</Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={callbackFundingAmount}
+                      onChange={(e) => setCallbackFundingAmount(e.target.value)}
+                      placeholder="0.01"
+                      className="flex-1 bg-slate-800 border-slate-600 text-slate-200"
+                    />
+                    <Button
+                      onClick={handleFundCallback}
+                      disabled={isFunding.callback}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isFunding.callback ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Fund'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* RSC Funding */}
+                <div className="space-y-2">
+                  <Label className="text-slate-300 text-sm">Fund RSC Contract (REACT)</Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={rscFundingAmount}
+                      onChange={(e) => setRscFundingAmount(e.target.value)}
+                      placeholder="0.1"
+                      className="flex-1 bg-slate-800 border-slate-600 text-slate-200"
+                    />
+                    <Button
+                      onClick={handleFundRSC}
+                      disabled={isFunding.rsc}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isFunding.rsc ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Fund'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Withdrawal Options */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowWithdrawalOptions(!showWithdrawalOptions)}
+              className="w-full justify-between text-slate-300 hover:text-slate-100 hover:bg-slate-800/50"
+            >
+              <div className="flex items-center">
+                <Download className="w-4 h-4 mr-2" />
+                Withdraw from Contracts
+              </div>
+              {showWithdrawalOptions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+            
+            {showWithdrawalOptions && (
+              <div className="mt-3 p-4 bg-slate-800/30 rounded-lg border border-slate-600/30 space-y-4">
+                {/* Callback Withdrawal */}
+                <div className="space-y-2">
+                  <Label className="text-slate-300 text-sm">
+                    Withdraw from Callback Contract (Available: {parseFloat(balances.callbackBalance).toFixed(6)} ETH)
+                  </Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      max={balances.callbackBalance}
+                      value={withdrawalAmounts.callback}
+                      onChange={(e) => setWithdrawalAmounts(prev => ({ ...prev, callback: e.target.value }))}
+                      placeholder="Amount to withdraw"
+                      className="flex-1 bg-slate-800 border-slate-600 text-slate-200"
+                    />
+                    <Button
+                      onClick={() => handleWithdrawCallback(false)}
+                      disabled={isWithdrawing.callback}
+                      size="sm"
+                      variant="outline"
+                      className="border-slate-600"
+                    >
+                      {isWithdrawing.callback ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Withdraw'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleWithdrawCallback(true)}
+                      disabled={isWithdrawing.callback}
+                      size="sm"
+                      variant="outline"
+                      className="border-red-600 text-red-300 hover:bg-red-900/20"
+                    >
+                      {isWithdrawing.callback ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'All'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* RSC Withdrawal */}
+                <div className="space-y-2">
+                  <Label className="text-slate-300 text-sm">
+                    Withdraw from RSC Contract (Available: {parseFloat(balances.rscBalance).toFixed(6)} REACT)
+                  </Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={balances.rscBalance}
+                      value={withdrawalAmounts.rsc}
+                      onChange={(e) => setWithdrawalAmounts(prev => ({ ...prev, rsc: e.target.value }))}
+                      placeholder="Amount to withdraw"
+                      className="flex-1 bg-slate-800 border-slate-600 text-slate-200"
+                    />
+                    <Button
+                      onClick={() => handleWithdrawRSC(false)}
+                      disabled={isWithdrawing.rsc}
+                      size="sm"
+                      variant="outline"
+                      className="border-slate-600"
+                    >
+                      {isWithdrawing.rsc ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Withdraw'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleWithdrawRSC(true)}
+                      disabled={isWithdrawing.rsc}
+                      size="sm"
+                      variant="outline"
+                      className="border-red-600 text-red-300 hover:bg-red-900/20"
+                    >
+                      {isWithdrawing.rsc ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'All'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
+                  ⚠️ Only the contract deployer can withdraw funds. Withdrawing all funds may prevent future order execution.
+                </div>
+              </div>
+            )}
+          </div>
           
           {(callbackLow || rscLow) && (
-            <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
+            <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
               Low contract balances may prevent order execution. Fund contracts to ensure reliability.
             </div>
           )}
@@ -916,6 +1273,81 @@ const ContractBalanceManager = ({
       </CardContent>
     </Card>
   );
+};
+
+// ===== TOKEN AND PAIR DATA FETCHING =====
+const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcProvider): Promise<Token> => {
+  try {
+    const tokenContract = new ethers.Contract(address, TOKEN_ABI, provider);
+    const [symbol, name, decimals] = await Promise.all([
+      tokenContract.symbol(),
+      tokenContract.name(),
+      tokenContract.decimals()
+    ]);
+
+    return {
+      address,
+      symbol,
+      name,
+      decimals: Number(decimals)
+    };
+  } catch (error) {
+    console.error('Error fetching token info for', address, ':', error);
+    return {
+      address,
+      symbol: 'UNKNOWN',
+      name: 'Unknown Token',
+      decimals: 18
+    };
+  }
+};
+
+const getCurrentPairPrice = async (pairAddress: string, sellToken0: boolean, provider: ethers.JsonRpcProvider): Promise<number> => {
+  try {
+    const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+    const [reserve0, reserve1] = await pairContract.getReserves();
+    console.log(reserve0,reserve1)
+    if (reserve0 === BigInt(0) || reserve1 === BigInt(0)) return 0;
+
+    const price = sellToken0 
+      ? Number(reserve1) / Number(reserve0)
+      : Number(reserve0) / Number(reserve1);
+      console.log(price)
+
+    return price;
+  } catch (error) {
+    console.error('Error fetching pair price:', error);
+    return 0;
+  }
+};
+
+const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcProvider) => {
+  try {
+    const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.token0, provider);
+    const coefficient = Number(orderData.coefficient);
+    const threshold = Number(orderData.threshold);
+    const triggerPrice = threshold / coefficient;
+
+    
+    let dropPercentage = 0;
+    if (currentPrice > 0 && triggerPrice > 0) {
+      dropPercentage = ((currentPrice - triggerPrice) / currentPrice) * 100;
+      dropPercentage = Math.max(0, Math.min(50, dropPercentage));
+    }
+   
+    return {
+      currentPrice: currentPrice.toFixed(6),
+      triggerPrice: triggerPrice.toFixed(6),
+      dropPercentage: Math.round(dropPercentage * 10) / 10
+    };
+  } catch (error) {
+    console.error('Error calculating order metrics:', error);
+    return {
+      currentPrice: '0',
+      triggerPrice: '0',
+      dropPercentage: 0
+    };
+  }
 };
 
 // ===== MAIN DASHBOARD COMPONENT =====
@@ -934,79 +1366,6 @@ export default function UpdatedStopOrderDashboard() {
     isLoading: true,
     lastUpdated: 0
   });
-
-  // ===== TOKEN AND PAIR DATA FETCHING =====
-  const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcProvider): Promise<Token> => {
-    try {
-      const tokenContract = new ethers.Contract(address, TOKEN_ABI, provider);
-      const [symbol, name, decimals] = await Promise.all([
-        tokenContract.symbol(),
-        tokenContract.name(),
-        tokenContract.decimals()
-      ]);
-
-      return {
-        address,
-        symbol,
-        name,
-        decimals: Number(decimals)
-      };
-    } catch (error) {
-      console.error('Error fetching token info for', address, ':', error);
-      return {
-        address,
-        symbol: 'UNKNOWN',
-        name: 'Unknown Token',
-        decimals: 18
-      };
-    }
-  };
-
-  const getCurrentPairPrice = async (pairAddress: string, sellToken0: boolean, provider: ethers.JsonRpcProvider): Promise<number> => {
-    try {
-      const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
-      const [reserve0, reserve1] = await pairContract.getReserves();
-
-      if (reserve0 === BigInt(0) || reserve1 === BigInt(0)) return 0;
-
-      const price = sellToken0 
-        ? Number(reserve1) / Number(reserve0)
-        : Number(reserve0) / Number(reserve1);
-
-      return price;
-    } catch (error) {
-      console.error('Error fetching pair price:', error);
-      return 0;
-    }
-  };
-
-  const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcProvider) => {
-    try {
-      const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.token0, provider);
-      const coefficient = Number(orderData.coefficient);
-      const threshold = Number(orderData.threshold);
-      const triggerPrice = threshold / coefficient;
-      
-      let dropPercentage = 0;
-      if (currentPrice > 0 && triggerPrice > 0) {
-        dropPercentage = ((currentPrice - triggerPrice) / currentPrice) * 100;
-        dropPercentage = Math.max(0, Math.min(50, dropPercentage));
-      }
-
-      return {
-        currentPrice: currentPrice.toFixed(6),
-        triggerPrice: triggerPrice.toFixed(6),
-        dropPercentage: Math.round(dropPercentage * 10) / 10
-      };
-    } catch (error) {
-      console.error('Error calculating order metrics:', error);
-      return {
-        currentPrice: '0',
-        triggerPrice: '0',
-        dropPercentage: 0
-      };
-    }
-  };
 
   // ===== ORDER FETCHING WITH STORAGE CONTRACT =====
   const fetchUserOrders = async () => {
@@ -1095,7 +1454,7 @@ export default function UpdatedStopOrderDashboard() {
 
           // Calculate metrics using Sepolia provider
           const metrics = await calculateOrderMetrics(orderData, sepoliaProvider);
-
+          console.log(metrics)
           const order: StopOrder = {
             id: Number(orderId),
             pair: orderData.pair,
@@ -1286,12 +1645,6 @@ export default function UpdatedStopOrderDashboard() {
                 {order.triggerPrice || '0.000000'}
               </p>
             </div>
-            {/* <div className="bg-slate-800/50 p-3 rounded-lg">
-              <p className="text-sm text-slate-400 mb-1">Drop Threshold</p>
-              <p className="text-base font-semibold text-amber-300">
-                -{order.dropPercentage || 0}%
-              </p>
-            </div> */}
           </div>
 
           {/* Token Information */}
@@ -1377,7 +1730,7 @@ export default function UpdatedStopOrderDashboard() {
   // ===== MAIN RENDER =====
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center ">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
           <p className="text-slate-300">Loading your stop orders...</p>
@@ -1501,6 +1854,7 @@ export default function UpdatedStopOrderDashboard() {
               userContracts={userContracts}
               connectedChain={connectedChain}
               onBalanceUpdate={setContractBalances}
+              connectedAccount={connectedAccount}
             />
           </motion.div>
         )}
