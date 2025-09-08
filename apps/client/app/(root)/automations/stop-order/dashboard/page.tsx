@@ -542,7 +542,7 @@ const formatTimeAgo = (timestamp: number) => {
   return 'Just now';
 };
 
-const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx' = 'address'): string => {
+const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx' = 'address', connectedAccount?: string): string => {
   const explorers: Record<string, string> = {
     '1': 'https://etherscan.io',
     '11155111': 'https://sepolia.etherscan.io',
@@ -551,6 +551,16 @@ const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx'
   
   const baseUrl = explorers[chainId];
   if (!baseUrl) return '#';
+
+  // Special handling for Reactive network (Lasna)
+  if (chainId === '5318007') {
+    if (type === 'address' && connectedAccount) {
+      // For contract addresses on Reactive network, use the RVM/contract format
+      return `${baseUrl}/address/${connectedAccount}/contract/${address}`;
+    }
+    // For transactions or when no connected account, use standard format
+    return `${baseUrl}/${type}/${address}`;
+  }
   
   return `${baseUrl}/${type}/${address}`;
 };
@@ -609,12 +619,6 @@ const validateStoredContracts = async (
       console.log('User is not the deployer of stored reactive contract');
       return false;
     }
-    
-    // const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
-    // if (callbackCode === '0x') {
-    //   console.log('Callback contract not found at stored address');
-    //   return false;
-    // }
     
     console.log('Contract validation successful');
     return true;
@@ -963,7 +967,7 @@ const ContractBalanceManager = ({
               </p>
             </div>
             <Link 
-              href={getExplorerUrl(userContracts.callbackContract, connectedChain.id)}
+              href={getExplorerUrl(userContracts.callbackContract, connectedChain.id, 'address', connectedAccount)}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -1020,7 +1024,7 @@ const ContractBalanceManager = ({
               </p>
             </div>
             <Link 
-              href={getExplorerUrl(userContracts.reactiveContract, connectedChain.rscNetwork.chainId)}
+              href={getExplorerUrl(userContracts.reactiveContract, connectedChain.rscNetwork.chainId, 'address', connectedAccount)}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -1306,13 +1310,12 @@ const getCurrentPairPrice = async (pairAddress: string, sellToken0: boolean, pro
   try {
     const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
     const [reserve0, reserve1] = await pairContract.getReserves();
-    console.log(reserve0,reserve1)
+    
     if (reserve0 === BigInt(0) || reserve1 === BigInt(0)) return 0;
 
     const price = sellToken0 
       ? Number(reserve1) / Number(reserve0)
       : Number(reserve0) / Number(reserve1);
-      console.log(price)
 
     return price;
   } catch (error) {
@@ -1328,7 +1331,6 @@ const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcPro
     const threshold = Number(orderData.threshold);
     const triggerPrice = threshold / coefficient;
 
-    
     let dropPercentage = 0;
     if (currentPrice > 0 && triggerPrice > 0) {
       dropPercentage = ((currentPrice - triggerPrice) / currentPrice) * 100;
@@ -1454,7 +1456,7 @@ export default function UpdatedStopOrderDashboard() {
 
           // Calculate metrics using Sepolia provider
           const metrics = await calculateOrderMetrics(orderData, sepoliaProvider);
-          console.log(metrics)
+          
           const order: StopOrder = {
             id: Number(orderId),
             pair: orderData.pair,
@@ -1687,7 +1689,7 @@ export default function UpdatedStopOrderDashboard() {
                   {order.contractAddress?.slice(0, 6)}...{order.contractAddress?.slice(-4)}
                 </code>
                 <Link 
-                  href={getExplorerUrl(order.contractAddress || '', connectedChain?.rscNetwork.chainId || '5318007')}
+                  href={getExplorerUrl(order.contractAddress || '', connectedChain?.rscNetwork.chainId || '5318007', 'address', connectedAccount)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
