@@ -496,7 +496,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     callbackAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
     rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.00001',
+    defaultFunding: '0.03',
     rscNetwork: {
       chainId: '5318007',
       name: 'Reactive Lasna',
@@ -1257,7 +1257,7 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     coefficient: '1000',
     threshold: '',
     amount: '',
-    destinationFunding: '0.00001',
+    destinationFunding: '0.03',
     rscFunding: '0.05',
     dropPercentage: '10',
     currentPrice: '',
