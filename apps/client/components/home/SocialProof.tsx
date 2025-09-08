@@ -6,8 +6,8 @@ import { motion } from 'framer-motion'
 const stats = [
   { name: 'Audited Smart Contracts', value: '100%', icon: ShieldCheck },
   { name: 'Automations Executed', value: '500+', icon: Zap },
-  { name: 'Core Protocols Live', value: '2', description: '(Uniswap & Aave)', icon: Layers },
-  { name: 'Supported Networks', value: '3+', description: '(Ethereum, Avalanche, Reactive)', icon: Globe },
+  { name: 'Core Protocols Live', value: '1', description: '(Uniswap)', icon: Layers },
+  { name: 'Supported Networks', value: '2+', description: '(Sepolia, Reactive Lasna)', icon: Globe },
 ]
 
 const containerVariants = {

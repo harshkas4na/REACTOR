@@ -101,7 +101,7 @@ export default function FeaturedAutomations() {
                   {automation.cta.primary ? (
                     <Link
                       href={automation.cta.href}
-                      className="inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      className="inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold shadow-sm bg-primary/50 text-primary-foreground hover:bg-primary/60 transition-colors"
                     >
                       {automation.cta.text}
                     </Link>

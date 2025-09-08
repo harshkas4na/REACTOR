@@ -70,11 +70,11 @@ export default function Hero() {
               <Button
                 as="a"
                 href="#featured-automations"
-                color="primary"
+                
                 variant="shadow"
                 size="lg"
                 startContent={<RocketLaunchIcon className="h-5 w-5" />}
-                className="w-full sm:w-auto rounded-full shadow-[0_0_0_1px_rgba(59,130,246,0.2)]"
+                className="w-full bg-primary/50 hover:bg-primary/60 sm:w-auto rounded-full shadow-[0_0_0_1px_rgba(59,130,246,0.2)]"
               >
                 Use Automations
               </Button>
