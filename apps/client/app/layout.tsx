@@ -7,6 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Web3Provider } from "@/app/_context/Web3Context";
 import ReactorAIWrapper from "@/components/ai/ReactorAIWrapper";
 import ReactorBackground from "@/components/ReactorBackground";
+import { ConvexProvider } from "convex/react";
+import { convex } from "@/convex/client"; // Adjust path as needed
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -140,7 +142,9 @@ export default function RootLayout({
                 <ReactorBackground />
                 <Navigation />
                 <main className="flex-grow px-4 sm:px-6 lg:px-8">
+                <ConvexProvider client={convex}>
                   {children}
+                  </ConvexProvider>
                 </main>
                 <ReactorAIWrapper />
               </div>
