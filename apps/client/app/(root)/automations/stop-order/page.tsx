@@ -65,6 +65,8 @@ import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrde
 import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
 import rscABISepolia from '@/data/automations/stop-order/RSCABISepolia.json';
 import { rscByteCodeSepolia } from '@/data/automations/stop-order/RSCByteCode';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 // ===== CONTRACT ABIs =====
 const REACTIVE_STOP_ORDER_ABI = rscABISepolia;
@@ -74,157 +76,6 @@ const CALLBACK_STOP_ORDER_ABI = stopOrderABISepolia;
 const REACTIVE_CONTRACT_BYTECODE = rscByteCodeSepolia;
 const CALLBACK_CONTRACT_BYTECODE = stopOrderByteCodeSepolia;
 
-// ===== STORAGE CONTRACT CONFIGURATION =====
-const STORAGE_CONTRACT_ADDRESS = '0xB7ef2Aaf39E0a6177E3F4Fca1439D8627faA3EC6';
-
-// Minimal ABI for the Storage Contract (only the functions we need)
-const STORAGE_CONTRACT_ABI = 
-  [
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "callbackContract",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "rscContract",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "chainId",
-				"type": "uint256"
-			}
-		],
-		"name": "ContractStored",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "getUserContracts",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "callbackContract",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "rscContract",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "chainId",
-						"type": "uint256"
-					}
-				],
-				"internalType": "struct UserContracts",
-				"name": "",
-				"type": "tuple"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "hasUserContracts",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "callbackContract",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "rscContract",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "chainId",
-				"type": "uint256"
-			}
-		],
-		"name": "storeUserContracts",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "userContracts",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "callbackContract",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "rscContract",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "chainId",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-];
-
 // ===== CONTRACT ADDRESS MANAGEMENT =====
 interface UserContractAddresses {
   reactiveContract: string;
@@ -233,74 +84,6 @@ interface UserContractAddresses {
   chainId: string;
   deployer: string;
 }
-
-// Get stored contracts from the blockchain storage contract
-const getStoredContracts = async (
-  userAddress: string, 
-  chainId: string, 
-  rscProvider: ethers.JsonRpcProvider
-): Promise<UserContractAddresses | null> => {
-  console.log('🔍 RETRIEVAL: Starting getStoredContracts from blockchain');
-  console.log('🔍 Input userAddress:', userAddress);
-  console.log('🔍 Normalized userAddress:', userAddress.toLowerCase().trim());
-  console.log('🔍 Input chainId:', chainId);
-  
-  try {
-    const storageContract = new ethers.Contract(
-      STORAGE_CONTRACT_ADDRESS,
-      STORAGE_CONTRACT_ABI,
-      rscProvider
-    );
-
-    const normalizedUserAddress = userAddress.toLowerCase().trim();
-    
-    // First check if user has contracts
-    const hasContracts = await storageContract.hasUserContracts(normalizedUserAddress);
-    console.log('🔍 User has contracts:', hasContracts);
-    
-    if (!hasContracts) {
-      console.log('ℹ️ RETRIEVAL: No contracts found for user');
-      return null;
-    }
-
-    // Get user contracts
-    const userContracts = await storageContract.getUserContracts(normalizedUserAddress);
-    console.log('🔍 Raw user contracts from blockchain:', userContracts);
-    
-    if (!userContracts.rscContract || userContracts.rscContract === ethers.ZeroAddress) {
-      console.log('ℹ️ RETRIEVAL: No valid RSC contract found');
-      return null;
-    }
-
-    // Check if the chainId matches (convert to string for comparison)
-    const storedChainId = userContracts.chainId.toString();
-    if (storedChainId !== chainId) {
-      console.log('❌ RETRIEVAL: ChainId mismatch');
-      console.log('❌ Expected chainId:', chainId);
-      console.log('❌ Stored chainId:', storedChainId);
-      return null;
-    }
-
-    const result: UserContractAddresses = {
-      reactiveContract: userContracts.rscContract,
-      callbackContract: userContracts.callbackContract,
-      deployedAt: Date.now(), // We don't store this in the contract, so use current time
-      chainId: storedChainId,
-      deployer: normalizedUserAddress
-    };
-
-    console.log('✅ RETRIEVAL SUCCESS: Found and parsed contracts:', result);
-    return result;
-    
-  } catch (error) {
-    console.error('❌ RETRIEVAL ERROR:', error);
-    return null;
-  }
-};
-
-// Note: Storage is now handled automatically by the RSC contract via NewUser event
-// We don't need a separate storeContractAddresses function since the RSC contract
-// emits NewUser event which triggers the storage contract to store the data
 
 // ===== CONTRACT FUNDING STATUS CHECKS =====
 const checkContractFundingStatus = async (
@@ -1276,8 +1059,6 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isDeploymentActive, setIsDeploymentActive] = useState(false);
 
-
-
   // Contract management state
   const [existingContracts, setExistingContracts] = useState<UserContractAddresses | null>(null);
   const [contractsValid, setContractsValid] = useState(false);
@@ -1288,10 +1069,14 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     isActive: boolean;
   } | null>(null);
   const [isCoveringDebt, setIsCoveringDebt] = useState(false);
-const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingStatus.debt) > 0;
+  const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingStatus.debt) > 0;
 
   // Component cleanup ref
   const mountedRef = useRef(true);
+
+  // Convex hooks
+  const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
+  const storeContract = useMutation(api.contracts.store);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1413,41 +1198,62 @@ const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingSta
     return switchNetwork(rscNetworkChainId);
   }, [connectedChain, switchNetwork]);
 
-  // Check for existing contracts on the storage contract
-  const checkExistingContracts = useCallback(async () => {
-    if (!connectedAccount || !connectedChain) return;
+  // Check for existing contracts using Convex data
+  useEffect(() => {
+    if (!connectedAccount || !connectedChain || !contractData) return;
 
-    setIsCheckingContracts(true);
-    try {
-      // Create RSC provider to check storage contract
-      const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
-      
-      // Check stored contracts on the blockchain storage contract
-      const stored = await getStoredContracts(connectedAccount, connectedChain.id, rscProvider);
-      console.log('Stored contracts found:', stored);
-      
-      if (stored) {
-        console.log('Validating stored contracts on RSC network...');
+    const validateContracts = async () => {
+      setIsCheckingContracts(true);
+      try {
+        console.log('Contract data from Convex:', contractData);
         
-        // Validate contracts exist on RSC network and check funding status
-        const validationResult = await validateStoredContracts(stored, rscProvider, connectedAccount);
-        
-        if (validationResult.isValid) {
-          console.log('Contracts are valid, checking funding status...');
-          setExistingContracts(stored);
-          setContractsValid(true);
-          setContractFundingStatus(validationResult.fundingStatus);
+        if (contractData) {
+          // Convert Convex data to UserContractAddresses format
+          const stored: UserContractAddresses = {
+            reactiveContract: contractData.rscContract,
+            callbackContract: contractData.callbackContract,
+            deployedAt: Date.now(), // We don't store this in Convex
+            chainId: contractData.chainId,
+            deployer: contractData.userAddress.toLowerCase()
+          };
+
+          console.log('Validating stored contracts from Convex...');
           
-          // Update cost estimates based on funding status
-          if (validationResult.fundingStatus.isActive) {
-            console.log('Contracts are active and funded, user can add additional orders');
-            setFormData(prev => ({
-              ...prev,
-              destinationFunding: '0', // No additional funding needed
-              rscFunding: '0' // No additional RSC funding needed
-            }));
+          // Create RSC provider to validate contracts
+          const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
+          
+          // Validate contracts exist on RSC network and check funding status
+          const validationResult = await validateStoredContracts(stored, rscProvider, connectedAccount);
+          
+          if (validationResult.isValid) {
+            console.log('Contracts are valid, checking funding status...');
+            setExistingContracts(stored);
+            setContractsValid(true);
+            setContractFundingStatus(validationResult.fundingStatus);
+            
+            // Update cost estimates based on funding status
+            if (validationResult.fundingStatus.isActive) {
+              console.log('Contracts are active and funded, user can add additional orders');
+              setFormData(prev => ({
+                ...prev,
+                destinationFunding: '0', // No additional funding needed
+                rscFunding: '0' // No additional RSC funding needed
+              }));
+            } else {
+              console.log('Contracts exist but are inactive/underfunded');
+              setFormData(prev => ({
+                ...prev,
+                destinationFunding: connectedChain.defaultFunding,
+                rscFunding: '0.05'
+              }));
+            }
           } else {
-            console.log('Contracts exist but are inactive/underfunded');
+            console.log('Stored contracts are invalid');
+            setExistingContracts(null);
+            setContractsValid(false);
+            setContractFundingStatus(null);
+            
+            // Reset to first order costs
             setFormData(prev => ({
               ...prev,
               destinationFunding: connectedChain.defaultFunding,
@@ -1455,40 +1261,30 @@ const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingSta
             }));
           }
         } else {
-          console.log('Stored contracts are invalid');
+          console.log('No stored contracts found in Convex, this will be first order');
           setExistingContracts(null);
           setContractsValid(false);
           setContractFundingStatus(null);
           
-          // Reset to first order costs
+          // Set first order costs
           setFormData(prev => ({
             ...prev,
             destinationFunding: connectedChain.defaultFunding,
             rscFunding: '0.05'
           }));
         }
-      } else {
-        console.log('No stored contracts found, this will be first order');
+      } catch (error) {
+        console.error('Error validating contracts from Convex:', error);
         setExistingContracts(null);
         setContractsValid(false);
         setContractFundingStatus(null);
-        
-        // Set first order costs
-        setFormData(prev => ({
-          ...prev,
-          destinationFunding: connectedChain.defaultFunding,
-          rscFunding: '0.05'
-        }));
+      } finally {
+        setIsCheckingContracts(false);
       }
-    } catch (error) {
-      console.error('Error checking existing contracts:', error);
-      setExistingContracts(null);
-      setContractsValid(false);
-      setContractFundingStatus(null);
-    } finally {
-      setIsCheckingContracts(false);
-    }
-  }, [connectedAccount, connectedChain]);
+    };
+
+    validateContracts();
+  }, [connectedAccount, connectedChain, contractData]);
 
   // Calculate threshold from percentage using actual current price
   const calculateThresholdFromPercentage = useCallback((percentage: string) => {
@@ -1613,9 +1409,6 @@ const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingSta
       await switchNetwork(originalChainId);
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Refresh contract status
-      await checkExistingContracts();
-      
       setDeploymentStep('complete');
       toast.success('Your contracts are now active and ready for new stop orders!');
       
@@ -1645,9 +1438,9 @@ const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingSta
       setIsDeploymentActive(false);
       setIsCoveringDebt(false); 
     }
-  }, [connectedChain, existingContracts, contractFundingStatus, switchToRSCNetwork, switchNetwork, checkExistingContracts]);
+  }, [connectedChain, existingContracts, contractFundingStatus, switchToRSCNetwork, switchNetwork]);
 
-  // ===== ENHANCED DEPLOYMENT FUNCTION WITH STORAGE CONTRACT INTEGRATION =====
+  // ===== ENHANCED DEPLOYMENT FUNCTION WITH CONVEX INTEGRATION =====
 const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
   e.preventDefault();
   
@@ -1668,9 +1461,8 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     setIsDeploymentActive(true);
     console.log('🚀 Starting deployment process...');
     
-    // Step 1: Check existing contracts
+    // Step 1: Check existing contracts (now handled by useQuery hook)
     setDeploymentStep('checking-contracts');
-    await checkExistingContracts();
 
     // Ensure we're on the original chain
     const provider = new ethers.BrowserProvider(window.ethereum);
@@ -1923,31 +1715,22 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
       console.log('Reactive contract deployed at:', reactiveContractAddress);
       toast.success('Reactive contract deployed');
 
-      // Step 3: Store contract addresses on-chain
+      // Step 3: Store contract addresses in Convex
       setDeploymentStep('storing-contracts');
       
       try {
-        console.log('Storing contract addresses on-chain...');
-        const storageContract = new ethers.Contract(
-          STORAGE_CONTRACT_ADDRESS,
-          STORAGE_CONTRACT_ABI,
-          rscSigner2
-        );
-
-        const storeTx = await storageContract.storeUserContracts(
-          connectedAccount, // user
-          callbackContractAddress, // callback contract
-          reactiveContractAddress, // rsc contract
-          originalChainId, // chain id
-          { gasLimit: 200000 }
-        );
-
-        await storeTx.wait();
-        console.log('Contract addresses stored successfully');
-        toast.success('Contract addresses stored on-chain');
+        console.log('Storing contract addresses in Convex...');
+        await storeContract({
+          userAddress: connectedAccount,
+          callbackContract: callbackContractAddress,
+          rscContract: reactiveContractAddress,
+          chainId: originalChainId
+        });
+        console.log('Contract addresses stored successfully in Convex');
+        toast.success('Contract addresses stored in database');
       } catch (storageError) {
-        console.warn('Failed to store contract addresses (non-critical):', storageError);
-        toast('Warning: Could not store contract addresses automatically');
+        console.warn('Failed to store contract addresses in Convex (non-critical):', storageError);
+        toast('Warning: Could not store contract addresses in database');
       }
 
       // Step 4: Switch back to original chain and approve tokens
@@ -2038,7 +1821,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     setIsDeploymentActive(false);
     console.log('🏁 Deployment process ended');
   }
-}, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, checkExistingContracts, switchNetwork, switchToRSCNetwork]);
+}, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract]);
 
   // Form validation - updated to consider funding status
   const isFormValid = 
@@ -2174,13 +1957,6 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
       };
     }
   }, [deploymentStep, isDeploymentActive]);
-
-  // Check existing contracts when account/chain changes
-  useEffect(() => {
-    if (connectedAccount && connectedChain && !isInitializing) {
-      checkExistingContracts();
-    }
-  }, [connectedAccount, connectedChain, isInitializing, checkExistingContracts]);
 
   // Pre-load user tokens for better UX
   useEffect(() => {
@@ -2782,7 +2558,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
               Frequently Asked Questions
             </CardTitle>
             <CardDescription className="text-zinc-300 text-sm sm:text-base">
-              Understanding the new multi-order system and automated stop loss protection
+              Understanding the new multi-order system and automated stop loss protection with Convex database
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
@@ -2807,6 +2583,42 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                         <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders (2nd, 3rd, 4th...)</h4>
                         <p className="text-xs sm:text-sm text-green-300">
                           Added to your existing contracts. Costs: Gas fees only (~$1-5 each). Up to 90% cost savings!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="convex-storage" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
+                  How are my contracts stored and managed now?
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
+                    <p>
+                      Your contract addresses are now stored in our secure Convex database, providing faster, more reliable access than on-chain storage.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
+                        <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">Convex Database Storage</h4>
+                        <p className="text-xs sm:text-sm text-purple-300">
+                          Contract addresses are automatically stored in our secure, fast database when you deploy your first order.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
+                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Instant Access</h4>
+                        <p className="text-xs sm:text-sm text-green-300">
+                          Access your contracts instantly from any device - faster than blockchain queries and no gas costs for lookups.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
+                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Automatic Management</h4>
+                        <p className="text-xs sm:text-sm text-blue-300">
+                          The system automatically detects existing contracts and offers lower-cost additional orders.
                         </p>
                       </div>
                     </div>
@@ -2885,42 +2697,6 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="storage-blockchain" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How are my contracts stored and managed?
-                </AccordionTrigger>
-                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
-                  <div className="space-y-3 sm:space-y-4">
-                    <p>
-                      Your contract addresses are now stored on-chain using our decentralized storage system, ensuring permanent access and reliability.
-                    </p>
-                    
-                    <div className="space-y-3">
-                      <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
-                        <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">Blockchain Storage</h4>
-                        <p className="text-xs sm:text-sm text-purple-300">
-                          Contract addresses are automatically stored on the Reactive Network when you deploy your first order.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Cross-Device Access</h4>
-                        <p className="text-xs sm:text-sm text-green-300">
-                          Access your contracts from any browser or device - no more local storage limitations or data loss.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Automatic Management</h4>
-                        <p className="text-xs sm:text-sm text-blue-300">
-                          The system automatically detects existing contracts and offers lower-cost additional orders.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
               <AccordionItem value="funding" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
                   Setup Process & Costs
@@ -2938,7 +2714,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           <p>1. Token approval (if needed)</p>
                           <p>2. Deploy callback contract on Sepolia</p>
                           <p>3. Deploy reactive contract on RSC</p>
-                          <p>4. Automatic contract storage on-chain</p>
+                          <p>4. Automatic contract storage in database</p>
                           <p>5. Create first stop order</p>
                         </div>
                       </div>
@@ -2948,7 +2724,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                         <div className="space-y-2 text-xs sm:text-sm text-green-300">
                           <p>1. Token approval (if needed)</p>
                           <p>2. Add order to existing contract</p>
-                          <p>3. Automatic detection from storage</p>
+                          <p>3. Automatic detection from database</p>
                           <p className="font-medium">That's it! Much cheaper.</p>
                         </div>
                       </div>

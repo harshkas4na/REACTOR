@@ -36,6 +36,8 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 // ===== CONFIGURATION =====
 interface ChainConfig {
@@ -83,157 +85,6 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
   }
 ];
 
-// ===== STORAGE CONTRACT CONFIGURATION =====
-const STORAGE_CONTRACT_ADDRESS = '0xB7ef2Aaf39E0a6177E3F4Fca1439D8627faA3EC6';
-
-// Storage Contract ABI (useful functions only)
-const STORAGE_CONTRACT_ABI = 
-  [
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "callbackContract",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "rscContract",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "chainId",
-				"type": "uint256"
-			}
-		],
-		"name": "ContractStored",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "getUserContracts",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "callbackContract",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "rscContract",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "chainId",
-						"type": "uint256"
-					}
-				],
-				"internalType": "struct UserContracts",
-				"name": "",
-				"type": "tuple"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "hasUserContracts",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "callbackContract",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "rscContract",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "chainId",
-				"type": "uint256"
-			}
-		],
-		"name": "storeUserContracts",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "userContracts",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "callbackContract",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "rscContract",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "chainId",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-];
-
 // ===== CONTRACT ADDRESS MANAGEMENT =====
 interface UserContractAddresses {
   reactiveContract: string;
@@ -242,54 +93,6 @@ interface UserContractAddresses {
   chainId: string;
   deployer: string;
 }
-
-// ===== STORAGE CONTRACT FUNCTIONS =====
-const getStoredContracts = async (
-  userAddress: string, 
-  chainId: string,
-  rscProvider: ethers.JsonRpcProvider
-): Promise<UserContractAddresses | null> => {
-  try {
-    console.log('🔍 DASHBOARD: Fetching contracts from storage contract for user:', userAddress);
-    
-    const storageContract = new ethers.Contract(
-      STORAGE_CONTRACT_ADDRESS,
-      STORAGE_CONTRACT_ABI,
-      rscProvider
-    );
-    
-    // Check if user has contracts
-    const hasContracts = await storageContract.hasUserContracts(userAddress);
-    if (!hasContracts) {
-      console.log('ℹ️ DASHBOARD: No contracts found for user in storage');
-      return null;
-    }
-    
-    // Get user contracts
-    const userContracts = await storageContract.getUserContracts(userAddress);
-    
-    if (userContracts.rscContract === ethers.ZeroAddress) {
-      console.log('ℹ️ DASHBOARD: No valid RSC contract found for user');
-      return null;
-    }
-    
-    // Convert to our interface format
-    const contracts: UserContractAddresses = {
-      reactiveContract: userContracts.rscContract,
-      callbackContract: userContracts.callbackContract,
-      deployedAt: Date.now(), // We don't have deployment time from storage contract
-      chainId: userContracts.chainId.toString(),
-      deployer: userAddress.toLowerCase()
-    };
-    
-    console.log('✅ DASHBOARD: Successfully retrieved contracts from storage:', contracts);
-    return contracts;
-    
-  } catch (error) {
-    console.error('❌ DASHBOARD: Error fetching contracts from storage:', error);
-    return null;
-  }
-};
 
 // ===== UPDATED ABIs FOR MULTI-ORDER SYSTEM WITH WITHDRAWAL FUNCTIONS =====
 const REACTIVE_STOP_ORDER_ABI = [
@@ -1369,35 +1172,46 @@ export default function UpdatedStopOrderDashboard() {
     lastUpdated: 0
   });
 
-  // ===== ORDER FETCHING WITH STORAGE CONTRACT =====
-  const fetchUserOrders = async () => {
+  // Convex hook to get contract data
+  const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
+
+  // ===== ORDER FETCHING WITH CONVEX =====
+  const fetchUserOrders = useCallback(async () => {
     if (!connectedAccount) return;
 
     console.log('🔍 DASHBOARD: Fetching orders for account:', connectedAccount);
     setIsLoading(true);
     
     try {
-      // Always use the first supported chain (Sepolia) for contract storage
-      const targetChain = SUPPORTED_CHAINS[0]; // This will be Sepolia
-      
-      // Create proper providers for each network regardless of user's current network
-      const sepoliaProvider = new ethers.JsonRpcProvider(targetChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
-      const rscProvider = new ethers.JsonRpcProvider(targetChain.rscNetwork.rpcUrl);
-      
-      // Check for user's deployed contracts using storage contract
-      const stored = await getStoredContracts(connectedAccount, targetChain.id, rscProvider);
-      console.log('🔍 DASHBOARD: Storage contract query result:', stored);
-      
-      if (!stored) {
-        console.log('ℹ️ DASHBOARD: No contracts found for user');
+      // Check for user's deployed contracts using Convex data
+      if (!contractData) {
+        console.log('ℹ️ DASHBOARD: No contracts found for user in Convex');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
         return;
       }
 
+      // Convert Convex data to UserContractAddresses format
+      const storedContracts: UserContractAddresses = {
+        reactiveContract: contractData.rscContract,
+        callbackContract: contractData.callbackContract,
+        deployedAt: Date.now(), // We don't store this in Convex
+        chainId: contractData.chainId,
+        deployer: contractData.userAddress.toLowerCase()
+      };
+
+      console.log('🔍 DASHBOARD: Convex data converted to contracts:', storedContracts);
+
+      // Always use the first supported chain (Sepolia) for contract operations
+      const targetChain = SUPPORTED_CHAINS[0]; // This will be Sepolia
+      
+      // Create proper providers for each network
+      const sepoliaProvider = new ethers.JsonRpcProvider(targetChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
+      const rscProvider = new ethers.JsonRpcProvider(targetChain.rscNetwork.rpcUrl);
+
       // Validate contracts using proper providers
-      const valid = await validateStoredContracts(stored, rscProvider, sepoliaProvider, connectedAccount);
+      const valid = await validateStoredContracts(storedContracts, rscProvider, sepoliaProvider, connectedAccount);
       
       if (!valid) {
         console.log('❌ DASHBOARD: Stored contracts are invalid');
@@ -1407,17 +1221,17 @@ export default function UpdatedStopOrderDashboard() {
         return;
       }
 
-      setUserContracts(stored);
+      setUserContracts(storedContracts);
       setContractsValid(true);
       setConnectedChain(targetChain); // Set the connected chain for the dashboard
 
       const reactiveContract = new ethers.Contract(
-        stored.reactiveContract,
+        storedContracts.reactiveContract,
         REACTIVE_STOP_ORDER_ABI,
         rscProvider
       );
 
-      console.log('📋 DASHBOARD: Using reactive contract address:', stored.reactiveContract);
+      console.log('📋 DASHBOARD: Using reactive contract address:', storedContracts.reactiveContract);
 
       // Get all user's orders from RSC network
       const [activeOrders, executedOrders, cancelledOrders] = await reactiveContract.getAllUserOrders(connectedAccount);
@@ -1473,7 +1287,7 @@ export default function UpdatedStopOrderDashboard() {
             currentPrice: metrics.currentPrice,
             dropPercentage: metrics.dropPercentage,
             triggerPrice: metrics.triggerPrice,
-            contractAddress: stored.reactiveContract
+            contractAddress: storedContracts.reactiveContract
           };
 
           console.log('✅ DASHBOARD: Processed order:', order);
@@ -1501,7 +1315,7 @@ export default function UpdatedStopOrderDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [connectedAccount, contractData]);
 
   const refreshData = async () => {
     setIsRefreshing(true);
@@ -1591,11 +1405,12 @@ export default function UpdatedStopOrderDashboard() {
     detectConnection();
   }, []);
 
+  // Effect to fetch orders when we have both account and contract data
   useEffect(() => {
-    if (connectedAccount) {
+    if (connectedAccount && contractData !== undefined) {
       fetchUserOrders();
     }
-  }, [connectedAccount]);
+  }, [connectedAccount, contractData, fetchUserOrders]);
 
   // ===== RENDER FUNCTIONS =====
   const renderOrderCard = (order: StopOrder) => {
@@ -1803,7 +1618,7 @@ export default function UpdatedStopOrderDashboard() {
                   {userContracts && contractsValid && (
                     <div className="flex items-center space-x-2">
                       <Shield className="w-4 h-4 text-emerald-400" />
-                      <span className="text-emerald-300 text-sm">Storage Contract System Active</span>
+                      <span className="text-emerald-300 text-sm">Convex Database System Active</span>
                     </div>
                   )}
                 </div>
@@ -1921,19 +1736,19 @@ export default function UpdatedStopOrderDashboard() {
           </Card>
         )}
 
-        {/* Storage Contract System Info */}
+        {/* Convex Database System Info */}
         {!userContracts && connectedAccount && !isLoading && (
           <Alert className="bg-blue-900/20 border-blue-600/30 text-blue-200 mt-8">
             <Info className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2">
-                <p className="font-medium">Storage Contract System Ready</p>
+                <p className="font-medium">Convex Database System Ready</p>
                 <p className="text-sm">
-                  Your first stop order will deploy personal smart contracts and register them in our storage system. 
+                  Your first stop order will deploy personal smart contracts and register them in our fast Convex database. 
                   Additional orders will automatically discover and use the same contracts at much lower cost.
                 </p>
                 <p className="text-xs text-blue-300 mt-2">
-                  Storage Contract: {STORAGE_CONTRACT_ADDRESS.slice(0, 8)}...{STORAGE_CONTRACT_ADDRESS.slice(-6)} (Reactive Lasna)
+                  Storage: Convex Database (Instant Access • No Gas Fees for Lookups)
                 </p>
               </div>
             </AlertDescription>
