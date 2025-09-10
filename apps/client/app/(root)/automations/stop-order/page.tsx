@@ -1,4 +1,4 @@
-'use client'
+'use client';
 import { ethers } from 'ethers';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -72,6 +72,20 @@ import { api } from "@/convex/_generated/api";
 const REACTIVE_STOP_ORDER_ABI = rscABISepolia;
 const CALLBACK_STOP_ORDER_ABI = stopOrderABISepolia;
 
+// ABIs for debt settlement and status checking
+const DEBT_AND_STATUS_ABI = [
+  "function active() view returns (bool)",
+  "function debt() view returns (uint256)"
+];
+const SYSTEM_CONTRACT_ABI = [
+  "function debts(address) view returns (uint256)",
+  "function reserves(address) view returns (uint256)",
+  "function depositTo(address contractAddress) payable"
+];
+
+const SYSTEM_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000fffFfF";
+
+
 // Contract bytecodes
 const REACTIVE_CONTRACT_BYTECODE = rscByteCodeSepolia;
 const CALLBACK_CONTRACT_BYTECODE = stopOrderByteCodeSepolia;
@@ -85,130 +99,7 @@ interface UserContractAddresses {
   deployer: string;
 }
 
-// ===== CONTRACT FUNDING STATUS CHECKS =====
-const checkContractFundingStatus = async (
-  contracts: UserContractAddresses,
-  rscProvider: ethers.JsonRpcProvider
-): Promise<{ debt: string; reserves: string; isActive: boolean }> => {
-  try {
-    const systemContractAddress = '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4';
-    
-    const systemContract = new ethers.Contract(
-      systemContractAddress,
-      [
-        'function debts(address) view returns (uint256)',
-        'function reserves(address) view returns (uint256)'
-      ],
-      rscProvider
-    );
-
-    // Check debt and reserves for both contracts
-    const [reactiveDebt, reactiveReserves, callbackDebt, callbackReserves] = await Promise.all([
-      systemContract.debts(contracts.reactiveContract),
-      systemContract.reserves(contracts.reactiveContract),
-      systemContract.debts(contracts.callbackContract),
-      systemContract.reserves(contracts.callbackContract)
-    ]);
-
-    // Convert to readable format
-    const totalDebt = reactiveDebt + callbackDebt;
-    const totalReserves = reactiveReserves + callbackReserves;
-    
-    // Contract is active if it has reserves > debt
-    const isActive = totalReserves > totalDebt;
-    
-    console.log('💰 Contract funding status:', {
-      reactiveContract: contracts.reactiveContract,
-      callbackContract: contracts.callbackContract,
-      reactiveDebt: ethers.formatEther(reactiveDebt),
-      reactiveReserves: ethers.formatEther(reactiveReserves),
-      callbackDebt: ethers.formatEther(callbackDebt),
-      callbackReserves: ethers.formatEther(callbackReserves),
-      totalDebt: ethers.formatEther(totalDebt),
-      totalReserves: ethers.formatEther(totalReserves),
-      isActive
-    });
-
-    return {
-      debt: ethers.formatEther(totalDebt),
-      reserves: ethers.formatEther(totalReserves),
-      isActive
-    };
-  } catch (error) {
-    console.error('❌ Error checking funding status:', error);
-    return { debt: '0', reserves: '0', isActive: false };
-  }
-};
-
-// ===== CONTRACT VALIDATION =====
-const validateStoredContracts = async (
-  contracts: UserContractAddresses,
-  rscProvider: ethers.JsonRpcProvider,
-  userAddress: string
-): Promise<{ isValid: boolean; fundingStatus: { debt: string; reserves: string; isActive: boolean } }> => {
-  try {
-    console.log('🔐 Validating stored contracts:', contracts);
-    
-    // Normalize addresses for comparison
-    const normalizedUserAddress = userAddress.toLowerCase().trim();
-    const normalizedContractDeployer = contracts.deployer.toLowerCase().trim();
-    
-    // First check: User must be the deployer
-    if (normalizedUserAddress !== normalizedContractDeployer) {
-      console.error('❌ VALIDATION FAILED: User is not the deployer');
-      console.error('❌ User address:', normalizedUserAddress);
-      console.error('❌ Contract deployer:', normalizedContractDeployer);
-      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
-    }
-    
-    // Check if reactive contract exists and is valid
-    const reactiveContract = new ethers.Contract(
-      contracts.reactiveContract,
-      REACTIVE_STOP_ORDER_ABI,
-      rscProvider
-    );
-    
-    try {
-      // Try to call a view function to verify contract exists
-      const deployer = await reactiveContract.getDeployer();
-      const normalizedContractDeployerFromChain = deployer.toLowerCase().trim();
-      
-      if (normalizedContractDeployerFromChain !== normalizedUserAddress) {
-        console.error('❌ VALIDATION FAILED: On-chain deployer mismatch');
-        console.error('❌ Expected:', normalizedUserAddress);
-        console.error('❌ On-chain:', normalizedContractDeployerFromChain);
-        return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
-      }
-    } catch (contractError) {
-      console.error('❌ VALIDATION FAILED: Cannot read from reactive contract:', contractError);
-      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
-    }
-    
-    // Check callback contract exists (on Sepolia)
-    try {
-      const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
-      // const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
-      // if (callbackCode === '0x' || callbackCode === '0x0') {
-      //   console.error('❌ VALIDATION FAILED: Callback contract not found');
-      //   return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
-      // }
-    } catch (sepoliaError) {
-      console.error('❌ VALIDATION FAILED: Cannot verify callback contract:', sepoliaError);
-      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
-    }
-    
-    // Check funding status
-    const fundingStatus = await checkContractFundingStatus(contracts, rscProvider);
-    
-    console.log('✅ VALIDATION SUCCESS: All contracts verified');
-    return { isValid: true, fundingStatus };
-  } catch (error) {
-    console.error('❌ VALIDATION ERROR:', error);
-    return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
-  }
-};
-
-// ===== INTERFACES AND TYPES =====
+// ===== ENHANCED INTERFACES AND TYPES =====
 interface Token {
   address: string;
   symbol: string;
@@ -244,6 +135,7 @@ interface StopOrderFormData {
   stopPrice: string;
 }
 
+// ===== ENHANCED CHAIN CONFIGURATION =====
 interface ChainConfig {
   id: string;
   name: string;
@@ -251,9 +143,11 @@ interface ChainConfig {
   routerAddress: string;
   factoryAddress: string;
   callbackAddress: string;
+  callbackProxyAddress: string;
   rpcUrl?: string;
   nativeCurrency: string;
   defaultFunding: string;
+  warningThreshold: number;
   isComingSoon?: boolean;
   rscNetwork: {
     chainId: string;
@@ -263,12 +157,24 @@ interface ChainConfig {
     explorerUrl: string;
     callbackProxyAddress: string;
     systemContractAddress: string;
+    warningThreshold: number;
   };
+}
+
+// UPDATED Contract status interface
+interface SimpleContractStatus {
+  callbackBalance: number;
+  rscBalance: number;
+  callbackDebt: string;
+  rscDebt: string;
+  isActive: boolean; // Based on balance > debt logic
+  needsFunding: boolean;
+  lastChecked: number;
 }
 
 type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete' | 'storing-contracts';
 
-// ===== CONFIGURATION DATA =====
+// ===== ENHANCED CONFIGURATION DATA =====
 const SUPPORTED_CHAINS: ChainConfig[] = [
   { 
     id: '11155111', 
@@ -277,9 +183,11 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     routerAddress: '0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008',
     factoryAddress: '0x7E0987E5b3a30e3f2828572Bb659A548460a3003',
     callbackAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
+    callbackProxyAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
     rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     nativeCurrency: 'ETH',
     defaultFunding: '0.03',
+    warningThreshold: 0.005,
     rscNetwork: {
       chainId: '5318007',
       name: 'Reactive Lasna',
@@ -287,12 +195,12 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
       currencySymbol: 'REACT',
       explorerUrl: 'https://lasna.reactscan.net',
       callbackProxyAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
-      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
+      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4',
+      warningThreshold: 0.001
     }
   }
 ];
 
-// Popular tokens by chain (fallback when API doesn't work) - Only ERC20 tokens
 const POPULAR_TOKENS: Record<string, Token[]> = {
   '11155111': [
     { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
@@ -300,6 +208,144 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
     { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
     { address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
   ]
+};
+
+
+// ===== UPDATED CONTRACT STATUS CHECKING =====
+const checkSimpleContractStatus = async (
+  contracts: UserContractAddresses,
+  chainConfig: ChainConfig
+): Promise<SimpleContractStatus> => {
+  try {
+    const sepoliaProvider = new ethers.JsonRpcProvider(chainConfig.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
+    const rscProvider = new ethers.JsonRpcProvider(chainConfig.rscNetwork.rpcUrl);
+    
+    // Create system contract instances for debt checking
+    const sepoliaSystemContract = new ethers.Contract(
+      chainConfig.callbackProxyAddress, // This is the callback proxy/system contract
+      SYSTEM_CONTRACT_ABI, 
+      sepoliaProvider
+    );
+    
+    const rscSystemContract = new ethers.Contract(
+      SYSTEM_CONTRACT_ADDRESS, // System contract on Reactive Network
+      SYSTEM_CONTRACT_ABI, 
+      rscProvider
+    );
+
+    // Get balances and debts correctly
+    const [
+      callbackBalance,
+      rscBalance,
+      callbackDebtWei,
+      rscDebtWei
+    ] = await Promise.all([
+      // Get contract balances directly from providers
+      sepoliaProvider.getBalance(contracts.callbackContract),
+      rscProvider.getBalance(contracts.reactiveContract),
+      
+      // Get debts from system contracts (CORRECTED)
+      sepoliaSystemContract.debts(contracts.callbackContract),
+      rscSystemContract.debts(contracts.reactiveContract)
+    ]);
+    
+    const callbackBalanceNum = parseFloat(ethers.formatEther(callbackBalance));
+    const rscBalanceNum = parseFloat(ethers.formatEther(rscBalance));
+    const callbackDebt = ethers.formatEther(callbackDebtWei);
+    const rscDebt = ethers.formatEther(rscDebtWei);
+    
+    // CORRECTED: Determine if contracts are "active" based on debt vs balance
+    // A contract is considered active if it has sufficient balance to cover debt
+    const callbackActive = callbackBalanceNum >= parseFloat(callbackDebt);
+    const rscActive = rscBalanceNum >= parseFloat(rscDebt);
+    const isActive = callbackActive && rscActive;
+    
+    // Check if funding is needed (either has debt or balance is low)
+    const needsFunding = 
+      parseFloat(callbackDebt) > 0 || 
+      parseFloat(rscDebt) > 0 || 
+      callbackBalanceNum < chainConfig.warningThreshold || 
+      rscBalanceNum < chainConfig.rscNetwork.warningThreshold;
+
+    console.log('CORRECTED Contract status check:', {
+      callback: { 
+        balance: callbackBalanceNum, 
+        debt: callbackDebt, 
+        active: callbackActive 
+      },
+      rsc: { 
+        balance: rscBalanceNum, 
+        debt: rscDebt, 
+        active: rscActive 
+      },
+      isActive,
+      needsFunding
+    });
+    
+    return {
+      callbackBalance: callbackBalanceNum,
+      rscBalance: rscBalanceNum,
+      callbackDebt,
+      rscDebt,
+      isActive,
+      needsFunding,
+      lastChecked: Date.now()
+    };
+  } catch (error) {
+    console.error('Error checking contract status:', error);
+    // Return safe defaults on error
+    return {
+      callbackBalance: 0,
+      rscBalance: 0,
+      callbackDebt: '0',
+      rscDebt: '0',
+      isActive: false, // Assume inactive on error
+      needsFunding: true,
+      lastChecked: Date.now()
+    };
+  }
+};
+
+// ===== CONTRACT VALIDATION =====
+const validateStoredContracts = async (
+  contracts: UserContractAddresses,
+  rscProvider: ethers.JsonRpcProvider,
+  userAddress: string
+): Promise<{ isValid: boolean; contractStatus: SimpleContractStatus | null }> => {
+  try {
+    const normalizedUserAddress = userAddress.toLowerCase().trim();
+    const normalizedContractDeployer = contracts.deployer.toLowerCase().trim();
+    
+    if (normalizedUserAddress !== normalizedContractDeployer) {
+      return { isValid: false, contractStatus: null };
+    }
+    
+    const reactiveContract = new ethers.Contract(
+      contracts.reactiveContract,
+      REACTIVE_STOP_ORDER_ABI,
+      rscProvider
+    );
+    
+    try {
+      const deployer = await reactiveContract.getDeployer();
+      if (deployer.toLowerCase().trim() !== normalizedUserAddress) {
+        return { isValid: false, contractStatus: null };
+      }
+    } catch (contractError) {
+      return { isValid: false, contractStatus: null };
+    }
+    
+    const chainConfig = SUPPORTED_CHAINS.find(c => c.id === contracts.chainId);
+    if (!chainConfig) {
+      return { isValid: false, contractStatus: null };
+    }
+    
+    const contractStatus = await checkSimpleContractStatus(contracts, chainConfig);
+    
+    return { isValid: true, contractStatus };
+  } catch (error) {
+    return { isValid: false, contractStatus: null };
+  }
 };
 
 // ===== ENHANCED TOKEN SERVICE CLASS WITH ETHPLORER API =====
@@ -566,7 +612,8 @@ const TokenSelectionModal = ({
   chainId, 
   connectedAccount,
   excludeToken,
-  tokenModalType 
+  tokenModalType,
+  disabled = false 
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -575,11 +622,18 @@ const TokenSelectionModal = ({
   connectedAccount: string;
   excludeToken?: Token;
   tokenModalType: 'sell' | 'buy';
+  disabled?: boolean;
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [userTokens, setUserTokens] = useState<Token[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [isLoadingCustomToken, setIsLoadingCustomToken] = useState(false);
+
+  // Don't open if disabled
+  if (disabled && isOpen) {
+    onClose();
+    return null;
+  }
 
   // Fetch all tokens user holds using TokenService
   const fetchAllUserTokens = useCallback(async () => {
@@ -794,7 +848,7 @@ const TokenSelectionModal = ({
               Showing ERC20 tokens with positive balance
             </div>
             <div className="text-zinc-600">
-              💡 Native tokens (ETH, AVAX) not shown - use wrapped versions (WETH, WAVAX) for stop orders
+              Native tokens (ETH, AVAX) not shown - use wrapped versions (WETH, WAVAX) for stop orders
             </div>
           </div>
         </div>
@@ -803,33 +857,45 @@ const TokenSelectionModal = ({
   );
 };
 
-// ===== ENHANCED STATUS INDICATOR =====
+// ===== ENHANCED STATUS INDICATOR WITH DEBT SETTLEMENT =====
 const EnhancedStatusIndicator = ({ 
   formData, 
-  connectedAccount, 
   connectedChain, 
   hasTokenBalance,
   isLoadingPair,
   existingContracts,
   contractsValid,
-  contractFundingStatus
+  contractStatus,
+  onFundAndSettle,
+  isFundingDebt
 }: {
   formData: StopOrderFormData;
-  connectedAccount: string;
   connectedChain: ChainConfig | null;
   hasTokenBalance: boolean;
   isLoadingPair: boolean;
   existingContracts: UserContractAddresses | null;
   contractsValid: boolean;
-  contractFundingStatus: { debt: string; reserves: string; isActive: boolean } | null;
+  contractStatus: SimpleContractStatus | null;
+  onFundAndSettle: () => void;
+  isFundingDebt: boolean;
 }) => {
-  // Determine the current status
   const getStatus = () => {
     if (!connectedChain) {
       return { type: 'error', message: 'Please switch to a supported network (Sepolia)' };
     }
-    if (connectedChain.isComingSoon) {
-      return { type: 'warning', message: `${connectedChain.name} support coming soon - switch to Sepolia` };
+    if (existingContracts && contractsValid && contractStatus && !contractStatus.isActive) {
+      return { 
+        type: 'inactive_debt', 
+        message: 'Your contracts are inactive due to outstanding debt.',
+        subMessage: 'Fund your contracts and settle debt to re-enable them.'
+      };
+    }
+    if (existingContracts && contractsValid && contractStatus?.needsFunding) {
+      return { 
+        type: 'warning', 
+        message: 'Contract balances are running low.',
+        subMessage: 'Consider funding your contracts in the Dashboard to ensure reliability.'
+      };
     }
     if (isLoadingPair) {
       return { type: 'loading', message: 'Finding trading pair...' };
@@ -837,36 +903,17 @@ const EnhancedStatusIndicator = ({
     if (!formData.selectedPair && formData.sellToken && formData.buyToken) {
       return { type: 'error', message: 'Trading pair not found on DEX' };
     }
-    
-    // Check contract funding status first if contracts exist
-    if (existingContracts && contractsValid && contractFundingStatus) {
-      if (!contractFundingStatus.isActive) {
-        const debt = parseFloat(contractFundingStatus.debt);
-        const reserves = parseFloat(contractFundingStatus.reserves);
-        return { 
-          type: 'error', 
-          message: 'Your contracts are inactive due to insufficient funding',
-          subMessage: `Debt: ${debt.toFixed(4)} REACT, Reserves: ${reserves.toFixed(4)} REACT. Fund contracts to continue.`
-        };
-      }
-    }
-    
-    // Only show token-related warnings if user has selected tokens
     if (formData.sellToken && formData.buyToken) {
-      // Don't show insufficient balance error if no amount is entered yet
       if (formData.amount && parseFloat(formData.amount) > 0 && !hasTokenBalance) {
         return { type: 'error', message: 'Insufficient token balance' };
       }
       if (!formData.dropPercentage || parseFloat(formData.dropPercentage) <= 0) {
         return { type: 'warning', message: 'Set stop loss percentage' };
       }
-      // Don't show ready status until amount is entered
       if (!formData.amount || parseFloat(formData.amount) <= 0) {
         return { type: 'warning', message: 'Enter amount to sell' };
       }
-
-      // Show contract status information
-      if (existingContracts && contractsValid && contractFundingStatus?.isActive) {
+      if (existingContracts && contractsValid && contractStatus?.isActive) {
         return { 
           type: 'success', 
           message: 'Ready to add to existing contracts!',
@@ -880,23 +927,16 @@ const EnhancedStatusIndicator = ({
         };
       }
     }
-    
-    // No status to show if no tokens selected
     return null;
   };
 
   const status = getStatus();
-
-  // Don't render anything if no status to show
-  if (!status) {
-    return null;
-  }
-
-  const safeStatus = status;
+  if (!status) return null;
 
   const getStatusStyles = () => {
-    switch (safeStatus.type) {
+    switch (status.type) {
       case 'error':
+      case 'inactive_debt':
         return 'bg-amber-900/20 border-amber-500/30 text-amber-200';
       case 'warning':
         return 'bg-yellow-900/20 border-yellow-500/30 text-yellow-200';
@@ -910,42 +950,44 @@ const EnhancedStatusIndicator = ({
   };
 
   const getStatusIcon = () => {
-    switch (safeStatus.type) {
+    switch (status.type) {
       case 'error':
-        return <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />;
+      case 'inactive_debt':
+        return <AlertTriangle className="w-5 h-5" />;
       case 'warning':
-        return <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />;
+        return <AlertCircle className="w-5 h-5" />;
       case 'loading':
-        return <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />;
+        return <Loader2 className="w-5 h-5 animate-spin" />;
       case 'success':
-        return existingContracts && contractsValid ? <Layers className="w-4 h-4 sm:w-5 sm:h-5" /> : <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />;
+        return existingContracts && contractsValid ? <Layers className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />;
       default:
-        return <Info className="w-4 h-4 sm:w-5 sm:h-5" />;
+        return <Info className="w-5 h-5" />;
     }
   };
 
   return (
-    <Alert className={`${getStatusStyles()} mb-6 sm:mb-8 lg:mb-10`}>
+    <Alert className={`${getStatusStyles()} mb-8`}>
       <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 mt-0.5">
-          {getStatusIcon()}
+        <div className="flex-shrink-0 mt-0.5">{getStatusIcon()}</div>
+        <div className="flex-1">
+            <AlertDescription className="text-base">
+                {status.message}
+                {status.subMessage && <div className="text-sm mt-1 opacity-80">{status.subMessage}</div>}
+            </AlertDescription>
+            {status.type === 'inactive_debt' && (
+                <Button 
+                    onClick={onFundAndSettle} 
+                    disabled={isFundingDebt}
+                    className="mt-3 bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 px-3"
+                >
+                    {isFundingDebt ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+                    ) : (
+                        <><Zap className="w-4 h-4 mr-2" />Fund & Settle Debt</>
+                    )}
+                </Button>
+            )}
         </div>
-        <AlertDescription className="text-sm sm:text-base flex-1">
-          {safeStatus.message}
-          {safeStatus.subMessage && (
-            <div className="text-xs sm:text-sm mt-1 opacity-80">
-              {safeStatus.subMessage}
-            </div>
-          )}
-          {connectedChain && safeStatus.type === 'success' && (
-            <div className="text-xs sm:text-sm mt-1 opacity-80">
-              Cost: {existingContracts && contractsValid && contractFundingStatus?.isActive
-                ? 'Gas fee only (~$1-5)' 
-                : `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 0.05 ${connectedChain.rscNetwork.currencySymbol} + gas`
-              }
-            </div>
-          )}
-        </AlertDescription>
       </div>
     </Alert>
   );
@@ -972,7 +1014,7 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
       case 'creating-order':
         return { title: 'Creating Stop Order', message: 'Adding stop order to your contract...', color: 'green' };
       case 'complete':
-        return { title: '🎉 Stop Order Active!', message: 'Your stop order is now monitoring prices 24/7', color: 'green' };
+        return { title: 'Stop Order Active!', message: 'Your stop order is now monitoring prices 24/7', color: 'green' };
       default:
         return null;
     }
@@ -1059,232 +1101,276 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isDeploymentActive, setIsDeploymentActive] = useState(false);
 
-  // Contract management state
   const [existingContracts, setExistingContracts] = useState<UserContractAddresses | null>(null);
   const [contractsValid, setContractsValid] = useState(false);
   const [isCheckingContracts, setIsCheckingContracts] = useState(false);
-  const [contractFundingStatus, setContractFundingStatus] = useState<{
-    debt: string;
-    reserves: string;
-    isActive: boolean;
-  } | null>(null);
-  const [isCoveringDebt, setIsCoveringDebt] = useState(false);
-  const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingStatus.debt) > 0;
+  const [contractStatus, setContractStatus] = useState<SimpleContractStatus | null>(null);
+  
+  const [isFundingDebt, setIsFundingDebt] = useState(false);
+  
+  // NEW STATE: Flag to prevent reloads during multi-chain transactions
+  const [isMultiChainTxInProgress, setIsMultiChainTxInProgress] = useState(false);
 
-  // Component cleanup ref
   const mountedRef = useRef(true);
-
-  // Convex hooks
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
   const storeContract = useMutation(api.contracts.store);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
-  // Reset deployment step when form changes after successful creation
-  useEffect(() => {
-    if (deploymentStep === 'complete') {
-      const timer = setTimeout(() => {
-        if (mountedRef.current) {
-          setDeploymentStep('idle');
-        }
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [formData.sellToken, formData.buyToken, formData.amount, formData.dropPercentage, deploymentStep]);
-
-  // Professional network switching functions
   const switchNetwork = useCallback(async (targetChainId: string) => {
-    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
+    if (!window.ethereum) throw new Error('No wallet detected');
+    const targetChainIdHex = `0x${parseInt(targetChainId).toString(16)}`;
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const currentNetwork = await provider.getNetwork();
+    if (currentNetwork.chainId.toString() === targetChainId) return true;
 
     try {
-      const targetChainIdHex = `0x${parseInt(targetChainId).toString(16)}`;
-      
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const currentNetwork = await provider.getNetwork();
-      if (currentNetwork.chainId.toString() === targetChainId) {
-        console.log(`Already on chain ${targetChainId}`);
-        return true;
-      }
-
-      console.log(`Switching from ${currentNetwork.chainId} to chain ${targetChainId}`);
-      
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: targetChainIdHex }],
-        });
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          console.log(`Chain ${targetChainId} not added to wallet, attempting to add it`);
-          
-          let chainConfig;
-          
-          // Handle RSC network addition
-          if (targetChainId === '5318007') {
-            chainConfig = {
-              chainId: targetChainIdHex,
-              chainName: 'Reactive Lasna',
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: targetChainIdHex }] });
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        const chainConfig = targetChainId === '5318007' ? {
+          chainId: targetChainIdHex, chainName: 'Reactive Lasna',
+          nativeCurrency: { name: 'REACT', symbol: 'REACT', decimals: 18 },
+          rpcUrls: ['https://lasna-rpc.rnk.dev/'], blockExplorerUrls: ['https://lasna.reactscan.net']
+        } : SUPPORTED_CHAINS.find(c => c.id === targetChainId);
+        if (chainConfig) {
+            const params = targetChainId === '5318007' ? chainConfig : {
+              chainId: targetChainIdHex, 
+              chainName: 'name' in chainConfig ? chainConfig.name : chainConfig.chainName,
               nativeCurrency: {
-                name: 'REACT',
-                symbol: 'REACT',
+                name: 'nativeCurrency' in chainConfig && typeof chainConfig.nativeCurrency === 'object'
+                  ? chainConfig.nativeCurrency.name
+                  : '',
+                symbol: 'nativeCurrency' in chainConfig && typeof chainConfig.nativeCurrency === 'object'
+                  ? chainConfig.nativeCurrency.symbol
+                  : '',
                 decimals: 18
               },
-              rpcUrls: ['https://lasna-rpc.rnk.dev/'],
-              blockExplorerUrls: ['https://lasna.reactscan.net']
-            };
-          } else {
-            const chain = SUPPORTED_CHAINS.find(c => c.id === targetChainId);
-            if (!chain) throw new Error('Chain not supported');
-            
-            chainConfig = {
-              chainId: targetChainIdHex,
-              chainName: chain.name,
-              nativeCurrency: {
-                name: chain.nativeCurrency,
-                symbol: chain.nativeCurrency,
-                decimals: 18
-              },
-              rpcUrls: [chain.rpcUrl || ''],
+              rpcUrls: [
+                'rpcUrl' in chainConfig && typeof chainConfig.rpcUrl === 'string'
+                  ? chainConfig.rpcUrl
+                  : ''
+              ],
               blockExplorerUrls: [
-                chain.id === '1' ? 'https://etherscan.io' : 
-                chain.id === '11155111' ? 'https://sepolia.etherscan.io' :
-                ''
+                'id' in chainConfig && chainConfig.id === '11155111'
+                  ? 'https://sepolia.etherscan.io'
+                  : ''
               ]
-            };
-          }
-          
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [chainConfig],
-          });
-          
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        } else {
-          throw switchError;
+          };
+            await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [params] });
         }
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newProvider = new ethers.BrowserProvider(window.ethereum);
-      const newNetwork = await newProvider.getNetwork();
-      
-      if (newNetwork.chainId.toString() !== targetChainId) {
-        throw new Error(`Network switch failed. Expected ${targetChainId}, got ${newNetwork.chainId}`);
-      }
-      
-      console.log(`Successfully switched to chain ${targetChainId}`);
-      return true;
-      
-    } catch (error: any) {
-      if (error.code === 4001) {
-        throw new Error('User rejected the request to switch networks');
-      }
-      throw new Error(`Network switch failed: ${error.message || 'User rejected the request'}`);
+      } else { throw switchError; }
     }
+    return true;
   }, []);
 
   const switchToRSCNetwork = useCallback(async () => {
     if (!connectedChain) throw new Error('No chain selected');
-    
-    const rscNetworkChainId = connectedChain.rscNetwork.chainId;
-    console.log(`Switching to RSC network: ${rscNetworkChainId}`);
-    
-    return switchNetwork(rscNetworkChainId);
+    return switchNetwork(connectedChain.rscNetwork.chainId);
   }, [connectedChain, switchNetwork]);
-
-  // Check for existing contracts using Convex data
-  useEffect(() => {
-    if (!connectedAccount || !connectedChain || !contractData) return;
-
-    const validateContracts = async () => {
-      setIsCheckingContracts(true);
-      try {
-        console.log('Contract data from Convex:', contractData);
-        
+  
+  const validateContracts = useCallback(async () => {
+    if (!connectedAccount || !connectedChain || contractData === undefined) return;
+    setIsCheckingContracts(true);
+    try {
         if (contractData) {
-          // Convert Convex data to UserContractAddresses format
-          const stored: UserContractAddresses = {
-            reactiveContract: contractData.rscContract,
-            callbackContract: contractData.callbackContract,
-            deployedAt: Date.now(), // We don't store this in Convex
-            chainId: contractData.chainId,
-            deployer: contractData.userAddress.toLowerCase()
-          };
-
-          console.log('Validating stored contracts from Convex...');
-          
-          // Create RSC provider to validate contracts
-          const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
-          
-          // Validate contracts exist on RSC network and check funding status
-          const validationResult = await validateStoredContracts(stored, rscProvider, connectedAccount);
-          
-          if (validationResult.isValid) {
-            console.log('Contracts are valid, checking funding status...');
-            setExistingContracts(stored);
-            setContractsValid(true);
-            setContractFundingStatus(validationResult.fundingStatus);
-            
-            // Update cost estimates based on funding status
-            if (validationResult.fundingStatus.isActive) {
-              console.log('Contracts are active and funded, user can add additional orders');
-              setFormData(prev => ({
-                ...prev,
-                destinationFunding: '0', // No additional funding needed
-                rscFunding: '0' // No additional RSC funding needed
-              }));
+            const stored: UserContractAddresses = {
+                reactiveContract: contractData.rscContract,
+                callbackContract: contractData.callbackContract,
+                deployedAt: Date.now(), chainId: contractData.chainId,
+                deployer: contractData.userAddress.toLowerCase()
+            };
+            const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
+            const { isValid, contractStatus: status } = await validateStoredContracts(stored, rscProvider, connectedAccount);
+            if (isValid && status) {
+                setExistingContracts(stored);
+                setContractsValid(true);
+                setContractStatus(status);
             } else {
-              console.log('Contracts exist but are inactive/underfunded');
-              setFormData(prev => ({
-                ...prev,
-                destinationFunding: connectedChain.defaultFunding,
-                rscFunding: '0.05'
-              }));
+                setExistingContracts(null); setContractsValid(false); setContractStatus(null);
             }
-          } else {
-            console.log('Stored contracts are invalid');
-            setExistingContracts(null);
-            setContractsValid(false);
-            setContractFundingStatus(null);
-            
-            // Reset to first order costs
-            setFormData(prev => ({
-              ...prev,
-              destinationFunding: connectedChain.defaultFunding,
-              rscFunding: '0.05'
-            }));
-          }
         } else {
-          console.log('No stored contracts found in Convex, this will be first order');
-          setExistingContracts(null);
-          setContractsValid(false);
-          setContractFundingStatus(null);
-          
-          // Set first order costs
-          setFormData(prev => ({
-            ...prev,
-            destinationFunding: connectedChain.defaultFunding,
-            rscFunding: '0.05'
-          }));
+            setExistingContracts(null); setContractsValid(false); setContractStatus(null);
         }
-      } catch (error) {
-        console.error('Error validating contracts from Convex:', error);
-        setExistingContracts(null);
-        setContractsValid(false);
-        setContractFundingStatus(null);
-      } finally {
+    } catch (error) {
+        console.error('Error validating contracts:', error);
+        setExistingContracts(null); setContractsValid(false); setContractStatus(null);
+    } finally {
         setIsCheckingContracts(false);
+    }
+  }, [connectedAccount, connectedChain, contractData]);
+
+  useEffect(() => { validateContracts(); }, [validateContracts]);
+
+  const handleFundAndSettleDebt = useCallback(async () => {
+    if (!existingContracts || !connectedChain) {
+      toast.error("Contract details not found.");
+      return;
+    }
+    
+    setIsFundingDebt(true);
+    setIsMultiChainTxInProgress(true);
+    const toastId = toast.loading("Starting funding process...");
+    
+    try {
+      // Step 1: Fund callback contract on Sepolia using depositTo()
+      toast.loading("Switching to Sepolia to fund Callback contract...", { id: toastId });
+      await switchNetwork(connectedChain.id);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
+      const sepoliaSigner = await sepoliaProvider.getSigner();
+      
+      // Check if callback contract exists
+      const callbackCode = await sepoliaProvider.getCode(existingContracts.callbackContract);
+      if (callbackCode === '0x') {
+        throw new Error("Callback contract not found. Please redeploy your contracts.");
       }
+      
+      // CORRECTED: Use depositTo() which automatically settles debt
+      const callbackSystemContract = new ethers.Contract(
+        connectedChain.callbackProxyAddress, // Callback proxy/system contract
+        SYSTEM_CONTRACT_ABI, 
+        sepoliaSigner
+      );
+      
+      toast.loading("Sending 0.03 ETH via depositTo() (auto-settles debt)...", { id: toastId });
+      
+      const tx1 = await callbackSystemContract.depositTo(existingContracts.callbackContract, { 
+        value: ethers.parseEther("0.03"),
+        gasLimit: 500000
+      });
+      await tx1.wait();
+      toast.success("Callback contract funded and debt automatically settled!", { id: toastId });
+  
+      // Step 2: Fund reactive contract on RSC Network using depositTo()
+      toast.loading("Switching to Reactive Network to fund RSC contract...", { id: toastId });
+      await switchToRSCNetwork();
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const rscProvider = new ethers.BrowserProvider(window.ethereum);
+      const rscSigner = await rscProvider.getSigner();
+  
+      // Check if reactive contract exists
+      const rscCode = await rscProvider.getCode(existingContracts.reactiveContract);
+      if (rscCode === '0x') {
+        throw new Error("Reactive contract not found. Please redeploy your contracts.");
+      }
+  
+      // CORRECTED: Use depositTo() on system contract which automatically settles debt
+      const rscSystemContract = new ethers.Contract(
+        SYSTEM_CONTRACT_ADDRESS, // System contract address
+        SYSTEM_CONTRACT_ABI, 
+        rscSigner
+      );
+      
+      toast.loading("Sending 0.1 REACT via depositTo() (auto-settles debt)...", { id: toastId });
+      
+      const tx2 = await rscSystemContract.depositTo(existingContracts.reactiveContract, { 
+        value: ethers.parseEther("0.1"),
+        gasLimit: 500000
+      });
+      await tx2.wait();
+      toast.success("Reactive contract funded and debt automatically settled!", { id: toastId });
+  
+      // Step 3: Switch back and re-validate
+      toast.loading("Switching back to Sepolia...", { id: toastId });
+      await switchNetwork(connectedChain.id);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success("Process complete! Refreshing contract status.", { id: toastId });
+      
+      // Wait for blockchain state to update
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      await validateContracts();
+  
+    } catch (error: any) {
+      console.error("Funding and settlement failed:", error);
+      
+      let errorMessage = "An unknown error occurred.";
+      if (error.message?.includes("User denied") || error.code === 4001) {
+        errorMessage = "Transaction cancelled by user.";
+      } else if (error.message?.includes("insufficient funds")) {
+        errorMessage = "Insufficient funds for transaction.";
+      } else if (error.message?.includes("not found")) {
+        errorMessage = error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, { id: toastId });
+      
+      // Try to switch back to original network
+      if(connectedChain) {
+        try { 
+          await switchNetwork(connectedChain.id); 
+          toast("Switched back to original network");
+        } catch (e) { 
+          console.error("Failed to switch back", e);
+          toast("Please manually switch back to Sepolia");
+        }
+      }
+    } finally {
+      setIsFundingDebt(false);
+      setIsMultiChainTxInProgress(false);
+    }
+  }, [existingContracts, connectedChain, switchNetwork, switchToRSCNetwork, validateContracts]);
+
+  // MODIFIED useEffect for event listeners
+  useEffect(() => {
+    const detectConnection = async () => {
+        if (!window.ethereum) { setIsInitializing(false); return; }
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const [accounts, network] = await Promise.all([provider.listAccounts(), provider.getNetwork()]);
+            if (accounts.length > 0) {
+                const account = accounts[0].address;
+                setConnectedAccount(account);
+                setFormData(prev => ({ ...prev, clientAddress: account }));
+            }
+            const chainId = network.chainId.toString();
+            const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
+            if (chain) {
+                setConnectedChain(chain);
+                setFormData(prev => ({ ...prev, chainId, destinationFunding: chain.defaultFunding }));
+            }
+        } catch (error) { console.error('Error detecting connection:', error); }
+        setIsInitializing(false);
+    };
+    detectConnection();
+
+    const handleChainChanged = () => {
+      if (isMultiChainTxInProgress) {
+        console.log("Ignoring 'chainChanged' event during multi-chain transaction.");
+        return;
+      }
+      window.location.reload();
     };
 
-    validateContracts();
-  }, [connectedAccount, connectedChain, contractData]);
+    const handleAccountsChanged = () => {
+      if (isMultiChainTxInProgress) {
+        console.log("Ignoring 'accountsChanged' event during multi-chain transaction.");
+        return;
+      }
+      window.location.reload();
+    };
+
+    if (window.ethereum) {
+      window.ethereum.on('chainChanged', handleChainChanged);
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+    }
+    return () => {
+      if (window.ethereum?.removeListener) {
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
+  }, [isMultiChainTxInProgress]); // Dependency added
 
   // Calculate threshold from percentage using actual current price
   const calculateThresholdFromPercentage = useCallback((percentage: string) => {
@@ -1337,109 +1423,6 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     }));
   }, [formData.selectedPair, formData.sellToken0]);
 
-  // Fund inactive contracts function
-  const handleFundContracts = useCallback(async () => {
-    if (!connectedChain || !existingContracts || !contractFundingStatus) {
-      toast.error('Contract information not available');
-      return;
-    }
-
-    const originalChainId = connectedChain.id;
-    const rscChainId = connectedChain.rscNetwork.chainId;
-    
-    try {
-      setIsDeploymentActive(true);
-      setIsCoveringDebt(true); 
-      setDeploymentStep('switching-rsc');
-      
-      console.log('💰 Starting contract funding process...');
-      
-      // Switch to RSC network to fund contracts
-      await switchToRSCNetwork();
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setDeploymentStep('funding-rsc');
-      
-      const rscProvider = new ethers.BrowserProvider(window.ethereum);
-      const rscSigner = await rscProvider.getSigner();
-      
-      // Calculate required funding (debt + extra buffer)
-      const debt = parseFloat(contractFundingStatus.debt);
-      const extraFunding = 0.1; // Extra 0.1 REACT for future operations
-      const totalFunding = debt + extraFunding;
-      
-      console.log(`Funding contracts with ${totalFunding} REACT (${debt} debt + ${extraFunding} buffer)`);
-      
-      // Fund the reactive contract directly
-      const fundingTx = await rscSigner.sendTransaction({
-        to: existingContracts.reactiveContract,
-        value: ethers.parseEther(totalFunding.toString()),
-        gasLimit: 100000
-      });
-      
-      await fundingTx.wait();
-      
-      // Call coverDebt on the system contract if needed
-      if (debt > 0) {
-        const systemContractAddress = '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4';
-        const systemContract = new ethers.Contract(
-          systemContractAddress,
-          ['function coverDebt() payable'],
-          rscSigner
-        );
-        
-        // Try to cover debt by calling coverDebt on behalf of the contract
-        try {
-          const coverDebtTx = await systemContract.coverDebt({
-            value: ethers.parseEther(debt.toString()),
-            gasLimit: 200000
-          });
-          await coverDebtTx.wait();
-          console.log('Debt covered successfully');
-        } catch (debtError) {
-          console.warn('Could not cover debt automatically:', debtError);
-          toast('Contracts funded, but you may need to call coverDebt() manually');
-        }
-      }
-      
-      toast.success('Contracts funded successfully!');
-      
-      // Switch back to original chain
-      await switchNetwork(originalChainId);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setDeploymentStep('complete');
-      toast.success('Your contracts are now active and ready for new stop orders!');
-      
-    } catch (error: any) {
-      console.error('❌ Error funding contracts:', error);
-      setDeploymentStep('idle');
-      
-      // Switch back to original network on error
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const currentNetwork = await provider.getNetwork();
-        if (currentNetwork.chainId.toString() !== originalChainId) {
-          await switchNetwork(originalChainId);
-        }
-      } catch (switchError) {
-        console.error('Failed to switch back to original network:', switchError);
-      }
-      
-      if (error.message.includes('User denied') || error.code === 4001) {
-        toast.error('Transaction cancelled by user');
-      } else if (error.message.includes('insufficient funds')) {
-        toast.error('Insufficient REACT balance for funding');
-      } else {
-        toast.error(error.message || 'Failed to fund contracts');
-      }
-    } finally {
-      setIsDeploymentActive(false);
-      setIsCoveringDebt(false); 
-    }
-  }, [connectedChain, existingContracts, contractFundingStatus, switchToRSCNetwork, switchNetwork]);
-
   // ===== ENHANCED DEPLOYMENT FUNCTION WITH CONVEX INTEGRATION =====
 const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
   e.preventDefault();
@@ -1459,9 +1442,9 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
   
   try {
     setIsDeploymentActive(true);
-    console.log('🚀 Starting deployment process...');
+    console.log('Starting deployment process...');
     
-    // Step 1: Check existing contracts (now handled by useQuery hook)
+    // Step 1: Check existing contracts
     setDeploymentStep('checking-contracts');
 
     // Ensure we're on the original chain
@@ -1476,8 +1459,8 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     const requiredAmount = ethers.parseUnits(formData.amount, formData.sellToken.decimals);
 
     if (existingContracts && contractsValid) {
-      // ===== ADDITIONAL ORDER FLOW - Much cheaper! =====
-      console.log('📝 Adding order to existing contracts...');
+      // ===== ADDITIONAL ORDER FLOW =====
+      console.log('Adding order to existing contracts...');
       
       // Step 1: Check and approve tokens for callback contract
       setDeploymentStep('checking-approval');
@@ -1584,7 +1567,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
         const orderCreatedEvent = receipt.logs.find((log: any) => {
           try {
             const parsed = reactiveContract.interface.parseLog({
-              topics: log.topics,
+              topics: log.topics as string[],
               data: log.data
             });
             return parsed && parsed.name === 'StopOrderCreated';
@@ -1595,7 +1578,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
         
         if (orderCreatedEvent) {
           const parsed = reactiveContract.interface.parseLog({
-            topics: orderCreatedEvent.topics,
+            topics: orderCreatedEvent.topics as string[],
             data: orderCreatedEvent.data
           });
           if (parsed) {
@@ -1609,7 +1592,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
       
     } else {
       // ===== FIRST ORDER FLOW - Full deployment =====
-      console.log('🏗️ Deploying new contracts for first order...');
+      console.log('Deploying new contracts for first order...');
       
       // Step 1: Deploy callback contract on original chain (Sepolia)
       setDeploymentStep('deploying-callback');
@@ -1765,7 +1748,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
       }
 
       // Step 5: Set contract addresses state
-      console.log('📦 DEPLOYMENT SUCCESS: New contracts deployed');
+      console.log('DEPLOYMENT SUCCESS: New contracts deployed');
       
       const newContracts: UserContractAddresses = {
         reactiveContract: reactiveContractAddress,
@@ -1782,7 +1765,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
 
     toast.success('Your stop order is now active and monitoring prices 24/7');
     setDeploymentStep('complete');
-    console.log('✅ Deployment completed successfully!');
+    console.log('Deployment completed successfully!');
     
     // Auto-redirect to dashboard after 2 seconds
     setTimeout(() => {
@@ -1790,7 +1773,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     }, 2000);
     
   } catch (error: any) {
-    console.error('❌ Error creating stop order:', error);
+    console.error('Error creating stop order:', error);
     setDeploymentStep('idle');
     
     // Enhanced error recovery
@@ -1819,144 +1802,21 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     }
   } finally {
     setIsDeploymentActive(false);
-    console.log('🏁 Deployment process ended');
+    console.log('Deployment process ended');
   }
 }, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract]);
 
-  // Form validation - updated to consider funding status
-  const isFormValid = 
-    !!connectedAccount &&
-    !!connectedChain &&
-    !connectedChain.isComingSoon &&
-    !!formData.sellToken &&
-    !!formData.buyToken &&
-    !!formData.selectedPair &&
-    !!formData.amount &&
-    parseFloat(formData.amount) > 0 &&
-    !!formData.dropPercentage &&
-    parseFloat(formData.dropPercentage) > 0 &&
-    hasTokenBalance &&
-    deploymentStep === 'idle' &&
-    !isDeploymentActive;
-
-  // Check if contracts need funding
-  const contractsNeedFunding = 
-    existingContracts && 
-    contractsValid && 
-    contractFundingStatus && 
-    !contractFundingStatus.isActive;
-
-  // Determine button state and message
-  const getButtonState = () => {
-    if (contractsNeedFunding) {
-      return {
-        disabled: !connectedAccount || deploymentStep !== 'idle' || isDeploymentActive,
-        text: 'Fund Inactive Contracts',
-        icon: <Wallet className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
-        subtitle: 'Fund your contracts to create more stop orders'
-      };
-    } else if (existingContracts && contractsValid && contractFundingStatus?.isActive) {
-      return {
-        disabled: !isFormValid,
-        text: 'Add Order to Contract',
-        icon: <Layers className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
-        subtitle: null
-      };
-    } else {
-      return {
-        disabled: !isFormValid,
-        text: 'Create Stop Order',
-        icon: <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
-        subtitle: null
-      };
-    }
-  };
-
-  // Main button click handler - updated to handle funding vs creating order
-  const handleMainButtonClick = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // If contracts need funding, handle that instead of creating order
-    if (contractsNeedFunding) {
-      await handleFundContracts();
-      return;
-    }
-    
-    // Otherwise, proceed with order creation
-    await handleCreateOrder(e);
-  }, [contractsNeedFunding, handleFundContracts, handleCreateOrder]);
-
-  const buttonState = getButtonState();
-
-  // Auto-detect connected chain and account
+  // Reset deployment step when form changes after successful creation
   useEffect(() => {
-    const detectConnection = async () => {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const [accounts, network] = await Promise.all([
-            provider.listAccounts(),
-            provider.getNetwork()
-          ]);
-
-          if (accounts.length > 0) {
-            const account = accounts[0].address;
-            setConnectedAccount(account);
-            setFormData(prev => ({ ...prev, clientAddress: account }));
-          }
-
-          const chainId = network.chainId.toString();
-          const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
-          
-          if (chain) {
-            setConnectedChain(chain);
-            setFormData(prev => ({ 
-              ...prev, 
-              chainId: chainId,
-              destinationFunding: chain.defaultFunding 
-            }));
-          }
-        } catch (error) {
-          console.error('Error detecting connection:', error);
+    if (deploymentStep === 'complete') {
+      const timer = setTimeout(() => {
+        if (mountedRef.current) {
+          setDeploymentStep('idle');
         }
-      }
-      setIsInitializing(false);
-    };
-
-    detectConnection();
-
-    // Handle network and account changes
-    const handleChainChanged = (chainId: string) => {
-      console.log('Network changed to:', chainId, 'Deployment active:', isDeploymentActive);
-      if (!isDeploymentActive && deploymentStep === 'idle') {
-        console.log('Not in deployment, reloading page...');
-        setTimeout(() => window.location.reload(), 100);
-      }
-    };
-
-    const handleAccountsChanged = (accounts: string[]) => {
-      console.log('Account changed:', accounts, 'Deployment active:', isDeploymentActive);
-      if (!isDeploymentActive && deploymentStep === 'idle') {
-        if (accounts.length > 0) {
-          setConnectedAccount(accounts[0]);
-          setFormData(prev => ({ ...prev, clientAddress: accounts[0] }));
-        }
-        setTimeout(() => window.location.reload(), 100);
-      }
-    };
-
-    if (typeof window !== 'undefined' && window.ethereum) {
-      window.ethereum.on('chainChanged', handleChainChanged);
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-
-      return () => {
-        if (window.ethereum && window.ethereum.removeListener) {
-          window.ethereum.removeListener('chainChanged', handleChainChanged);
-          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        }
-      };
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [deploymentStep, isDeploymentActive]);
+  }, [formData.sellToken, formData.buyToken, formData.amount, formData.dropPercentage, deploymentStep]);
 
   // Pre-load user tokens for better UX
   useEffect(() => {
@@ -2121,9 +1981,21 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
   }, [formData.amount, formData.stopPrice, formData.sellToken, formData.buyToken]);
 
   const openTokenModal = useCallback((type: 'sell' | 'buy') => {
+    // Don't open if contracts are inactive
+    const contractsInactive = 
+      existingContracts && 
+      contractsValid && 
+      contractStatus && 
+      !contractStatus.isActive;
+    
+    if (contractsInactive) {
+      toast.error('Please fund your contracts first before selecting tokens.');
+      return;
+    }
+    
     setTokenModalType(type);
     setIsTokenModalOpen(true);
-  }, []);
+  }, [existingContracts, contractsValid, contractStatus]);
 
   const handleTokenSelect = useCallback((token: Token) => {
     if (tokenModalType === 'sell') {
@@ -2137,6 +2009,18 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
   const handleSwapTokens = useCallback(async () => {
     if (!formData.sellToken || !formData.buyToken) return;
     
+    // Don't swap if contracts are inactive
+    const contractsInactive = 
+      existingContracts && 
+      contractsValid && 
+      contractStatus && 
+      !contractStatus.isActive;
+      
+    if (contractsInactive) {
+      toast.error('Please fund your contracts first.');
+      return;
+    }
+    
     setIsSwapping(true);
     
     setTimeout(() => {
@@ -2149,7 +2033,72 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
       }));
       setIsSwapping(false);
     }, 200);
-  }, [formData.sellToken, formData.buyToken]);
+  }, [formData.sellToken, formData.buyToken, existingContracts, contractsValid, contractStatus]);
+
+  // Form validation - updated to consider funding status
+  const isFormValid = 
+    !!connectedAccount &&
+    !!connectedChain &&
+    !connectedChain.isComingSoon &&
+    !!formData.sellToken &&
+    !!formData.buyToken &&
+    !!formData.selectedPair &&
+    !!formData.amount &&
+    parseFloat(formData.amount) > 0 &&
+    !!formData.dropPercentage &&
+    parseFloat(formData.dropPercentage) > 0 &&
+    hasTokenBalance &&
+    deploymentStep === 'idle' &&
+    !isDeploymentActive;
+
+  // Check if contracts are inactive and should disable UI
+  const contractsInactive = 
+    existingContracts && 
+    contractsValid && 
+    contractStatus && 
+    !contractStatus.isActive;
+
+  // Determine button state and message
+  const getButtonState = () => {
+    if (contractsInactive) {
+      return {
+        disabled: true,
+        text: 'Contracts Inactive - Fund Required',
+        icon: <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
+        subtitle: 'Use the button in the warning above to proceed'
+      };
+    } else if (existingContracts && contractsValid && contractStatus?.isActive) {
+      return {
+        disabled: !isFormValid,
+        text: 'Add Order to Contract',
+        icon: <Layers className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
+        subtitle: null
+      };
+    } else {
+      return {
+        disabled: !isFormValid,
+        text: 'Create Stop Order',
+        icon: <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
+        subtitle: null
+      };
+    }
+  };
+
+  // Main button click handler
+  const handleMainButtonClick = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // If contracts are inactive, show message
+    if (contractsInactive) {
+      toast.error('Your contracts are inactive. Please use the "Fund & Settle Debt" button in the warning message above.');
+      return;
+    }
+    
+    // Otherwise, proceed with order creation
+    await handleCreateOrder(e);
+  }, [contractsInactive, handleCreateOrder]);
+
+  const buttonState = getButtonState();
 
   // Show loading during initialization
   if (isInitializing) {
@@ -2191,13 +2140,14 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
           {/* Status Indicator */}
           <EnhancedStatusIndicator
             formData={formData}
-            connectedAccount={connectedAccount}
             connectedChain={connectedChain}
             hasTokenBalance={hasTokenBalance}
             isLoadingPair={isLoadingPair}
             existingContracts={existingContracts}
             contractsValid={contractsValid}
-            contractFundingStatus={contractFundingStatus}
+            contractStatus={contractStatus}
+            onFundAndSettle={handleFundAndSettleDebt}
+            isFundingDebt={isFundingDebt}
           />
 
           {/* Deployment Status */}
@@ -2209,25 +2159,25 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
             <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
               <CardTitle className="text-lg sm:text-xl text-zinc-100 flex items-center">
                 Configure Stop Order
-                {existingContracts && contractsValid && contractFundingStatus && (
+                {existingContracts && contractsValid && contractStatus && (
                   <div className="ml-3 flex items-center text-sm px-2 py-1 rounded-full">
-                    {contractFundingStatus.isActive ? (
+                    {contractStatus.isActive ? (
                       <div className="bg-green-900/30 text-green-300 flex items-center">
                         <Layers className="w-3 h-3 mr-1" />
                         Add to existing
                       </div>
                     ) : (
-                      <div className="bg-amber-900/30 text-amber-300 flex items-center">
+                      <div className="bg-red-900/30 text-red-300 flex items-center">
                         <AlertTriangle className="w-3 h-3 mr-1" />
-                        Needs funding
+                        Inactive contracts
                       </div>
                     )}
                   </div>
                 )}
               </CardTitle>
               <CardDescription className="text-zinc-300 text-sm sm:text-base">
-                {existingContracts && contractsValid && contractFundingStatus ? (
-                  contractFundingStatus.isActive 
+                {existingContracts && contractsValid && contractStatus ? (
+                  contractStatus.isActive
                     ? 'Adding order to your existing funded smart contract (lower cost)'
                     : 'Your contracts need funding before you can add more orders'
                 ) : existingContracts && contractsValid ? (
@@ -2251,6 +2201,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           variant="outline"
                           size="sm"
                           className="text-xs px-1.5 py-1 sm:px-2 sm:py-1 bg-blue-700/50 border-blue-600 text-zinc-300 hover:bg-blue-600"
+                          disabled={!!contractsInactive}
                           onClick={() => {
                             if (formData.sellToken?.balance) {
                               const balance = parseFloat(formData.sellToken.balance);
@@ -2272,6 +2223,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       placeholder="0.0"
                       value={formData.amount}
                       onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                      disabled={!!contractsInactive}
                       className="border-0 bg-transparent text-xl sm:text-2xl font-semibold text-zinc-100 placeholder:text-zinc-500 p-0 h-auto focus:ring-2 focus:ring-blue-500"
                     />
                     
@@ -2279,11 +2231,11 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       <Button
                         onClick={() => openTokenModal('sell')}
                         className={`px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base ${
-                          !connectedAccount 
+                          !connectedAccount || contractsInactive
                             ? 'bg-gray-600/50 border-gray-500 text-gray-400 cursor-not-allowed' 
                             : 'bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100'
                         }`}
-                        disabled={!connectedAccount}
+                        disabled={!connectedAccount || !!contractsInactive}
                       >
                         {formData.sellToken ? (
                           <div className="flex items-center space-x-1.5 sm:space-x-2">
@@ -2301,9 +2253,9 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           </div>
                         )}
                       </Button>
-                      {!connectedAccount && (
+                      {(!connectedAccount || contractsInactive) && (
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                          Connect your wallet to continue
+                          {!connectedAccount ? 'Connect your wallet to continue' : 'Fund your contracts first'}
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
                         </div>
                       )}
@@ -2328,7 +2280,11 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       size="icon"
                       className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-800/50 hover:bg-blue-700/70 rounded-lg border border-blue-700 hover:border-blue-600"
                       onClick={handleSwapTokens}
-                      disabled={!formData.sellToken || !formData.buyToken}
+                      disabled={
+                        !formData.sellToken ||
+                        !formData.buyToken ||
+                        Boolean(contractsInactive)
+                      }
                     >
                       <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-300" />
                     </Button>
@@ -2352,11 +2308,11 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       <Button
                         onClick={() => openTokenModal('buy')}
                         className={`px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base ${
-                          !connectedAccount 
+                          !connectedAccount || contractsInactive
                             ? 'bg-gray-600/50 border-gray-500 text-gray-400 cursor-not-allowed' 
                             : 'bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100'
                         }`}
-                        disabled={!connectedAccount}
+                        disabled={!connectedAccount || !!contractsInactive}
                       >
                         {formData.buyToken ? (
                           <div className="flex items-center space-x-1.5 sm:space-x-2">
@@ -2374,9 +2330,9 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           </div>
                         )}
                       </Button>
-                      {!connectedAccount && (
+                      {(!connectedAccount || contractsInactive) && (
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                          Connect your wallet to continue
+                          {!connectedAccount ? 'Connect your wallet to continue' : 'Fund your contracts first'}
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
                         </div>
                       )}
@@ -2407,6 +2363,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                         setFormData(prev => ({ ...prev, dropPercentage: e.target.value }));
                         calculateThresholdFromPercentage(e.target.value);
                       }}
+                      disabled={!!contractsInactive}
                       className="bg-blue-900/20 border-blue-700 text-zinc-200 text-base sm:text-lg focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
@@ -2423,6 +2380,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                             ? 'bg-red-600 border-red-500 hover:bg-red-700' 
                             : 'bg-blue-800/50 border-blue-700 text-zinc-300 hover:bg-blue-700'
                         }`}
+                        disabled={!!contractsInactive}
                         onClick={() => {
                           setFormData(prev => ({ ...prev, dropPercentage: percentage }));
                           calculateThresholdFromPercentage(percentage);
@@ -2464,17 +2422,18 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                     onClick={handleMainButtonClick}
                     className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                     disabled={buttonState.disabled}
-                    title={!connectedAccount ? 'Connect your wallet to continue' : undefined}
+                    title={!connectedAccount ? 'Connect your wallet to continue' : 
+                           contractsInactive ? 'Fund your contracts using the button in the warning above' : undefined}
                   >
                     {deploymentStep === 'complete' ? (
                       <div className="flex items-center">
                         <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                        {isCoveringDebt ? 'Debt Covered! 🎉' : 'Stop Order Created! 🎉'}
+                        Stop Order Created!
                       </div>
-                    ) : deploymentStep !== 'idle' || isCoveringDebt ? (
+                    ) : deploymentStep !== 'idle' ? (
                       <div className="flex items-center">
                         <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
-                        {isCoveringDebt ? 'Covering Debt...' : 'Processing...'}
+                        Processing...
                       </div>
                     ) : isLoadingPair ? (
                       <div className="flex items-center">
@@ -2495,32 +2454,6 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       </div>
                     )}
                   </Button>
-
-                  {/* Debt Status Information - Only show when debt exists */}
-                  {contractsHaveDebt && contractFundingStatus && (
-                    <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 sm:p-4 mt-4">
-                      <div className="flex items-center mb-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-400 mr-2" />
-                        <h4 className="text-amber-200 font-medium text-sm sm:text-base">Contract Debt Outstanding</h4>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
-                        <div>
-                          <p className="text-amber-300 mb-1">Outstanding Debt:</p>
-                          <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus.debt).toFixed(4)} REACT</p>
-                        </div>
-                        <div>
-                          <p className="text-amber-300 mb-1">Current Reserves:</p>
-                          <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus.reserves).toFixed(4)} REACT</p>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-amber-500/20">
-                        <p className="text-amber-200 text-xs sm:text-sm">
-                          Your contracts have accumulated debt from previous transactions and need to be cleared before processing new orders. 
-                          Use the "Cover Debt" button above to pay {parseFloat(contractFundingStatus.debt).toFixed(4)} REACT and reactivate your contracts.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </CardContent>
@@ -2558,7 +2491,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
               Frequently Asked Questions
             </CardTitle>
             <CardDescription className="text-zinc-300 text-sm sm:text-base">
-              Understanding the new multi-order system and automated stop loss protection with Convex database
+              Understanding the simplified contract management system with dashboard-based funding
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
@@ -2570,7 +2503,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Our new architecture deploys smart contracts once per user, then allows unlimited additional orders at minimal cost.
+                      Our system deploys smart contracts once per user, then allows unlimited additional orders at minimal cost.
                     </p>
                     <div className="space-y-3">
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
@@ -2590,35 +2523,64 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="convex-storage" className="border-zinc-800">
+              <AccordionItem value="dashboard-management" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How are my contracts stored and managed now?
+                  How does the simplified funding system work?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Your contract addresses are now stored in our secure Convex database, providing faster, more reliable access than on-chain storage.
+                      We've simplified contract management by moving funding controls to the Dashboard for a cleaner experience.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
+                        <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">Automatic Detection</h4>
+                        <p className="text-xs sm:text-sm text-purple-300">
+                          The system automatically checks if your contracts have sufficient funding before allowing new orders.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-amber-900/20 p-3 sm:p-4 rounded-lg border border-amber-500/20">
+                        <h4 className="font-medium text-amber-200 mb-2 text-sm sm:text-base">Dashboard Funding</h4>
+                        <p className="text-xs sm:text-sm text-amber-300">
+                          If contracts are inactive or low on funds, you'll be directed to the Dashboard where you can fund contracts and cover any outstanding debt.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
+                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Fund + Cover Debt</h4>
+                        <p className="text-xs sm:text-sm text-green-300">
+                          The Dashboard handles both funding and debt settlement in streamlined transactions for maximum efficiency.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="convex-storage" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
+                  How are my contracts stored and managed?
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
+                    <p>
+                      Your contract addresses are stored in our secure Convex database, providing instant access without gas costs.
                     </p>
                     
                     <div className="space-y-3">
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
                         <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">Convex Database Storage</h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          Contract addresses are automatically stored in our secure, fast database when you deploy your first order.
+                          Contract addresses are automatically stored when you deploy your first order.
                         </p>
                       </div>
                       
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
                         <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Instant Access</h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Access your contracts instantly from any device - faster than blockchain queries and no gas costs for lookups.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Automatic Management</h4>
-                        <p className="text-xs sm:text-sm text-blue-300">
-                          The system automatically detects existing contracts and offers lower-cost additional orders.
+                          Access your contracts instantly from any device - faster than blockchain queries.
                         </p>
                       </div>
                     </div>
@@ -2633,7 +2595,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      A stop order acts as your personal trading assistant, watching token prices 24/7 and automatically selling when they drop to your specified level. Think of it as an insurance policy for your crypto investments.
+                      A stop order acts as your personal trading assistant, watching token prices 24/7 and automatically selling when they drop to your specified level.
                     </p>
                     <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
                       <h4 className="font-medium text-zinc-100 mb-2 text-sm sm:text-base">Example Scenario:</h4>
@@ -2641,156 +2603,6 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                         You own ETH worth $3,500 each. You set a 10% stop order. If ETH drops to $3,150, 
                         your tokens automatically sell for USDC, protecting you from further losses.
                       </p>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="how-it-works" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How Does the Reactive System Work?
-                </AccordionTrigger>
-                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
-                  <div className="space-y-3 sm:space-y-4">
-                    <p>
-                      Our Reactive Smart Contracts (RSCs) monitor blockchain events 24/7, automatically executing trades when your conditions are met.
-                    </p>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-6 h-6 rounded-full bg-blue-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-xs font-bold text-blue-300">1</span>
-                        </div>
-                        <div>
-                          <p className="text-blue-200 font-medium text-sm sm:text-base">Continuous Monitoring</p>
-                          <p className="text-blue-300 text-xs sm:text-sm">
-                            Your reactive contract watches DEX prices across chains without requiring manual intervention.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start space-x-3">
-                        <div className="w-6 h-6 rounded-full bg-purple-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-xs font-bold text-purple-300">2</span>
-                        </div>
-                        <div>
-                          <p className="text-purple-200 font-medium text-sm sm:text-base">Automatic Trigger</p>
-                          <p className="text-purple-300 text-xs sm:text-sm">
-                            When price drops to your threshold, the RSC automatically triggers your callback contract.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start space-x-3">
-                        <div className="w-6 h-6 rounded-full bg-green-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-xs font-bold text-green-300">3</span>
-                        </div>
-                        <div>
-                          <p className="text-green-200 font-medium text-sm sm:text-base">Instant Execution</p>
-                          <p className="text-green-300 text-xs sm:text-sm">
-                            Your callback contract swaps tokens on the DEX, protecting you from further losses.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="funding" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  Setup Process & Costs
-                </AccordionTrigger>
-                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
-                  <div className="space-y-3 sm:space-y-4">
-                    <p>
-                      Our optimized setup process minimizes transactions while ensuring your stop order is properly funded and configured.
-                    </p>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">First Order Setup</h4>
-                        <div className="space-y-2 text-xs sm:text-sm text-blue-300">
-                          <p>1. Token approval (if needed)</p>
-                          <p>2. Deploy callback contract on Sepolia</p>
-                          <p>3. Deploy reactive contract on RSC</p>
-                          <p>4. Automatic contract storage in database</p>
-                          <p>5. Create first stop order</p>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders</h4>
-                        <div className="space-y-2 text-xs sm:text-sm text-green-300">
-                          <p>1. Token approval (if needed)</p>
-                          <p>2. Add order to existing contract</p>
-                          <p>3. Automatic detection from database</p>
-                          <p className="font-medium">That's it! Much cheaper.</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-500/30">
-                      <p className="text-xs sm:text-sm text-amber-200">
-                        <span className="font-medium">Cost Comparison:</span> 
-                        5 orders with old system: ~0.15 ETH + 0.25 REACT. 
-                        With new system: ~0.03 ETH + 0.05 REACT + gas = 90% savings!
-                      </p>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="safety" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  Safety & Security Features
-                </AccordionTrigger>
-                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
-                  <div className="space-y-3 sm:space-y-4">
-                    <p>
-                      Your funds and orders are protected by multiple layers of security and safety mechanisms.
-                    </p>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Personal Contracts
-                        </h4>
-                        <p className="text-xs sm:text-sm text-green-300">
-                          Each user gets their own contracts. Only you can create/cancel orders on your contracts.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Order Management
-                        </h4>
-                        <p className="text-xs sm:text-sm text-blue-300">
-                          Cancel your stop orders anytime before they execute. Full control over your positions.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
-                        <h4 className="font-medium text-purple-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Price Validation
-                        </h4>
-                        <p className="text-xs sm:text-sm text-purple-300">
-                          Multiple price checks ensure orders execute only at valid market prices.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-orange-900/20 p-3 sm:p-4 rounded-lg border border-orange-500/20">
-                        <h4 className="font-medium text-orange-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Gas Protection
-                        </h4>
-                        <p className="text-xs sm:text-sm text-orange-300">
-                          Pre-funded execution ensures your orders work even during high gas periods.
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </AccordionContent>
@@ -2808,6 +2620,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
         chainId={formData.chainId}
         connectedAccount={connectedAccount}
         tokenModalType={tokenModalType}
+        disabled={!!contractsInactive}
         excludeToken={
           tokenModalType === 'sell'
             ? formData.buyToken ?? undefined

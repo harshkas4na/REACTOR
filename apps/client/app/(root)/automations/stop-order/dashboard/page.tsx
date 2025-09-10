@@ -1,7 +1,7 @@
-'use client'
+'use client';
 import { ethers } from 'ethers';
 import React, { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // Updated framer-motion import
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -460,7 +460,7 @@ const ContractBalanceManager = ({
 
   // Define minimum safe balances
   const MIN_CALLBACK_BALANCE = 0.001; // 0.001 ETH
-  const MIN_RSC_BALANCE = 0.01; // 0.01 REACT
+  const MIN_RSC_BALANCE = 0.001; // 0.001 REACT
 
   // Funding input states
   const [callbackFundingAmount, setCallbackFundingAmount] = useState('0.01');
@@ -743,7 +743,7 @@ const ContractBalanceManager = ({
         <CardTitle className="text-slate-200 flex items-center justify-between">
           <div className="flex items-center">
             <Settings className="w-5 h-5 mr-2 text-slate-400" />
-            Contract Management
+            Contract Details
           </div>
           <Button
             onClick={fetchBalances}
@@ -1171,6 +1171,7 @@ export default function UpdatedStopOrderDashboard() {
     isLoading: true,
     lastUpdated: 0
   });
+  const [isContractsOpen, setIsContractsOpen] = useState(false); // New state for collapsible section
 
   // Convex hook to get contract data
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
@@ -1659,23 +1660,6 @@ export default function UpdatedStopOrderDashboard() {
           </div>
         </motion.div>
 
-        {/* Contract Balance Management - Show only if user has contracts */}
-        {userContracts && contractsValid && connectedChain && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mb-8"
-          >
-            <ContractBalanceManager 
-              userContracts={userContracts}
-              connectedChain={connectedChain}
-              onBalanceUpdate={setContractBalances}
-              connectedAccount={connectedAccount}
-            />
-          </motion.div>
-        )}
-
         {/* Active Orders */}
         {activeOrders.length > 0 && (
           <motion.div
@@ -1702,6 +1686,7 @@ export default function UpdatedStopOrderDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
+            className="mb-8"
           >
             <div className="flex items-center mb-6">
               <CheckCircle className="w-6 h-6 text-blue-400 mr-2" />
@@ -1711,6 +1696,61 @@ export default function UpdatedStopOrderDashboard() {
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {completedOrders.map(renderOrderCard)}
+            </div>
+          </motion.div>
+        )}
+
+        {/* NEW: Collapsible Contract Balance Management */}
+        {userContracts && contractsValid && connectedChain && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-8"
+          >
+            <div className="rounded-lg border border-slate-700 bg-slate-900/50 overflow-hidden">
+                <button
+                    onClick={() => setIsContractsOpen(!isContractsOpen)}
+                    className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-800/40 transition-colors"
+                >
+                    <div className="flex items-center">
+                        <Settings className="w-6 h-6 mr-4 text-slate-400" />
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-100">Contracts Management</h2>
+                            <p className="text-sm text-slate-400 mt-1">
+                                {isContractsOpen ? 'Click to collapse' : 'Click to manage contract funds'}
+                            </p>
+                        </div>
+                    </div>
+                    {isContractsOpen 
+                        ? <ChevronUp className="w-5 h-5 text-slate-300" /> 
+                        : <ChevronDown className="w-5 h-5 text-slate-300" />}
+                </button>
+
+                <AnimatePresence initial={false}>
+                    {isContractsOpen && (
+                        <motion.section
+                            key="content"
+                            initial="collapsed"
+                            animate="open"
+                            exit="collapsed"
+                            variants={{
+                                open: { opacity: 1, height: "auto" },
+                                collapsed: { opacity: 0, height: 0 }
+                            }}
+                            transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
+                        >
+                            <div className="p-6 border-t border-slate-700">
+                                <ContractBalanceManager 
+                                    userContracts={userContracts}
+                                    connectedChain={connectedChain}
+                                    onBalanceUpdate={setContractBalances}
+                                    connectedAccount={connectedAccount}
+                                />
+                            </div>
+                        </motion.section>
+                    )}
+                </AnimatePresence>
             </div>
           </motion.div>
         )}
