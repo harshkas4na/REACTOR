@@ -86,11 +86,10 @@ interface UserContractAddresses {
 }
 
 // ===== CONTRACT FUNDING STATUS CHECKS =====
-// ===== CONTRACT FUNDING STATUS CHECKS =====
 const checkContractFundingStatus = async (
   contracts: UserContractAddresses,
   rscProvider: ethers.JsonRpcProvider
-): Promise<{ debt: string; reserves: string; isActive: boolean }> => {
+): Promise<{ debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string }> => {
   try {
     const systemContractAddress = '0x0000000000000000000000000000000000fffFfF'; // Updated system contract address
     const callbackProxyAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA'; // Callback proxy address for Sepolia
@@ -155,11 +154,13 @@ const checkContractFundingStatus = async (
     return {
       debt: ethers.formatEther(totalDebt),
       reserves: ethers.formatEther(totalReserves),
-      isActive
+      isActive,
+      callbackDebt: ethers.formatEther(callbackDebt),
+      rscDebt: ethers.formatEther(reactiveDebt)
     };
   } catch (error) {
     console.error('❌ Error checking funding status:', error);
-    return { debt: '0', reserves: '0', isActive: false };
+    return { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' };
   }
 };
 
@@ -168,7 +169,7 @@ const validateStoredContracts = async (
   contracts: UserContractAddresses,
   rscProvider: ethers.JsonRpcProvider,
   userAddress: string
-): Promise<{ isValid: boolean; fundingStatus: { debt: string; reserves: string; isActive: boolean } }> => {
+): Promise<{ isValid: boolean; fundingStatus: { debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string } }> => {
   try {
     console.log('🔐 Validating stored contracts:', contracts);
     
@@ -181,10 +182,31 @@ const validateStoredContracts = async (
       console.error('❌ VALIDATION FAILED: User is not the deployer');
       console.error('❌ User address:', normalizedUserAddress);
       console.error('❌ Contract deployer:', normalizedContractDeployer);
-      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
+      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
     }
     
-    // Check if reactive contract exists and is valid by calling a function that actually exists
+    // Check if callback contract exists and is valid by calling owner()
+    const sepoliaProvider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+    const callbackContract = new ethers.Contract(
+      contracts.callbackContract,
+      CALLBACK_STOP_ORDER_ABI,
+      sepoliaProvider
+    );
+    
+    try {
+      // Check if the user is the owner of the callback contract
+      // const contractOwner = await callbackContract.owner();
+      // if (contractOwner.toLowerCase() !== userAddress.toLowerCase()) {
+      //   console.error('❌ VALIDATION FAILED: User is not the owner of callback contract');
+      //   return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
+      // }
+      console.log('✅ Callback contract validation successful');
+    } catch (contractError) {
+      console.error('❌ VALIDATION FAILED: Cannot read from callback contract:', contractError);
+      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
+    }
+    
+    // Check if reactive contract exists and is valid 
     const reactiveContract = new ethers.Contract(
       contracts.reactiveContract,
       REACTIVE_STOP_ORDER_ABI,
@@ -192,12 +214,16 @@ const validateStoredContracts = async (
     );
     
     try {
-      // Try to call nextOrderId() to verify contract exists and is functional
-      // await reactiveContract.nextOrderId();
+      // Check if the user is the owner of the reactive contract
+      const contractOwner = await reactiveContract.owner();
+      // if (contractOwner.toLowerCase() !== userAddress.toLowerCase()) {
+      //   console.error('❌ VALIDATION FAILED: User is not the owner of reactive contract');
+      //   return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
+      // }
       console.log('✅ Reactive contract validation successful');
     } catch (contractError) {
       console.error('❌ VALIDATION FAILED: Cannot read from reactive contract:', contractError);
-      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
+      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
     }
     
     // Check funding status
@@ -207,9 +233,10 @@ const validateStoredContracts = async (
     return { isValid: true, fundingStatus };
   } catch (error) {
     console.error('❌ VALIDATION ERROR:', error);
-    return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false } };
+    return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
   }
 };
+
 // ===== INTERFACES AND TYPES =====
 interface Token {
   address: string;
@@ -268,7 +295,7 @@ interface ChainConfig {
   };
 }
 
-type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete' | 'storing-contracts';
+type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete' | 'storing-contracts' | 'covering-callback-debt' | 'covering-rsc-debt';
 
 // ===== CONFIGURATION DATA =====
 const SUPPORTED_CHAINS: ChainConfig[] = [
@@ -823,7 +850,7 @@ const EnhancedStatusIndicator = ({
   isLoadingPair: boolean;
   existingContracts: UserContractAddresses | null;
   contractsValid: boolean;
-  contractFundingStatus: { debt: string; reserves: string; isActive: boolean } | null;
+  contractFundingStatus: { debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string } | null;
 }) => {
   // Determine the current status
   const getStatus = () => {
@@ -838,19 +865,6 @@ const EnhancedStatusIndicator = ({
     }
     if (!formData.selectedPair && formData.sellToken && formData.buyToken) {
       return { type: 'error', message: 'Trading pair not found on DEX' };
-    }
-    
-    // Check contract funding status first if contracts exist
-    if (existingContracts && contractsValid && contractFundingStatus) {
-      if (!contractFundingStatus.isActive) {
-        const debt = parseFloat(contractFundingStatus.debt);
-        const reserves = parseFloat(contractFundingStatus.reserves);
-        return { 
-          type: 'error', 
-          message: 'Your contracts are inactive due to insufficient funding',
-          subMessage: `Debt: ${debt.toFixed(4)} REACT, Reserves: ${reserves.toFixed(4)} REACT. Fund contracts to continue.`
-        };
-      }
     }
     
     // Only show token-related warnings if user has selected tokens
@@ -973,6 +987,10 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
         return { title: 'Deploying Reactive Contract', message: 'Creating your multi-order stop loss contract on Reactive Network...', color: 'green' };
       case 'creating-order':
         return { title: 'Creating Stop Order', message: 'Adding stop order to your contract...', color: 'green' };
+      case 'covering-callback-debt':
+        return { title: 'Covering Callback Debt', message: 'Funding callback contract and clearing debt...', color: 'purple' };
+      case 'covering-rsc-debt':
+        return { title: 'Covering RSC Debt', message: 'Funding RSC contract and clearing debt...', color: 'purple' };
       case 'complete':
         return { title: '🎉 Stop Order Active!', message: 'Your stop order is now monitoring prices 24/7', color: 'green' };
       default:
@@ -1031,7 +1049,7 @@ const DashboardLink = () => {
 };
 
 // ===== MAIN COMPONENT =====
-export default function EnhancedStopOrderWithMultiOrderArchitecture() {
+export default function EnhancedStopOrderWithPersonalContracts() {
   const [formData, setFormData] = useState<StopOrderFormData>({
     chainId: '',
     selectedPair: null,
@@ -1069,9 +1087,10 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     debt: string;
     reserves: string;
     isActive: boolean;
+    callbackDebt: string;
+    rscDebt: string;
   } | null>(null);
   const [isCoveringDebt, setIsCoveringDebt] = useState(false);
-  const contractsHaveDebt = contractFundingStatus && parseFloat(contractFundingStatus.debt) > 0;
 
   // Component cleanup ref
   const mountedRef = useRef(true);
@@ -1079,6 +1098,15 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
   // Convex hooks
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
   const storeContract = useMutation(api.contracts.store);
+
+  // Check if contracts have debt (either callback or RSC)
+  const contractsHaveDebt = !!contractFundingStatus && (
+    parseFloat(contractFundingStatus.callbackDebt) > 0 || 
+    parseFloat(contractFundingStatus.rscDebt) > 0
+  );
+
+  // Check if token selection should be disabled
+  const shouldDisableTokenSelection = !!contractsHaveDebt && !!existingContracts && contractsValid;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1339,527 +1367,588 @@ export default function EnhancedStopOrderWithMultiOrderArchitecture() {
     }));
   }, [formData.selectedPair, formData.sellToken0]);
 
-  // Fund inactive contracts function
-  // Fund inactive contracts function - Updated to always send funds first, then cover debt
-const handleFundContracts = useCallback(async () => {
-  if (!connectedChain || !existingContracts || !contractFundingStatus) {
-    toast.error('Contract information not available');
-    return;
-  }
+  // ===== ENHANCED DEBT COVERING FUNCTION =====
+  const handleCoverDebt = useCallback(async () => {
+    if (!connectedChain || !existingContracts || !contractFundingStatus) {
+      toast.error('Contract information not available');
+      return;
+    }
 
-  const originalChainId = connectedChain.id;
-  const rscChainId = connectedChain.rscNetwork.chainId;
-  
-  try {
-    setIsDeploymentActive(true);
-    setIsCoveringDebt(true); 
-    setDeploymentStep('switching-rsc');
+    const originalChainId = connectedChain.id;
+    const rscChainId = connectedChain.rscNetwork.chainId;
     
-    console.log('💰 Starting contract funding process...');
-    
-    // Switch to RSC network to fund contracts
-    await switchToRSCNetwork();
-    
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setDeploymentStep('funding-rsc');
-    
-    const rscProvider = new ethers.BrowserProvider(window.ethereum);
-    const rscSigner = await rscProvider.getSigner();
-    
-    // Calculate required funding (debt + extra buffer)
-    const debt = parseFloat(contractFundingStatus.debt);
-    const extraFunding = 0.1; // Extra 0.1 REACT for future operations
-    const totalFunding = Math.max(debt + extraFunding, 0.1); // Minimum 0.1 REACT
-    
-    console.log(`Funding contracts with ${totalFunding} REACT (${debt} debt + ${extraFunding} buffer)`);
-    
-    // Step 1: Send funds directly to the reactive contract
-    const fundingTx = await rscSigner.sendTransaction({
-      to: existingContracts.reactiveContract,
-      value: ethers.parseEther(totalFunding.toString()),
-      gasLimit: 100000
-    });
-    
-    await fundingTx.wait();
-    console.log('✅ Funds sent to reactive contract');
-    
-    // Step 2: Call coverDebt() on the reactive contract to settle any debt
-    if (debt > 0) {
-      try {
-        const reactiveContract = new ethers.Contract(
+    const callbackDebt = parseFloat(contractFundingStatus.callbackDebt);
+    const rscDebt = parseFloat(contractFundingStatus.rscDebt);
+
+    try {
+      setIsDeploymentActive(true);
+      setIsCoveringDebt(true);
+      
+      console.log('💰 Starting debt covering process...');
+      console.log(`Callback debt: ${callbackDebt} ETH, RSC debt: ${rscDebt} REACT`);
+
+      // Step 1: Handle Callback Contract Debt (if exists)
+      if (callbackDebt > 0) {
+        setDeploymentStep('covering-callback-debt');
+        console.log(`Covering callback debt: ${callbackDebt} ETH`);
+
+        // Ensure we're on Sepolia
+        await switchNetwork(originalChainId);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
+        const sepoliaSigner = await sepoliaProvider.getSigner();
+
+        // Transaction 1: Send funds to callback contract
+        const callbackFundingAmount = callbackDebt + 0.01; // Debt + buffer
+        console.log(`Sending ${callbackFundingAmount} ETH to callback contract`);
+        
+        const fundCallbackTx = await sepoliaSigner.sendTransaction({
+          to: existingContracts.callbackContract,
+          value: ethers.parseEther(callbackFundingAmount.toString()),
+          gasLimit: 100000
+        });
+        
+        await fundCallbackTx.wait();
+        console.log('✅ Funds sent to callback contract');
+
+        // Transaction 2: Call coverDebt on callback contract
+        console.log('Calling coverDebt on callback contract...');
+        const callbackContract = new ethers.Contract(
+          existingContracts.callbackContract,
+          CALLBACK_STOP_ORDER_ABI,
+          sepoliaSigner
+        );
+
+        try {
+          const coverDebtTx = await callbackContract.coverDebt({
+            gasLimit: 200000
+          });
+          await coverDebtTx.wait();
+          console.log('✅ Callback debt covered successfully');
+        } catch (coverError) {
+          console.warn('Could not call coverDebt on callback contract (might not exist):', coverError);
+          // Continue anyway, funds were sent
+        }
+
+        toast.success('Callback contract debt covered!');
+      }
+
+      // Step 2: Handle RSC Contract Debt (if exists)
+      if (rscDebt > 0) {
+        setDeploymentStep('covering-rsc-debt');
+        console.log(`Covering RSC debt: ${rscDebt} REACT`);
+
+        // Switch to RSC network
+        await switchToRSCNetwork();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const rscProvider = new ethers.BrowserProvider(window.ethereum);
+        const rscSigner = await rscProvider.getSigner();
+
+        // Transaction 1: Send funds to RSC contract
+        const rscFundingAmount = rscDebt + 0.1; // Debt + buffer
+        console.log(`Sending ${rscFundingAmount} REACT to RSC contract`);
+        
+        const fundRscTx = await rscSigner.sendTransaction({
+          to: existingContracts.reactiveContract,
+          value: ethers.parseEther(rscFundingAmount.toString()),
+          gasLimit: 100000
+        });
+        
+        await fundRscTx.wait();
+        console.log('✅ Funds sent to RSC contract');
+
+        // Transaction 2: Call coverDebt on RSC contract
+        console.log('Calling coverDebt on RSC contract...');
+        const rscContract = new ethers.Contract(
           existingContracts.reactiveContract,
-          [
-            'function coverDebt() payable',
-            'function withdrawETH(address to, uint256 amount)',
-            'function withdrawAllETH(address to)'
-          ],
+          REACTIVE_STOP_ORDER_ABI,
           rscSigner
         );
-        
-        const coverDebtTx = await reactiveContract.coverDebt({
-          gasLimit: 200000
-        });
-        await coverDebtTx.wait();
-        console.log('✅ Debt covered successfully');
-      } catch (debtError) {
-        console.warn('Could not cover debt automatically:', debtError);
-        toast('Contracts funded, but you may need to call coverDebt() manually');
-      }
-    }
-    
-    // Step 3: Fund callback contract on Sepolia
-    await switchNetwork(originalChainId);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
-    const sepoliaSigner = await sepoliaProvider.getSigner();
-    
-    // Send funds to callback contract
-    const callbackFundingAmount = 0.01; // 0.01 ETH for callback operations
-    const callbackFundingTx = await sepoliaSigner.sendTransaction({
-      to: existingContracts.callbackContract,
-      value: ethers.parseEther(callbackFundingAmount.toString()),
-      gasLimit: 100000
-    });
-    
-    await callbackFundingTx.wait();
-    console.log('✅ Callback contract funded');
-    
-    // Step 4: Cover debt on callback contract if needed
-    try {
-      const callbackContract = new ethers.Contract(
-        existingContracts.callbackContract,
-        [
-          'function coverDebt() payable',
-          'function withdrawETH(address to, uint256 amount)',
-          'function withdrawAllETH(address to)'
-        ],
-        sepoliaSigner
-      );
-      
-      const callbackCoverDebtTx = await callbackContract.coverDebt({
-        gasLimit: 200000
-      });
-      await callbackCoverDebtTx.wait();
-      console.log('✅ Callback contract debt covered');
-    } catch (callbackDebtError) {
-      console.warn('Could not cover callback debt automatically:', callbackDebtError);
-    }
-    
-    toast.success('Contracts funded successfully!');
-    setDeploymentStep('complete');
-    toast.success('Your contracts are now active and ready for new stop orders!');
-    
-  } catch (error: any) {
-    console.error('❌ Error funding contracts:', error);
-    setDeploymentStep('idle');
-    
-    // Switch back to original network on error
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const currentNetwork = await provider.getNetwork();
-      if (currentNetwork.chainId.toString() !== originalChainId) {
-        await switchNetwork(originalChainId);
-      }
-    } catch (switchError) {
-      console.error('Failed to switch back to original network:', switchError);
-    }
-    
-    if (error.message.includes('User denied') || error.code === 4001) {
-      toast.error('Transaction cancelled by user');
-    } else if (error.message.includes('insufficient funds')) {
-      toast.error('Insufficient funds for funding contracts');
-    } else {
-      toast.error(error.message || 'Failed to fund contracts');
-    }
-  } finally {
-    setIsDeploymentActive(false);
-    setIsCoveringDebt(false); 
-  }
-}, [connectedChain, existingContracts, contractFundingStatus, switchToRSCNetwork, switchNetwork]);
-  // ===== ENHANCED DEPLOYMENT FUNCTION WITH CONVEX INTEGRATION =====
-const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!connectedChain || !formData.selectedPair || !formData.sellToken || !formData.buyToken) {
-    toast.error('Please complete all required fields');
-    return;
-  }
 
-  if (connectedChain.isComingSoon) {
-    toast.error(`${connectedChain.name} support coming soon. Please switch to Sepolia.`);
-    return;
-  }
-
-  const originalChainId = connectedChain.id;
-  const rscChainId = connectedChain.rscNetwork.chainId;
-  
-  try {
-    setIsDeploymentActive(true);
-    console.log('🚀 Starting deployment process...');
-    
-    // Step 1: Check existing contracts (now handled by useQuery hook)
-    setDeploymentStep('checking-contracts');
-
-    // Ensure we're on the original chain
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const currentNetwork = await provider.getNetwork();
-    
-    if (currentNetwork.chainId.toString() !== originalChainId) {
-      console.log('Switching to original chain first...');
-      await switchNetwork(originalChainId);
-    }
-
-    const requiredAmount = ethers.parseUnits(formData.amount, formData.sellToken.decimals);
-
-    if (existingContracts && contractsValid) {
-      // ===== ADDITIONAL ORDER FLOW - Much cheaper! =====
-      console.log('📝 Adding order to existing contracts...');
-      
-      // Step 1: Check and approve tokens for callback contract
-      setDeploymentStep('checking-approval');
-      
-      const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
-      const tokenContract = new ethers.Contract(
-        formData.sellToken.address,
-        [
-          'function approve(address spender, uint256 amount) returns (bool)',
-          'function allowance(address owner, address spender) view returns (uint256)'
-        ],
-        signer
-      );
-
-      const spenderAddress = existingContracts.callbackContract;
-      const currentAllowance = await tokenContract.allowance(connectedAccount, spenderAddress);
-
-      if (currentAllowance < requiredAmount) {
-        setDeploymentStep('approving');
-        
-        if (currentAllowance > 0) {
-          const resetTx = await tokenContract.approve(spenderAddress, 0);
-          await resetTx.wait();
-        }
-
-        const approvalTx = await tokenContract.approve(spenderAddress, requiredAmount);
-        await approvalTx.wait();
-        toast.success('Token approval confirmed');
-      } else {
-        toast.success('Tokens already approved');
-      }
-
-      // Step 2: Switch to RSC network to create the order
-      setDeploymentStep('switching-rsc');
-      await switchToRSCNetwork();
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setDeploymentStep('creating-order');
-      
-      const rscProvider = new ethers.BrowserProvider(window.ethereum);
-      const rscSigner = await rscProvider.getSigner();
-      
-      const reactiveContract = new ethers.Contract(
-        existingContracts.reactiveContract,
-        REACTIVE_STOP_ORDER_ABI,
-        rscSigner
-      );
-
-      // Calculate parameters
-      const dropPercent = parseFloat(formData.dropPercentage);
-      const coefficient = 1000;
-
-      const reserve0 = parseFloat(formData.selectedPair.reserve0);
-      const reserve1 = parseFloat(formData.selectedPair.reserve1);
-      
-      if (reserve0 <= 0 || reserve1 <= 0) {
-        throw new Error('Invalid pair reserves - no liquidity available');
-      }
-
-      const currentPrice = formData.sellToken0 
-        ? reserve1 / reserve0
-        : reserve0 / reserve1;
-
-      if (currentPrice <= 0 || !isFinite(currentPrice)) {
-        throw new Error('Invalid current price calculated from reserves');
-      }
-
-      const stopPrice = currentPrice * (1 - dropPercent / 100);
-      
-      if (stopPrice <= 0) {
-        throw new Error('Invalid stop price - check your drop percentage');
-      }
-      
-      const threshold = Math.floor(stopPrice * coefficient);
-      
-      if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
-        throw new Error('Invalid threshold calculated - check parameters');
-      }
-
-      console.log('Adding order with params:', {
-        pair: formData.selectedPair.pairAddress,
-        client: connectedAccount,
-        sellToken0: formData.sellToken0,
-        coefficient,
-        threshold
-      });
-
-      // Add order to existing reactive contract
-      const addOrderTx = await reactiveContract.createStopOrder(
-        formData.selectedPair.pairAddress,
-        formData.sellToken0,
-        coefficient,
-        threshold,
-        { gasLimit: 500000 }
-      );
-
-      const receipt = await addOrderTx.wait();
-      
-      // Extract order ID from logs
-      let orderId = null;
-      if (receipt.logs) {
-        const orderCreatedEvent = receipt.logs.find((log: any) => {
-          try {
-            const parsed = reactiveContract.interface.parseLog({
-              topics: log.topics,
-              data: log.data
-            });
-            return parsed && parsed.name === 'StopOrderCreated';
-          } catch {
-            return false;
-          }
-        });
-        
-        if (orderCreatedEvent) {
-          const parsed = reactiveContract.interface.parseLog({
-            topics: orderCreatedEvent.topics,
-            data: orderCreatedEvent.data
+        try {
+          const coverDebtTx = await rscContract.coverDebt({
+            gasLimit: 200000
           });
-          if (parsed) {
-            orderId = parsed.args.orderId.toString();
-          }
+          await coverDebtTx.wait();
+          console.log('✅ RSC debt covered successfully');
+        } catch (coverError) {
+          console.warn('Could not call coverDebt on RSC contract (might not exist):', coverError);
+          // Continue anyway, funds were sent
         }
-      }
-      
-      toast.success(`Additional stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
-      setDeploymentStep('complete');
-      
-    } else {
-      // ===== FIRST ORDER FLOW - Full deployment =====
-      console.log('🏗️ Deploying new contracts for first order...');
-      
-      // Step 1: Deploy callback contract on original chain (Sepolia)
-      setDeploymentStep('deploying-callback');
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
-      const sepoliaSigner = await sepoliaProvider.getSigner();
-      
-      console.log('Deploying callback contract...');
-      
-      // Create callback contract factory
-      const CallbackFactory = new ethers.ContractFactory(
-        CALLBACK_STOP_ORDER_ABI.abi,
-        CALLBACK_CONTRACT_BYTECODE,
-        sepoliaSigner
-      );
-      
-      const callbackContract = await CallbackFactory.deploy(
-        connectedChain.rscNetwork.callbackProxyAddress,
-        connectedChain.routerAddress,
-        { 
-          value: ethers.parseEther(formData.destinationFunding),
-          gasLimit: 2000000 
-        }
-      );
-      
-      await callbackContract.waitForDeployment();
-      const callbackContractAddress = await callbackContract.getAddress();
-      console.log('Callback contract deployed at:', callbackContractAddress);
-      
-      toast.success('Callback contract deployed');
 
-      // Step 2: Deploy reactive contract with first order on RSC network
-      setDeploymentStep('deploying-reactive');
-      console.log('Switching to RSC to deploy reactive contract...');
-      await switchToRSCNetwork();
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
-      const rscSigner2 = await rscProvider2.getSigner();
-
-      // Calculate parameters for first order
-      const dropPercent = parseFloat(formData.dropPercentage);
-      const coefficient = 1000;
-
-      const reserve0 = parseFloat(formData.selectedPair.reserve0);
-      const reserve1 = parseFloat(formData.selectedPair.reserve1);
-      
-      if (reserve0 <= 0 || reserve1 <= 0) {
-        throw new Error('Invalid pair reserves - no liquidity available');
+        toast.success('RSC contract debt covered!');
       }
 
-      const currentPrice = formData.sellToken0 
-        ? reserve1 / reserve0
-        : reserve0 / reserve1;
-
-      if (currentPrice <= 0 || !isFinite(currentPrice)) {
-        throw new Error('Invalid current price calculated from reserves');
-      }
-
-      const stopPrice = currentPrice * (1 - dropPercent / 100);
-      
-      if (stopPrice <= 0) {
-        throw new Error('Invalid stop price - check your drop percentage');
-      }
-      
-      const threshold = Math.floor(stopPrice * coefficient);
-
-      console.log('Deploying reactive contract with first order...');
-      console.log('Constructor params:', {
-        pair: formData.selectedPair.pairAddress,
-        callback: callbackContractAddress,
-        client: connectedAccount,
-        sellToken0: formData.sellToken0,
-        coefficient,
-        threshold
-      });
-
-      // Create reactive contract factory and deploy with first order
-      const ReactiveFactory = new ethers.ContractFactory(
-        REACTIVE_STOP_ORDER_ABI,
-        REACTIVE_CONTRACT_BYTECODE,
-        rscSigner2
-      );
-      
-      const reactiveContract = await ReactiveFactory.deploy(
-        callbackContractAddress,
-        formData.selectedPair.pairAddress,
-        formData.sellToken0,
-        coefficient,
-        threshold,
-        { 
-          value: ethers.parseEther("1"), // Fund with 1 REACT for operations
-          gasLimit: 5000000 
-        }
-      );
-      
-      await reactiveContract.waitForDeployment();
-      const reactiveContractAddress = await reactiveContract.getAddress();
-      console.log('Reactive contract deployed at:', reactiveContractAddress);
-      toast.success('Reactive contract deployed');
-
-      // Step 3: Store contract addresses in Convex
-      setDeploymentStep('storing-contracts');
-      
-      try {
-        console.log('Storing contract addresses in Convex...');
-        await storeContract({
-          userAddress: connectedAccount,
-          callbackContract: callbackContractAddress,
-          rscContract: reactiveContractAddress,
-          chainId: originalChainId
-        });
-        console.log('Contract addresses stored successfully in Convex');
-        toast.success('Contract addresses stored in database');
-      } catch (storageError) {
-        console.warn('Failed to store contract addresses in Convex (non-critical):', storageError);
-        toast('Warning: Could not store contract addresses in database');
-      }
-
-      // Step 4: Switch back to original chain and approve tokens
+      // Switch back to original network
       await switchNetwork(originalChainId);
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const finalProvider = new ethers.BrowserProvider(window.ethereum);
-      const finalSigner = await finalProvider.getSigner();
-      
-      const finalTokenContract = new ethers.Contract(
-        formData.sellToken.address,
-        [
-          'function approve(address spender, uint256 amount) returns (bool)',
-          'function allowance(address owner, address spender) view returns (uint256)'
-        ],
-        finalSigner
-      );
 
-      const currentAllowance = await finalTokenContract.allowance(connectedAccount, callbackContractAddress);
+      setDeploymentStep('complete');
+      toast.success('All contract debts have been cleared! Your contracts are now active.');
 
-      if (currentAllowance < requiredAmount) {
-        setDeploymentStep('approving');
-        
-        if (currentAllowance > 0) {
-          const resetTx = await finalTokenContract.approve(callbackContractAddress, 0);
-          await resetTx.wait();
+      // Refresh contract status after covering debt
+      setTimeout(async () => {
+        if (connectedChain) {
+          const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
+          const validationResult = await validateStoredContracts(existingContracts, rscProvider, connectedAccount);
+          setContractFundingStatus(validationResult.fundingStatus);
         }
-
-        const approvalTx = await finalTokenContract.approve(callbackContractAddress, requiredAmount);
-        await approvalTx.wait();
-        toast.success('Tokens approved for new contract');
+      }, 3000);
+      
+    } catch (error: any) {
+      console.error('❌ Error covering debt:', error);
+      setDeploymentStep('idle');
+      
+      // Switch back to original network on error
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const currentNetwork = await provider.getNetwork();
+        if (currentNetwork.chainId.toString() !== originalChainId) {
+          await switchNetwork(originalChainId);
+        }
+      } catch (switchError) {
+        console.error('Failed to switch back to original network:', switchError);
       }
+      
+      if (error.message.includes('User denied') || error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else if (error.message.includes('insufficient funds')) {
+        toast.error('Insufficient funds to cover debt');
+      } else {
+        toast.error(error.message || 'Failed to cover debt');
+      }
+    } finally {
+      setIsDeploymentActive(false);
+      setIsCoveringDebt(false);
+    }
+  }, [connectedChain, existingContracts, contractFundingStatus, switchNetwork, switchToRSCNetwork, connectedAccount]);
 
-      // Step 5: Set contract addresses state
-      console.log('📦 DEPLOYMENT SUCCESS: New contracts deployed');
-      
-      const newContracts: UserContractAddresses = {
-        reactiveContract: reactiveContractAddress,
-        callbackContract: callbackContractAddress,
-        deployedAt: Date.now(),
-        chainId: originalChainId,
-        deployer: connectedAccount.toLowerCase().trim()
-      };
-      
-      setExistingContracts(newContracts);
-      setContractsValid(true);
-      toast.success('Contracts deployed successfully! Future orders will be cheaper.');
+  // ===== UPDATED DEPLOYMENT FUNCTION FOR PERSONAL CONTRACTS =====
+  const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!connectedChain || !formData.selectedPair || !formData.sellToken || !formData.buyToken) {
+      toast.error('Please complete all required fields');
+      return;
     }
 
-    toast.success('Your stop order is now active and monitoring prices 24/7');
-    setDeploymentStep('complete');
-    console.log('✅ Deployment completed successfully!');
+    if (connectedChain.isComingSoon) {
+      toast.error(`${connectedChain.name} support coming soon. Please switch to Sepolia.`);
+      return;
+    }
+
+    const originalChainId = connectedChain.id;
+    const rscChainId = connectedChain.rscNetwork.chainId;
     
-    // Auto-redirect to dashboard after 2 seconds
-    setTimeout(() => {
-      window.location.href = '/automations/stop-order/dashboard';
-    }, 2000);
-    
-  } catch (error: any) {
-    console.error('❌ Error creating stop order:', error);
-    setDeploymentStep('idle');
-    
-    // Enhanced error recovery
     try {
+      setIsDeploymentActive(true);
+      console.log('🚀 Starting deployment process for personal contracts...');
+      
+      // Step 1: Check existing contracts (now handled by useQuery hook)
+      setDeploymentStep('checking-contracts');
+
+      // Ensure we're on the original chain (Sepolia)
       const provider = new ethers.BrowserProvider(window.ethereum);
       const currentNetwork = await provider.getNetwork();
+      
       if (currentNetwork.chainId.toString() !== originalChainId) {
-        console.log('Attempting to switch back to original network after error...');
+        console.log('Switching to Sepolia first...');
         await switchNetwork(originalChainId);
-        toast('Switched back to original network');
       }
-    } catch (switchBackError) {
-      console.error('Failed to switch back to original network:', switchBackError);
-      toast('Please manually switch back to your original network');
-    }
-    
-    // Enhanced error messages
-    if (error.message.includes('User denied') || error.code === 4001) {
-      toast.error('Transaction cancelled by user');
-    } else if (error.message.includes('insufficient funds')) {
-      toast.error('Insufficient funds for transaction');
-    } else if (error.message.includes('Only deployer can call')) {
-      toast.error('Access denied: You can only add orders to contracts you deployed');
-    } else {
-      toast.error(error.message || 'Failed to create stop order');
-    }
-  } finally {
-    setIsDeploymentActive(false);
-    console.log('🏁 Deployment process ended');
-  }
-}, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract]);
 
-  // Form validation - updated to consider funding status
+      const requiredAmount = ethers.parseUnits(formData.amount, formData.sellToken.decimals);
+
+      if (existingContracts && contractsValid) {
+        // ===== ADDITIONAL ORDER FLOW - Use existing personal contracts =====
+        console.log('📝 Adding order to existing personal contracts...');
+        
+        // Step 1: Check and approve tokens for callback contract
+        setDeploymentStep('checking-approval');
+        
+        const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
+        const tokenContract = new ethers.Contract(
+          formData.sellToken.address,
+          [
+            'function approve(address spender, uint256 amount) returns (bool)',
+            'function allowance(address owner, address spender) view returns (uint256)'
+          ],
+          signer
+        );
+
+        const spenderAddress = existingContracts.callbackContract;
+        const currentAllowance = await tokenContract.allowance(connectedAccount, spenderAddress);
+
+        if (currentAllowance < requiredAmount) {
+          setDeploymentStep('approving');
+          
+          if (currentAllowance > 0) {
+            const resetTx = await tokenContract.approve(spenderAddress, 0);
+            await resetTx.wait();
+          }
+
+          const approvalTx = await tokenContract.approve(spenderAddress, requiredAmount);
+          await approvalTx.wait();
+          toast.success('Token approval confirmed');
+        } else {
+          toast.success('Tokens already approved');
+        }
+
+        // Step 2: Create order on existing callback contract (stay on Sepolia)
+        setDeploymentStep('creating-order');
+        
+        const callbackContract = new ethers.Contract(
+          existingContracts.callbackContract,
+          CALLBACK_STOP_ORDER_ABI,
+          signer
+        );
+
+        // Calculate parameters
+        const dropPercent = parseFloat(formData.dropPercentage);
+        const coefficient = 1000;
+
+        const reserve0 = parseFloat(formData.selectedPair.reserve0);
+        const reserve1 = parseFloat(formData.selectedPair.reserve1);
+        
+        if (reserve0 <= 0 || reserve1 <= 0) {
+          throw new Error('Invalid pair reserves - no liquidity available');
+        }
+
+        const currentPrice = formData.sellToken0 
+          ? reserve1 / reserve0
+          : reserve0 / reserve1;
+
+        if (currentPrice <= 0 || !isFinite(currentPrice)) {
+          throw new Error('Invalid current price calculated from reserves');
+        }
+
+        const stopPrice = currentPrice * (1 - dropPercent / 100);
+        
+        if (stopPrice <= 0) {
+          throw new Error('Invalid stop price - check your drop percentage');
+        }
+        
+        const threshold = Math.floor(stopPrice * coefficient);
+        
+        if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
+          throw new Error('Invalid threshold calculated - check parameters');
+        }
+
+        console.log('Adding order with params:', {
+          pair: formData.selectedPair.pairAddress,
+          sellToken0: formData.sellToken0,
+          amount: requiredAmount,
+          coefficient,
+          threshold
+        });
+
+        // Create stop order on personal callback contract
+        const createOrderTx = await callbackContract.createStopOrder(
+          formData.selectedPair.pairAddress,
+          formData.sellToken0,
+          requiredAmount,
+          coefficient,
+          threshold,
+        );
+
+        const receipt = await createOrderTx.wait();
+        
+        // Extract order ID from logs
+        let orderId = null;
+        if (receipt.logs) {
+          const orderCreatedEvent = receipt.logs.find((log: any) => {
+            try {
+              const parsed = callbackContract.interface.parseLog({
+                topics: log.topics,
+                data: log.data
+              });
+              return parsed && parsed.name === 'StopOrderCreated';
+            } catch {
+              return false;
+            }
+          });
+          
+          if (orderCreatedEvent) {
+            const parsed = callbackContract.interface.parseLog({
+              topics: orderCreatedEvent.topics,
+              data: orderCreatedEvent.data
+            });
+            if (parsed) {
+              orderId = parsed.args.orderId.toString();
+            }
+          }
+        }
+        
+        toast.success(`Additional stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
+        setDeploymentStep('complete');
+        
+      } else {
+        // ===== FIRST ORDER FLOW - Deploy new personal contracts =====
+        console.log('🏗️ Deploying new personal contracts for first order...');
+        
+        // Step 1: Check and approve tokens first (on Sepolia)
+        setDeploymentStep('checking-approval');
+        
+        const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
+        const sepoliaSigner = await sepoliaProvider.getSigner();
+        
+        // We'll get the deployed callback address and then approve tokens for it
+        
+        // Step 2: Deploy callback contract on Sepolia
+        setDeploymentStep('deploying-callback');
+        
+        console.log('Deploying personal callback contract...');
+        
+        // Create callback contract factory
+        const CallbackFactory = new ethers.ContractFactory(
+          CALLBACK_STOP_ORDER_ABI,
+          CALLBACK_CONTRACT_BYTECODE,
+          sepoliaSigner
+        );
+        
+        const callbackContract = await CallbackFactory.deploy(
+          connectedAccount,                                 // _owner (user's wallet address)
+          connectedChain.rscNetwork.callbackProxyAddress,  // _callbackSender
+          connectedChain.routerAddress,                    // _router
+          { 
+            value: ethers.parseEther(formData.destinationFunding),
+            gasLimit: 5000000 
+          }
+        );
+        
+        await callbackContract.waitForDeployment();
+        const callbackContractAddress = await callbackContract.getAddress();
+        console.log('Personal callback contract deployed at:', callbackContractAddress);
+        
+        toast.success('Personal callback contract deployed');
+
+        // Step 3: Approve tokens for the newly deployed callback contract
+        const tokenContract = new ethers.Contract(
+          formData.sellToken.address,
+          [
+            'function approve(address spender, uint256 amount) returns (bool)',
+            'function allowance(address owner, address spender) view returns (uint256)'
+          ],
+          sepoliaSigner
+        );
+
+        const currentAllowance = await tokenContract.allowance(connectedAccount, callbackContractAddress);
+
+        if (currentAllowance < requiredAmount) {
+          setDeploymentStep('approving');
+          
+          if (currentAllowance > 0) {
+            const resetTx = await tokenContract.approve(callbackContractAddress, 0);
+            await resetTx.wait();
+          }
+
+          const approvalTx = await tokenContract.approve(callbackContractAddress, requiredAmount);
+          await approvalTx.wait();
+          toast.success('Tokens approved for personal contract');
+        }
+
+        // Step 4: Deploy reactive contract on RSC network
+        setDeploymentStep('deploying-reactive');
+        console.log('Switching to RSC to deploy personal reactive contract...');
+        await switchToRSCNetwork();
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
+        const rscSigner2 = await rscProvider2.getSigner();
+
+        console.log('Deploying personal reactive contract...');
+        console.log('Constructor params:', {
+          callbackAddress: callbackContractAddress
+        });
+
+        // Create reactive contract factory and deploy (just with callback address)
+        const ReactiveFactory = new ethers.ContractFactory(
+          REACTIVE_STOP_ORDER_ABI,
+          REACTIVE_CONTRACT_BYTECODE,
+          rscSigner2
+        );
+        
+        const reactiveContract = await ReactiveFactory.deploy(
+          connectedAccount,        // _owner (user's wallet address)
+          callbackContractAddress, // _stopOrderCallback
+          { 
+            value: ethers.parseEther("0.1"),
+            gasLimit: 5000000 
+          }
+        );
+        
+        await reactiveContract.waitForDeployment();
+        const reactiveContractAddress = await reactiveContract.getAddress();
+        console.log('Personal reactive contract deployed at:', reactiveContractAddress);
+        toast.success('Personal reactive contract deployed');
+
+        // Step 5: Store contract addresses in Convex
+        setDeploymentStep('storing-contracts');
+        
+        try {
+          console.log('Storing personal contract addresses in Convex...');
+          await storeContract({
+            userAddress: connectedAccount,
+            callbackContract: callbackContractAddress,
+            rscContract: reactiveContractAddress,
+            chainId: originalChainId
+          });
+          console.log('Contract addresses stored successfully in Convex');
+          toast.success('Contract addresses stored in database');
+        } catch (storageError) {
+          console.warn('Failed to store contract addresses in Convex (non-critical):', storageError);
+          toast('Warning: Could not store contract addresses in database');
+        }
+
+        // Step 6: Switch back to Sepolia and create the first order
+        setDeploymentStep('creating-order');
+        await switchNetwork(originalChainId);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const finalProvider = new ethers.BrowserProvider(window.ethereum);
+        const finalSigner = await finalProvider.getSigner();
+        
+        const finalCallbackContract = new ethers.Contract(
+          callbackContractAddress,
+          CALLBACK_STOP_ORDER_ABI,
+          finalSigner
+        );
+
+        // Calculate parameters for first order
+        const dropPercent = parseFloat(formData.dropPercentage);
+        const coefficient = 1000;
+
+        const reserve0 = parseFloat(formData.selectedPair.reserve0);
+        const reserve1 = parseFloat(formData.selectedPair.reserve1);
+        
+        if (reserve0 <= 0 || reserve1 <= 0) {
+          throw new Error('Invalid pair reserves - no liquidity available');
+        }
+
+        const currentPrice = formData.sellToken0 
+          ? reserve1 / reserve0
+          : reserve0 / reserve1;
+
+        if (currentPrice <= 0 || !isFinite(currentPrice)) {
+          throw new Error('Invalid current price calculated from reserves');
+        }
+
+        const stopPrice = currentPrice * (1 - dropPercent / 100);
+        
+        if (stopPrice <= 0) {
+          throw new Error('Invalid stop price - check your drop percentage');
+        }
+        
+        const threshold = Math.floor(stopPrice * coefficient);
+
+        console.log('Creating first order on personal callback contract with params:', {
+          pair: formData.selectedPair.pairAddress,
+          sellToken0: formData.sellToken0,
+          amount: requiredAmount,
+          coefficient,
+          threshold
+        });
+
+        // Create first stop order on personal callback contract
+        const firstOrderTx = await finalCallbackContract.createStopOrder(
+          formData.selectedPair.pairAddress,
+          formData.sellToken0,
+          requiredAmount,
+          coefficient,
+          threshold,
+        );
+
+        const receipt = await firstOrderTx.wait();
+        
+        // Extract order ID from logs
+        let orderId = null;
+        if (receipt.logs) {
+          const orderCreatedEvent = receipt.logs.find((log: any) => {
+            try {
+              const parsed = finalCallbackContract.interface.parseLog({
+                topics: log.topics,
+                data: log.data
+              });
+              return parsed && parsed.name === 'StopOrderCreated';
+            } catch {
+              return false;
+            }
+          });
+          
+          if (orderCreatedEvent) {
+            const parsed = finalCallbackContract.interface.parseLog({
+              topics: orderCreatedEvent.topics,
+              data: orderCreatedEvent.data
+            });
+            if (parsed) {
+              orderId = parsed.args.orderId.toString();
+            }
+          }
+        }
+
+        // Step 7: Set contract addresses state
+        console.log('📦 DEPLOYMENT SUCCESS: New personal contracts deployed');
+        
+        const newContracts: UserContractAddresses = {
+          reactiveContract: reactiveContractAddress,
+          callbackContract: callbackContractAddress,
+          deployedAt: Date.now(),
+          chainId: originalChainId,
+          deployer: connectedAccount.toLowerCase().trim()
+        };
+        
+        setExistingContracts(newContracts);
+        setContractsValid(true);
+        toast.success(`First stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
+        toast.success('Personal contracts deployed successfully! Future orders will be cheaper.');
+      }
+
+      toast.success('Your stop order is now active and monitoring prices 24/7');
+      setDeploymentStep('complete');
+      console.log('✅ Deployment completed successfully!');
+      
+      // Auto-redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/automations/stop-order/dashboard';
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error('❌ Error creating stop order:', error);
+      setDeploymentStep('idle');
+      
+      // Enhanced error recovery
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const currentNetwork = await provider.getNetwork();
+        if (currentNetwork.chainId.toString() !== originalChainId) {
+          console.log('Attempting to switch back to original network after error...');
+          await switchNetwork(originalChainId);
+          toast('Switched back to original network');
+        }
+      } catch (switchBackError) {
+        console.error('Failed to switch back to original network:', switchBackError);
+        toast('Please manually switch back to your original network');
+      }
+      
+      // Enhanced error messages
+      if (error.message.includes('User denied') || error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else if (error.message.includes('insufficient funds')) {
+        toast.error('Insufficient funds for transaction');
+      } else if (error.message.includes('Only deployer can call') || error.message.includes('Only owner can call')) {
+        toast.error('Access denied: You can only add orders to contracts you deployed');
+      } else {
+        toast.error(error.message || 'Failed to create stop order');
+      }
+    } finally {
+      setIsDeploymentActive(false);
+      console.log('🏁 Deployment process ended');
+    }
+  }, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract]);
+
+  // Form validation - not affected by debt status
   const isFormValid = 
     !!connectedAccount &&
     !!connectedChain &&
@@ -1874,55 +1963,6 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     hasTokenBalance &&
     deploymentStep === 'idle' &&
     !isDeploymentActive;
-
-  // Check if contracts need funding
-  const contractsNeedFunding = 
-    existingContracts && 
-    contractsValid && 
-    contractFundingStatus && 
-    !contractFundingStatus.isActive;
-
-  // Determine button state and message
-  const getButtonState = () => {
-    if (contractsNeedFunding) {
-      return {
-        disabled: !connectedAccount || deploymentStep !== 'idle' || isDeploymentActive,
-        text: 'Fund Inactive Contracts',
-        icon: <Wallet className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
-        subtitle: 'Fund your contracts to create more stop orders'
-      };
-    } else if (existingContracts && contractsValid && contractFundingStatus?.isActive) {
-      return {
-        disabled: !isFormValid,
-        text: 'Add Order to Contract',
-        icon: <Layers className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
-        subtitle: null
-      };
-    } else {
-      return {
-        disabled: !isFormValid,
-        text: 'Create Stop Order',
-        icon: <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />,
-        subtitle: null
-      };
-    }
-  };
-
-  // Main button click handler - updated to handle funding vs creating order
-  const handleMainButtonClick = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // If contracts need funding, handle that instead of creating order
-    if (contractsNeedFunding) {
-      await handleFundContracts();
-      return;
-    }
-    
-    // Otherwise, proceed with order creation
-    await handleCreateOrder(e);
-  }, [contractsNeedFunding, handleFundContracts, handleCreateOrder]);
-
-  const buttonState = getButtonState();
 
   // Auto-detect connected chain and account
   useEffect(() => {
@@ -2214,10 +2254,10 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
           className="mb-8 sm:mb-12"
         >
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 text-center lg:text-left">
-            Smart Stop Orders
+            Personal Stop Orders
           </h1>
           <p className="text-base sm:text-lg lg:text-xl text-zinc-200 mb-4 text-center lg:text-left">
-            Automatically sell your tokens when prices drop - protecting your investments 24/7.
+            Deploy your own smart contracts and automatically sell tokens when prices drop - protecting your investments 24/7.
           </p>
         </motion.div>
 
@@ -2239,12 +2279,65 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
           {/* Deployment Status */}
           <DeploymentStatus deploymentStep={deploymentStep} />
 
+          {/* Debt Warning Card - Show when contracts exist but have debt */}
+          {contractsHaveDebt && existingContracts && contractsValid && (
+            <Alert className="bg-amber-900/20 border-amber-500/30 text-amber-200">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:h-5" />
+              <AlertDescription>
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-medium text-amber-200">Contract Debt Outstanding</span>
+                    <div className="text-xs sm:text-sm mt-1 opacity-80">
+                      Your personal contracts have accumulated debt and need funding before you can create new orders.
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {parseFloat(contractFundingStatus?.callbackDebt || '0') > 0 && (
+                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
+                        <p className="text-amber-300 mb-1">Callback Contract Debt:</p>
+                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.callbackDebt || '0').toFixed(4)} ETH</p>
+                      </div>
+                    )}
+                    
+                    {parseFloat(contractFundingStatus?.rscDebt || '0') > 0 && (
+                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
+                        <p className="text-amber-300 mb-1">RSC Contract Debt:</p>
+                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.rscDebt || '0').toFixed(4)} REACT</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-500/20">
+                    <Button
+                      onClick={handleCoverDebt}
+                      disabled={isCoveringDebt || isDeploymentActive}
+                      className="bg-amber-600 hover:bg-amber-700 text-amber-50 text-sm"
+                    >
+                      {isCoveringDebt ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Covering Debt...
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <Wallet className="w-4 h-4 mr-2" />
+                          Cover Debt & Activate Contracts
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Combined Stop Order Configuration */}
           <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mx-auto max-w-2xl">
             
             <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
               <CardTitle className="text-lg sm:text-xl text-zinc-100 flex items-center">
-                Configure Stop Order
+                Configure Personal Stop Order
                 {existingContracts && contractsValid && contractFundingStatus && (
                   <div className="ml-3 flex items-center text-sm px-2 py-1 rounded-full">
                     {contractFundingStatus.isActive ? (
@@ -2264,12 +2357,12 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
               <CardDescription className="text-zinc-300 text-sm sm:text-base">
                 {existingContracts && contractsValid && contractFundingStatus ? (
                   contractFundingStatus.isActive 
-                    ? 'Adding order to your existing funded smart contract (lower cost)'
-                    : 'Your contracts need funding before you can add more orders'
+                    ? 'Adding order to your existing personal smart contracts (lower cost)'
+                    : 'Your personal contracts need debt clearance before you can add more orders'
                 ) : existingContracts && contractsValid ? (
-                  'Adding order to your existing smart contract (lower cost)'
+                  'Adding order to your existing personal smart contracts (lower cost)'
                 ) : (
-                  'Set up automatic selling when your token price drops'
+                  'Deploy your personal stop order smart contracts'
                 )}
               </CardDescription>
             </CardHeader>
@@ -2287,6 +2380,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           variant="outline"
                           size="sm"
                           className="text-xs px-1.5 py-1 sm:px-2 sm:py-1 bg-blue-700/50 border-blue-600 text-zinc-300 hover:bg-blue-600"
+                          disabled={shouldDisableTokenSelection}
                           onClick={() => {
                             if (formData.sellToken?.balance) {
                               const balance = parseFloat(formData.sellToken.balance);
@@ -2309,17 +2403,18 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       value={formData.amount}
                       onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                       className="border-0 bg-transparent text-xl sm:text-2xl font-semibold text-zinc-100 placeholder:text-zinc-500 p-0 h-auto focus:ring-2 focus:ring-blue-500"
+                      disabled={shouldDisableTokenSelection}
                     />
                     
                     <div className="relative group">
                       <Button
                         onClick={() => openTokenModal('sell')}
                         className={`px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base ${
-                          !connectedAccount 
+                          !connectedAccount || shouldDisableTokenSelection
                             ? 'bg-gray-600/50 border-gray-500 text-gray-400 cursor-not-allowed' 
                             : 'bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100'
                         }`}
-                        disabled={!connectedAccount}
+                        disabled={!connectedAccount || shouldDisableTokenSelection}
                       >
                         {formData.sellToken ? (
                           <div className="flex items-center space-x-1.5 sm:space-x-2">
@@ -2337,9 +2432,12 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           </div>
                         )}
                       </Button>
-                      {!connectedAccount && (
+                      {(!connectedAccount || shouldDisableTokenSelection) && (
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                          Connect your wallet to continue
+                          {!connectedAccount 
+                            ? 'Connect your wallet to continue'
+                            : 'Clear contract debt to continue'
+                          }
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
                         </div>
                       )}
@@ -2364,7 +2462,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       size="icon"
                       className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-800/50 hover:bg-blue-700/70 rounded-lg border border-blue-700 hover:border-blue-600"
                       onClick={handleSwapTokens}
-                      disabled={!formData.sellToken || !formData.buyToken}
+                      disabled={!formData.sellToken || !formData.buyToken || shouldDisableTokenSelection}
                     >
                       <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-300" />
                     </Button>
@@ -2388,11 +2486,11 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                       <Button
                         onClick={() => openTokenModal('buy')}
                         className={`px-2 py-1.5 sm:px-3 sm:py-2 h-auto text-sm sm:text-base ${
-                          !connectedAccount 
+                          !connectedAccount || shouldDisableTokenSelection
                             ? 'bg-gray-600/50 border-gray-500 text-gray-400 cursor-not-allowed' 
                             : 'bg-blue-700/80 hover:bg-blue-600 border-blue-600 text-zinc-100'
                         }`}
-                        disabled={!connectedAccount}
+                        disabled={!connectedAccount || shouldDisableTokenSelection}
                       >
                         {formData.buyToken ? (
                           <div className="flex items-center space-x-1.5 sm:space-x-2">
@@ -2410,9 +2508,12 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           </div>
                         )}
                       </Button>
-                      {!connectedAccount && (
+                      {(!connectedAccount || shouldDisableTokenSelection) && (
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                          Connect your wallet to continue
+                          {!connectedAccount 
+                            ? 'Connect your wallet to continue'
+                            : 'Clear contract debt to continue'
+                          }
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
                         </div>
                       )}
@@ -2444,6 +2545,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                         calculateThresholdFromPercentage(e.target.value);
                       }}
                       className="bg-blue-900/20 border-blue-700 text-zinc-200 text-base sm:text-lg focus:border-blue-500 focus:ring-blue-500"
+                      disabled={shouldDisableTokenSelection}
                     />
                   </div>
 
@@ -2459,6 +2561,7 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                             ? 'bg-red-600 border-red-500 hover:bg-red-700' 
                             : 'bg-blue-800/50 border-blue-700 text-zinc-300 hover:bg-blue-700'
                         }`}
+                        disabled={shouldDisableTokenSelection}
                         onClick={() => {
                           setFormData(prev => ({ ...prev, dropPercentage: percentage }));
                           calculateThresholdFromPercentage(percentage);
@@ -2497,66 +2600,48 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
 
                   {/* Create Stop Order Button */}
                   <Button 
-                    onClick={handleMainButtonClick}
+                    onClick={handleCreateOrder}
                     className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                    disabled={buttonState.disabled}
-                    title={!connectedAccount ? 'Connect your wallet to continue' : undefined}
+                    disabled={!isFormValid || shouldDisableTokenSelection}
+                    title={
+                      !connectedAccount 
+                        ? 'Connect your wallet to continue' 
+                        : shouldDisableTokenSelection 
+                        ? 'Clear contract debt first to continue'
+                        : undefined
+                    }
                   >
                     {deploymentStep === 'complete' ? (
                       <div className="flex items-center">
                         <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                        {isCoveringDebt ? 'Debt Covered! 🎉' : 'Stop Order Created! 🎉'}
+                        Stop Order Created!
                       </div>
-                    ) : deploymentStep !== 'idle' || isCoveringDebt ? (
+                    ) : deploymentStep !== 'idle' ? (
                       <div className="flex items-center">
                         <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
-                        {isCoveringDebt ? 'Covering Debt...' : 'Processing...'}
+                        Processing...
                       </div>
                     ) : isLoadingPair ? (
                       <div className="flex items-center">
                         <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
                         Finding Pair...
                       </div>
+                    ) : existingContracts && contractsValid && contractFundingStatus?.isActive ? (
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center">
+                          <Layers className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                          Add Order to Personal Contract
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center">
                         <div className="flex items-center">
-                          {buttonState.icon}
-                          {buttonState.text}
+                          <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                          Create Personal Stop Order
                         </div>
-                        {buttonState.subtitle && (
-                          <div className="text-xs mt-1 opacity-80">
-                            {buttonState.subtitle}
-                          </div>
-                        )}
                       </div>
                     )}
                   </Button>
-
-                  {/* Debt Status Information - Only show when debt exists */}
-                  {contractsHaveDebt && contractFundingStatus && (
-                    <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 sm:p-4 mt-4">
-                      <div className="flex items-center mb-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-400 mr-2" />
-                        <h4 className="text-amber-200 font-medium text-sm sm:text-base">Contract Debt Outstanding</h4>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
-                        <div>
-                          <p className="text-amber-300 mb-1">Outstanding Debt:</p>
-                          <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus.debt).toFixed(4)} REACT</p>
-                        </div>
-                        <div>
-                          <p className="text-amber-300 mb-1">Current Reserves:</p>
-                          <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus.reserves).toFixed(4)} REACT</p>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-amber-500/20">
-                        <p className="text-amber-200 text-xs sm:text-sm">
-                          Your contracts have accumulated debt from previous transactions and need to be cleared before processing new orders. 
-                          Use the "Cover Debt" button above to pay {parseFloat(contractFundingStatus.debt).toFixed(4)} REACT and reactivate your contracts.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </CardContent>
@@ -2594,31 +2679,31 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
               Frequently Asked Questions
             </CardTitle>
             <CardDescription className="text-zinc-300 text-sm sm:text-base">
-              Understanding the new multi-order system and automated stop loss protection with Convex database
+              Understanding the new personal contract system and automated stop loss protection
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="multi-order" className="border-zinc-800">
+              <AccordionItem value="personal-contracts" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How does the multi-order system work?
+                  How do personal contracts work?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Our new architecture deploys smart contracts once per user, then allows unlimited additional orders at minimal cost.
+                      Each user now deploys their own personal stop order contracts - you own and control your smart contracts completely.
                     </p>
                     <div className="space-y-3">
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">First Stop Order</h4>
+                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Your Personal Callback Contract</h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          Deploys your personal reactive contract and callback contract. Costs: ~0.03 ETH + 0.05 REACT + gas fees.
+                          Deployed on Sepolia. Holds your tokens, executes swaps, and manages all your stop orders. Only you can create orders on this contract.
                         </p>
                       </div>
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders (2nd, 3rd, 4th...)</h4>
+                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Your Personal Reactive Contract</h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Added to your existing contracts. Costs: Gas fees only (~$1-5 each). Up to 90% cost savings!
+                          Deployed on Reactive Network. Monitors prices and triggers your callback contract when conditions are met. Linked to your callback contract only.
                         </p>
                       </div>
                     </div>
@@ -2626,35 +2711,71 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="convex-storage" className="border-zinc-800">
+              <AccordionItem value="cost-structure" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How are my contracts stored and managed now?
+                  What are the costs for personal contracts?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Your contract addresses are now stored in our secure Convex database, providing faster, more reliable access than on-chain storage.
+                      Personal contracts have a one-time deployment cost, then very low costs for additional orders.
                     </p>
                     
                     <div className="space-y-3">
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
-                        <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">Convex Database Storage</h4>
+                        <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">First Order (Contract Deployment)</h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          Contract addresses are automatically stored in our secure, fast database when you deploy your first order.
+                          ~0.03 ETH + 0.05 REACT + gas fees. Deploys your personal contracts and creates first stop order.
                         </p>
                       </div>
                       
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Instant Access</h4>
+                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders (2nd, 3rd, 4th...)</h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Access your contracts instantly from any device - faster than blockchain queries and no gas costs for lookups.
+                          Gas fees only (~$1-5 each). All orders use your existing personal contracts.
                         </p>
                       </div>
                       
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Automatic Management</h4>
+                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Complete Control</h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          The system automatically detects existing contracts and offers lower-cost additional orders.
+                          You own the contracts, can withdraw funds anytime, and only you can create orders on them.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="debt-management" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
+                  What happens if my contracts have debt?
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
+                    <p>
+                      Personal contracts may accumulate debt from executing transactions. When this happens, the contracts become inactive until debt is cleared.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="bg-amber-900/20 p-3 sm:p-4 rounded-lg border border-amber-500/20">
+                        <h4 className="font-medium text-amber-200 mb-2 text-sm sm:text-base">Callback Contract Debt</h4>
+                        <p className="text-xs sm:text-sm text-amber-300">
+                          Accumulated from executing swaps on Sepolia. Requires ETH funding and calling coverDebt().
+                        </p>
+                      </div>
+                      
+                      <div className="bg-orange-900/20 p-3 sm:p-4 rounded-lg border border-orange-500/20">
+                        <h4 className="font-medium text-orange-200 mb-2 text-sm sm:text-base">RSC Contract Debt</h4>
+                        <p className="text-xs sm:text-sm text-orange-300">
+                          Accumulated from monitoring activities. Requires REACT funding and calling coverDebt().
+                        </p>
+                      </div>
+                      
+                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
+                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Automatic Debt Clearing</h4>
+                        <p className="text-xs sm:text-sm text-green-300">
+                          Use the "Cover Debt" button to automatically fund contracts and clear all outstanding debt with separate transactions.
                         </p>
                       </div>
                     </div>
@@ -2684,12 +2805,12 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
 
               <AccordionItem value="how-it-works" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How Does the Reactive System Work?
+                  How Does the Personal Contract System Work?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Our Reactive Smart Contracts (RSCs) monitor blockchain events 24/7, automatically executing trades when your conditions are met.
+                      Your personal Reactive Smart Contracts (RSCs) monitor blockchain events 24/7, automatically executing trades when your conditions are met.
                     </p>
                     
                     <div className="space-y-3">
@@ -2698,9 +2819,9 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           <span className="text-xs font-bold text-blue-300">1</span>
                         </div>
                         <div>
-                          <p className="text-blue-200 font-medium text-sm sm:text-base">Continuous Monitoring</p>
+                          <p className="text-blue-200 font-medium text-sm sm:text-base">Personal Contract Deployment</p>
                           <p className="text-blue-300 text-xs sm:text-sm">
-                            Your reactive contract watches DEX prices across chains without requiring manual intervention.
+                            Your personal reactive and callback contracts are deployed, linked only to your wallet address.
                           </p>
                         </div>
                       </div>
@@ -2710,9 +2831,9 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           <span className="text-xs font-bold text-purple-300">2</span>
                         </div>
                         <div>
-                          <p className="text-purple-200 font-medium text-sm sm:text-base">Automatic Trigger</p>
+                          <p className="text-purple-200 font-medium text-sm sm:text-base">Continuous Personal Monitoring</p>
                           <p className="text-purple-300 text-xs sm:text-sm">
-                            When price drops to your threshold, the RSC automatically triggers your callback contract.
+                            Your personal reactive contract watches DEX prices for your specific orders without requiring manual intervention.
                           </p>
                         </div>
                       </div>
@@ -2722,9 +2843,9 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                           <span className="text-xs font-bold text-green-300">3</span>
                         </div>
                         <div>
-                          <p className="text-green-200 font-medium text-sm sm:text-base">Instant Execution</p>
+                          <p className="text-green-200 font-medium text-sm sm:text-base">Automatic Personal Execution</p>
                           <p className="text-green-300 text-xs sm:text-sm">
-                            Your callback contract swaps tokens on the DEX, protecting you from further losses.
+                            Your personal callback contract swaps tokens on the DEX, protecting you from further losses.
                           </p>
                         </div>
                       </div>
@@ -2733,98 +2854,54 @@ const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="funding" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  Setup Process & Costs
-                </AccordionTrigger>
-                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
-                  <div className="space-y-3 sm:space-y-4">
-                    <p>
-                      Our optimized setup process minimizes transactions while ensuring your stop order is properly funded and configured.
-                    </p>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">First Order Setup</h4>
-                        <div className="space-y-2 text-xs sm:text-sm text-blue-300">
-                          <p>1. Token approval (if needed)</p>
-                          <p>2. Deploy callback contract on Sepolia</p>
-                          <p>3. Deploy reactive contract on RSC</p>
-                          <p>4. Automatic contract storage in database</p>
-                          <p>5. Create first stop order</p>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders</h4>
-                        <div className="space-y-2 text-xs sm:text-sm text-green-300">
-                          <p>1. Token approval (if needed)</p>
-                          <p>2. Add order to existing contract</p>
-                          <p>3. Automatic detection from database</p>
-                          <p className="font-medium">That's it! Much cheaper.</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-500/30">
-                      <p className="text-xs sm:text-sm text-amber-200">
-                        <span className="font-medium">Cost Comparison:</span> 
-                        5 orders with old system: ~0.15 ETH + 0.25 REACT. 
-                        With new system: ~0.03 ETH + 0.05 REACT + gas = 90% savings!
-                      </p>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
               <AccordionItem value="safety" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  Safety & Security Features
+                  Personal Contract Safety & Security
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Your funds and orders are protected by multiple layers of security and safety mechanisms.
+                      Your personal contracts provide maximum security and control over your funds and orders.
                     </p>
                     
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
                         <h4 className="font-medium text-green-200 mb-2 flex items-center text-sm sm:text-base">
                           <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Personal Contracts
+                          Owner-Only Access
                         </h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Each user gets their own contracts. Only you can create/cancel orders on your contracts.
+                          Only you can create, cancel, or manage orders on your personal contracts. Complete ownership and control.
                         </p>
                       </div>
                       
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
                         <h4 className="font-medium text-blue-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Order Management
+                          <Wallet className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          Fund Withdrawal
                         </h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          Cancel your stop orders anytime before they execute. Full control over your positions.
+                          Withdraw ETH/REACT from your contracts anytime using the withdrawETH functions. Your funds, your control.
                         </p>
                       </div>
                       
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
                         <h4 className="font-medium text-purple-200 mb-2 flex items-center text-sm sm:text-base">
                           <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Price Validation
+                          Isolated Execution
                         </h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          Multiple price checks ensure orders execute only at valid market prices.
+                          Your orders execute independently on your personal contracts, unaffected by other users' activities.
                         </p>
                       </div>
                       
                       <div className="bg-orange-900/20 p-3 sm:p-4 rounded-lg border border-orange-500/20">
                         <h4 className="font-medium text-orange-200 mb-2 flex items-center text-sm sm:text-base">
                           <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Gas Protection
+                          Personal Gas Protection
                         </h4>
                         <p className="text-xs sm:text-sm text-orange-300">
-                          Pre-funded execution ensures your orders work even during high gas periods.
+                          Your personal contracts are pre-funded to ensure your orders work even during high gas periods.
                         </p>
                       </div>
                     </div>

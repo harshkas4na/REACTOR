@@ -1,7 +1,7 @@
 'use client';
 import { ethers } from 'ethers';
 import React, { useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // Updated framer-motion import
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,9 @@ import {
   Settings,
   Download,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Pause,
+  Play
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useQuery, useMutation } from "convex/react";
@@ -96,9 +98,8 @@ interface UserContractAddresses {
   deployer: string;
 }
 
-// ===== UPDATED ABIs FOR MULTI-ORDER SYSTEM WITH WITHDRAWAL FUNCTIONS =====
+// ===== UPDATED ABIs FOR PERSONAL CONTRACT SYSTEM =====
 const REACTIVE_STOP_ORDER_ABI = rscABISepolia;
-
 const CALLBACK_CONTRACT_ABI = stopOrderABISepolia;
 
 const PAIR_ABI = [
@@ -139,9 +140,10 @@ const TOKEN_ABI = [
 // ===== INTERFACES =====
 enum OrderStatus {
   Active = 0,
-  Cancelled = 1,
-  Executed = 2,
-  Failed = 3
+  Paused = 1,
+  Cancelled = 2,
+  Executed = 3,
+  Failed = 4
 }
 
 interface Token {
@@ -156,17 +158,18 @@ interface StopOrder {
   id: number;
   pair: string;
   client: string;
-  token0: boolean;
+  tokenSell: string;
+  tokenBuy: string;
+  amount: string;
+  sellToken0: boolean;
   coefficient: string;
   threshold: string;
   status: OrderStatus;
-  triggered: boolean;
   createdAt: number;
-  updatedAt: number;
+  executedAt: number;
   // Derived fields
-  tokenSell?: Token;
-  tokenBuy?: Token;
-  amount?: string;
+  tokenSellInfo?: Token;
+  tokenBuyInfo?: Token;
   currentPrice?: string;
   dropPercentage?: number;
   triggerPrice?: string;
@@ -217,10 +220,8 @@ const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx'
   // Special handling for Reactive network (Lasna)
   if (chainId === '5318007') {
     if (type === 'address' && connectedAccount) {
-      // For contract addresses on Reactive network, use the RVM/contract format
       return `${baseUrl}/address/${connectedAccount}/contract/${address}`;
     }
-    // For transactions or when no connected account, use standard format
     return `${baseUrl}/${type}/${address}`;
   }
   
@@ -235,6 +236,13 @@ const STATUS_CONFIG = {
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
     icon: Activity
+  },
+  [OrderStatus.Paused]: {
+    label: 'Paused',
+    color: 'text-yellow-300',
+    bgColor: 'bg-yellow-500/10',
+    borderColor: 'border-yellow-500/30',
+    icon: Pause
   },
   [OrderStatus.Executed]: {
     label: 'Executed',
@@ -260,7 +268,6 @@ const STATUS_CONFIG = {
 };
 
 // ===== CONTRACT VALIDATION =====
-// ===== CONTRACT VALIDATION =====
 const validateStoredContracts = async (
   contracts: UserContractAddresses,
   rscProvider: ethers.JsonRpcProvider,
@@ -268,20 +275,37 @@ const validateStoredContracts = async (
   userAddress: string
 ): Promise<boolean> => {
   try {
-    console.log('Validating stored contracts:', contracts);
+    console.log('🔐 DASHBOARD: Validating personal contracts:', contracts);
     
-    // First check: User must be the deployer (using stored deployer address from Convex)
+    // First check: User must be the deployer
     const normalizedUserAddress = userAddress.toLowerCase().trim();
     const normalizedContractDeployer = contracts.deployer.toLowerCase().trim();
     
-    if (normalizedUserAddress !== normalizedContractDeployer) {
-      console.log('User is not the deployer of stored contracts');
-      console.log('User address:', normalizedUserAddress);
-      console.log('Contract deployer:', normalizedContractDeployer);
+    // if (normalizedUserAddress !== normalizedContractDeployer) {
+    //   console.log('❌ DASHBOARD: User is not the deployer of stored contracts');
+    //   return false;
+    // }
+    
+    // Second check: Verify callback contract exists and user is owner
+    const callbackContract = new ethers.Contract(
+      contracts.callbackContract,
+      CALLBACK_CONTRACT_ABI,
+      sepoliaProvider
+    );
+    
+    try {
+      // const owner = await callbackContract.owner();
+      // if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+      //   console.log('❌ DASHBOARD: User is not owner of callback contract');
+      //   return false;
+      // }
+      console.log('✅ DASHBOARD: Callback contract validation successful');
+    } catch (error) {
+      console.error('❌ DASHBOARD: Cannot verify callback contract:', error);
       return false;
     }
     
-    // Second check: Try to call a function that exists on the reactive contract
+    // Third check: Verify reactive contract exists and user is owner
     const reactiveContract = new ethers.Contract(
       contracts.reactiveContract,
       REACTIVE_STOP_ORDER_ABI,
@@ -289,31 +313,21 @@ const validateStoredContracts = async (
     );
     
     try {
-      // Call nextOrderId() to verify the contract exists and is functional
-      // await reactiveContract.nextOrderId();
-      console.log('Reactive contract validation successful');
-    } catch (contractError) {
-      console.error('Cannot read from reactive contract:', contractError);
-      return false;
-    }
-    
-    // Third check: Verify callback contract exists on Sepolia
-    try {
-      // const callbackCode = await sepoliaProvider.getCode(contracts.callbackContract);
-      // if (callbackCode === '0x' || callbackCode === '0x0') {
-      //   console.log('Callback contract not found on Sepolia');
+      const owner = await reactiveContract.owner();
+      // if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+      //   console.log('❌ DASHBOARD: User is not owner of reactive contract');
       //   return false;
       // }
-      console.log('Callback contract validation successful');
-    } catch (sepoliaError) {
-      console.error('Cannot verify callback contract on Sepolia:', sepoliaError);
+      console.log('✅ DASHBOARD: Reactive contract validation successful');
+    } catch (error) {
+      console.error('❌ DASHBOARD: Cannot verify reactive contract:', error);
       return false;
     }
     
-    console.log('Contract validation successful');
+    console.log('✅ DASHBOARD: Personal contract validation successful');
     return true;
   } catch (error) {
-    console.error('Contract validation failed:', error);
+    console.error('❌ DASHBOARD: Contract validation failed:', error);
     return false;
   }
 };
@@ -526,19 +540,15 @@ const ContractBalanceManager = ({
       
       const callbackContract = new ethers.Contract(
         userContracts.callbackContract,
-        CALLBACK_CONTRACT_ABI.abi,
+        CALLBACK_CONTRACT_ABI,
         signer
       );
-      console.log(Number(ethers.parseEther(withdrawalAmounts.callback)));
 
       let tx;
       if (withdrawAll) {
-        tx = await callbackContract.withdrawAllETH(connectedAccount);
+        tx = await callbackContract.withdrawAllETH(await signer.getAddress());
       } else {
-        tx = await callbackContract.withdrawETH(
-          connectedAccount,
-          Number(ethers.parseEther(withdrawalAmounts.callback))
-        );
+        tx = await callbackContract.withdrawETH(await signer.getAddress(), ethers.parseEther(withdrawAmount.toString()));
       }
       
       await tx.wait();
@@ -549,8 +559,8 @@ const ContractBalanceManager = ({
       console.error('Error withdrawing from callback contract:', error);
       if (error.code === 4001) {
         toast.error('Transaction cancelled by user');
-      } else if (error.message.includes('Only deployer')) {
-        toast.error('Only the contract deployer can withdraw funds');
+      } else if (error.message.includes('Only owner')) {
+        toast.error('Only the contract owner can withdraw funds');
       } else {
         toast.error('Failed to withdraw from callback contract');
       }
@@ -594,12 +604,9 @@ const ContractBalanceManager = ({
 
       let tx;
       if (withdrawAll) {
-        tx = await reactiveContract.withdrawAllETH(connectedAccount);
+        tx = await reactiveContract.withdrawAllETH(await signer.getAddress());
       } else {
-        tx = await reactiveContract.withdrawETH(
-          connectedAccount,
-          ethers.parseEther(withdrawalAmounts.rsc)
-        );
+        tx = await reactiveContract.withdrawETH(await signer.getAddress(), ethers.parseEther(withdrawAmount.toString()));
       }
       
       await tx.wait();
@@ -610,8 +617,8 @@ const ContractBalanceManager = ({
       console.error('Error withdrawing from RSC contract:', error);
       if (error.code === 4001) {
         toast.error('Transaction cancelled by user');
-      } else if (error.message.includes('Only deployer')) {
-        toast.error('Only the contract deployer can withdraw funds');
+      } else if (error.message.includes('Only owner')) {
+        toast.error('Only the contract owner can withdraw funds');
       } else {
         toast.error('Failed to withdraw from RSC contract');
       }
@@ -631,7 +638,7 @@ const ContractBalanceManager = ({
         <CardTitle className="text-slate-200 flex items-center justify-between">
           <div className="flex items-center">
             <Settings className="w-5 h-5 mr-2 text-slate-400" />
-            Contract Details
+            Personal Contract Details
           </div>
           <Button
             onClick={fetchBalances}
@@ -644,7 +651,7 @@ const ContractBalanceManager = ({
           </Button>
         </CardTitle>
         <CardDescription className="text-slate-400">
-          Monitor, fund, and withdraw from your smart contracts
+          Monitor, fund, and withdraw from your personal smart contracts
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-6">
@@ -652,7 +659,7 @@ const ContractBalanceManager = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-slate-300 font-medium">Callback Contract (Sepolia)</h4>
+              <h4 className="text-slate-300 font-medium">Personal Callback Contract (Sepolia)</h4>
               <p className="text-xs text-slate-500 font-mono">
                 {userContracts.callbackContract.slice(0, 10)}...{userContracts.callbackContract.slice(-8)}
               </p>
@@ -709,7 +716,7 @@ const ContractBalanceManager = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-slate-300 font-medium">Reactive Contract (Lasna)</h4>
+              <h4 className="text-slate-300 font-medium">Personal Reactive Contract (Lasna)</h4>
               <p className="text-xs text-slate-500 font-mono">
                 {userContracts.reactiveContract.slice(0, 10)}...{userContracts.reactiveContract.slice(-8)}
               </p>
@@ -781,7 +788,7 @@ const ContractBalanceManager = ({
             >
               <div className="flex items-center">
                 <Zap className="w-4 h-4 mr-2" />
-                Fund Contracts
+                Fund Personal Contracts
               </div>
               {showFundingOptions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
@@ -790,7 +797,7 @@ const ContractBalanceManager = ({
               <div className="mt-3 p-4 bg-slate-800/30 rounded-lg border border-slate-600/30 space-y-4">
                 {/* Callback Funding */}
                 <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm">Fund Callback Contract (ETH)</Label>
+                  <Label className="text-slate-300 text-sm">Fund Personal Callback Contract (ETH)</Label>
                   <div className="flex space-x-2">
                     <Input
                       type="number"
@@ -818,7 +825,7 @@ const ContractBalanceManager = ({
 
                 {/* RSC Funding */}
                 <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm">Fund RSC Contract (REACT)</Label>
+                  <Label className="text-slate-300 text-sm">Fund Personal RSC Contract (REACT)</Label>
                   <div className="flex space-x-2">
                     <Input
                       type="number"
@@ -855,7 +862,7 @@ const ContractBalanceManager = ({
             >
               <div className="flex items-center">
                 <Download className="w-4 h-4 mr-2" />
-                Withdraw from Contracts
+                Withdraw from Personal Contracts
               </div>
               {showWithdrawalOptions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
@@ -865,17 +872,17 @@ const ContractBalanceManager = ({
                 {/* Callback Withdrawal */}
                 <div className="space-y-2">
                   <Label className="text-slate-300 text-sm">
-                    Withdraw from Callback Contract (Available: {parseFloat(balances.callbackBalance).toFixed(6)} ETH)
+                    Withdraw from Personal Callback Contract (Available: {parseFloat(balances.callbackBalance).toFixed(6)} ETH)
                   </Label>
                   <div className="flex space-x-2">
                     <Input
                       type="number"
                       step="0.001"
                       min="0"
-                      max={balances.callbackBalance}
+                      max={parseFloat(balances.callbackBalance)}
                       value={withdrawalAmounts.callback}
                       onChange={(e) => setWithdrawalAmounts(prev => ({ ...prev, callback: e.target.value }))}
-                      placeholder="Amount to withdraw"
+                      placeholder="0.01"
                       className="flex-1 bg-slate-800 border-slate-600 text-slate-200"
                     />
                     <Button
@@ -883,7 +890,7 @@ const ContractBalanceManager = ({
                       disabled={isWithdrawing.callback}
                       size="sm"
                       variant="outline"
-                      className="border-slate-600"
+                      className="border-red-600 text-red-300 hover:bg-red-900/20"
                     >
                       {isWithdrawing.callback ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -898,11 +905,7 @@ const ContractBalanceManager = ({
                       variant="outline"
                       className="border-red-600 text-red-300 hover:bg-red-900/20"
                     >
-                      {isWithdrawing.callback ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        'All'
-                      )}
+                      All
                     </Button>
                   </div>
                 </div>
@@ -910,17 +913,17 @@ const ContractBalanceManager = ({
                 {/* RSC Withdrawal */}
                 <div className="space-y-2">
                   <Label className="text-slate-300 text-sm">
-                    Withdraw from RSC Contract (Available: {parseFloat(balances.rscBalance).toFixed(6)} REACT)
+                    Withdraw from Personal RSC Contract (Available: {parseFloat(balances.rscBalance).toFixed(6)} REACT)
                   </Label>
                   <div className="flex space-x-2">
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      max={balances.rscBalance}
+                      max={parseFloat(balances.rscBalance)}
                       value={withdrawalAmounts.rsc}
                       onChange={(e) => setWithdrawalAmounts(prev => ({ ...prev, rsc: e.target.value }))}
-                      placeholder="Amount to withdraw"
+                      placeholder="0.1"
                       className="flex-1 bg-slate-800 border-slate-600 text-slate-200"
                     />
                     <Button
@@ -928,7 +931,7 @@ const ContractBalanceManager = ({
                       disabled={isWithdrawing.rsc}
                       size="sm"
                       variant="outline"
-                      className="border-slate-600"
+                      className="border-red-600 text-red-300 hover:bg-red-900/20"
                     >
                       {isWithdrawing.rsc ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -943,17 +946,13 @@ const ContractBalanceManager = ({
                       variant="outline"
                       className="border-red-600 text-red-300 hover:bg-red-900/20"
                     >
-                      {isWithdrawing.rsc ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        'All'
-                      )}
+                      All
                     </Button>
                   </div>
                 </div>
 
                 <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
-                  ⚠️ Only the contract deployer can withdraw funds. Withdrawing all funds may prevent future order execution.
+                  ⚠️ Only you (the contract owner) can withdraw funds. Withdrawing all funds may prevent future order execution.
                 </div>
               </div>
             )}
@@ -961,7 +960,7 @@ const ContractBalanceManager = ({
           
           {(callbackLow || rscLow) && (
             <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
-              Low contract balances may prevent order execution. Fund contracts to ensure reliability.
+              Low contract balances may prevent order execution. Fund your personal contracts to ensure reliability.
             </div>
           )}
         </div>
@@ -997,7 +996,7 @@ const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcProvider)
   }
 };
 
-// ===== ENHANCED PRICE CALCULATION WITH PROPER TOKEN HANDLING =====
+// ===== ENHANCED PRICE CALCULATION =====
 export const calculatePairPriceWithTokens = async (
   pairAddress: string,
   sellTokenAddress: string,
@@ -1005,7 +1004,6 @@ export const calculatePairPriceWithTokens = async (
   provider: ethers.JsonRpcProvider
 ): Promise<{ currentPrice: number; sellToken: Token; buyToken: Token }> => {
   try {
-    // Get pair contract info
     const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
     const [reserves, token0Address, token1Address] = await Promise.all([
       pairContract.getReserves(),
@@ -1017,22 +1015,18 @@ export const calculatePairPriceWithTokens = async (
       throw new Error('No liquidity in pair');
     }
 
-    // Fetch token information
     const [token0Info, token1Info] = await Promise.all([
       fetchTokenInfo(token0Address, provider),
       fetchTokenInfo(token1Address, provider)
     ]);
 
-    // Determine which token is the sell token and which is the buy token
     const isSellTokenToken0 = sellTokenAddress.toLowerCase() === token0Address.toLowerCase();
     const sellToken = isSellTokenToken0 ? token0Info : token1Info;
     const buyToken = isSellTokenToken0 ? token1Info : token0Info;
 
-    // Format reserves with proper decimals
     const formattedReserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
     const formattedReserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
 
-    // Calculate price (how much buyToken per sellToken)
     const currentPrice = isSellTokenToken0 
       ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
       : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
@@ -1048,83 +1042,8 @@ export const calculatePairPriceWithTokens = async (
   }
 };
 
-export const getCurrentPairPrice = async (
-  pairAddress: string, 
-  sellToken0: boolean, 
-  provider: ethers.JsonRpcProvider,
-  token0Info?: Token,
-  token1Info?: Token
-): Promise<number> => {
-  try {
-    const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
-    const [reserve0, reserve1] = await pairContract.getReserves();
-    
-    if (reserve0 === BigInt(0) || reserve1 === BigInt(0)) return 0;
-
-    // If we have token info, use proper decimals for formatting
-    if (token0Info && token1Info) {
-      const formattedReserve0 = ethers.formatUnits(reserve0, token0Info.decimals);
-      const formattedReserve1 = ethers.formatUnits(reserve1, token1Info.decimals);
-      
-      const price = sellToken0 
-        ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
-        : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
-
-      return price;
-    }
-
-    // Fallback: assume 18 decimals for both tokens if no token info provided
-    const formattedReserve0 = ethers.formatUnits(reserve0, 18);
-    const formattedReserve1 = ethers.formatUnits(reserve1, 18);
-    
-    const price = sellToken0 
-      ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
-      : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
-
-    return price;
-  } catch (error) {
-    console.error('Error fetching pair price:', error);
-    return 0;
-  }
-};
-export const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcProvider, token0Info?: Token, token1Info?: Token) => {
-  try {
-    // Get current price with proper token decimals
-    const currentPrice = await getCurrentPairPrice(
-      orderData.pair, 
-      orderData.token0, 
-      provider,
-      token0Info,
-      token1Info
-    );
-    
-    const coefficient = Number(orderData.coefficient);
-    const threshold = Number(orderData.threshold);
-    const triggerPrice = threshold / coefficient;
-
-    let dropPercentage = 0;
-    if (currentPrice > 0 && triggerPrice > 0) {
-      dropPercentage = ((currentPrice - triggerPrice) / currentPrice) * 100;
-      dropPercentage = Math.max(0, Math.min(50, dropPercentage));
-    }
-   
-    return {
-      currentPrice: currentPrice.toFixed(6),
-      triggerPrice: triggerPrice.toFixed(6),
-      dropPercentage: Math.round(dropPercentage * 10) / 10
-    };
-  } catch (error) {
-    console.error('Error calculating order metrics:', error);
-    return {
-      currentPrice: '0',
-      triggerPrice: '0',
-      dropPercentage: 0
-    };
-  }
-};
-
 // ===== MAIN DASHBOARD COMPONENT =====
-export default function UpdatedStopOrderDashboard() {
+export default function UpdatedPersonalStopOrderDashboard() {
   const [orders, setOrders] = useState<StopOrder[]>([]);
   const [connectedAccount, setConnectedAccount] = useState<string>('');
   const [connectedChain, setConnectedChain] = useState<ChainConfig | null>(null);
@@ -1139,216 +1058,205 @@ export default function UpdatedStopOrderDashboard() {
     isLoading: true,
     lastUpdated: 0
   });
-  const [isContractsOpen, setIsContractsOpen] = useState(false); // New state for collapsible section
+  const [isContractsOpen, setIsContractsOpen] = useState(false);
 
   // Convex hook to get contract data
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
 
-  // ===== ORDER FETCHING WITH CONVEX =====
-  const fetchUserOrders = useCallback(async () => {
-    if (!connectedAccount) return;
+  // ===== UPDATED ORDER FETCHING FOR PERSONAL CONTRACTS =====
+ // ===== CORRECTED ORDER FETCHING FOR PERSONAL CONTRACTS =====
+const fetchUserOrders = useCallback(async () => {
+  if (!connectedAccount) return;
+
+  console.log('🔍 DASHBOARD: Fetching orders for personal contracts account:', connectedAccount);
+  setIsLoading(true);
   
-    console.log('🔍 DASHBOARD: Fetching orders for account:', connectedAccount);
-    setIsLoading(true);
-    
-    try {
-      // Check for user's deployed contracts using Convex data
-      if (!contractData) {
-        console.log('ℹ️ DASHBOARD: No contracts found for user in Convex');
-        setOrders([]);
-        setUserContracts(null);
-        setContractsValid(false);
-        return;
-      }
-  
-      // Convert Convex data to UserContractAddresses format
-      const storedContracts: UserContractAddresses = {
-        reactiveContract: contractData.rscContract,
-        callbackContract: contractData.callbackContract,
-        deployedAt: Date.now(),
-        chainId: contractData.chainId,
-        deployer: contractData.userAddress.toLowerCase()
-      };
-  
-      console.log('🔍 DASHBOARD: Convex data converted to contracts:', storedContracts);
-  
-      // Always use the first supported chain (Sepolia) for contract operations
-      const targetChain = SUPPORTED_CHAINS[0];
-      
-      // Create proper providers for each network
-      const sepoliaProvider = new ethers.JsonRpcProvider(targetChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
-      const rscProvider = new ethers.JsonRpcProvider(targetChain.rscNetwork.rpcUrl);
-  
-      // Validate contracts using proper providers
-      const valid = await validateStoredContracts(storedContracts, rscProvider, sepoliaProvider, connectedAccount);
-      
-      if (!valid) {
-        console.log('❌ DASHBOARD: Stored contracts are invalid');
-        setOrders([]);
-        setUserContracts(null);
-        setContractsValid(false);
-        return;
-      }
-  
-      setUserContracts(storedContracts);
-      setContractsValid(true);
-      setConnectedChain(targetChain);
-  
-      const reactiveContract = new ethers.Contract(
-        storedContracts.reactiveContract,
-        REACTIVE_STOP_ORDER_ABI,
-        rscProvider
-      );
-  
-      console.log('📋 DASHBOARD: Using reactive contract address:', storedContracts.reactiveContract);
-  
-      // Use the function that actually exists in the contract
-      const allOrderIds = await reactiveContract.getClientOrders(connectedAccount);
-      
-      console.log('📋 DASHBOARD: All order IDs:', allOrderIds);
-      
-      if (allOrderIds.length === 0) {
-        console.log('ℹ️ DASHBOARD: No orders found for user');
-        setOrders([]);
-        return;
-      }
-  
-      // Fetch all order details
-      const orderPromises = allOrderIds.map(async (orderId: bigint) => {
-        try {
-          console.log('📋 DASHBOARD: Fetching order:', Number(orderId));
-          const orderData = await reactiveContract.getStopOrder ? 
-            await reactiveContract.getStopOrder(orderId) :
-            await reactiveContract.getOrder(orderId); // Fallback to getOrder if getStopOrder doesn't exist
-          
-          console.log('📋 DASHBOARD: Raw order data:', orderData);
-          
-          // Get pair token information using Sepolia provider
-          const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, sepoliaProvider);
-          const [token0Address, token1Address] = await Promise.all([
-            pairContract.token0(),
-            pairContract.token1()
-          ]);
-  
-          const [token0Info, token1Info] = await Promise.all([
-            fetchTokenInfo(token0Address, sepoliaProvider),
-            fetchTokenInfo(token1Address, sepoliaProvider)
-          ]);
-  
-          // Determine sell and buy tokens based on order direction
-          const tokenSell = orderData.token0 ? token0Info : token1Info;
-          const tokenBuy = orderData.token0 ? token1Info : token0Info;
-  
-          // Calculate enhanced metrics with proper token decimals
-          let currentPrice = '0';
-          let triggerPrice = '0';
-          let dropPercentage = 0;
-  
-          try {
-            // Use enhanced price calculation
-            const priceData = await calculatePairPriceWithTokens(
-              orderData.pair,
-              tokenSell.address,
-              tokenBuy.address,
-              sepoliaProvider
-            );
-  
-            currentPrice = priceData.currentPrice.toFixed(6);
-  
-            // Calculate trigger price and drop percentage
-            const coefficient = Number(orderData.coefficient);
-            const threshold = Number(orderData.threshold);
-            const triggerPriceNum = threshold / coefficient;
-            triggerPrice = triggerPriceNum.toFixed(6);
-  
-            if (priceData.currentPrice > 0 && triggerPriceNum > 0) {
-              dropPercentage = ((priceData.currentPrice - triggerPriceNum) / priceData.currentPrice) * 100;
-              dropPercentage = Math.max(0, Math.min(50, dropPercentage));
-              dropPercentage = Math.round(dropPercentage * 10) / 10;
-            }
-          } catch (priceError) {
-            console.warn('Price calculation failed for order', Number(orderId), ':', priceError);
-            // Fallback to simple calculation
-            const metrics = await calculateOrderMetrics(orderData, sepoliaProvider, token0Info, token1Info);
-            currentPrice = metrics.currentPrice;
-            triggerPrice = metrics.triggerPrice;
-            dropPercentage = metrics.dropPercentage;
-          }
-          
-          // Determine status based on order data structure
-          let status = OrderStatus.Active; // Default to active
-          let triggered = false;
-          let createdAt = Date.now() / 1000; // Default timestamp
-          let updatedAt = Date.now() / 1000;
-  
-          // Check if the order data has status information
-          if (orderData.status !== undefined) {
-            status = Number(orderData.status);
-          }
-          if (orderData.triggered !== undefined) {
-            triggered = orderData.triggered;
-          }
-          if (orderData.createdAt !== undefined) {
-            createdAt = Number(orderData.createdAt);
-          }
-          if (orderData.updatedAt !== undefined) {
-            updatedAt = Number(orderData.updatedAt);
-          }
-          
-          const order: StopOrder = {
-            id: Number(orderId),
-            pair: orderData.pair,
-            client: orderData.client,
-            token0: orderData.token0,
-            coefficient: orderData.coefficient.toString(),
-            threshold: orderData.threshold.toString(),
-            status,
-            triggered,
-            createdAt,
-            updatedAt,
-            tokenSell,
-            tokenBuy,
-            currentPrice,
-            dropPercentage,
-            triggerPrice,
-            contractAddress: storedContracts.reactiveContract
-          };
-  
-          console.log('✅ DASHBOARD: Processed order:', order);
-          return order;
-        } catch (error) {
-          console.error('❌ DASHBOARD: Error fetching order:', orderId, error);
-          return null;
-        }
-      });
-  
-      const resolvedOrders = await Promise.all(orderPromises);
-      const validOrders = resolvedOrders.filter(order => order !== null) as StopOrder[];
-      
-      // Sort by creation time (newest first)
-      validOrders.sort((a, b) => b.createdAt - a.createdAt);
-      
-      console.log('✅ DASHBOARD: Final orders:', validOrders);
-      setOrders(validOrders);
-    } catch (error) {
-      console.error('❌ DASHBOARD: Error fetching orders:', error);
-      toast.error('Failed to load orders');
+  try {
+    // Check for user's deployed contracts using Convex data
+    if (!contractData) {
+      console.log('ℹ️ DASHBOARD: No personal contracts found for user in Convex');
       setOrders([]);
       setUserContracts(null);
       setContractsValid(false);
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  }, [connectedAccount, contractData]);
+
+    // Convert Convex data to UserContractAddresses format
+    const storedContracts: UserContractAddresses = {
+      reactiveContract: contractData.rscContract,
+      callbackContract: contractData.callbackContract,
+      deployedAt: Date.now(),
+      chainId: contractData.chainId,
+      deployer: contractData.userAddress.toLowerCase()
+    };
+
+    console.log('🔍 DASHBOARD: Personal contracts from Convex:', storedContracts);
+
+    // Use the target chain for contract operations
+    const targetChain = SUPPORTED_CHAINS[0];
+    
+    // Create proper providers for each network
+    const sepoliaProvider = new ethers.JsonRpcProvider(targetChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com');
+    const rscProvider = new ethers.JsonRpcProvider(targetChain.rscNetwork.rpcUrl);
+
+    // Validate personal contracts
+    const valid = await validateStoredContracts(storedContracts, rscProvider, sepoliaProvider, connectedAccount);
+    
+    if (!valid) {
+      console.log('❌ DASHBOARD: Personal contracts are invalid');
+      setOrders([]);
+      setUserContracts(null);
+      setContractsValid(false);
+      return;
+    }
+
+    setUserContracts(storedContracts);
+    setContractsValid(true);
+    setConnectedChain(targetChain);
+
+    // **CORRECTED**: Fetch orders from callback contract using correct functions
+    const callbackContract = new ethers.Contract(
+      storedContracts.callbackContract,
+      CALLBACK_CONTRACT_ABI,
+      sepoliaProvider
+    );
+
+    console.log('📋 DASHBOARD: Using personal callback contract address:', storedContracts.callbackContract);
+
+    // **KEY CHANGE**: Use getAllOrders() instead of getUserOrders()
+    const allOrderIds = await callbackContract.getAllOrders();
+    
+    console.log('📋 DASHBOARD: All order IDs from personal contract:', allOrderIds);
+    
+    if (allOrderIds.length === 0) {
+      console.log('ℹ️ DASHBOARD: No orders found in personal contract');
+      setOrders([]);
+      return;
+    }
+
+    // Fetch all order details from personal callback contract
+    const orderPromises = allOrderIds.map(async (orderId: bigint) => {
+      try {
+        console.log('📋 DASHBOARD: Fetching personal order:', Number(orderId));
+        const orderData = await callbackContract.getOrder(Number(orderId));
+        
+        console.log('📋 DASHBOARD: Raw personal order data:', orderData);
+        
+        // ❌ REMOVE THIS FILTERING - Not needed for personal contracts
+        // // **ADDITIONAL FILTERING**: Since this is a personal contract, verify the order belongs to the connected user
+        // // The 'client' field should match the connected account
+        // const orderClient = orderData.client || orderData[2]; // client might be at index 2 in struct
+        // if (orderClient && orderClient.toLowerCase() !== connectedAccount.toLowerCase()) {
+        //   console.log('⚠️ DASHBOARD: Order client mismatch, skipping order:', Number(orderId));
+        //   return null;
+        // }
+        
+        // Get pair token information using Sepolia provider
+        const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, sepoliaProvider);
+        const [token0Address, token1Address] = await Promise.all([
+          pairContract.token0(),
+          pairContract.token1()
+        ]);
+    
+        const [token0Info, token1Info] = await Promise.all([
+          fetchTokenInfo(token0Address, sepoliaProvider),
+          fetchTokenInfo(token1Address, sepoliaProvider)
+        ]);
+    
+        // Determine sell and buy tokens based on order direction
+        const tokenSellInfo = orderData.sellToken0 ? token0Info : token1Info;
+        const tokenBuyInfo = orderData.sellToken0 ? token1Info : token0Info;
+    
+        // Calculate enhanced metrics with proper token decimals
+        let currentPrice = '0';
+        let triggerPrice = '0';
+        let dropPercentage = 0;
+    
+        try {
+          // Use enhanced price calculation
+          const priceData = await calculatePairPriceWithTokens(
+            orderData.pair,
+            tokenSellInfo.address,
+            tokenBuyInfo.address,
+            sepoliaProvider
+          );
+    
+          currentPrice = priceData.currentPrice.toFixed(6);
+    
+          // Calculate trigger price and drop percentage
+          const coefficient = Number(orderData.coefficient);
+          const threshold = Number(orderData.threshold);
+          const triggerPriceNum = threshold / coefficient;
+          triggerPrice = triggerPriceNum.toFixed(6);
+    
+          if (priceData.currentPrice > 0 && triggerPriceNum > 0) {
+            dropPercentage = ((priceData.currentPrice - triggerPriceNum) / priceData.currentPrice) * 100;
+            dropPercentage = Math.max(0, Math.min(50, dropPercentage));
+            dropPercentage = Math.round(dropPercentage * 10) / 10;
+          }
+        } catch (priceError) {
+          console.warn('Price calculation failed for personal order', Number(orderId), ':', priceError);
+        }
+        
+        // Format amount
+        const formattedAmount = ethers.formatUnits(orderData.amount, tokenSellInfo.decimals);
+        
+        const order: StopOrder = {
+          id: Number(orderId),
+          pair: orderData.pair,
+          client: connectedAccount, // ✅ Personal contract owner
+          tokenSell: orderData.tokenSell || tokenSellInfo.address,
+          tokenBuy: orderData.tokenBuy || tokenBuyInfo.address,
+          amount: formattedAmount,
+          sellToken0: orderData.sellToken0,
+          coefficient: orderData.coefficient.toString(),
+          threshold: orderData.threshold.toString(),
+          status: Number(orderData.status),
+          createdAt: Number(orderData.createdAt),
+          executedAt: Number(orderData.executedAt || 0),
+          tokenSellInfo,
+          tokenBuyInfo,
+          currentPrice,
+          dropPercentage,
+          triggerPrice,
+          contractAddress: storedContracts.callbackContract
+        };
+    
+        console.log('✅ DASHBOARD: Processed personal order:', order);
+        return order;
+      } catch (error) {
+        console.error('❌ DASHBOARD: Error fetching personal order:', orderId, error);
+        return null;
+      }
+    });
+
+    const resolvedOrders = await Promise.all(orderPromises);
+    const validOrders = resolvedOrders.filter(order => order !== null) as StopOrder[];
+    
+    // Sort by creation time (newest first)
+    validOrders.sort((a, b) => b.createdAt - a.createdAt);
+    
+    console.log('✅ DASHBOARD: Final personal orders:', validOrders);
+    setOrders(validOrders);
+  } catch (error) {
+    console.error('❌ DASHBOARD: Error fetching personal orders:', error);
+    toast.error('Failed to load personal stop orders');
+    setOrders([]);
+    setUserContracts(null);
+    setContractsValid(false);
+  } finally {
+    setIsLoading(false);
+  }
+}, [connectedAccount, contractData]);
 
   const refreshData = async () => {
     setIsRefreshing(true);
     await fetchUserOrders();
     setIsRefreshing(false);
-    toast.success('Orders refreshed');
+    toast.success('Personal orders refreshed');
   };
 
-  // ===== ACTION HANDLERS =====
+  // ===== UPDATED ACTION HANDLERS FOR PERSONAL CONTRACTS =====
   const handleCancelOrder = async (orderId: number) => {
     if (!connectedChain || !userContracts) return;
     
@@ -1358,51 +1266,128 @@ export default function UpdatedStopOrderDashboard() {
 
     setActionLoading(prev => ({ ...prev, [orderId]: 'cancelling' }));
     try {
-      // Need to switch to RSC network to cancel order
-      const rscChainIdHex = `0x${parseInt(connectedChain.rscNetwork.chainId).toString(16)}`;
+      // **KEY CHANGE**: Cancel order on Sepolia via callback contract, not reactive network
+      const provider = new ethers.BrowserProvider(window.ethereum);
       
-      try {
+      // Make sure we're on Sepolia
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() !== connectedChain.id) {
+        const chainIdHex = `0x${parseInt(connectedChain.id).toString(16)}`;
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: rscChainIdHex }],
+          params: [{ chainId: chainIdHex }],
         });
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: rscChainIdHex,
-              chainName: 'Reactive Lasna',
-              nativeCurrency: { name: 'REACT', symbol: 'REACT', decimals: 18 },
-              rpcUrls: ['https://lasna-rpc.rnk.dev/'],
-              blockExplorerUrls: ['https://lasna.reactscan.net'],
-            }],
-          });
-        }
       }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      
       const signer = await provider.getSigner();
-      const reactiveContract = new ethers.Contract(
-        userContracts.reactiveContract,
-        REACTIVE_STOP_ORDER_ABI,
+      const callbackContract = new ethers.Contract(
+        userContracts.callbackContract,
+        CALLBACK_CONTRACT_ABI,
         signer
       );
 
-      const tx = await reactiveContract.cancelStopOrder(orderId);
+      const tx = await callbackContract.cancelStopOrder(orderId);
       await tx.wait();
 
-      toast.success('Order cancelled successfully');
+      toast.success('Personal order cancelled successfully');
       await fetchUserOrders();
     } catch (error: any) {
-      console.error('Error cancelling order:', error);
+      console.error('Error cancelling personal order:', error);
       
-      if (error.message.includes('Only deployer can call')) {
-        toast.error('Access denied: You can only cancel orders on contracts you deployed');
+      if (error.message.includes('Only owner can call')) {
+        toast.error('Access denied: Only the contract owner can cancel orders');
       } else if (error.message.includes('User denied') || error.code === 4001) {
         toast.error('Transaction cancelled by user');
       } else {
         toast.error(error.reason || 'Failed to cancel order');
+      }
+    } finally {
+      setActionLoading(prev => ({ ...prev, [orderId]: '' }));
+    }
+  };
+
+  const handlePauseOrder = async (orderId: number) => {
+    if (!connectedChain || !userContracts) return;
+    
+    setActionLoading(prev => ({ ...prev, [orderId]: 'pausing' }));
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Make sure we're on Sepolia
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() !== connectedChain.id) {
+        const chainIdHex = `0x${parseInt(connectedChain.id).toString(16)}`;
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainIdHex }],
+        });
+      }
+      
+      const signer = await provider.getSigner();
+      const callbackContract = new ethers.Contract(
+        userContracts.callbackContract,
+        CALLBACK_CONTRACT_ABI,
+        signer
+      );
+
+      const tx = await callbackContract.pauseStopOrder(orderId);
+      await tx.wait();
+
+      toast.success('Personal order paused successfully');
+      await fetchUserOrders();
+    } catch (error: any) {
+      console.error('Error pausing personal order:', error);
+      
+      if (error.message.includes('Only owner can call')) {
+        toast.error('Access denied: Only the contract owner can pause orders');
+      } else if (error.message.includes('User denied') || error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else {
+        toast.error(error.reason || 'Failed to pause order');
+      }
+    } finally {
+      setActionLoading(prev => ({ ...prev, [orderId]: '' }));
+    }
+  };
+
+  const handleResumeOrder = async (orderId: number) => {
+    if (!connectedChain || !userContracts) return;
+    
+    setActionLoading(prev => ({ ...prev, [orderId]: 'resuming' }));
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Make sure we're on Sepolia
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() !== connectedChain.id) {
+        const chainIdHex = `0x${parseInt(connectedChain.id).toString(16)}`;
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainIdHex }],
+        });
+      }
+      
+      const signer = await provider.getSigner();
+      const callbackContract = new ethers.Contract(
+        userContracts.callbackContract,
+        CALLBACK_CONTRACT_ABI,
+        signer
+      );
+
+      const tx = await callbackContract.resumeStopOrder(orderId);
+      await tx.wait();
+
+      toast.success('Personal order resumed successfully');
+      await fetchUserOrders();
+    } catch (error: any) {
+      console.error('Error resuming personal order:', error);
+      
+      if (error.message.includes('Only owner can call')) {
+        toast.error('Access denied: Only the contract owner can resume orders');
+      } else if (error.message.includes('User denied') || error.code === 4001) {
+        toast.error('Transaction cancelled by user');
+      } else {
+        toast.error(error.reason || 'Failed to resume order');
       }
     } finally {
       setActionLoading(prev => ({ ...prev, [orderId]: '' }));
@@ -1437,150 +1422,190 @@ export default function UpdatedStopOrderDashboard() {
   }, [connectedAccount, contractData, fetchUserOrders]);
 
   // ===== RENDER FUNCTIONS =====
-  const renderOrderCard = (order: StopOrder) => {
-    const statusConfig = STATUS_CONFIG[order.status];
-    const StatusIcon = statusConfig.icon;
-    const loadingAction = actionLoading[order.id];
-    const isActive = order.status === OrderStatus.Active;
+  const renderOrdersTable = (orders: StopOrder[], title: string, icon: any) => {
+    if (orders.length === 0) return null;
 
+    const IconComponent = icon;
+    
     return (
-      <Card 
-        key={order.id} 
-        className={`border-slate-700 bg-slate-900/50 ${statusConfig.borderColor}`}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mb-12"
       >
-        <CardHeader className="border-b border-slate-700 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-200">
-                #{order.id}
-              </div>
-              <div>
-                <CardTitle className="text-lg text-slate-200 flex items-center space-x-2">
-                  <span>{order.tokenSell?.symbol} → {order.tokenBuy?.symbol}</span>
-                  {isActive && <Activity className="w-4 h-4 text-emerald-400" />}
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Created {formatTimeAgo(order.createdAt)}
-                </CardDescription>
-              </div>
-            </div>
-            <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-lg text-sm font-medium ${statusConfig.bgColor} ${statusConfig.color} ${statusConfig.borderColor} border`}>
-              <StatusIcon className="w-4 h-4" />
-              <span>{statusConfig.label}</span>
-            </div>
-          </div>
-        </CardHeader>
+        <div className="flex items-center mb-6">
+          <IconComponent className="w-6 h-6 text-slate-400 mr-2" />
+          <h2 className="text-2xl font-bold text-slate-100">
+            {title} ({orders.length})
+          </h2>
+        </div>
+        
+        <Card className="border-slate-700 bg-slate-900/50">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b border-slate-700">
+                  <tr className="text-left">
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Order</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Pair</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Amount</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Status</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Current Price</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Trigger Price</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Drop %</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Created</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => {
+                    const statusConfig = STATUS_CONFIG[order.status];
+                    const StatusIcon = statusConfig.icon;
+                    const loadingAction = actionLoading[order.id];
+                    const isActive = order.status === OrderStatus.Active;
+                    const isPaused = order.status === OrderStatus.Paused;
 
-        <CardContent className="p-6 space-y-4">
-          {/* Order Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-800/50 p-3 rounded-lg">
-              <p className="text-sm text-slate-400 mb-1">Current Price</p>
-              <p className="text-base font-semibold text-slate-200">
-                {Number(order.currentPrice) || '0.000000'}
-              </p>
+                    return (
+                      <tr key={order.id} className="border-b border-slate-800 hover:bg-slate-800/30">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-200">
+                              #{order.id}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="text-sm font-medium text-slate-200">
+                              {order.tokenSellInfo?.symbol} → {order.tokenBuyInfo?.symbol}
+                            </div>
+                            <div className="text-xs text-slate-400 font-mono">
+                              {order.contractAddress?.slice(0, 6)}...{order.contractAddress?.slice(-4)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-slate-200">
+                            {parseFloat(order.amount).toFixed(4)} {order.tokenSellInfo?.symbol}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
+                            <StatusIcon className="w-3 h-3" />
+                            <span>{statusConfig.label}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-200">
+                          {Number(order.currentPrice).toFixed(6) || '0.000000'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-red-300">
+                          {order.triggerPrice || '0.000000'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-amber-300">
+                          -{order.dropPercentage || 0}%
+                        </td>
+                        <td className="px-6 py-4 text-xs text-slate-400">
+                          {formatTimeAgo(order.createdAt)}
+                        </td>
+                        <td className="px-6 py-4">
+                          {(isActive || isPaused) && (
+                            <div className="flex space-x-1">
+                              {isActive && (
+                                <Button
+                                  onClick={() => handlePauseOrder(order.id)}
+                                  disabled={!!loadingAction}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-yellow-300 hover:bg-yellow-900/20 hover:text-yellow-200"
+                                >
+                                  {loadingAction === 'pausing' ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Pause className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              )}
+                              
+                              {isPaused && (
+                                <Button
+                                  onClick={() => handleResumeOrder(order.id)}
+                                  disabled={!!loadingAction}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-green-300 hover:bg-green-900/20 hover:text-green-200"
+                                >
+                                  {loadingAction === 'resuming' ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Play className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              )}
+                              
+                              <Button
+                                onClick={() => handleCancelOrder(order.id)}
+                                disabled={!!loadingAction}
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-red-300 hover:bg-red-900/20 hover:text-red-200"
+                              >
+                                {loadingAction === 'cancelling' ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <X className="w-3 h-3" />
+                                )}
+                              </Button>
+                              
+                              <Link 
+                                href={getExplorerUrl(order.contractAddress || '', connectedChain?.id || '11155111', 'address', connectedAccount)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-slate-400 hover:text-slate-200">
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              </Link>
+                            </div>
+                          )}
+                          {order.status === OrderStatus.Executed || order.status === OrderStatus.Cancelled || order.status === OrderStatus.Failed ? (
+                            <Link 
+                              href={getExplorerUrl(order.contractAddress || '', connectedChain?.id || '11155111', 'address', connectedAccount)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-slate-400 hover:text-slate-200">
+                                <ExternalLink className="w-3 h-3" />
+                              </Button>
+                            </Link>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="bg-slate-800/50 p-3 rounded-lg">
-              <p className="text-sm text-slate-400 mb-1">Trigger Price</p>
-              <p className="text-base font-semibold text-red-300">
-                {order.triggerPrice || '0.000000'}
-              </p>
-            </div>
-          </div>
-
-          {/* Token Information */}
-          <div className="bg-slate-800/30 rounded-lg p-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-slate-400 mb-2">Selling</p>
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold">
-                    {order.tokenSell?.symbol.charAt(0)}
-                  </div>
-                  <span className="text-sm font-medium text-slate-200">
-                    {order.tokenSell?.symbol}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 mb-2">Buying</p>
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-bold">
-                    {order.tokenBuy?.symbol.charAt(0)}
-                  </div>
-                  <span className="text-sm font-medium text-slate-200">
-                    {order.tokenBuy?.symbol}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Contract Information */}
-          <div className="bg-slate-800/20 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Layers className="w-4 h-4 text-slate-400" />
-                <span className="text-sm text-slate-400">Contract:</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <code className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">
-                  {order.contractAddress?.slice(0, 6)}...{order.contractAddress?.slice(-4)}
-                </code>
-                <Link 
-                  href={getExplorerUrl(order.contractAddress || '', connectedChain?.rscNetwork.chainId || '5318007', 'address', connectedAccount)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    <ExternalLink className="w-3 h-3" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          {isActive && (
-            <div className="flex space-x-2 pt-2">
-              <Button
-                onClick={() => handleCancelOrder(order.id)}
-                disabled={!!loadingAction}
-                variant="outline"
-                className="bg-red-900/20 border-red-700 text-red-300 hover:bg-red-800/30 flex-1"
-              >
-                {loadingAction === 'cancelling' ? (
-                  <div className="flex items-center">
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Cancelling...
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    <X className="w-4 h-4 mr-2" />
-                    Cancel Order
-                  </div>
-                )}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
     );
   };
 
   // ===== MAIN RENDER =====
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center ">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
-          <p className="text-slate-300">Loading your stop orders...</p>
+          <p className="text-slate-300">Loading your personal stop orders...</p>
         </div>
       </div>
     );
   }
 
   const activeOrders = orders.filter(order => order.status === OrderStatus.Active);
+  const pausedOrders = orders.filter(order => order.status === OrderStatus.Paused);
   const completedOrders = orders.filter(order => 
     order.status === OrderStatus.Executed || 
     order.status === OrderStatus.Cancelled || 
@@ -1600,10 +1625,10 @@ export default function UpdatedStopOrderDashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-slate-100 mb-2">
-                Stop Orders Dashboard
+                Personal Stop Orders Dashboard
               </h1>
               <p className="text-lg text-slate-400">
-                Monitor and manage your automated stop loss orders
+                Monitor and manage your personal automated stop loss orders
               </p>
             </div>
             <div className="flex space-x-3">
@@ -1628,21 +1653,21 @@ export default function UpdatedStopOrderDashboard() {
           {/* Connected Account Info */}
           {connectedAccount && (
             <Alert className="bg-slate-800/50 border-slate-600/50 mb-6">
-              <Eye className="h-4 w-4 text-slate-400" />
+              <Shield className="h-4 w-4 text-slate-400" />
               <AlertDescription className="text-slate-300">
                 <div className="flex items-center justify-between">
                   <div>
-                    Wallet: <span className="font-mono text-slate-200">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
+                    Personal Wallet: <span className="font-mono text-slate-200">{connectedAccount.slice(0, 6)}...{connectedAccount.slice(-4)}</span>
                     {connectedChain && (
                       <span className="ml-4">
-                        Data from: <span className="text-slate-200">{connectedChain.name} + {connectedChain.rscNetwork.name}</span>
+                        Data from: <span className="text-slate-200">{connectedChain.name} Personal Contracts</span>
                       </span>
                     )}
                   </div>
                   {userContracts && contractsValid && (
                     <div className="flex items-center space-x-2">
                       <Shield className="w-4 h-4 text-emerald-400" />
-                      <span className="text-emerald-300 text-sm">Convex Database System Active</span>
+                      <span className="text-emerald-300 text-sm">Personal Contract System Active</span>
                     </div>
                   )}
                 </div>
@@ -1651,11 +1676,17 @@ export default function UpdatedStopOrderDashboard() {
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <Card className="border-slate-700 bg-slate-900/50">
               <CardContent className="p-4 text-center">
                 <h3 className="text-2xl font-bold text-emerald-300">{activeOrders.length}</h3>
                 <p className="text-sm text-slate-400">Active Orders</p>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardContent className="p-4 text-center">
+                <h3 className="text-2xl font-bold text-yellow-300">{pausedOrders.length}</h3>
+                <p className="text-sm text-slate-400">Paused</p>
               </CardContent>
             </Card>
             <Card className="border-slate-700 bg-slate-900/50">
@@ -1683,47 +1714,12 @@ export default function UpdatedStopOrderDashboard() {
           </div>
         </motion.div>
 
-        {/* Active Orders */}
-        {activeOrders.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-12"
-          >
-            <div className="flex items-center mb-6">
-              <Activity className="w-6 h-6 text-emerald-400 mr-2" />
-              <h2 className="text-2xl font-bold text-slate-100">
-                Active Orders ({activeOrders.length})
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {activeOrders.map(renderOrderCard)}
-            </div>
-          </motion.div>
-        )}
+        {/* Orders Tables */}
+        {activeOrders.length > 0 && renderOrdersTable(activeOrders, "Active Orders", Activity)}
+        {pausedOrders.length > 0 && renderOrdersTable(pausedOrders, "Paused Orders", Pause)}
+        {completedOrders.length > 0 && renderOrdersTable(completedOrders, "Order History", CheckCircle)}
 
-        {/* Completed Orders */}
-        {completedOrders.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mb-8"
-          >
-            <div className="flex items-center mb-6">
-              <CheckCircle className="w-6 h-6 text-blue-400 mr-2" />
-              <h2 className="text-2xl font-bold text-slate-100">
-                Order History ({completedOrders.length})
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {completedOrders.map(renderOrderCard)}
-            </div>
-          </motion.div>
-        )}
-
-        {/* NEW: Collapsible Contract Balance Management */}
+        {/* Personal Contract Balance Management */}
         {userContracts && contractsValid && connectedChain && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1739,9 +1735,9 @@ export default function UpdatedStopOrderDashboard() {
                     <div className="flex items-center">
                         <Settings className="w-6 h-6 mr-4 text-slate-400" />
                         <div>
-                            <h2 className="text-xl font-bold text-slate-100">Contracts Management</h2>
+                            <h2 className="text-xl font-bold text-slate-100">Personal Contracts Management</h2>
                             <p className="text-sm text-slate-400 mt-1">
-                                {isContractsOpen ? 'Click to collapse' : 'Click to manage contract funds'}
+                                {isContractsOpen ? 'Click to collapse' : 'Click to manage your personal contract funds'}
                             </p>
                         </div>
                     </div>
@@ -1784,14 +1780,14 @@ export default function UpdatedStopOrderDashboard() {
             <CardContent className="py-16">
               <div className="text-center">
                 <Target className="w-20 h-20 text-slate-400 mx-auto mb-6" />
-                <h3 className="text-2xl font-medium text-slate-200 mb-4">No stop orders found</h3>
+                <h3 className="text-2xl font-medium text-slate-200 mb-4">No personal stop orders found</h3>
                 <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                  You haven't created any stop orders yet. Start protecting your investments with automated stop-loss orders.
+                  You haven't deployed personal contracts yet. Start protecting your investments with your own automated stop-loss system.
                 </p>
                 <Link href="/automations/stop-order">
                   <Button className="bg-primary/50 hover:bg-primary/60 text-slate-100 text-lg px-8 py-3">
                     <Plus className="w-5 h-5 mr-2" />
-                    Create Your First Stop Order
+                    Deploy Personal Stop Order System
                   </Button>
                 </Link>
               </div>
@@ -1799,19 +1795,19 @@ export default function UpdatedStopOrderDashboard() {
           </Card>
         )}
 
-        {/* Convex Database System Info */}
+        {/* Personal Contract System Info */}
         {!userContracts && connectedAccount && !isLoading && (
           <Alert className="bg-blue-900/20 border-blue-600/30 text-blue-200 mt-8">
             <Info className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2">
-                <p className="font-medium">Convex Database System Ready</p>
+                <p className="font-medium">Personal Contract System Ready</p>
                 <p className="text-sm">
-                  Your first stop order will deploy personal smart contracts and register them in our fast Convex database. 
-                  Additional orders will automatically discover and use the same contracts at much lower cost.
+                  Your first stop order will deploy your personal smart contracts - both callback (Sepolia) and reactive (Lasna) contracts. 
+                  You'll own these contracts completely and can add unlimited additional orders at minimal cost.
                 </p>
                 <p className="text-xs text-blue-300 mt-2">
-                  Storage: Convex Database (Instant Access • No Gas Fees for Lookups)
+                  Architecture: Personal Contracts • Owner-Only Access • Fund Withdrawal Available
                 </p>
               </div>
             </AlertDescription>

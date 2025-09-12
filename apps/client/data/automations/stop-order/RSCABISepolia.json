@@ -3,6 +3,11 @@
 		"inputs": [
 			{
 				"internalType": "address",
+				"name": "_owner",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
 				"name": "_stopOrderCallback",
 				"type": "address"
 			}
@@ -80,12 +85,6 @@
 				"internalType": "uint256",
 				"name": "orderId",
 				"type": "uint256"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "client",
-				"type": "address"
 			}
 		],
 		"name": "OrderTracked",
@@ -205,6 +204,61 @@
 				"internalType": "address",
 				"name": "pair",
 				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "chainId",
+				"type": "uint256"
+			}
+		],
+		"name": "emergencySubscribeToPair",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "pair",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "chainId",
+				"type": "uint256"
+			}
+		],
+		"name": "emergencyUnsubscribeFromPair",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "pair",
+				"type": "address"
+			}
+		],
+		"name": "getActiveOrdersForPair",
+		"outputs": [
+			{
+				"internalType": "uint256[]",
+				"name": "",
+				"type": "uint256[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "pair",
+				"type": "address"
 			}
 		],
 		"name": "getPairOrderCount",
@@ -260,11 +314,6 @@
 						"type": "address"
 					},
 					{
-						"internalType": "address",
-						"name": "client",
-						"type": "address"
-					},
-					{
 						"internalType": "bool",
 						"name": "sellToken0",
 						"type": "bool"
@@ -280,7 +329,7 @@
 						"type": "uint256"
 					},
 					{
-						"internalType": "enum StopOrderReactive.OrderStatus",
+						"internalType": "enum PersonalStopOrderReactive.OrderStatus",
 						"name": "status",
 						"type": "uint8"
 					},
@@ -295,7 +344,7 @@
 						"type": "uint8"
 					}
 				],
-				"internalType": "struct StopOrderReactive.TrackedOrder",
+				"internalType": "struct PersonalStopOrderReactive.TrackedOrder",
 				"name": "",
 				"type": "tuple"
 			}
@@ -424,6 +473,19 @@
 		"type": "function"
 	},
 	{
+		"inputs": [],
+		"name": "stopOrderCallback",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -470,7 +532,31 @@
 		"type": "function"
 	},
 	{
-		"inputs": [],
+		"inputs": [
+			{
+				"internalType": "address payable",
+				"name": "to",
+				"type": "address"
+			}
+		],
+		"name": "withdrawAllETH",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address payable",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
 		"name": "withdrawETH",
 		"outputs": [],
 		"stateMutability": "nonpayable",
