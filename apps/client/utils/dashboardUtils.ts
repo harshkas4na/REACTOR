@@ -112,10 +112,63 @@ export const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcPr
   }
 };
 
+// ===== ENHANCED PRICE CALCULATION WITH PROPER TOKEN HANDLING =====
+export const calculatePairPriceWithTokens = async (
+  pairAddress: string,
+  sellTokenAddress: string,
+  buyTokenAddress: string,
+  provider: ethers.JsonRpcProvider
+): Promise<{ currentPrice: number; sellToken: Token; buyToken: Token }> => {
+  try {
+    // Get pair contract info
+    const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+    const [reserves, token0Address, token1Address] = await Promise.all([
+      pairContract.getReserves(),
+      pairContract.token0(),
+      pairContract.token1()
+    ]);
+
+    if (reserves[0] === BigInt(0) || reserves[1] === BigInt(0)) {
+      throw new Error('No liquidity in pair');
+    }
+
+    // Fetch token information
+    const [token0Info, token1Info] = await Promise.all([
+      fetchTokenInfo(token0Address, provider),
+      fetchTokenInfo(token1Address, provider)
+    ]);
+
+    // Determine which token is the sell token and which is the buy token
+    const isSellTokenToken0 = sellTokenAddress.toLowerCase() === token0Address.toLowerCase();
+    const sellToken = isSellTokenToken0 ? token0Info : token1Info;
+    const buyToken = isSellTokenToken0 ? token1Info : token0Info;
+
+    // Format reserves with proper decimals
+    const formattedReserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
+    const formattedReserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
+
+    // Calculate price (how much buyToken per sellToken)
+    const currentPrice = isSellTokenToken0 
+      ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
+      : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
+
+    return {
+      currentPrice,
+      sellToken,
+      buyToken
+    };
+  } catch (error) {
+    console.error('Error calculating pair price with tokens:', error);
+    throw error;
+  }
+};
+
 export const getCurrentPairPrice = async (
   pairAddress: string, 
   sellToken0: boolean, 
-  provider: ethers.JsonRpcProvider
+  provider: ethers.JsonRpcProvider,
+  token0Info?: Token,
+  token1Info?: Token
 ): Promise<number> => {
   try {
     const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
@@ -123,9 +176,25 @@ export const getCurrentPairPrice = async (
     
     if (reserve0 === BigInt(0) || reserve1 === BigInt(0)) return 0;
 
+    // If we have token info, use proper decimals for formatting
+    if (token0Info && token1Info) {
+      const formattedReserve0 = ethers.formatUnits(reserve0, token0Info.decimals);
+      const formattedReserve1 = ethers.formatUnits(reserve1, token1Info.decimals);
+      
+      const price = sellToken0 
+        ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
+        : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
+
+      return price;
+    }
+
+    // Fallback: assume 18 decimals for both tokens if no token info provided
+    const formattedReserve0 = ethers.formatUnits(reserve0, 18);
+    const formattedReserve1 = ethers.formatUnits(reserve1, 18);
+    
     const price = sellToken0 
-      ? Number(reserve1) / Number(reserve0)
-      : Number(reserve0) / Number(reserve1);
+      ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
+      : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
 
     return price;
   } catch (error) {
@@ -134,9 +203,17 @@ export const getCurrentPairPrice = async (
   }
 };
 
-export const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcProvider) => {
+export const calculateOrderMetrics = async (orderData: any, provider: ethers.JsonRpcProvider, token0Info?: Token, token1Info?: Token) => {
   try {
-    const currentPrice = await getCurrentPairPrice(orderData.pair, orderData.token0, provider);
+    // Get current price with proper token decimals
+    const currentPrice = await getCurrentPairPrice(
+      orderData.pair, 
+      orderData.token0, 
+      provider,
+      token0Info,
+      token1Info
+    );
+    
     const coefficient = Number(orderData.coefficient);
     const threshold = Number(orderData.threshold);
     const triggerPrice = threshold / coefficient;
@@ -161,7 +238,6 @@ export const calculateOrderMetrics = async (orderData: any, provider: ethers.Jso
     };
   }
 };
-
 // ===== NETWORK SWITCHING =====
 export const switchNetwork = async (targetChainId: string) => {
   if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');

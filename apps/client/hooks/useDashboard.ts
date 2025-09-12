@@ -15,7 +15,8 @@ import { SUPPORTED_CHAINS, REACTIVE_STOP_ORDER_ABI, PAIR_ABI } from '../config/d
 import { 
   validateStoredContracts, 
   fetchTokenInfo, 
-  calculateOrderMetrics 
+  calculateOrderMetrics,
+  calculatePairPriceWithTokens 
 } from '../utils/dashboardUtils';
 
 export const useDashboard = () => {
@@ -109,56 +110,91 @@ export const useDashboard = () => {
       }
 
       // Fetch all order details
-      const orderPromises = allOrderIds.map(async (orderId: bigint) => {
-        try {
-          console.log('📋 DASHBOARD: Fetching order:', Number(orderId));
-          const orderData = await reactiveContract.getStopOrder(orderId);
-          console.log('📋 DASHBOARD: Raw order data:', orderData);
-          
-          // Get pair token information using Sepolia provider
-          const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, sepoliaProvider);
-          const [token0Address, token1Address] = await Promise.all([
-            pairContract.token0(),
-            pairContract.token1()
-          ]);
+      // Fetch all order details
+const orderPromises = allOrderIds.map(async (orderId: bigint) => {
+  try {
+    console.log('📋 DASHBOARD: Fetching order:', Number(orderId));
+    const orderData = await reactiveContract.getStopOrder(orderId);
+    console.log('📋 DASHBOARD: Raw order data:', orderData);
+    
+    // Get pair token information using Sepolia provider
+    const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, sepoliaProvider);
+    const [token0Address, token1Address] = await Promise.all([
+      pairContract.token0(),
+      pairContract.token1()
+    ]);
 
-          const [token0Info, token1Info] = await Promise.all([
-            fetchTokenInfo(token0Address, sepoliaProvider),
-            fetchTokenInfo(token1Address, sepoliaProvider)
-          ]);
+    const [token0Info, token1Info] = await Promise.all([
+      fetchTokenInfo(token0Address, sepoliaProvider),
+      fetchTokenInfo(token1Address, sepoliaProvider)
+    ]);
 
-          // Determine sell and buy tokens based on order direction
-          const tokenSell = orderData.token0 ? token0Info : token1Info;
-          const tokenBuy = orderData.token0 ? token1Info : token0Info;
+    // Determine sell and buy tokens based on order direction
+    const tokenSell = orderData.token0 ? token0Info : token1Info;
+    const tokenBuy = orderData.token0 ? token1Info : token0Info;
 
-          // Calculate metrics using Sepolia provider
-          const metrics = await calculateOrderMetrics(orderData, sepoliaProvider);
-          
-          const order: StopOrder = {
-            id: Number(orderId),
-            pair: orderData.pair,
-            client: orderData.client,
-            token0: orderData.token0,
-            coefficient: orderData.coefficient.toString(),
-            threshold: orderData.threshold.toString(),
-            status: Number(orderData.status),
-            triggered: orderData.triggered,
-            createdAt: Number(orderData.createdAt),
-            updatedAt: Number(orderData.updatedAt),
-            tokenSell,
-            tokenBuy,
-            currentPrice: metrics.currentPrice,
-            dropPercentage: metrics.dropPercentage,
-            triggerPrice: metrics.triggerPrice,
-            contractAddress: storedContracts.reactiveContract
-          };
+    // Calculate enhanced metrics with proper token decimals
+    let currentPrice = '0';
+    let triggerPrice = '0';
+    let dropPercentage = 0;
 
-          console.log('✅ DASHBOARD: Processed order:', order);
-          return order;
-        } catch (error) {
-          console.error('❌ DASHBOARD: Error fetching order:', orderId, error);
-          return null;
-        }
+    try {
+      // Use enhanced price calculation
+      const priceData = await calculatePairPriceWithTokens(
+        orderData.pair,
+        tokenSell.address,
+        tokenBuy.address,
+        sepoliaProvider
+      );
+
+      currentPrice = priceData.currentPrice.toFixed(6);
+
+      // Calculate trigger price and drop percentage
+      const coefficient = Number(orderData.coefficient);
+      const threshold = Number(orderData.threshold);
+      const triggerPriceNum = threshold / coefficient;
+      triggerPrice = triggerPriceNum.toFixed(6);
+
+      if (priceData.currentPrice > 0 && triggerPriceNum > 0) {
+        dropPercentage = ((priceData.currentPrice - triggerPriceNum) / priceData.currentPrice) * 100;
+        dropPercentage = Math.max(0, Math.min(50, dropPercentage));
+        dropPercentage = Math.round(dropPercentage * 10) / 10;
+      }
+    } catch (priceError) {
+      console.warn('Price calculation failed for order', Number(orderId), ':', priceError);
+      // Fallback to simple calculation
+      const metrics = await calculateOrderMetrics(orderData, sepoliaProvider, token0Info, token1Info);
+      currentPrice = metrics.currentPrice;
+      triggerPrice = metrics.triggerPrice;
+      dropPercentage = metrics.dropPercentage;
+    }
+    
+    const order: StopOrder = {
+      id: Number(orderId),
+      pair: orderData.pair,
+      client: orderData.client,
+      token0: orderData.token0,
+      coefficient: orderData.coefficient.toString(),
+      threshold: orderData.threshold.toString(),
+      status: Number(orderData.status),
+      triggered: orderData.triggered,
+      createdAt: Number(orderData.createdAt),
+      updatedAt: Number(orderData.updatedAt),
+      tokenSell,
+      tokenBuy,
+      currentPrice,
+      dropPercentage,
+      triggerPrice,
+      contractAddress: storedContracts.reactiveContract
+    };
+
+    console.log('✅ DASHBOARD: Processed order:', order);
+    return order;
+  } catch (error) {
+    console.error('❌ DASHBOARD: Error fetching order:', orderId, error);
+    return null;
+  }
+
       });
 
       const resolvedOrders = await Promise.all(orderPromises);

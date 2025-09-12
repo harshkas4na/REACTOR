@@ -13,7 +13,7 @@ import {
   TradingPair,
   Token
 } from '../types';
-import { SUPPORTED_CHAINS } from '../config/chains';
+import { SUPPORTED_CHAINS } from '../config/chain';
 import { validateStoredContracts, checkSimpleContractStatus, switchNetwork } from '../utils/contractUtils';
 
 // Initial form data

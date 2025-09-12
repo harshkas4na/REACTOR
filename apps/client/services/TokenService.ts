@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { Token } from '../types';
-import { POPULAR_TOKENS } from '../config/chains';
+import { POPULAR_TOKENS } from '../config/chain';
 
 // ===== TOKEN SERVICE CLASS =====
 export class TokenService {

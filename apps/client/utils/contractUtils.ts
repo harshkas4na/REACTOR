@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { UserContractAddresses, SimpleContractStatus, ChainConfig } from '../types';
-import { SYSTEM_CONTRACT_ABI, SYSTEM_CONTRACT_ADDRESS, DEBT_AND_STATUS_ABI } from '../config/chains';
+import { SYSTEM_CONTRACT_ABI, SYSTEM_CONTRACT_ADDRESS, DEBT_AND_STATUS_ABI } from '../config/chain';
 
 // Contract ABIs - these would need to be imported from your existing data
 // For now, I'll include minimal ABIs needed for the utility functions
