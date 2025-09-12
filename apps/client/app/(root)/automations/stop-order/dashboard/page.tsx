@@ -997,7 +997,7 @@ const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcProvider)
 };
 
 // ===== ENHANCED PRICE CALCULATION =====
-export const calculatePairPriceWithTokens = async (
+const calculatePairPriceWithTokens = async (
   pairAddress: string,
   sellTokenAddress: string,
   buyTokenAddress: string,
