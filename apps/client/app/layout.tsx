@@ -23,7 +23,71 @@ export const metadata: Metadata = {
     default: "REACTOR - DeFi Automation Made Simple",
     template: "%s | REACTOR"
   },
-  // ... rest of your metadata object
+  description: "Automate your DeFi with no code. Protect Uniswap positions with stop orders, secure Aave loans from liquidation, and automate fee collection - all through simple conversation with our AI assistant.",
+  keywords: [
+    "DeFi automation",
+    "Uniswap stop orders", 
+    "Aave liquidation protection",
+    "reactive smart contracts",
+    "DeFi AI assistant",
+    "automated trading",
+    "crypto automation",
+    "blockchain automation",
+    "DeFi protection",
+    "smart contract automation"
+  ],
+  authors: [{ name: "REACTOR Team" }],
+  creator: "REACTOR",
+  publisher: "REACTOR",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL('https://thereactor.in'),
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://thereactor.in',
+    title: 'REACTOR - DeFi Automation Made Simple',
+    description: 'Automate your DeFi with AI. Protect Uniswap positions, secure Aave loans, and automate fee collection through simple conversation.',
+    siteName: 'REACTOR',
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'REACTOR - DeFi Automation Platform',
+      }
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'REACTOR - DeFi Automation Made Simple',
+    description: 'Automate your DeFi with AI. Protect Uniswap positions, secure Aave loans, and more.',
+    creator: '@0xReactor',
+    images: ['/og-image.jpg'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  icons: {
+    icon: '/Symbol/Color/DarkBg.png',
+    shortcut: '/Symbol/Color/DarkBg.png',
+    apple: '/Symbol/Color/DarkBg.png',
+  },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
