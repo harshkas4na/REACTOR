@@ -62,12 +62,12 @@ import {
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
-import { stopOrderByteCodeSepolia,stopOrderByteCodeBaseMainnet } from '@/data/automations/stop-order/stopOrderByteCode';
+import { stopOrderByteCodeSepolia, stopOrderByteCodeBaseMainnet } from '@/data/automations/stop-order/stopOrderByteCode';
 import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
 import stopOrderABIBaseMainnet from '@/data/automations/stop-order/stopOrderABIBaseMainnet.json';
 import rscABIBaseMainnet from '@/data/automations/stop-order/RSCABIBaseMainnet.json';
 import rscABISepolia from '@/data/automations/stop-order/RSCABISepolia.json';
-import { rscByteCodeSepolia,rscByteCodeBaseMainnet } from '@/data/automations/stop-order/RSCByteCode';
+import { rscByteCodeSepolia, rscByteCodeBaseMainnet } from '@/data/automations/stop-order/RSCByteCode';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
