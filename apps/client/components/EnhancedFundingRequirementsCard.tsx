@@ -125,7 +125,7 @@ export default function EnhancedFundingRequirementsCard({
               Testnet Setup Costs
             </h3>
             <p className="text-xs sm:text-sm text-amber-200 mb-3">
-              RSC Monitoring: 0.05 REACT • Callback Execution: 0.03 SepETH •
+              RSC Monitoring: 0.1 REACT • Callback Execution: 0.03 SepETH •
               Plus gas fees
             </p>
 
@@ -214,7 +214,7 @@ export default function EnhancedFundingRequirementsCard({
               Protection Setup Costs
             </h3>
             <p className="text-xs sm:text-sm text-amber-200 mb-3">
-              RSC Monitoring: 0.05 REACT • Callback Execution: 0.03{" "}
+              RSC Monitoring: 0.1 REACT • Callback Execution: 0.03{" "}
               {connectedChain?.nativeCurrency || "ETH"} • Plus gas fees
             </p>
 

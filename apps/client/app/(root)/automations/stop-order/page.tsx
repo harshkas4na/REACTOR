@@ -1,4 +1,5 @@
 'use client'
+
 import { ethers } from 'ethers';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -92,7 +93,12 @@ const checkContractFundingStatus = async (
 ): Promise<{ debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string }> => {
   try {
     const systemContractAddress = '0x0000000000000000000000000000000000fffFfF'; // Updated system contract address
-    const callbackProxyAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA'; // Callback proxy address for Sepolia
+    let callbackProxyAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA'; // Default Sepolia proxy
+    
+    // Set callback proxy based on the contracts' chain
+    if (contracts.chainId === '8453') { // Base mainnet
+      callbackProxyAddress = '0x0D3E76De6bC44309083cAAFdB49A088B8a250947'; 
+    }
     
     const systemContract = new ethers.Contract(
       systemContractAddress,
@@ -109,16 +115,21 @@ const checkContractFundingStatus = async (
       systemContract.reserves(contracts.reactiveContract)
     ]);
 
-    // Check callback contract debt using callback proxy (need Sepolia provider)
+    // Check callback contract debt using appropriate proxy
     let callbackDebt = BigInt(0);
     try {
-      const sepoliaProvider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
-      const callbackProxyContract = new ethers.Contract(
-        callbackProxyAddress,
-        ['function debts(address) view returns (uint256)'],
-        sepoliaProvider
-      );
-      callbackDebt = await callbackProxyContract.debts(contracts.callbackContract);
+      const callbackProvider = contracts.chainId === '8453' 
+        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+        
+      if (callbackProxyAddress !== '0x0000000000000000000000000000000000000000') {
+        const callbackProxyContract = new ethers.Contract(
+          callbackProxyAddress,
+          ['function debts(address) view returns (uint256)'],
+          callbackProvider
+        );
+        callbackDebt = await callbackProxyContract.debts(contracts.callbackContract);
+      }
     } catch (callbackError) {
       console.warn('Could not check callback contract debt:', callbackError);
     }
@@ -126,7 +137,10 @@ const checkContractFundingStatus = async (
     // Check actual balances
     const [reactiveBalance, callbackBalance] = await Promise.all([
       rscProvider.getBalance(contracts.reactiveContract),
-      new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com').getBalance(contracts.callbackContract)
+      (contracts.chainId === '8453' 
+        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com')
+      ).getBalance(contracts.callbackContract)
     ]);
 
     // Convert to readable format
@@ -140,6 +154,7 @@ const checkContractFundingStatus = async (
     console.log('💰 Contract funding status:', {
       reactiveContract: contracts.reactiveContract,
       callbackContract: contracts.callbackContract,
+      chainId: contracts.chainId,
       reactiveDebt: ethers.formatEther(reactiveDebt),
       reactiveReserves: ethers.formatEther(reactiveReserves),
       callbackDebt: ethers.formatEther(callbackDebt),
@@ -186,20 +201,17 @@ const validateStoredContracts = async (
     }
     
     // Check if callback contract exists and is valid by calling owner()
-    const sepoliaProvider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+    const callbackProvider = contracts.chainId === '8453' 
+      ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+      : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+      
     const callbackContract = new ethers.Contract(
       contracts.callbackContract,
       CALLBACK_STOP_ORDER_ABI,
-      sepoliaProvider
+      callbackProvider
     );
     
     try {
-      // Check if the user is the owner of the callback contract
-      // const contractOwner = await callbackContract.owner();
-      // if (contractOwner.toLowerCase() !== userAddress.toLowerCase()) {
-      //   console.error('❌ VALIDATION FAILED: User is not the owner of callback contract');
-      //   return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
-      // }
       console.log('✅ Callback contract validation successful');
     } catch (contractError) {
       console.error('❌ VALIDATION FAILED: Cannot read from callback contract:', contractError);
@@ -216,10 +228,6 @@ const validateStoredContracts = async (
     try {
       // Check if the user is the owner of the reactive contract
       const contractOwner = await reactiveContract.owner();
-      // if (contractOwner.toLowerCase() !== userAddress.toLowerCase()) {
-      //   console.error('❌ VALIDATION FAILED: User is not the owner of reactive contract');
-      //   return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
-      // }
       console.log('✅ Reactive contract validation successful');
     } catch (contractError) {
       console.error('❌ VALIDATION FAILED: Cannot read from reactive contract:', contractError);
@@ -297,8 +305,28 @@ interface ChainConfig {
 
 type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete' | 'storing-contracts' | 'covering-callback-debt' | 'covering-rsc-debt';
 
-// ===== CONFIGURATION DATA =====
+// ===== CONFIGURATION DATA - UPDATED FOR BASE MAINNET =====
 const SUPPORTED_CHAINS: ChainConfig[] = [
+  { 
+    id: '8453', 
+    name: 'Base Mainnet',
+    dexName: 'Uniswap V2',
+    routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24', // Base Uniswap V2 Router
+    factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6', // Base Uniswap V2 Factory
+    callbackAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
+    rpcUrl: 'https://mainnet.base.org',
+    nativeCurrency: 'ETH',
+    defaultFunding: '0.003', // Lower funding for mainnet
+    rscNetwork: {
+      chainId: '1597',
+      name: 'Reactive Mainnet',
+      rpcUrl: 'https://mainnet-rpc.rnk.dev/',
+      currencySymbol: 'REACT',
+      explorerUrl: 'https://reactscan.net/',
+      callbackProxyAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
+      systemContractAddress: '0x0000000000000000000000000000000000fffFfF'
+    }
+  },
   { 
     id: '11155111', 
     name: 'Ethereum Sepolia',
@@ -316,14 +344,20 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
       currencySymbol: 'REACT',
       explorerUrl: 'https://lasna.reactscan.net',
       callbackProxyAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
-      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
+      systemContractAddress: '0x0000000000000000000000000000000000fffFfF'
     }
   }
 ];
 
-// Popular tokens by chain (fallback when API doesn't work) - Only ERC20 tokens
+// Popular tokens by chain - UPDATED FOR BASE MAINNET
 const POPULAR_TOKENS: Record<string, Token[]> = {
-  '11155111': [
+  '8453': [ // Base Mainnet
+    { address: '0x4200000000000000000000000000000000000006', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
+    { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
+    { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
+    { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH', name: 'Coinbase Wrapped Staked ETH', decimals: 18 },
+  ],
+  '11155111': [ // Sepolia (fallback)
     { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
     { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
     { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
@@ -363,19 +397,21 @@ class TokenService {
       return cachedTokens;
     }
 
-    // Try Ethplorer API first, then fallback to popular tokens method
-    const tokens = await this.fetchTokensFromEthplorer(chainId, address);
+    // For Base mainnet, use popular tokens method (no Ethplorer support yet)
+    // For Sepolia, try Ethplorer API first
+    const tokens = chainId === '8453' 
+      ? await this.fetchPopularTokensWithBalances(chainId, address)
+      : await this.fetchTokensFromEthplorer(chainId, address);
     
     this.setCachedTokens(cacheKey, tokens);
     return tokens;
   }
 
-  // NEW: Fetch tokens using Ethplorer API
+  // Fetch tokens using Ethplorer API (Sepolia only)
   private static async fetchTokensFromEthplorer(chainId: string, address: string): Promise<Token[]> {
     try {
       console.log('Fetching tokens from Ethplorer API for address:', address);
       
-      // Determine the correct API endpoint based on chain
       let apiUrl: string;
       if (chainId === '11155111') { // Sepolia
         apiUrl = `https://sepolia-api.ethplorer.io/getAddressInfo/${address}?apiKey=freekey`;
@@ -823,7 +859,7 @@ const TokenSelectionModal = ({
               Showing ERC20 tokens with positive balance
             </div>
             <div className="text-zinc-600">
-              💡 Native tokens (ETH, AVAX) not shown - use wrapped versions (WETH, WAVAX) for stop orders
+              💡 Native tokens (ETH) not shown - use wrapped versions (WETH) for stop orders
             </div>
           </div>
         </div>
@@ -855,10 +891,10 @@ const EnhancedStatusIndicator = ({
   // Determine the current status
   const getStatus = () => {
     if (!connectedChain) {
-      return { type: 'error', message: 'Please switch to a supported network (Sepolia)' };
+      return { type: 'error', message: 'Please switch to a supported network (Base or Sepolia)' };
     }
     if (connectedChain.isComingSoon) {
-      return { type: 'warning', message: `${connectedChain.name} support coming soon - switch to Sepolia` };
+      return { type: 'warning', message: `${connectedChain.name} support coming soon - switch to Base Mainnet` };
     }
     if (isLoadingPair) {
       return { type: 'loading', message: 'Finding trading pair...' };
@@ -892,7 +928,9 @@ const EnhancedStatusIndicator = ({
         return { 
           type: 'success', 
           message: 'Ready to create stop order!',
-          subMessage: 'First order - will deploy new smart contracts'
+          subMessage: connectedChain.id === '8453' 
+            ? 'First order on Base - will deploy new smart contracts' 
+            : 'First order - will deploy new smart contracts'
         };
       }
     }
@@ -956,8 +994,10 @@ const EnhancedStatusIndicator = ({
           {connectedChain && safeStatus.type === 'success' && (
             <div className="text-xs sm:text-sm mt-1 opacity-80">
               Cost: {existingContracts && contractsValid && contractFundingStatus?.isActive
-                ? 'Gas fee only (~$1-5)' 
-                : `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 0.05 ${connectedChain.rscNetwork.currencySymbol} + gas`
+                ? 'Gas fee only (~$0.50-2)' 
+                : connectedChain.id === '8453'
+                ? `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 0.1 ${connectedChain.rscNetwork.currencySymbol} + gas (~$5-15)`
+                : `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 0.1 ${connectedChain.rscNetwork.currencySymbol} + gas`
               }
             </div>
           )}
@@ -980,9 +1020,9 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
       case 'switching-rsc':
         return { title: 'Switching to Reactive Network', message: 'Please confirm network switch in your wallet...', color: 'purple' };
       case 'funding-rsc':
-        return { title: 'Funding RSC System', message: 'Sending 0.05 REACT to the system contract...', color: 'blue' };
+        return { title: 'Funding RSC System', message: 'Sending 0.1 REACT to the system contract...', color: 'blue' };
       case 'deploying-callback':
-        return { title: 'Deploying Callback Contract', message: 'Creating your personal callback contract on Sepolia...', color: 'green' };
+        return { title: 'Deploying Callback Contract', message: 'Creating your personal callback contract on Base/Sepolia...', color: 'green' };
       case 'deploying-reactive':
         return { title: 'Deploying Reactive Contract', message: 'Creating your multi-order stop loss contract on Reactive Network...', color: 'green' };
       case 'creating-order':
@@ -1060,8 +1100,8 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     coefficient: '1000',
     threshold: '',
     amount: '',
-    destinationFunding: '0.03',
-    rscFunding: '0.05',
+    destinationFunding: '0.003', // Base mainnet default
+    rscFunding: '0.1',
     dropPercentage: '10',
     currentPrice: '',
     stopPrice: ''
@@ -1167,6 +1207,19 @@ export default function EnhancedStopOrderWithPersonalContracts() {
               rpcUrls: ['https://lasna-rpc.rnk.dev/'],
               blockExplorerUrls: ['https://lasna.reactscan.net']
             };
+          } else if (targetChainId === '8453') {
+            // Base Mainnet
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: 'Base',
+              nativeCurrency: {
+                name: 'ETH',
+                symbol: 'ETH',
+                decimals: 18
+              },
+              rpcUrls: ['https://mainnet.base.org'],
+              blockExplorerUrls: ['https://basescan.org']
+            };
           } else {
             const chain = SUPPORTED_CHAINS.find(c => c.id === targetChainId);
             if (!chain) throw new Error('Chain not supported');
@@ -1183,6 +1236,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
               blockExplorerUrls: [
                 chain.id === '1' ? 'https://etherscan.io' : 
                 chain.id === '11155111' ? 'https://sepolia.etherscan.io' :
+                chain.id === '8453' ? 'https://basescan.org' :
                 ''
               ]
             };
@@ -1274,7 +1328,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
               setFormData(prev => ({
                 ...prev,
                 destinationFunding: connectedChain.defaultFunding,
-                rscFunding: '0.05'
+                rscFunding: '0.1'
               }));
             }
           } else {
@@ -1287,7 +1341,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             setFormData(prev => ({
               ...prev,
               destinationFunding: connectedChain.defaultFunding,
-              rscFunding: '0.05'
+              rscFunding: '0.1'
             }));
           }
         } else {
@@ -1300,7 +1354,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           setFormData(prev => ({
             ...prev,
             destinationFunding: connectedChain.defaultFunding,
-            rscFunding: '0.05'
+            rscFunding: '0.1'
           }));
         }
       } catch (error) {
@@ -1392,18 +1446,18 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         setDeploymentStep('covering-callback-debt');
         console.log(`Covering callback debt: ${callbackDebt} ETH`);
 
-        // Ensure we're on Sepolia
+        // Ensure we're on the callback chain
         await switchNetwork(originalChainId);
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
-        const sepoliaSigner = await sepoliaProvider.getSigner();
+        const callbackProvider = new ethers.BrowserProvider(window.ethereum);
+        const callbackSigner = await callbackProvider.getSigner();
 
         // Transaction 1: Send funds to callback contract
         const callbackFundingAmount = callbackDebt + 0.01; // Debt + buffer
         console.log(`Sending ${callbackFundingAmount} ETH to callback contract`);
         
-        const fundCallbackTx = await sepoliaSigner.sendTransaction({
+        const fundCallbackTx = await callbackSigner.sendTransaction({
           to: existingContracts.callbackContract,
           value: ethers.parseEther(callbackFundingAmount.toString()),
           gasLimit: 100000
@@ -1417,7 +1471,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const callbackContract = new ethers.Contract(
           existingContracts.callbackContract,
           CALLBACK_STOP_ORDER_ABI,
-          sepoliaSigner
+          callbackSigner
         );
 
         try {
@@ -1535,7 +1589,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     }
 
     if (connectedChain.isComingSoon) {
-      toast.error(`${connectedChain.name} support coming soon. Please switch to Sepolia.`);
+      toast.error(`${connectedChain.name} support coming soon. Please switch to Base Mainnet or Sepolia.`);
       return;
     }
 
@@ -1549,12 +1603,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       // Step 1: Check existing contracts (now handled by useQuery hook)
       setDeploymentStep('checking-contracts');
 
-      // Ensure we're on the original chain (Sepolia)
+      // Ensure we're on the original chain (Base/Sepolia)
       const provider = new ethers.BrowserProvider(window.ethereum);
       const currentNetwork = await provider.getNetwork();
       
       if (currentNetwork.chainId.toString() !== originalChainId) {
-        console.log('Switching to Sepolia first...');
+        console.log(`Switching to ${connectedChain.name} first...`);
         await switchNetwork(originalChainId);
       }
 
@@ -1595,7 +1649,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast.success('Tokens already approved');
         }
 
-        // Step 2: Create order on existing callback contract (stay on Sepolia)
+        // Step 2: Create order on existing callback contract (stay on Base/Sepolia)
         setDeploymentStep('creating-order');
         
         const callbackContract = new ethers.Contract(
@@ -1687,15 +1741,15 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         // ===== FIRST ORDER FLOW - Deploy new personal contracts =====
         console.log('🏗️ Deploying new personal contracts for first order...');
         
-        // Step 1: Check and approve tokens first (on Sepolia)
+        // Step 1: Check and approve tokens first (on Base/Sepolia)
         setDeploymentStep('checking-approval');
         
-        const sepoliaProvider = new ethers.BrowserProvider(window.ethereum);
-        const sepoliaSigner = await sepoliaProvider.getSigner();
+        const mainProvider = new ethers.BrowserProvider(window.ethereum);
+        const mainSigner = await mainProvider.getSigner();
         
         // We'll get the deployed callback address and then approve tokens for it
         
-        // Step 2: Deploy callback contract on Sepolia
+        // Step 2: Deploy callback contract on Base/Sepolia
         setDeploymentStep('deploying-callback');
         
         console.log('Deploying personal callback contract...');
@@ -1704,7 +1758,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const CallbackFactory = new ethers.ContractFactory(
           CALLBACK_STOP_ORDER_ABI,
           CALLBACK_CONTRACT_BYTECODE,
-          sepoliaSigner
+          mainSigner
         );
         
         const callbackContract = await CallbackFactory.deploy(
@@ -1721,7 +1775,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const callbackContractAddress = await callbackContract.getAddress();
         console.log('Personal callback contract deployed at:', callbackContractAddress);
         
-        toast.success('Personal callback contract deployed');
+        toast.success(`Personal callback contract deployed on ${connectedChain.name}`);
 
         // Step 3: Approve tokens for the newly deployed callback contract
         const tokenContract = new ethers.Contract(
@@ -1730,7 +1784,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             'function approve(address spender, uint256 amount) returns (bool)',
             'function allowance(address owner, address spender) view returns (uint256)'
           ],
-          sepoliaSigner
+          mainSigner
         );
 
         const currentAllowance = await tokenContract.allowance(connectedAccount, callbackContractAddress);
@@ -1802,7 +1856,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast('Warning: Could not store contract addresses in database');
         }
 
-        // Step 6: Switch back to Sepolia and create the first order
+        // Step 6: Switch back to Base/Sepolia and create the first order
         setDeploymentStep('creating-order');
         await switchNetwork(originalChainId);
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1902,7 +1956,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         setExistingContracts(newContracts);
         setContractsValid(true);
         toast.success(`First stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
-        toast.success('Personal contracts deployed successfully! Future orders will be cheaper.');
+        toast.success(`Personal contracts deployed successfully on ${connectedChain.name}! Future orders will be cheaper.`);
       }
 
       toast.success('Your stop order is now active and monitoring prices 24/7');
@@ -1964,7 +2018,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     deploymentStep === 'idle' &&
     !isDeploymentActive;
 
-  // Auto-detect connected chain and account
+  // Auto-detect connected chain and account - UPDATED FOR BASE PRIORITY
   useEffect(() => {
     const detectConnection = async () => {
       if (typeof window !== 'undefined' && window.ethereum) {
@@ -2259,6 +2313,14 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           <p className="text-base sm:text-lg lg:text-xl text-zinc-200 mb-4 text-center lg:text-left">
             Deploy your own smart contracts and automatically sell tokens when prices drop - protecting your investments 24/7.
           </p>
+          {connectedChain && (
+            <div className="text-center lg:text-left">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mr-2 animate-pulse"></div>
+                Live on {connectedChain.name}
+              </span>
+            </div>
+          )}
         </motion.div>
 
         {/* Main Interface Container */}
@@ -2361,6 +2423,8 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                     : 'Your personal contracts need debt clearance before you can add more orders'
                 ) : existingContracts && contractsValid ? (
                   'Adding order to your existing personal smart contracts (lower cost)'
+                ) : connectedChain?.id === '8453' ? (
+                  'Deploy your personal stop order smart contracts on Base Mainnet'
                 ) : (
                   'Deploy your personal stop order smart contracts'
                 )}
@@ -2637,7 +2701,10 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                       <div className="flex flex-col items-center">
                         <div className="flex items-center">
                           <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                          Create Personal Stop Order
+                          {connectedChain?.id === '8453' 
+                            ? 'Create Personal Stop Order on Base'
+                            : 'Create Personal Stop Order'
+                          }
                         </div>
                       </div>
                     )}
@@ -2661,6 +2728,11 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             <div className="text-center mt-4 sm:mt-6">
               <p className="text-xs sm:text-sm text-zinc-400">
                 Connected to <span className="text-zinc-300 font-medium">{connectedChain.name}</span>
+                {connectedChain.id === '8453' && (
+                  <span className="ml-2 text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">
+                    Mainnet Live
+                  </span>
+                )}
                 {connectedChain.isComingSoon && (
                   <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
                     Coming Soon
@@ -2671,7 +2743,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           )}
         </div>
 
-        {/* Educational Section and Multi-Chain block */}
+        {/* Educational Section and Multi-Chain block - UPDATED FOR BASE */}
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6 sm:mt-8">
           <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
             <CardTitle className="text-zinc-100 flex items-center text-lg sm:text-xl">
@@ -2679,31 +2751,55 @@ export default function EnhancedStopOrderWithPersonalContracts() {
               Frequently Asked Questions
             </CardTitle>
             <CardDescription className="text-zinc-300 text-sm sm:text-base">
-              Understanding the new personal contract system and automated stop loss protection
+              Understanding the Base mainnet launch and personal contract system
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="personal-contracts" className="border-zinc-800">
+              <AccordionItem value="base-launch" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How do personal contracts work?
+                  Why did ReacDEFI launch on Base Mainnet?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Each user now deploys their own personal stop order contracts - you own and control your smart contracts completely.
+                      Base Mainnet offers the optimal combination for DeFi automation with low transaction costs, fast block times, and strong DeFi ecosystem integration.
                     </p>
                     <div className="space-y-3">
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Your Personal Callback Contract</h4>
+                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Key Advantages</h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          Deployed on Sepolia. Holds your tokens, executes swaps, and manages all your stop orders. Only you can create orders on this contract.
+                          • Low gas costs (~$0.50-2 per transaction vs $20-100 on Ethereum)<br/>
+                          • 2-second block times for responsive automation<br/>
+                          • Growing ecosystem with major DeFi protocols<br/>
+                          • Ethereum L1 security with L2 efficiency
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="personal-contracts" className="border-zinc-800">
+                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
+                  How do personal contracts work on Base?
+                </AccordionTrigger>
+                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
+                  <div className="space-y-3 sm:space-y-4">
+                    <p>
+                      Each user deploys their own personal stop order contracts - you own and control your smart contracts completely on Base Mainnet.
+                    </p>
+                    <div className="space-y-3">
+                      <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
+                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Your Personal Callback Contract (Base)</h4>
+                        <p className="text-xs sm:text-sm text-blue-300">
+                          Deployed on Base Mainnet. Holds your tokens, executes swaps via Uniswap V2, and manages all your stop orders with low gas costs.
                         </p>
                       </div>
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Your Personal Reactive Contract</h4>
+                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Your Personal Reactive Contract (Lasna)</h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Deployed on Reactive Network. Monitors prices and triggers your callback contract when conditions are met. Linked to your callback contract only.
+                          Deployed on Reactive Network. Monitors Base DEX prices and triggers your Base callback contract when conditions are met.
                         </p>
                       </div>
                     </div>
@@ -2713,69 +2809,33 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
               <AccordionItem value="cost-structure" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  What are the costs for personal contracts?
+                  What are the costs on Base Mainnet?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Personal contracts have a one-time deployment cost, then very low costs for additional orders.
+                      Base Mainnet offers significantly lower costs compared to Ethereum mainnet while maintaining security and reliability.
                     </p>
                     
                     <div className="space-y-3">
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
                         <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">First Order (Contract Deployment)</h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          ~0.03 ETH + 0.05 REACT + gas fees. Deploys your personal contracts and creates first stop order.
+                          ~0.003 ETH + 0.1 REACT + gas fees (~$5-15 total). Deploys your personal contracts and creates first stop order.
                         </p>
                       </div>
                       
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
                         <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders (2nd, 3rd, 4th...)</h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Gas fees only (~$1-5 each). All orders use your existing personal contracts.
+                          Gas fees only (~$0.50-2 each). All orders use your existing personal contracts on Base.
                         </p>
                       </div>
                       
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Complete Control</h4>
+                        <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Professional Grade Benefits</h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          You own the contracts, can withdraw funds anytime, and only you can create orders on them.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="debt-management" className="border-zinc-800">
-                <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  What happens if my contracts have debt?
-                </AccordionTrigger>
-                <AccordionContent className="text-zinc-300 text-sm sm:text-base">
-                  <div className="space-y-3 sm:space-y-4">
-                    <p>
-                      Personal contracts may accumulate debt from executing transactions. When this happens, the contracts become inactive until debt is cleared.
-                    </p>
-                    
-                    <div className="space-y-3">
-                      <div className="bg-amber-900/20 p-3 sm:p-4 rounded-lg border border-amber-500/20">
-                        <h4 className="font-medium text-amber-200 mb-2 text-sm sm:text-base">Callback Contract Debt</h4>
-                        <p className="text-xs sm:text-sm text-amber-300">
-                          Accumulated from executing swaps on Sepolia. Requires ETH funding and calling coverDebt().
-                        </p>
-                      </div>
-                      
-                      <div className="bg-orange-900/20 p-3 sm:p-4 rounded-lg border border-orange-500/20">
-                        <h4 className="font-medium text-orange-200 mb-2 text-sm sm:text-base">RSC Contract Debt</h4>
-                        <p className="text-xs sm:text-sm text-orange-300">
-                          Accumulated from monitoring activities. Requires REACT funding and calling coverDebt().
-                        </p>
-                      </div>
-                      
-                      <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
-                        <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Automatic Debt Clearing</h4>
-                        <p className="text-xs sm:text-sm text-green-300">
-                          Use the "Cover Debt" button to automatically fund contracts and clear all outstanding debt with separate transactions.
+                          Lower costs enable professional trading strategies with multiple orders and frequent adjustments.
                         </p>
                       </div>
                     </div>
@@ -2785,18 +2845,18 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
               <AccordionItem value="what-is" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  What is a Stop Order?
+                  What is a Stop Order on Base?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      A stop order acts as your personal trading assistant, watching token prices 24/7 and automatically selling when they drop to your specified level. Think of it as an insurance policy for your crypto investments.
+                      A stop order acts as your personal trading assistant on Base, watching token prices 24/7 and automatically selling when they drop to your specified level via Uniswap V2.
                     </p>
                     <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
-                      <h4 className="font-medium text-zinc-100 mb-2 text-sm sm:text-base">Example Scenario:</h4>
+                      <h4 className="font-medium text-zinc-100 mb-2 text-sm sm:text-base">Example on Base:</h4>
                       <p className="text-xs sm:text-sm text-zinc-300">
-                        You own ETH worth $3,500 each. You set a 10% stop order. If ETH drops to $3,150, 
-                        your tokens automatically sell for USDC, protecting you from further losses.
+                        You own WETH worth $3,500 each on Base. You set a 10% stop order. If WETH drops to $3,150, 
+                        your tokens automatically sell for USDC via Base's Uniswap V2, costing only ~$1 in gas.
                       </p>
                     </div>
                   </div>
@@ -2805,12 +2865,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
               <AccordionItem value="how-it-works" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  How Does the Personal Contract System Work?
+                  How does Base integration work?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Your personal Reactive Smart Contracts (RSCs) monitor blockchain events 24/7, automatically executing trades when your conditions are met.
+                      Your personal contracts bridge Base Mainnet with the Reactive Network for autonomous cross-chain automation.
                     </p>
                     
                     <div className="space-y-3">
@@ -2819,9 +2879,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                           <span className="text-xs font-bold text-blue-300">1</span>
                         </div>
                         <div>
-                          <p className="text-blue-200 font-medium text-sm sm:text-base">Personal Contract Deployment</p>
+                          <p className="text-blue-200 font-medium text-sm sm:text-base">Personal Contract Deployment on Base</p>
                           <p className="text-blue-300 text-xs sm:text-sm">
-                            Your personal reactive and callback contracts are deployed, linked only to your wallet address.
+                            Your callback contract is deployed on Base Mainnet, linked to Uniswap V2 for efficient token swaps.
                           </p>
                         </div>
                       </div>
@@ -2831,9 +2891,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                           <span className="text-xs font-bold text-purple-300">2</span>
                         </div>
                         <div>
-                          <p className="text-purple-200 font-medium text-sm sm:text-base">Continuous Personal Monitoring</p>
+                          <p className="text-purple-200 font-medium text-sm sm:text-base">Cross-Chain Price Monitoring</p>
                           <p className="text-purple-300 text-xs sm:text-sm">
-                            Your personal reactive contract watches DEX prices for your specific orders without requiring manual intervention.
+                            Your reactive contract on Lasna monitors Base DEX prices and triggers your Base contract automatically.
                           </p>
                         </div>
                       </div>
@@ -2843,9 +2903,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                           <span className="text-xs font-bold text-green-300">3</span>
                         </div>
                         <div>
-                          <p className="text-green-200 font-medium text-sm sm:text-base">Automatic Personal Execution</p>
+                          <p className="text-green-200 font-medium text-sm sm:text-base">Low-Cost Execution on Base</p>
                           <p className="text-green-300 text-xs sm:text-sm">
-                            Your personal callback contract swaps tokens on the DEX, protecting you from further losses.
+                            When triggered, your Base contract executes the swap with minimal gas costs, protecting your investment.
                           </p>
                         </div>
                       </div>
@@ -2856,52 +2916,52 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
               <AccordionItem value="safety" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100 text-sm sm:text-base text-left">
-                  Personal Contract Safety & Security
+                  Base Mainnet Security & Benefits
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300 text-sm sm:text-base">
                   <div className="space-y-3 sm:space-y-4">
                     <p>
-                      Your personal contracts provide maximum security and control over your funds and orders.
+                      Base Mainnet provides enterprise-grade security with L2 efficiency for professional DeFi automation.
                     </p>
                     
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
                         <h4 className="font-medium text-green-200 mb-2 flex items-center text-sm sm:text-base">
                           <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Owner-Only Access
+                          Ethereum L1 Security
                         </h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Only you can create, cancel, or manage orders on your personal contracts. Complete ownership and control.
+                          Base inherits Ethereum's security model while providing L2 speed and cost benefits for your personal contracts.
                         </p>
                       </div>
                       
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
                         <h4 className="font-medium text-blue-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Wallet className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Fund Withdrawal
+                          <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          Fast & Reliable
                         </h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          Withdraw ETH/REACT from your contracts anytime using the withdrawETH functions. Your funds, your control.
+                          2-second block times ensure your stop orders execute quickly when market conditions change.
                         </p>
                       </div>
                       
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
                         <h4 className="font-medium text-purple-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Isolated Execution
+                          <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          Cost Efficient
                         </h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          Your orders execute independently on your personal contracts, unaffected by other users' activities.
+                          10-50x lower gas costs compared to Ethereum mainnet enable frequent trading and portfolio management.
                         </p>
                       </div>
                       
                       <div className="bg-orange-900/20 p-3 sm:p-4 rounded-lg border border-orange-500/20">
                         <h4 className="font-medium text-orange-200 mb-2 flex items-center text-sm sm:text-base">
-                          <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                          Personal Gas Protection
+                          <Activity className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          DeFi Ecosystem
                         </h4>
                         <p className="text-xs sm:text-sm text-orange-300">
-                          Your personal contracts are pre-funded to ensure your orders work even during high gas periods.
+                          Access to major DeFi protocols and tokens with deep liquidity for reliable order execution.
                         </p>
                       </div>
                     </div>

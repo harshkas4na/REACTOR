@@ -69,10 +69,6 @@ export default function Navigation() {
 
             {/* Right Section */}
             <div className="flex items-center justify-end space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
-              {/* ReacDEFIAI Button */}
-              
-
-              {/* Network Select */}
               {/* Network Select */}
               <div className="hidden md:block">
                 <Select 
@@ -93,26 +89,25 @@ export default function Navigation() {
                   <SelectTrigger className="w-[140px] lg:w-[200px] text-sm lg:text-base rounded-full bg-background/70 border-border text-foreground">
                     <SelectValue placeholder="Select Network" className="text-foreground" />
                   </SelectTrigger>
-                  <SelectContent defaultValue={'Ethereum Sepolia'} className="bg-background/80 backdrop-blur-md border-border text-foreground">
+                  <SelectContent defaultValue={'Base Mainnet'} className="bg-background/80 backdrop-blur-md border-border text-foreground">
+                    {/* Mainnets */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        Mainnets
+                      </div>
+                    <SelectItem value="BASE">Base Mainnet</SelectItem>
+                    <SelectItem value="ETHEREUM" disabled>Ethereum Mainnet (Coming Soon)</SelectItem>
+
+                    {/* Divider */}
+                    <div className="h-px bg-border my-1" />
+                    
                     {/* Testnets */}
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Testnets
                       </div>
                     <SelectItem value="SEPOLIA">Ethereum Sepolia</SelectItem>
-
-                    {/* Divider */}
-                    <div className="h-px bg-border my-1" />
-                    
-                    {/* Mainnets (coming soon) */}
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                        Mainnets
-                      </div>
-                    <SelectItem value="ETHEREUM" disabled>Ethereum Mainnet (Coming Soon)</SelectItem>
-                    <SelectItem value="BASE" disabled>Base Mainnet (Coming Soon)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
 
               {/* Wallet Connection */}
               <motion.div

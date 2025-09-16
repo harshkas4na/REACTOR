@@ -107,7 +107,7 @@ export default function Hero() {
                     whileTap={{ scale: 0.95 }}
                   >
                     <motion.div
-                      className={`w-64 h-64 rounded-3xl bg-gradient-to-br ${card.gradient} border ${card.borderColor} flex flex-col items-center justify-center p-8 cursor-pointer relative overflow-hidden backdrop-blur-md`}
+                      className={`w-72 h-72 rounded-3xl bg-gradient-to-br ${card.gradient} border ${card.borderColor} flex flex-col items-center justify-center p-8 cursor-pointer relative overflow-hidden backdrop-blur-md`}
                       animate={{
                         boxShadow: isHovered ? "0 25px 50px rgba(0,0,0,0.4)" : "0 15px 30px rgba(0,0,0,0.2)",
                       }}

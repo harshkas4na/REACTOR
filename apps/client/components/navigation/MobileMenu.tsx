@@ -74,9 +74,6 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
       transition={{ duration: 0.3 }}
     >
       <div className="px-4 py-4 space-y-4">
-        {/* ReacDEFIAI Button - Prominent placement at top */}
-       
-
         {/* Navigation Links */}
         {NAVIGATION_ITEMS.map((item) => (
   <Link
@@ -89,23 +86,11 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
   </Link>
 ))}
 
-{/* Add ReacDEFIAI
-<button
-  onClick={() => {
-    handleAIClick();
-    onOpenAI?.();
-  }}
-  className="w-full text-left text-gray-300 hover:text-primary hover:bg-gray-700 block px-4 py-3 rounded-md text-base font-medium transition-all duration-300 ease-in-out"
->
-  ReacDEFIAI
-</button> */}
-
-
         {/* Network Selection */}
         <div className="pt-4 border-t border-gray-700">
           <p className="text-sm text-gray-400 mb-2">Select Network</p>
           <Select 
-            defaultValue={selectedNetwork || 'SEPOLIA'} 
+            defaultValue={selectedNetwork || 'BASE'} 
             onValueChange={handleNetworkChange}
           >
             <SelectTrigger className="w-full bg-gray-800/50 border-gray-700">
@@ -118,8 +103,27 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
               align="start"
             >
               <div className="p-2 pointer-events-auto">
-                {/* Testnets Group */}
+                {/* Mainnets Group */}
                 <div className="mb-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
+                    Mainnets
+                  </div>
+                  <SelectItem 
+                    value="BASE" 
+                    className="text-gray-200 hover:bg-gray-700/50"
+                  >
+                    Base Mainnet
+                  </SelectItem>
+                  <SelectItem value="ETHEREUM" disabled className="text-gray-400">
+                    Ethereum Mainnet (Coming Soon)
+                  </SelectItem>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-gray-700 my-2" />
+
+                {/* Testnets Group */}
+                <div>
                   <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
                     Testnets
                   </div>
@@ -129,43 +133,6 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
                   >
                     Ethereum Sepolia
                   </SelectItem>
-                  {/* Removed Lasna as a separate option */}
-                  {/* <SelectItem 
-                    value="BSC_TESTNET" 
-                    className="text-gray-200 hover:bg-gray-700/50"
-                  >
-                    BSC Testnet (Origin)
-                  </SelectItem>
-                  <SelectItem 
-                    value="POLYGON_AMOY" 
-                    className="text-gray-200 hover:bg-gray-700/50"
-                  >
-                    Polygon Amoy (Origin)
-                  </SelectItem>
-                  <SelectItem 
-                    value="AVALANCHE_FUJI" 
-                    className="text-gray-200 hover:bg-gray-700/50"
-                  >
-                    Avalanche Fuji (Origin)
-                  </SelectItem>
-                  <SelectItem 
-                    value="BASE_SEPOLIA" 
-                    className="text-gray-200 hover:bg-gray-700/50"
-                  >
-                    Base Sepolia (Origin)
-                  </SelectItem> */}
-                </div>
-
-                {/* Divider */}
-                <div className="h-px bg-gray-700 my-2" />
-
-                {/* Mainnets Group (coming soon) */}
-                <div>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-400">
-                    Mainnets
-                  </div>
-                  <SelectItem value="ETHEREUM" disabled className="text-gray-400">Ethereum Mainnet (Coming Soon)</SelectItem>
-                  <SelectItem value="BASE" disabled className="text-gray-400">Base Mainnet (Coming Soon)</SelectItem>
                 </div>
               </div>
             </SelectContent>
