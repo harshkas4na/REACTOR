@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
 import rscABISepolia from '@/data/automations/stop-order/RSCABISepolia.json';
+import stopOrderABIBaseMainnet from '@/data/automations/stop-order/stopOrderABIBaseMainnet.json';
+import rscABIBaseMainnet from '@/data/automations/stop-order/RSCABIBaseMainnet.json';
 import { 
   CheckCircle, 
   X, 
@@ -43,7 +45,22 @@ import { toast } from 'react-hot-toast';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-// ===== CONFIGURATION - UPDATED FOR BASE MAINNET =====
+// ===== DYNAMIC CONTRACT ABI SELECTION =====
+const getContractABIs = (chainId: string) => {
+  if (chainId === '8453') { // Base Mainnet
+    return {
+      REACTIVE_STOP_ORDER_ABI: rscABIBaseMainnet,
+      CALLBACK_CONTRACT_ABI: stopOrderABIBaseMainnet
+    };
+  } else { // Sepolia (default)
+    return {
+      REACTIVE_STOP_ORDER_ABI: rscABISepolia,
+      CALLBACK_CONTRACT_ABI: stopOrderABISepolia
+    };
+  }
+};
+
+// ===== CONFIGURATION =====
 interface ChainConfig {
   id: string;
   name: string;
@@ -71,20 +88,20 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     id: '8453', 
     name: 'Base Mainnet',
     dexName: 'Uniswap V2',
-    routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24', // Base Uniswap V2 Router
-    factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6', // Base Uniswap V2 Factory
-    callbackAddress: '0x0000000000000000000000000000000000000000', // TODO: Deploy Base callback proxy
+    routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',
+    factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
+    callbackAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
     rpcUrl: 'https://mainnet.base.org',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.003',
+    defaultFunding: '0.0003',
     rscNetwork: {
-      chainId: '5318007',
-      name: 'Reactive Lasna',
-      rpcUrl: 'https://lasna-rpc.rnk.dev/',
+      chainId: '1597',
+      name: 'Reactive Mainnet',
+      rpcUrl: 'https://mainnet-rpc.rnk.dev/',
       currencySymbol: 'REACT',
-      explorerUrl: 'https://lasna.reactscan.net',
-      callbackProxyAddress: '0x0000000000000000000000000000000000000000', // TODO: Update for Base
-      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
+      explorerUrl: 'https://reactscan.net/',
+      callbackProxyAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
+      systemContractAddress: '0x0000000000000000000000000000000000fffFfF'
     }
   },
   { 
@@ -104,7 +121,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
       currencySymbol: 'REACT',
       explorerUrl: 'https://lasna.reactscan.net',
       callbackProxyAddress: '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA',
-      systemContractAddress: '0x59F30360c984ee7A4a84F3Ba61930DD9e79784A4'
+      systemContractAddress: '0x0000000000000000000000000000000000fffFfF'
     }
   }
 ];
@@ -117,10 +134,6 @@ interface UserContractAddresses {
   chainId: string;
   deployer: string;
 }
-
-// ===== UPDATED ABIs FOR PERSONAL CONTRACT SYSTEM =====
-const REACTIVE_STOP_ORDER_ABI = rscABISepolia;
-const CALLBACK_CONTRACT_ABI = stopOrderABISepolia;
 
 const PAIR_ABI = [
   {
@@ -230,16 +243,17 @@ const formatTimeAgo = (timestamp: number) => {
 const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx' = 'address', connectedAccount?: string): string => {
   const explorers: Record<string, string> = {
     '1': 'https://etherscan.io',
-    '8453': 'https://basescan.org', // Base Mainnet
+    '8453': 'https://basescan.org',
     '11155111': 'https://sepolia.etherscan.io',
     '5318007': 'https://lasna.reactscan.net',
+    '1597': 'https://reactscan.net',
   };
   
   const baseUrl = explorers[chainId];
   if (!baseUrl) return '#';
 
-  // Special handling for Reactive network (Lasna)
-  if (chainId === '5318007') {
+  // Special handling for Reactive network
+  if (chainId === '5318007' || chainId === '1597') {
     if (type === 'address' && connectedAccount) {
       return `${baseUrl}/address/${connectedAccount}/contract/${address}`;
     }
@@ -296,16 +310,15 @@ const validateStoredContracts = async (
   userAddress: string
 ): Promise<boolean> => {
   try {
-    console.log('🔐 DASHBOARD: Validating personal contracts:', contracts);
+    console.log('DASHBOARD: Validating personal contracts:', contracts);
     
-    // First check: User must be the deployer
     const normalizedUserAddress = userAddress.toLowerCase().trim();
     const normalizedContractDeployer = contracts.deployer.toLowerCase().trim();
     
-    console.log('✅ DASHBOARD: Contract validation successful');
+    console.log('DASHBOARD: Contract validation successful');
     return true;
   } catch (error) {
-    console.error('❌ DASHBOARD: Contract validation failed:', error);
+    console.error('DASHBOARD: Contract validation failed:', error);
     return false;
   }
 };
@@ -337,11 +350,9 @@ const ContractBalanceManager = ({
     rsc: false
   });
 
-  // Define minimum safe balances
-  const MIN_CALLBACK_BALANCE = userContracts.chainId === '8453' ? 0.001 : 0.001; // 0.001 ETH on both chains
-  const MIN_RSC_BALANCE = 0.001; // 0.001 REACT
+  const MIN_CALLBACK_BALANCE = userContracts.chainId === '8453' ? 0.001 : 0.001;
+  const MIN_RSC_BALANCE = 0.001;
 
-  // Funding input states
   const [callbackFundingAmount, setCallbackFundingAmount] = useState(userContracts.chainId === '8453' ? '0.005' : '0.01');
   const [rscFundingAmount, setRscFundingAmount] = useState('0.1');
   const [withdrawalAmounts, setWithdrawalAmounts] = useState({
@@ -356,7 +367,6 @@ const ContractBalanceManager = ({
     try {
       setBalances(prev => ({ ...prev, isLoading: true }));
 
-      // Fetch callback contract balance (Base or Sepolia)
       const callbackRpcUrl = userContracts.chainId === '8453' 
         ? 'https://mainnet.base.org'
         : 'https://ethereum-sepolia-rpc.publicnode.com';
@@ -365,7 +375,6 @@ const ContractBalanceManager = ({
       const callbackBalance = await callbackProvider.getBalance(userContracts.callbackContract);
       const callbackBalanceFormatted = ethers.formatEther(callbackBalance);
 
-      // Fetch RSC contract balance (Lasna)
       const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
       const rscBalance = await rscProvider.getBalance(userContracts.reactiveContract);
       const rscBalanceFormatted = ethers.formatEther(rscBalance);
@@ -387,7 +396,6 @@ const ContractBalanceManager = ({
 
   useEffect(() => {
     fetchBalances();
-    // Refresh balances every 30 seconds
     const interval = setInterval(fetchBalances, 30000);
     return () => clearInterval(interval);
   }, [fetchBalances]);
@@ -403,7 +411,6 @@ const ContractBalanceManager = ({
       }); 
     } catch (error: any) {
       if (error.code === 4902) {
-        // Chain not added, need to add it first
         let chainConfig;
         
         if (targetChainId === '5318007') {
@@ -413,6 +420,14 @@ const ContractBalanceManager = ({
             nativeCurrency: { name: 'REACT', symbol: 'REACT', decimals: 18 },
             rpcUrls: ['https://lasna-rpc.rnk.dev/'],
             blockExplorerUrls: ['https://lasna.reactscan.net'],
+          };
+        } else if (targetChainId === '1597') {
+          chainConfig = {
+            chainId: `0x${parseInt(targetChainId).toString(16)}`,
+            chainName: 'Reactive Mainnet',
+            nativeCurrency: { name: 'REACT', symbol: 'REACT', decimals: 18 },
+            rpcUrls: ['https://mainnet-rpc.rnk.dev/'],
+            blockExplorerUrls: ['https://reactscan.net'],
           };
         } else if (targetChainId === '8453') {
           chainConfig = {
@@ -444,7 +459,6 @@ const ContractBalanceManager = ({
 
       setIsFunding(prev => ({ ...prev, callback: true }));
       
-      // Switch to callback chain (Base or Sepolia)
       await switchNetwork(userContracts.chainId);
       
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -480,7 +494,6 @@ const ContractBalanceManager = ({
 
       setIsFunding(prev => ({ ...prev, rsc: true }));
       
-      // Switch to RSC network
       await switchNetwork(connectedChain.rscNetwork.chainId);
       
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -528,15 +541,17 @@ const ContractBalanceManager = ({
 
       setIsWithdrawing(prev => ({ ...prev, callback: true }));
       
-      // Switch to callback chain
       await switchNetwork(userContracts.chainId);
       
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
+      // Get the correct ABI for the chain
+      const contractConfig = getContractABIs(userContracts.chainId);
+      
       const callbackContract = new ethers.Contract(
         userContracts.callbackContract,
-        CALLBACK_CONTRACT_ABI,
+        contractConfig.CALLBACK_CONTRACT_ABI,
         signer
       );
 
@@ -586,15 +601,17 @@ const ContractBalanceManager = ({
 
       setIsWithdrawing(prev => ({ ...prev, rsc: true }));
       
-      // Switch to RSC network
       await switchNetwork(connectedChain.rscNetwork.chainId);
       
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
+      // Get the correct ABI for the chain
+      const contractConfig = getContractABIs(userContracts.chainId);
+      
       const reactiveContract = new ethers.Contract(
         userContracts.reactiveContract,
-        REACTIVE_STOP_ORDER_ABI,
+        contractConfig.REACTIVE_STOP_ORDER_ABI,
         signer
       );
 
@@ -716,7 +733,7 @@ const ContractBalanceManager = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-slate-300 font-medium">Personal Reactive Contract (Lasna)</h4>
+              <h4 className="text-slate-300 font-medium">Personal Reactive Contract ({connectedChain.rscNetwork.name})</h4>
               <p className="text-xs text-slate-500 font-mono">
                 {userContracts.reactiveContract.slice(0, 10)}...{userContracts.reactiveContract.slice(-8)}
               </p>
@@ -952,7 +969,7 @@ const ContractBalanceManager = ({
                 </div>
 
                 <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-300">
-                  ⚠️ Only you (the contract owner) can withdraw funds. Withdrawing all funds may prevent future order execution.
+                  Only you (the contract owner) can withdraw funds. Withdrawing all funds may prevent future order execution.
                 </div>
               </div>
             )}
@@ -1066,34 +1083,31 @@ export default function UpdatedPersonalStopOrderDashboard() {
   // ===== UPDATED ORDER FETCHING FOR PERSONAL CONTRACTS =====
   const fetchUserOrders = useCallback(async () => {
     if (!connectedAccount || !connectedChain) {
-      console.log('🔍 DASHBOARD: Missing required data - account:', !!connectedAccount, 'chain:', !!connectedChain);
+      console.log('DASHBOARD: Missing required data - account:', !!connectedAccount, 'chain:', !!connectedChain);
       return;
     }
 
-    console.log('🔍 DASHBOARD: Fetching orders for', connectedAccount, 'on', connectedChain.name, 'chainId:', connectedChain.id);
+    console.log('DASHBOARD: Fetching orders for', connectedAccount, 'on', connectedChain.name, 'chainId:', connectedChain.id);
     setIsLoading(true);
     
     try {
-      // Check for user's deployed contracts using Convex data
       if (!contractData) {
-        console.log('ℹ️ DASHBOARD: No personal contracts found for user in Convex');
+        console.log('DASHBOARD: No personal contracts found for user in Convex');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
         return;
       }
 
-      // CRITICAL: Only process contracts that match the currently connected chain
       if (contractData.chainId !== connectedChain.id) {
-        console.log(`ℹ️ DASHBOARD: User has contracts on chain ${contractData.chainId} but currently connected to ${connectedChain.id}`);
-        console.log(`ℹ️ DASHBOARD: No contracts found for ${connectedChain.name} - showing empty state`);
+        console.log(`DASHBOARD: User has contracts on chain ${contractData.chainId} but currently connected to ${connectedChain.id}`);
+        console.log(`DASHBOARD: No contracts found for ${connectedChain.name} - showing empty state`);
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
         return;
       }
 
-      // Convert Convex data to UserContractAddresses format
       const storedContracts: UserContractAddresses = {
         reactiveContract: contractData.rscContract,
         callbackContract: contractData.callbackContract,
@@ -1102,20 +1116,18 @@ export default function UpdatedPersonalStopOrderDashboard() {
         deployer: contractData.userAddress.toLowerCase()
       };
 
-      console.log('🔍 DASHBOARD: Found matching contracts for', connectedChain.name, ':', storedContracts);
+      console.log('DASHBOARD: Found matching contracts for', connectedChain.name, ':', storedContracts);
 
-      // Create proper providers for the connected network
       const callbackRpcUrl = connectedChain.rpcUrl || 
         (connectedChain.id === '8453' ? 'https://mainnet.base.org' : 'https://ethereum-sepolia-rpc.publicnode.com');
       
       const callbackProvider = new ethers.JsonRpcProvider(callbackRpcUrl);
       const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
 
-      // Validate personal contracts
       const valid = await validateStoredContracts(storedContracts, rscProvider, callbackProvider, connectedAccount);
       
       if (!valid) {
-        console.log('❌ DASHBOARD: Personal contracts are invalid for', connectedChain.name);
+        console.log('DASHBOARD: Personal contracts are invalid for', connectedChain.name);
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -1125,35 +1137,34 @@ export default function UpdatedPersonalStopOrderDashboard() {
       setUserContracts(storedContracts);
       setContractsValid(true);
 
-      // Fetch orders from callback contract using correct functions
+      // Get the correct ABI for the chain
+      const contractConfig = getContractABIs(storedContracts.chainId);
+
       const callbackContract = new ethers.Contract(
         storedContracts.callbackContract,
-        CALLBACK_CONTRACT_ABI,
+        contractConfig.CALLBACK_CONTRACT_ABI,
         callbackProvider
       );
 
-      console.log('📋 DASHBOARD: Using personal callback contract on', connectedChain.name, ':', storedContracts.callbackContract);
+      console.log('DASHBOARD: Using personal callback contract on', connectedChain.name, ':', storedContracts.callbackContract);
 
-      // Use getAllOrders() instead of getUserOrders()
       const allOrderIds = await callbackContract.getAllOrders();
       
-      console.log('📋 DASHBOARD: Found', allOrderIds.length, 'order IDs from personal contract on', connectedChain.name);
+      console.log('DASHBOARD: Found', allOrderIds.length, 'order IDs from personal contract on', connectedChain.name);
       
       if (allOrderIds.length === 0) {
-        console.log('ℹ️ DASHBOARD: No orders found in personal contract on', connectedChain.name);
+        console.log('DASHBOARD: No orders found in personal contract on', connectedChain.name);
         setOrders([]);
         return;
       }
 
-      // Fetch all order details from personal callback contract
       const orderPromises = allOrderIds.map(async (orderId: bigint) => {
         try {
-          console.log('📋 DASHBOARD: Fetching personal order:', Number(orderId), 'from', connectedChain.name);
+          console.log('DASHBOARD: Fetching personal order:', Number(orderId), 'from', connectedChain.name);
           const orderData = await callbackContract.getOrder(Number(orderId));
           
-          console.log('📋 DASHBOARD: Raw personal order data:', orderData);
+          console.log('DASHBOARD: Raw personal order data:', orderData);
           
-          // Get pair token information using callback provider
           const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, callbackProvider);
           const [token0Address, token1Address] = await Promise.all([
             pairContract.token0(),
@@ -1165,17 +1176,14 @@ export default function UpdatedPersonalStopOrderDashboard() {
             fetchTokenInfo(token1Address, callbackProvider)
           ]);
       
-          // Determine sell and buy tokens based on order direction
           const tokenSellInfo = orderData.sellToken0 ? token0Info : token1Info;
           const tokenBuyInfo = orderData.sellToken0 ? token1Info : token0Info;
       
-          // Calculate enhanced metrics with proper token decimals
           let currentPrice = '0';
           let triggerPrice = '0';
           let dropPercentage = 0;
       
           try {
-            // Use enhanced price calculation
             const priceData = await calculatePairPriceWithTokens(
               orderData.pair,
               tokenSellInfo.address,
@@ -1185,7 +1193,6 @@ export default function UpdatedPersonalStopOrderDashboard() {
       
             currentPrice = priceData.currentPrice.toFixed(6);
       
-            // Calculate trigger price and drop percentage
             const coefficient = Number(orderData.coefficient);
             const threshold = Number(orderData.threshold);
             const triggerPriceNum = threshold / coefficient;
@@ -1200,13 +1207,12 @@ export default function UpdatedPersonalStopOrderDashboard() {
             console.warn('Price calculation failed for personal order', Number(orderId), ':', priceError);
           }
           
-          // Format amount
           const formattedAmount = ethers.formatUnits(orderData.amount, tokenSellInfo.decimals);
           
           const order: StopOrder = {
             id: Number(orderId),
             pair: orderData.pair,
-            client: connectedAccount, // Personal contract owner
+            client: connectedAccount,
             tokenSell: orderData.tokenSell || tokenSellInfo.address,
             tokenBuy: orderData.tokenBuy || tokenBuyInfo.address,
             amount: formattedAmount,
@@ -1224,10 +1230,10 @@ export default function UpdatedPersonalStopOrderDashboard() {
             contractAddress: storedContracts.callbackContract
           };
       
-          console.log('✅ DASHBOARD: Processed personal order on', connectedChain.name, ':', order);
+          console.log('DASHBOARD: Processed personal order on', connectedChain.name, ':', order);
           return order;
         } catch (error) {
-          console.error('❌ DASHBOARD: Error fetching personal order:', orderId, error);
+          console.error('DASHBOARD: Error fetching personal order:', orderId, error);
           return null;
         }
       });
@@ -1235,13 +1241,12 @@ export default function UpdatedPersonalStopOrderDashboard() {
       const resolvedOrders = await Promise.all(orderPromises);
       const validOrders = resolvedOrders.filter(order => order !== null) as StopOrder[];
       
-      // Sort by creation time (newest first)
       validOrders.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('✅ DASHBOARD: Final personal orders on', connectedChain.name, ':', validOrders.length, 'orders');
+      console.log('DASHBOARD: Final personal orders on', connectedChain.name, ':', validOrders.length, 'orders');
       setOrders(validOrders);
     } catch (error) {
-      console.error('❌ DASHBOARD: Error fetching personal orders for', connectedChain?.name, ':', error);
+      console.error('DASHBOARD: Error fetching personal orders for', connectedChain?.name, ':', error);
       toast.error(`Failed to load personal stop orders from ${connectedChain?.name}`);
       setOrders([]);
       setUserContracts(null);
@@ -1268,10 +1273,8 @@ export default function UpdatedPersonalStopOrderDashboard() {
 
     setActionLoading(prev => ({ ...prev, [orderId]: 'cancelling' }));
     try {
-      // Cancel order on callback chain (Base/Sepolia)
       const provider = new ethers.BrowserProvider(window.ethereum);
       
-      // Make sure we're on the correct chain
       const currentNetwork = await provider.getNetwork();
       if (currentNetwork.chainId.toString() !== userContracts.chainId) {
         const chainIdHex = `0x${parseInt(userContracts.chainId).toString(16)}`;
@@ -1282,9 +1285,13 @@ export default function UpdatedPersonalStopOrderDashboard() {
       }
       
       const signer = await provider.getSigner();
+      
+      // Get the correct ABI for the chain
+      const contractConfig = getContractABIs(userContracts.chainId);
+      
       const callbackContract = new ethers.Contract(
         userContracts.callbackContract,
-        CALLBACK_CONTRACT_ABI,
+        contractConfig.CALLBACK_CONTRACT_ABI,
         signer
       );
 
@@ -1316,7 +1323,6 @@ export default function UpdatedPersonalStopOrderDashboard() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       
-      // Make sure we're on the correct chain
       const currentNetwork = await provider.getNetwork();
       if (currentNetwork.chainId.toString() !== userContracts.chainId) {
         const chainIdHex = `0x${parseInt(userContracts.chainId).toString(16)}`;
@@ -1327,9 +1333,13 @@ export default function UpdatedPersonalStopOrderDashboard() {
       }
       
       const signer = await provider.getSigner();
+      
+      // Get the correct ABI for the chain
+      const contractConfig = getContractABIs(userContracts.chainId);
+      
       const callbackContract = new ethers.Contract(
         userContracts.callbackContract,
-        CALLBACK_CONTRACT_ABI,
+        contractConfig.CALLBACK_CONTRACT_ABI,
         signer
       );
 
@@ -1361,7 +1371,6 @@ export default function UpdatedPersonalStopOrderDashboard() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       
-      // Make sure we're on the correct chain
       const currentNetwork = await provider.getNetwork();
       if (currentNetwork.chainId.toString() !== userContracts.chainId) {
         const chainIdHex = `0x${parseInt(userContracts.chainId).toString(16)}`;
@@ -1372,9 +1381,13 @@ export default function UpdatedPersonalStopOrderDashboard() {
       }
       
       const signer = await provider.getSigner();
+      
+      // Get the correct ABI for the chain
+      const contractConfig = getContractABIs(userContracts.chainId);
+      
       const callbackContract = new ethers.Contract(
         userContracts.callbackContract,
-        CALLBACK_CONTRACT_ABI,
+        contractConfig.CALLBACK_CONTRACT_ABI,
         signer
       );
 
@@ -1414,14 +1427,13 @@ export default function UpdatedPersonalStopOrderDashboard() {
             setConnectedAccount(accounts[0].address);
           }
 
-          // Set connected chain based on current network
           const chainId = network.chainId.toString();
           const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
           if (chain) {
             setConnectedChain(chain);
-            console.log('🌐 DASHBOARD: Connected to', chain.name, 'chainId:', chainId);
+            console.log('DASHBOARD: Connected to', chain.name, 'chainId:', chainId);
           } else {
-            console.log('🌐 DASHBOARD: Unsupported chain:', chainId);
+            console.log('DASHBOARD: Unsupported chain:', chainId);
           }
         } catch (error) {
           console.error('Error detecting connection:', error);
@@ -1431,16 +1443,13 @@ export default function UpdatedPersonalStopOrderDashboard() {
 
     detectConnection();
 
-    // Handle network changes
     const handleChainChanged = (chainId: string) => {
-      console.log('🌐 DASHBOARD: Network changed to:', chainId);
-      // Convert hex to decimal if needed
+      console.log('DASHBOARD: Network changed to:', chainId);
       const decimalChainId = chainId.startsWith('0x') ? parseInt(chainId, 16).toString() : chainId;
       const chain = SUPPORTED_CHAINS.find(c => c.id === decimalChainId);
       if (chain) {
         setConnectedChain(chain);
-        console.log('🌐 DASHBOARD: Switched to', chain.name);
-        // Clear existing data and refetch for new network
+        console.log('DASHBOARD: Switched to', chain.name);
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -1457,7 +1466,6 @@ export default function UpdatedPersonalStopOrderDashboard() {
     }
   }, []);
 
-  // Effect to fetch orders when we have both account, contract data, AND connected chain
   useEffect(() => {
     if (connectedAccount && contractData !== undefined && connectedChain) {
       fetchUserOrders();
@@ -1700,7 +1708,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
             </div>
           </div>
 
-          {/* Connected Account Info - UPDATED FOR BASE */}
+          {/* Connected Account Info */}
           {connectedAccount && (
             <Alert className="bg-slate-800/50 border-slate-600/50 mb-6">
               <Shield className="h-4 w-4 text-slate-400" />
@@ -1836,7 +1844,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
           </motion.div>
         )}
 
-        {/* Empty State - UPDATED FOR BASE */}
+        {/* Empty State */}
         {!userContracts && orders.length === 0 && !isLoading && (
           <Card className="border-slate-700 bg-slate-900/50">
             <CardContent className="py-16">
@@ -1857,7 +1865,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
           </Card>
         )}
 
-        {/* Personal Contract System Info - UPDATED FOR BASE */}
+        {/* Personal Contract System Info */}
         {!userContracts && connectedAccount && !isLoading && (
           <Alert className="bg-blue-900/20 border-blue-600/30 text-blue-200 mt-8">
             <Info className="h-4 w-4" />

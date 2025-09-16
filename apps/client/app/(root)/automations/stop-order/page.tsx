@@ -62,20 +62,33 @@ import {
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import EnhancedFundingRequirementsCard from '@/components/EnhancedFundingRequirementsCard';
-import { stopOrderByteCodeSepolia } from '@/data/automations/stop-order/stopOrderByteCode';
+import { stopOrderByteCodeSepolia,stopOrderByteCodeBaseMainnet } from '@/data/automations/stop-order/stopOrderByteCode';
 import stopOrderABISepolia from '@/data/automations/stop-order/stopOrderABISeploia.json';
+import stopOrderABIBaseMainnet from '@/data/automations/stop-order/stopOrderABIBaseMainnet.json';
+import rscABIBaseMainnet from '@/data/automations/stop-order/RSCABIBaseMainnet.json';
 import rscABISepolia from '@/data/automations/stop-order/RSCABISepolia.json';
-import { rscByteCodeSepolia } from '@/data/automations/stop-order/RSCByteCode';
+import { rscByteCodeSepolia,rscByteCodeBaseMainnet } from '@/data/automations/stop-order/RSCByteCode';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-// ===== CONTRACT ABIs =====
-const REACTIVE_STOP_ORDER_ABI = rscABISepolia;
-const CALLBACK_STOP_ORDER_ABI = stopOrderABISepolia;
-
-// Contract bytecodes
-const REACTIVE_CONTRACT_BYTECODE = rscByteCodeSepolia;
-const CALLBACK_CONTRACT_BYTECODE = stopOrderByteCodeSepolia;
+// ===== DYNAMIC CONTRACT ABI AND BYTECODE SELECTION =====
+const getContractABIsAndBytecode = (chainId: string) => {
+  if (chainId === '8453') { // Base Mainnet
+    return {
+      REACTIVE_STOP_ORDER_ABI: rscABIBaseMainnet,
+      CALLBACK_STOP_ORDER_ABI: stopOrderABIBaseMainnet,
+      REACTIVE_CONTRACT_BYTECODE: rscByteCodeBaseMainnet,
+      CALLBACK_CONTRACT_BYTECODE: stopOrderByteCodeBaseMainnet
+    };
+  } else { // Sepolia (default)
+    return {
+      REACTIVE_STOP_ORDER_ABI: rscABISepolia,
+      CALLBACK_STOP_ORDER_ABI: stopOrderABISepolia,
+      REACTIVE_CONTRACT_BYTECODE: rscByteCodeSepolia,
+      CALLBACK_CONTRACT_BYTECODE: stopOrderByteCodeSepolia
+    };
+  }
+};
 
 // ===== CONTRACT ADDRESS MANAGEMENT =====
 interface UserContractAddresses {
@@ -92,7 +105,7 @@ const checkContractFundingStatus = async (
   rscProvider: ethers.JsonRpcProvider
 ): Promise<{ debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string }> => {
   try {
-    const systemContractAddress = '0x0000000000000000000000000000000000fffFfF'; // Updated system contract address
+    const systemContractAddress = '0x0000000000000000000000000000000000fffFfF';
     let callbackProxyAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA'; // Default Sepolia proxy
     
     // Set callback proxy based on the contracts' chain
@@ -151,7 +164,7 @@ const checkContractFundingStatus = async (
     const hasBalance = reactiveBalance > ethers.parseEther('0.001') && callbackBalance > ethers.parseEther('0.001');
     const isActive = totalReserves >= totalDebt && hasBalance;
     
-    console.log('💰 Contract funding status:', {
+    console.log('Contract funding status:', {
       reactiveContract: contracts.reactiveContract,
       callbackContract: contracts.callbackContract,
       chainId: contracts.chainId,
@@ -174,7 +187,7 @@ const checkContractFundingStatus = async (
       rscDebt: ethers.formatEther(reactiveDebt)
     };
   } catch (error) {
-    console.error('❌ Error checking funding status:', error);
+    console.error('Error checking funding status:', error);
     return { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' };
   }
 };
@@ -186,7 +199,10 @@ const validateStoredContracts = async (
   userAddress: string
 ): Promise<{ isValid: boolean; fundingStatus: { debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string } }> => {
   try {
-    console.log('🔐 Validating stored contracts:', contracts);
+    console.log('Validating stored contracts:', contracts);
+    
+    // Get the correct ABIs for the chain
+    const contractConfig = getContractABIsAndBytecode(contracts.chainId);
     
     // Normalize addresses for comparison - use stored deployer from Convex
     const normalizedUserAddress = userAddress.toLowerCase().trim();
@@ -194,9 +210,9 @@ const validateStoredContracts = async (
     
     // First check: User must be the deployer (using stored deployer address from Convex)
     if (normalizedUserAddress !== normalizedContractDeployer) {
-      console.error('❌ VALIDATION FAILED: User is not the deployer');
-      console.error('❌ User address:', normalizedUserAddress);
-      console.error('❌ Contract deployer:', normalizedContractDeployer);
+      console.error('VALIDATION FAILED: User is not the deployer');
+      console.error('User address:', normalizedUserAddress);
+      console.error('Contract deployer:', normalizedContractDeployer);
       return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
     }
     
@@ -207,40 +223,40 @@ const validateStoredContracts = async (
       
     const callbackContract = new ethers.Contract(
       contracts.callbackContract,
-      CALLBACK_STOP_ORDER_ABI,
+      contractConfig.CALLBACK_STOP_ORDER_ABI,
       callbackProvider
     );
     
     try {
-      console.log('✅ Callback contract validation successful');
+      console.log('Callback contract validation successful');
     } catch (contractError) {
-      console.error('❌ VALIDATION FAILED: Cannot read from callback contract:', contractError);
+      console.error('VALIDATION FAILED: Cannot read from callback contract:', contractError);
       return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
     }
     
     // Check if reactive contract exists and is valid 
     const reactiveContract = new ethers.Contract(
       contracts.reactiveContract,
-      REACTIVE_STOP_ORDER_ABI,
+      contractConfig.REACTIVE_STOP_ORDER_ABI,
       rscProvider
     );
     
     try {
       // Check if the user is the owner of the reactive contract
       const contractOwner = await reactiveContract.owner();
-      console.log('✅ Reactive contract validation successful');
+      console.log('Reactive contract validation successful');
     } catch (contractError) {
-      console.error('❌ VALIDATION FAILED: Cannot read from reactive contract:', contractError);
+      console.error('VALIDATION FAILED: Cannot read from reactive contract:', contractError);
       return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
     }
     
     // Check funding status
     const fundingStatus = await checkContractFundingStatus(contracts, rscProvider);
     
-    console.log('✅ VALIDATION SUCCESS: All contracts verified');
+    console.log('VALIDATION SUCCESS: All contracts verified');
     return { isValid: true, fundingStatus };
   } catch (error) {
-    console.error('❌ VALIDATION ERROR:', error);
+    console.error('VALIDATION ERROR:', error);
     return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
   }
 };
@@ -305,18 +321,18 @@ interface ChainConfig {
 
 type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete' | 'storing-contracts' | 'covering-callback-debt' | 'covering-rsc-debt';
 
-// ===== CONFIGURATION DATA - UPDATED FOR BASE MAINNET =====
+// ===== CONFIGURATION DATA =====
 const SUPPORTED_CHAINS: ChainConfig[] = [
   { 
     id: '8453', 
     name: 'Base Mainnet',
     dexName: 'Uniswap V2',
-    routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24', // Base Uniswap V2 Router
-    factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6', // Base Uniswap V2 Factory
+    routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',
+    factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
     callbackAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
     rpcUrl: 'https://mainnet.base.org',
     nativeCurrency: 'ETH',
-    defaultFunding: '0.003', // Lower funding for mainnet
+    defaultFunding: '0.0003',
     rscNetwork: {
       chainId: '1597',
       name: 'Reactive Mainnet',
@@ -349,7 +365,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
   }
 ];
 
-// Popular tokens by chain - UPDATED FOR BASE MAINNET
+// Popular tokens by chain
 const POPULAR_TOKENS: Record<string, Token[]> = {
   '8453': [ // Base Mainnet
     { address: '0x4200000000000000000000000000000000000006', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
@@ -357,7 +373,7 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
     { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
     { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH', name: 'Coinbase Wrapped Staked ETH', decimals: 18 },
   ],
-  '11155111': [ // Sepolia (fallback)
+  '11155111': [ // Sepolia
     { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
     { address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
     { address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
@@ -365,12 +381,11 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
   ]
 };
 
-// ===== ENHANCED TOKEN SERVICE CLASS WITH ETHPLORER API =====
+// ===== ENHANCED TOKEN SERVICE CLASS =====
 class TokenService {
   private static cache = new Map<string, { data: Token[]; timestamp: number }>();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  // Check if we have cached data that's still valid
   private static getCachedTokens(cacheKey: string): Token[] | null {
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
@@ -379,7 +394,6 @@ class TokenService {
     return null;
   }
 
-  // Cache the fetched tokens
   private static setCachedTokens(cacheKey: string, tokens: Token[]): void {
     this.cache.set(cacheKey, {
       data: tokens,
@@ -387,18 +401,14 @@ class TokenService {
     });
   }
 
-  // Main method to fetch all tokens for a user on a specific network
   static async fetchUserTokens(chainId: string, address: string): Promise<Token[]> {
     const cacheKey = `${chainId}-${address}`;
     
-    // Check cache first
     const cachedTokens = this.getCachedTokens(cacheKey);
     if (cachedTokens) {
       return cachedTokens;
     }
 
-    // For Base mainnet, use popular tokens method (no Ethplorer support yet)
-    // For Sepolia, try Ethplorer API first
     const tokens = chainId === '8453' 
       ? await this.fetchPopularTokensWithBalances(chainId, address)
       : await this.fetchTokensFromEthplorer(chainId, address);
@@ -407,7 +417,6 @@ class TokenService {
     return tokens;
   }
 
-  // Fetch tokens using Ethplorer API (Sepolia only)
   private static async fetchTokensFromEthplorer(chainId: string, address: string): Promise<Token[]> {
     try {
       console.log('Fetching tokens from Ethplorer API for address:', address);
@@ -418,7 +427,6 @@ class TokenService {
       } else if (chainId === '1') { // Mainnet
         apiUrl = `https://api.ethplorer.io/getAddressInfo/${address}?apiKey=freekey`;
       } else {
-        // For unsupported chains, fallback to popular tokens method
         console.log(`Ethplorer API not available for chain ${chainId}, using fallback method`);
         return this.fetchPopularTokensWithBalances(chainId, address);
       }
@@ -440,22 +448,19 @@ class TokenService {
         throw new Error('Empty response from Ethplorer API');
       }
 
-      // Parse the response and convert to our Token interface
       const tokens: Token[] = [];
 
-      // Process ERC20 tokens from the API response
       if (data.tokens && Array.isArray(data.tokens)) {
         for (const tokenData of data.tokens) {
           try {
             const tokenInfo = tokenData.tokenInfo;
             if (!tokenInfo || !tokenInfo.address || !tokenInfo.symbol || !tokenInfo.name) {
-              continue; // Skip invalid token data
+              continue;
             }
 
             const decimals = parseInt(tokenInfo.decimals) || 18;
             const rawBalance = tokenData.balance || tokenData.rawBalance || '0';
             
-            // Convert balance from raw to decimal format
             let balance = '0';
             if (rawBalance && rawBalance !== '0') {
               try {
@@ -469,7 +474,6 @@ class TokenService {
               }
             }
 
-            // Only include tokens with positive balance
             if (parseFloat(balance) > 0) {
               tokens.push({
                 address: tokenInfo.address,
@@ -488,25 +492,21 @@ class TokenService {
 
       console.log(`Successfully fetched ${tokens.length} tokens with positive balance from Ethplorer`);
       
-      // If we got tokens from Ethplorer, return them
       if (tokens.length > 0) {
         return tokens;
       }
 
-      // If no tokens found via Ethplorer, fallback to popular tokens method
       console.log('No tokens found via Ethplorer, falling back to popular tokens method');
       return this.fetchPopularTokensWithBalances(chainId, address);
 
     } catch (error) {
       console.error('Error fetching tokens from Ethplorer API:', error);
       
-      // Fallback to popular tokens method on any error
       console.log('Falling back to popular tokens method due to Ethplorer API error');
       return this.fetchPopularTokensWithBalances(chainId, address);
     }
   }
 
-  // Enhanced fallback method for networks - Only ERC20 tokens
   private static async fetchPopularTokensWithBalances(chainId: string, address: string): Promise<Token[]> {
     if (typeof window === 'undefined' || !window.ethereum) {
       return [];
@@ -545,7 +545,6 @@ class TokenService {
         })
       );
 
-      // Filter only tokens with balance > 0
       const result = tokensWithBalances.filter(token => 
         parseFloat(token.balance || '0') > 0
       );
@@ -558,7 +557,6 @@ class TokenService {
     }
   }
 
-  // Fetch individual token information - enhanced with better error handling
   static async fetchTokenInfo(address: string, userAddress: string): Promise<Token | null> {
     if (typeof window === 'undefined' || !window.ethereum) {
       return null;
@@ -601,7 +599,6 @@ class TokenService {
     }
   }
 
-  // Clear cache methods
   static clearCache(): void {
     this.cache.clear();
   }
@@ -646,7 +643,6 @@ const TokenSelectionModal = ({
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [isLoadingCustomToken, setIsLoadingCustomToken] = useState(false);
 
-  // Fetch all tokens user holds using TokenService
   const fetchAllUserTokens = useCallback(async () => {
     if (!connectedAccount || !chainId) return;
     
@@ -683,14 +679,11 @@ const TokenSelectionModal = ({
     }
   }, [isOpen, fetchAllUserTokens]);
 
-  // Enhanced search functionality
   const getTokensToDisplay = useCallback(() => {
     if (!searchTerm) {
-      // Show all user's tokens
       return userTokens.filter(token => token.address !== excludeToken?.address);
     }
 
-    // If searching, filter user tokens that match search
     const searchTermLower = searchTerm.toLowerCase();
     
     const matchingTokens = userTokens.filter(token => 
@@ -700,7 +693,6 @@ const TokenSelectionModal = ({
        token.address.toLowerCase().includes(searchTermLower))
     );
 
-    // If no matches in user tokens, show popular tokens that match
     if (matchingTokens.length === 0) {
       const popularTokens = POPULAR_TOKENS[chainId] || [];
       const matchingPopularTokens = popularTokens.filter(token =>
@@ -809,7 +801,6 @@ const TokenSelectionModal = ({
                           alt={token.symbol}
                           className="w-8 h-8 sm:w-10 sm:h-10 rounded-full mr-3 flex-shrink-0"
                           onError={(e) => {
-                            // Fallback to gradient circle if image fails to load
                             const target = e.currentTarget as HTMLImageElement;
                             target.style.display = 'none';
                             if (target.nextElementSibling) {
@@ -839,7 +830,6 @@ const TokenSelectionModal = ({
                           </div>
                           {parseFloat(token.balance || '0') > 0 && (
                             <div className="text-xs text-zinc-500 ml-2">
-                              {/* You could add price data here */}
                             </div>
                           )}
                         </div>
@@ -852,14 +842,13 @@ const TokenSelectionModal = ({
           </CommandList>
         </Command>
 
-        {/* Network info footer */}
         <div className="px-4 pb-2">
           <div className="text-xs text-zinc-500 text-center space-y-1">
             <div>
               Showing ERC20 tokens with positive balance
             </div>
             <div className="text-zinc-600">
-              💡 Native tokens (ETH) not shown - use wrapped versions (WETH) for stop orders
+              Native tokens (ETH) not shown - use wrapped versions (WETH) for stop orders
             </div>
           </div>
         </div>
@@ -888,7 +877,6 @@ const EnhancedStatusIndicator = ({
   contractsValid: boolean;
   contractFundingStatus: { debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string } | null;
 }) => {
-  // Determine the current status
   const getStatus = () => {
     if (!connectedChain) {
       return { type: 'error', message: 'Please switch to a supported network (Base or Sepolia)' };
@@ -903,21 +891,17 @@ const EnhancedStatusIndicator = ({
       return { type: 'error', message: 'Trading pair not found on DEX' };
     }
     
-    // Only show token-related warnings if user has selected tokens
     if (formData.sellToken && formData.buyToken) {
-      // Don't show insufficient balance error if no amount is entered yet
       if (formData.amount && parseFloat(formData.amount) > 0 && !hasTokenBalance) {
         return { type: 'error', message: 'Insufficient token balance' };
       }
       if (!formData.dropPercentage || parseFloat(formData.dropPercentage) <= 0) {
         return { type: 'warning', message: 'Set stop loss percentage' };
       }
-      // Don't show ready status until amount is entered
       if (!formData.amount || parseFloat(formData.amount) <= 0) {
         return { type: 'warning', message: 'Enter amount to sell' };
       }
 
-      // Show contract status information
       if (existingContracts && contractsValid && contractFundingStatus?.isActive) {
         return { 
           type: 'success', 
@@ -935,13 +919,11 @@ const EnhancedStatusIndicator = ({
       }
     }
     
-    // No status to show if no tokens selected
     return null;
   };
 
   const status = getStatus();
 
-  // Don't render anything if no status to show
   if (!status) {
     return null;
   }
@@ -1032,7 +1014,7 @@ const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }
       case 'covering-rsc-debt':
         return { title: 'Covering RSC Debt', message: 'Funding RSC contract and clearing debt...', color: 'purple' };
       case 'complete':
-        return { title: '🎉 Stop Order Active!', message: 'Your stop order is now monitoring prices 24/7', color: 'green' };
+        return { title: 'Stop Order Active!', message: 'Your stop order is now monitoring prices 24/7', color: 'green' };
       default:
         return null;
     }
@@ -1100,7 +1082,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     coefficient: '1000',
     threshold: '',
     amount: '',
-    destinationFunding: '0.003', // Base mainnet default
+    destinationFunding: '0.0003',
     rscFunding: '0.1',
     dropPercentage: '10',
     currentPrice: '',
@@ -1132,30 +1114,25 @@ export default function EnhancedStopOrderWithPersonalContracts() {
   } | null>(null);
   const [isCoveringDebt, setIsCoveringDebt] = useState(false);
 
-  // Component cleanup ref
   const mountedRef = useRef(true);
 
   // Convex hooks
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
   const storeContract = useMutation(api.contracts.store);
 
-  // Check if contracts have debt (either callback or RSC)
   const contractsHaveDebt = !!contractFundingStatus && (
     parseFloat(contractFundingStatus.callbackDebt) > 0 || 
     parseFloat(contractFundingStatus.rscDebt) > 0
   );
 
-  // Check if token selection should be disabled
   const shouldDisableTokenSelection = !!contractsHaveDebt && !!existingContracts && contractsValid;
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
-  // Reset deployment step when form changes after successful creation
   useEffect(() => {
     if (deploymentStep === 'complete') {
       const timer = setTimeout(() => {
@@ -1194,7 +1171,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           
           let chainConfig;
           
-          // Handle RSC network addition
           if (targetChainId === '5318007') {
             chainConfig = {
               chainId: targetChainIdHex,
@@ -1207,8 +1183,19 @@ export default function EnhancedStopOrderWithPersonalContracts() {
               rpcUrls: ['https://lasna-rpc.rnk.dev/'],
               blockExplorerUrls: ['https://lasna.reactscan.net']
             };
+          } else if (targetChainId === '1597') {
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: 'Reactive Mainnet',
+              nativeCurrency: {
+                name: 'REACT',
+                symbol: 'REACT',
+                decimals: 18
+              },
+              rpcUrls: ['https://mainnet-rpc.rnk.dev/'],
+              blockExplorerUrls: ['https://reactscan.net']
+            };
           } else if (targetChainId === '8453') {
-            // Base Mainnet
             chainConfig = {
               chainId: targetChainIdHex,
               chainName: 'Base',
@@ -1292,21 +1279,18 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         console.log('Contract data from Convex:', contractData);
         
         if (contractData) {
-          // Convert Convex data to UserContractAddresses format
           const stored: UserContractAddresses = {
             reactiveContract: contractData.rscContract,
             callbackContract: contractData.callbackContract,
-            deployedAt: Date.now(), // We don't store this in Convex
+            deployedAt: Date.now(),
             chainId: contractData.chainId,
             deployer: contractData.userAddress.toLowerCase()
           };
 
           console.log('Validating stored contracts from Convex...');
           
-          // Create RSC provider to validate contracts
           const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
           
-          // Validate contracts exist on RSC network and check funding status
           const validationResult = await validateStoredContracts(stored, rscProvider, connectedAccount);
           
           if (validationResult.isValid) {
@@ -1315,13 +1299,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             setContractsValid(true);
             setContractFundingStatus(validationResult.fundingStatus);
             
-            // Update cost estimates based on funding status
             if (validationResult.fundingStatus.isActive) {
               console.log('Contracts are active and funded, user can add additional orders');
               setFormData(prev => ({
                 ...prev,
-                destinationFunding: '0', // No additional funding needed
-                rscFunding: '0' // No additional RSC funding needed
+                destinationFunding: '0',
+                rscFunding: '0'
               }));
             } else {
               console.log('Contracts exist but are inactive/underfunded');
@@ -1337,7 +1320,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             setContractsValid(false);
             setContractFundingStatus(null);
             
-            // Reset to first order costs
             setFormData(prev => ({
               ...prev,
               destinationFunding: connectedChain.defaultFunding,
@@ -1350,7 +1332,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           setContractsValid(false);
           setContractFundingStatus(null);
           
-          // Set first order costs
           setFormData(prev => ({
             ...prev,
             destinationFunding: connectedChain.defaultFunding,
@@ -1428,6 +1409,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       return;
     }
 
+    // Get the correct ABIs for the chain
+    const contractConfig = getContractABIsAndBytecode(existingContracts.chainId);
+
     const originalChainId = connectedChain.id;
     const rscChainId = connectedChain.rscNetwork.chainId;
     
@@ -1438,7 +1422,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       setIsDeploymentActive(true);
       setIsCoveringDebt(true);
       
-      console.log('💰 Starting debt covering process...');
+      console.log('Starting debt covering process...');
       console.log(`Callback debt: ${callbackDebt} ETH, RSC debt: ${rscDebt} REACT`);
 
       // Step 1: Handle Callback Contract Debt (if exists)
@@ -1446,15 +1430,13 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         setDeploymentStep('covering-callback-debt');
         console.log(`Covering callback debt: ${callbackDebt} ETH`);
 
-        // Ensure we're on the callback chain
         await switchNetwork(originalChainId);
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         const callbackProvider = new ethers.BrowserProvider(window.ethereum);
         const callbackSigner = await callbackProvider.getSigner();
 
-        // Transaction 1: Send funds to callback contract
-        const callbackFundingAmount = callbackDebt + 0.01; // Debt + buffer
+        const callbackFundingAmount = callbackDebt + 0.01;
         console.log(`Sending ${callbackFundingAmount} ETH to callback contract`);
         
         const fundCallbackTx = await callbackSigner.sendTransaction({
@@ -1464,13 +1446,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         });
         
         await fundCallbackTx.wait();
-        console.log('✅ Funds sent to callback contract');
+        console.log('Funds sent to callback contract');
 
-        // Transaction 2: Call coverDebt on callback contract
         console.log('Calling coverDebt on callback contract...');
         const callbackContract = new ethers.Contract(
           existingContracts.callbackContract,
-          CALLBACK_STOP_ORDER_ABI,
+          contractConfig.CALLBACK_STOP_ORDER_ABI,
           callbackSigner
         );
 
@@ -1479,10 +1460,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             gasLimit: 200000
           });
           await coverDebtTx.wait();
-          console.log('✅ Callback debt covered successfully');
+          console.log('Callback debt covered successfully');
         } catch (coverError) {
           console.warn('Could not call coverDebt on callback contract (might not exist):', coverError);
-          // Continue anyway, funds were sent
         }
 
         toast.success('Callback contract debt covered!');
@@ -1493,15 +1473,13 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         setDeploymentStep('covering-rsc-debt');
         console.log(`Covering RSC debt: ${rscDebt} REACT`);
 
-        // Switch to RSC network
         await switchToRSCNetwork();
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         const rscProvider = new ethers.BrowserProvider(window.ethereum);
         const rscSigner = await rscProvider.getSigner();
 
-        // Transaction 1: Send funds to RSC contract
-        const rscFundingAmount = rscDebt + 0.1; // Debt + buffer
+        const rscFundingAmount = rscDebt + 0.1;
         console.log(`Sending ${rscFundingAmount} REACT to RSC contract`);
         
         const fundRscTx = await rscSigner.sendTransaction({
@@ -1511,13 +1489,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         });
         
         await fundRscTx.wait();
-        console.log('✅ Funds sent to RSC contract');
+        console.log('Funds sent to RSC contract');
 
-        // Transaction 2: Call coverDebt on RSC contract
         console.log('Calling coverDebt on RSC contract...');
         const rscContract = new ethers.Contract(
           existingContracts.reactiveContract,
-          REACTIVE_STOP_ORDER_ABI,
+          contractConfig.REACTIVE_STOP_ORDER_ABI,
           rscSigner
         );
 
@@ -1526,23 +1503,20 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             gasLimit: 200000
           });
           await coverDebtTx.wait();
-          console.log('✅ RSC debt covered successfully');
+          console.log('RSC debt covered successfully');
         } catch (coverError) {
           console.warn('Could not call coverDebt on RSC contract (might not exist):', coverError);
-          // Continue anyway, funds were sent
         }
 
         toast.success('RSC contract debt covered!');
       }
 
-      // Switch back to original network
       await switchNetwork(originalChainId);
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       setDeploymentStep('complete');
       toast.success('All contract debts have been cleared! Your contracts are now active.');
 
-      // Refresh contract status after covering debt
       setTimeout(async () => {
         if (connectedChain) {
           const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
@@ -1552,10 +1526,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       }, 3000);
       
     } catch (error: any) {
-      console.error('❌ Error covering debt:', error);
+      console.error('Error covering debt:', error);
       setDeploymentStep('idle');
       
-      // Switch back to original network on error
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const currentNetwork = await provider.getNetwork();
@@ -1593,17 +1566,18 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       return;
     }
 
+    // Get the correct ABIs and bytecode for the current chain
+    const contractConfig = getContractABIsAndBytecode(connectedChain.id);
+
     const originalChainId = connectedChain.id;
     const rscChainId = connectedChain.rscNetwork.chainId;
     
     try {
       setIsDeploymentActive(true);
-      console.log('🚀 Starting deployment process for personal contracts...');
+      console.log('Starting deployment process for personal contracts...');
       
-      // Step 1: Check existing contracts (now handled by useQuery hook)
       setDeploymentStep('checking-contracts');
 
-      // Ensure we're on the original chain (Base/Sepolia)
       const provider = new ethers.BrowserProvider(window.ethereum);
       const currentNetwork = await provider.getNetwork();
       
@@ -1615,10 +1589,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       const requiredAmount = ethers.parseUnits(formData.amount, formData.sellToken.decimals);
 
       if (existingContracts && contractsValid) {
-        // ===== ADDITIONAL ORDER FLOW - Use existing personal contracts =====
-        console.log('📝 Adding order to existing personal contracts...');
+        // ===== ADDITIONAL ORDER FLOW =====
+        console.log('Adding order to existing personal contracts...');
         
-        // Step 1: Check and approve tokens for callback contract
         setDeploymentStep('checking-approval');
         
         const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
@@ -1649,16 +1622,14 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast.success('Tokens already approved');
         }
 
-        // Step 2: Create order on existing callback contract (stay on Base/Sepolia)
         setDeploymentStep('creating-order');
         
         const callbackContract = new ethers.Contract(
           existingContracts.callbackContract,
-          CALLBACK_STOP_ORDER_ABI,
+          contractConfig.CALLBACK_STOP_ORDER_ABI,
           signer
         );
 
-        // Calculate parameters
         const dropPercent = parseFloat(formData.dropPercentage);
         const coefficient = 1000;
 
@@ -1697,7 +1668,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           threshold
         });
 
-        // Create stop order on personal callback contract
         const createOrderTx = await callbackContract.createStopOrder(
           formData.selectedPair.pairAddress,
           formData.sellToken0,
@@ -1708,7 +1678,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
         const receipt = await createOrderTx.wait();
         
-        // Extract order ID from logs
         let orderId = null;
         if (receipt.logs) {
           const orderCreatedEvent = receipt.logs.find((log: any) => {
@@ -1738,33 +1707,28 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         setDeploymentStep('complete');
         
       } else {
-        // ===== FIRST ORDER FLOW - Deploy new personal contracts =====
-        console.log('🏗️ Deploying new personal contracts for first order...');
+        // ===== FIRST ORDER FLOW =====
+        console.log('Deploying new personal contracts for first order...');
         
-        // Step 1: Check and approve tokens first (on Base/Sepolia)
         setDeploymentStep('checking-approval');
         
         const mainProvider = new ethers.BrowserProvider(window.ethereum);
         const mainSigner = await mainProvider.getSigner();
         
-        // We'll get the deployed callback address and then approve tokens for it
-        
-        // Step 2: Deploy callback contract on Base/Sepolia
         setDeploymentStep('deploying-callback');
         
         console.log('Deploying personal callback contract...');
         
-        // Create callback contract factory
         const CallbackFactory = new ethers.ContractFactory(
-          CALLBACK_STOP_ORDER_ABI,
-          CALLBACK_CONTRACT_BYTECODE,
+          contractConfig.CALLBACK_STOP_ORDER_ABI,
+          contractConfig.CALLBACK_CONTRACT_BYTECODE,
           mainSigner
         );
         
         const callbackContract = await CallbackFactory.deploy(
-          connectedAccount,                                 // _owner (user's wallet address)
-          connectedChain.rscNetwork.callbackProxyAddress,  // _callbackSender
-          connectedChain.routerAddress,                    // _router
+          connectedAccount,
+          connectedChain.rscNetwork.callbackProxyAddress,
+          connectedChain.routerAddress,
           { 
             value: ethers.parseEther(formData.destinationFunding),
             gasLimit: 5000000 
@@ -1777,7 +1741,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         
         toast.success(`Personal callback contract deployed on ${connectedChain.name}`);
 
-        // Step 3: Approve tokens for the newly deployed callback contract
         const tokenContract = new ethers.Contract(
           formData.sellToken.address,
           [
@@ -1802,7 +1765,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast.success('Tokens approved for personal contract');
         }
 
-        // Step 4: Deploy reactive contract on RSC network
         setDeploymentStep('deploying-reactive');
         console.log('Switching to RSC to deploy personal reactive contract...');
         await switchToRSCNetwork();
@@ -1817,16 +1779,15 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           callbackAddress: callbackContractAddress
         });
 
-        // Create reactive contract factory and deploy (just with callback address)
         const ReactiveFactory = new ethers.ContractFactory(
-          REACTIVE_STOP_ORDER_ABI,
-          REACTIVE_CONTRACT_BYTECODE,
+          contractConfig.REACTIVE_STOP_ORDER_ABI,
+          contractConfig.REACTIVE_CONTRACT_BYTECODE,
           rscSigner2
         );
         
         const reactiveContract = await ReactiveFactory.deploy(
-          connectedAccount,        // _owner (user's wallet address)
-          callbackContractAddress, // _stopOrderCallback
+          connectedAccount,
+          callbackContractAddress,
           { 
             value: ethers.parseEther("0.1"),
             gasLimit: 5000000 
@@ -1838,7 +1799,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         console.log('Personal reactive contract deployed at:', reactiveContractAddress);
         toast.success('Personal reactive contract deployed');
 
-        // Step 5: Store contract addresses in Convex
         setDeploymentStep('storing-contracts');
         
         try {
@@ -1856,7 +1816,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast('Warning: Could not store contract addresses in database');
         }
 
-        // Step 6: Switch back to Base/Sepolia and create the first order
         setDeploymentStep('creating-order');
         await switchNetwork(originalChainId);
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1866,11 +1825,10 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         
         const finalCallbackContract = new ethers.Contract(
           callbackContractAddress,
-          CALLBACK_STOP_ORDER_ABI,
+          contractConfig.CALLBACK_STOP_ORDER_ABI,
           finalSigner
         );
 
-        // Calculate parameters for first order
         const dropPercent = parseFloat(formData.dropPercentage);
         const coefficient = 1000;
 
@@ -1905,7 +1863,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           threshold
         });
 
-        // Create first stop order on personal callback contract
         const firstOrderTx = await finalCallbackContract.createStopOrder(
           formData.selectedPair.pairAddress,
           formData.sellToken0,
@@ -1916,7 +1873,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
         const receipt = await firstOrderTx.wait();
         
-        // Extract order ID from logs
         let orderId = null;
         if (receipt.logs) {
           const orderCreatedEvent = receipt.logs.find((log: any) => {
@@ -1942,8 +1898,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           }
         }
 
-        // Step 7: Set contract addresses state
-        console.log('📦 DEPLOYMENT SUCCESS: New personal contracts deployed');
+        console.log('DEPLOYMENT SUCCESS: New personal contracts deployed');
         
         const newContracts: UserContractAddresses = {
           reactiveContract: reactiveContractAddress,
@@ -1961,18 +1916,16 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
       toast.success('Your stop order is now active and monitoring prices 24/7');
       setDeploymentStep('complete');
-      console.log('✅ Deployment completed successfully!');
+      console.log('Deployment completed successfully!');
       
-      // Auto-redirect to dashboard after 2 seconds
       setTimeout(() => {
         window.location.href = '/automations/stop-order/dashboard';
       }, 2000);
       
     } catch (error: any) {
-      console.error('❌ Error creating stop order:', error);
+      console.error('Error creating stop order:', error);
       setDeploymentStep('idle');
       
-      // Enhanced error recovery
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const currentNetwork = await provider.getNetwork();
@@ -1986,7 +1939,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         toast('Please manually switch back to your original network');
       }
       
-      // Enhanced error messages
       if (error.message.includes('User denied') || error.code === 4001) {
         toast.error('Transaction cancelled by user');
       } else if (error.message.includes('insufficient funds')) {
@@ -1998,11 +1950,11 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       }
     } finally {
       setIsDeploymentActive(false);
-      console.log('🏁 Deployment process ended');
+      console.log('Deployment process ended');
     }
   }, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract]);
 
-  // Form validation - not affected by debt status
+  // Form validation
   const isFormValid = 
     !!connectedAccount &&
     !!connectedChain &&
@@ -2018,7 +1970,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     deploymentStep === 'idle' &&
     !isDeploymentActive;
 
-  // Auto-detect connected chain and account - UPDATED FOR BASE PRIORITY
+  // Auto-detect connected chain and account
   useEffect(() => {
     const detectConnection = async () => {
       if (typeof window !== 'undefined' && window.ethereum) {
@@ -2743,7 +2695,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           )}
         </div>
 
-        {/* Educational Section and Multi-Chain block - UPDATED FOR BASE */}
+        {/* Educational Section and Multi-Chain block */}
         <Card className="relative bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-zinc-800 mt-6 sm:mt-8">
           <CardHeader className="border-b border-zinc-800 p-4 sm:p-6">
             <CardTitle className="text-zinc-100 flex items-center text-lg sm:text-xl">
@@ -2821,7 +2773,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
                         <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">First Order (Contract Deployment)</h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          ~0.003 ETH + 0.1 REACT + gas fees (~$5-15 total). Deploys your personal contracts and creates first stop order.
+                          ~0.0003 ETH + 0.1 REACT + gas fees (~$5-15 total). Deploys your personal contracts and creates first stop order.
                         </p>
                       </div>
                       
