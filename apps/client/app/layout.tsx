@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import Navigation from "@/components/navigation/Navigation";
-import ReactorAIWrapper from "@/components/ai/ReactorAIWrapper";
-import ReactorBackground from "@/components/ReactorBackground";
-import { Providers } from "./providers"; // <-- Import your new component
+// import ReacDEFIAIWrapper from "@/components/ai/ReacDEFIAIWrapper";
+import ReacDEFIBackground from "@/components/ReacDEFIBackground";
+import { Providers } from "./providers"; 
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -20,8 +20,8 @@ const geistMono = localFont({
 // Your metadata export remains unchanged and works correctly here
 export const metadata: Metadata = {
   title: {
-    default: "REACTOR - DeFi Automation Made Simple",
-    template: "%s | REACTOR"
+    default: "ReacDEFI - DeFi Automation Made Simple",
+    template: "%s | ReacDEFI"
   },
   description: "Automate your DeFi with no code. Protect Uniswap positions with stop orders, secure Aave loans from liquidation, and automate fee collection - all through simple conversation with our AI assistant.",
   keywords: [
@@ -36,39 +36,39 @@ export const metadata: Metadata = {
     "DeFi protection",
     "smart contract automation"
   ],
-  authors: [{ name: "REACTOR Team" }],
-  creator: "REACTOR",
-  publisher: "REACTOR",
+  authors: [{ name: "ReacDEFI Team" }],
+  creator: "ReacDEFI",
+  publisher: "ReacDEFI",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://thereactor.in'),
+  metadataBase: new URL('https://theReacDEFI.in'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://thereactor.in',
-    title: 'REACTOR - DeFi Automation Made Simple',
+    url: 'https://theReacDEFI.in',
+    title: 'ReacDEFI - DeFi Automation Made Simple',
     description: 'Automate your DeFi with AI. Protect Uniswap positions, secure Aave loans, and automate fee collection through simple conversation.',
-    siteName: 'REACTOR',
+    siteName: 'ReacDEFI',
     images: [
       {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'REACTOR - DeFi Automation Platform',
+        alt: 'ReacDEFI - DeFi Automation Platform',
       }
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'REACTOR - DeFi Automation Made Simple',
+    title: 'ReacDEFI - DeFi Automation Made Simple',
     description: 'Automate your DeFi with AI. Protect Uniswap positions, secure Aave loans, and more.',
-    creator: '@0xReactor',
+    creator: '@0xReacDEFI',
     images: ['/og-image.jpg'],
   },
   robots: {
@@ -106,12 +106,12 @@ export default function RootLayout({
         {/* Use the Providers component to wrap your layout */}
         <Providers>
           <div className="relative min-h-screen bg-[#0b0b2e] overflow-x-hidden">
-            <ReactorBackground />
+            <ReacDEFIBackground />
             <Navigation />
             <main className="flex-grow px-4 sm:px-6 lg:px-8">
               {children}
             </main>
-            <ReactorAIWrapper />
+            {/* <ReacDEFIAIWrapper /> */}
           </div>
         </Providers>
       </body>

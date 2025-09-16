@@ -74,7 +74,7 @@ export interface AIMessageResponse {
   error?: string;
 }
 
-export const useReactorAI = () => {
+export const useReacDEFIAI = () => {
   const [conversationId, setConversationId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

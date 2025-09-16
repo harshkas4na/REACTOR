@@ -74,7 +74,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
       transition={{ duration: 0.3 }}
     >
       <div className="px-4 py-4 space-y-4">
-        {/* ReactorAI Button - Prominent placement at top */}
+        {/* ReacDEFIAI Button - Prominent placement at top */}
        
 
         {/* Navigation Links */}
@@ -89,7 +89,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
   </Link>
 ))}
 
-{/* Add ReactorAI
+{/* Add ReacDEFIAI
 <button
   onClick={() => {
     handleAIClick();
@@ -97,7 +97,7 @@ export function MobileMenu({ isOpen, onClose, onOpenAI }: MobileMenuProps) {
   }}
   className="w-full text-left text-gray-300 hover:text-primary hover:bg-gray-700 block px-4 py-3 rounded-md text-base font-medium transition-all duration-300 ease-in-out"
 >
-  ReactorAI
+  ReacDEFIAI
 </button> */}
 
 

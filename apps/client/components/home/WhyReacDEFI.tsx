@@ -21,7 +21,7 @@ const features = [
   {
     name: 'Build Custom Automations',
     description:
-      'Leverage our powerful SDK and Reactive Smart Contracts to build bespoke, event-driven solutions. If you can define an on-chain event, REACTOR can automate the reaction across chains.',
+      'Leverage our powerful SDK and Reactive Smart Contracts to build bespoke, event-driven solutions. If you can define an on-chain event, ReacDEFI can automate the reaction across chains.',
     icon: Code2,
     status: 'live',
   },
@@ -49,16 +49,16 @@ const itemVariants = {
   }
 }
 
-export default function WhyReactor() {
+export default function WhyReacDEFI() {
   return (
-    <section className='relative' aria-labelledby="why-reactor-heading">
+    <section className='relative' aria-labelledby="why-ReacDEFI-heading">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(500px_180px_at_100%_0%,rgba(168,85,247,0.06),transparent)]" />
       <div className="mx-auto max-w-2xl sm:text-center">
-        <h2 id="why-reactor-heading" className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-          Why Automate with REACTOR?
+        <h2 id="why-ReacDEFI-heading" className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          Why Automate with ReacDEFI?
         </h2>
         <p className="mt-4 text-lg leading-8 text-muted-foreground">
-          DeFi never sleeps, but you can. REACTOR gives you the tools to execute your automated trading strategies, secure your crypto assets, and save valuable time, all with gas-efficient, on-chain security.
+          DeFi never sleeps, but you can. ReacDEFI gives you the tools to execute your automated trading strategies, secure your crypto assets, and save valuable time, all with gas-efficient, on-chain security.
         </p>
       </div>
       <div className="mt-16 max-w-lg sm:mx-auto md:max-w-none">

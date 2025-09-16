@@ -296,12 +296,12 @@ const AavePositionDisplay: React.FC<AavePositionDisplayProps> = ({
 };
 
 // Component Props Interface
-interface ReactorAIProps {
+interface ReacDEFIAIProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
+export default function ReacDEFIAI({ isOpen, onClose }: ReacDEFIAIProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -348,7 +348,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
       const savedConfig = AIUtils.ConfigManager.peekConfig();
       
       // Add enhanced welcome message
-      let welcomeContent = "Hi! I'm **Reactor AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Learn About Reactor** - Understand RSCs and DeFi automation\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is Reactor?\"\n• \"Tell me about RSCs\"";
+      let welcomeContent = "Hi! I'm **ReacDEFI AI** ✨ Your intelligent DeFi automation assistant!\n\n🚀 **I can help you:**\n• **Create Stop Orders** - Protect your tokens from price drops\n• **Learn About ReacDEFI** - Understand RSCs and DeFi automation\n💡 **Quick Examples:**\n• \"Create a stop order for my ETH\"\n• \"What is ReacDEFI?\"\n• \"Tell me about RSCs\"";
       
       if (savedConfig) {
         welcomeContent += "\n\n🎯 **I found a saved configuration!** You can say \"deploy my automation\" to continue with your previous setup.";
@@ -751,7 +751,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
               <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground text-sm sm:text-base">Reactor AI</h3>
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">ReacDEFI AI</h3>
               <div className="flex items-center space-x-2">
                 <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-xs text-muted-foreground">
@@ -836,7 +836,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                   placeholder={
                     account 
                       ? "Ask me about DeFi automation..." 
-                      : "Ask me about REACTOR..."
+                      : "Ask me about ReacDEFI..."
                   }
                   className="flex-1 bg-background border-border text-foreground placeholder:text-muted-foreground text-sm sm:text-base"
                   disabled={isLoading}
@@ -891,7 +891,7 @@ export default function ReactorAI({ isOpen, onClose }: ReactorAIProps) {
                 {[
                   { icon: Shield, label: "Stop Order", text: "Create a stop order" },
                   // { icon: Heart, label: "Protection", text: "Protect my Aave position" },
-                  { icon: BookOpen, label: "Learn", text: "What is Reactor?" }
+                  { icon: BookOpen, label: "Learn", text: "What is ReacDEFI?" }
                 ].map((action, index) => (
                   <Button
                     key={index}

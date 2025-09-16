@@ -13,7 +13,7 @@ import { useWeb3 } from '@/app/_context/Web3Context'
 import Image from 'next/image'
 import Link from 'next/link'
 import AlphaBanner from './AlphaBanner'
-import ReactorAI from '@/components/ai/ReactorAI'
+import ReacDEFIAI from '@/components/ai/ReacDEFIAI'
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -50,7 +50,7 @@ export default function Navigation() {
             <Link href="/" className="flex items-center group">
               <Image 
                   src="/Full Logo/Color/DarkBg@2x.svg" 
-                  alt="Reactor Logo" 
+                  alt="ReacDEFI Logo" 
                   width={200} 
                   height={200}
                   quality={100}
@@ -69,7 +69,7 @@ export default function Navigation() {
 
             {/* Right Section */}
             <div className="flex items-center justify-end space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
-              {/* ReactorAI Button */}
+              {/* ReacDEFIAI Button */}
               
 
               {/* Network Select */}
@@ -177,8 +177,8 @@ export default function Navigation() {
         />
       </motion.nav>
 
-      {/* ReactorAI Component */}
-      <ReactorAI 
+      {/* ReacDEFIAI Component */}
+      <ReacDEFIAI 
         isOpen={isAIOpen}
         onClose={() => setIsAIOpen(false)}
       />

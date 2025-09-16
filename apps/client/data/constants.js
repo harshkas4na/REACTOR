@@ -5,7 +5,7 @@ export const NAVIGATION_ITEMS = [
     // { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
     { label: 'Stop Order', path: '/automations/stop-order' },
-    // { label: 'ReactorAI', path: '/about#reactor-ai' },
+    // { label: 'ReacDEFIAI', path: '/about#ReacDEFI-ai' },
     // { label: 'Dapp-Automation', path: '/dapp-automation' }
 ]
 
@@ -56,7 +56,7 @@ export const TEMPLATE_CARDS = [
     },
     {
       title: "DApp Library",
-      description: "Discover different approaches to integrating RSCs with popular DeFi protocols. Share your innovative use cases that could become future no-code automations on REACTOR.",
+      description: "Discover different approaches to integrating RSCs with popular DeFi protocols. Share your innovative use cases that could become future no-code automations on ReacDEFI.",
       features: {
         title: "Explore:",
         items: [

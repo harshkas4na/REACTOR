@@ -1,12 +1,12 @@
 
-# REACTOR
+# ReacDEFI
 
 <p align="center"\>
 <strong\>A No-Code DeFi Automation Platform Powered by Reactive Smart Contracts\</strong\>
 </p\>
 
 <p align="center"\>
-<a href="[https://app.thereactor.in/](https://app.thereactor.in/)"\><strong\>Visit the App</strong\></a\>
+<a href="[https://app.theReacDEFI.in/](https://app.theReacDEFI.in/)"\><strong\>Visit the App</strong\></a\>
 </p\>
 
 -----
@@ -15,11 +15,11 @@
 
   - [Overview](https://www.google.com/search?q=%23overview)
   - [Core Features](https://www.google.com/search?q=%23core-features)
-      - [🤖 Reactor AI (Conversational Automation)](https://www.google.com/search?q=%23-reactor-ai-conversational-automation)
+      - [🤖 ReacDEFI AI (Conversational Automation)](https://www.google.com/search?q=%23-ReacDEFI-ai-conversational-automation)
       - [🦄 Stop Order Automation](https://www.google.com/search?q=%23-stop-order-automation)
       - [🦝 Aave Liquidation Protection](https://www.google.com/search?q=%23-aave-liquidation-protection)
       - [🚀 Upcoming Automations](https://www.google.com/search?q=%23-upcoming-automations)
-  - [The REACTOR Technology](https://www.google.com/search?q=%23the-reactor-technology)
+  - [The ReacDEFI Technology](https://www.google.com/search?q=%23the-ReacDEFI-technology)
       - [Reactive Smart Contracts (RSCs)](https://www.google.com/search?q=%23reactive-smart-contracts-rscs)
       - [Cross-Chain Architecture](https://www.google.com/search?q=%23cross-chain-architecture)
   - [Technology Stack](https://www.google.com/search?q=%23technology-stack)
@@ -28,22 +28,22 @@
 
 ## Overview
 
-**REACTOR** is a decentralized finance (DeFi) platform designed to make sophisticated portfolio management strategies accessible to everyone. By leveraging a unique **cross-chain architecture** and our proprietary **Reactive Smart Contracts (RSCs)**, we empower users to deploy autonomous, "set-and-forget" automations that manage risk and optimize yield 24/7.
+**ReacDEFI** is a decentralized finance (DeFi) platform designed to make sophisticated portfolio management strategies accessible to everyone. By leveraging a unique **cross-chain architecture** and our proprietary **Reactive Smart Contracts (RSCs)**, we empower users to deploy autonomous, "set-and-forget" automations that manage risk and optimize yield 24/7.
 
-Our mission is to democratize DeFi automation by removing technical barriers. Whether you are a seasoned trader, a liquidity provider, or new to DeFi, REACTOR provides intuitive tools to protect and grow your investments without requiring any coding knowledge.
+Our mission is to democratize DeFi automation by removing technical barriers. Whether you are a seasoned trader, a liquidity provider, or new to DeFi, ReacDEFI provides intuitive tools to protect and grow your investments without requiring any coding knowledge.
 
 ## Core Features
 
-REACTOR offers a suite of powerful, no-code automation tools.
+ReacDEFI offers a suite of powerful, no-code automation tools.
 
-### 🤖 Reactor AI (Conversational Automation)
+### 🤖 ReacDEFI AI (Conversational Automation)
 
-Reactor AI is our flagship feature—a sophisticated, conversational AI assistant that redefines the user experience. Instead of forms, users can simply chat with the AI in natural language to create, configure, and deploy automations.
+ReacDEFI AI is our flagship feature—a sophisticated, conversational AI assistant that redefines the user experience. Instead of forms, users can simply chat with the AI in natural language to create, configure, and deploy automations.
 
   - **Natural Language Setup**: Simply tell the AI what you want to do (e.g., *"Protect my ETH from a 10% price drop"* or *"Guard my Aave position from liquidation"*).
   - **Guided Configuration**: The AI asks for the necessary information step-by-step, remembering the context of your conversation to create a seamless flow.
   - **In-Chat Deployment**: Once an automation is configured, the AI presents a deployment module directly within the chat window, guiding you through the required on-chain transactions (approvals, network switching, and funding) without ever leaving the conversation.
-  - **Educational Support**: Ask questions about REACTOR, RSCs, Health Factor, or other platform concepts, and the AI will provide accurate, context-aware answers powered by a Retrieval-Augmented Generation (RAG) system.
+  - **Educational Support**: Ask questions about ReacDEFI, RSCs, Health Factor, or other platform concepts, and the AI will provide accurate, context-aware answers powered by a Retrieval-Augmented Generation (RAG) system.
 
 ### 🦄 Stop Order Automation
 
@@ -71,14 +71,14 @@ This automation is a vital tool for anyone using the Aave lending protocol. It a
 
 ### 🚀 Upcoming Automations
 
-REACTOR is continuously expanding its suite of tools to meet the needs of the DeFi community.
+ReacDEFI is continuously expanding its suite of tools to meet the needs of the DeFi community.
 
   - **Fee Collector**: Automatically harvest and compound earned fees from your Uniswap v3 liquidity positions.
   - **Range Manager**: Intelligently and automatically adjust your Uniswap v3 liquidity positions to keep them in the optimal fee-earning range.
 
-## The REACTOR Technology
+## The ReacDEFI Technology
 
-REACTOR's power comes from its unique technical architecture, designed for true, autonomous, cross-chain automation.
+ReacDEFI's power comes from its unique technical architecture, designed for true, autonomous, cross-chain automation.
 
 ### Reactive Smart Contracts (RSCs)
 
@@ -89,11 +89,11 @@ Traditional smart contracts are passive; they only execute when a user or anothe
 
 ### Cross-Chain Architecture
 
-Deploying a REACTOR automation involves a seamless, user-friendly cross-chain process that separates monitoring from execution for maximum efficiency and reliability.
+Deploying a ReacDEFI automation involves a seamless, user-friendly cross-chain process that separates monitoring from execution for maximum efficiency and reliability.
 
 The typical deployment flow is as follows:
 
-1.  **Approval (Origin Chain)**: The user approves the main REACTOR contract to spend their tokens (e.g., the ETH they want to sell).
+1.  **Approval (Origin Chain)**: The user approves the main ReacDEFI contract to spend their tokens (e.g., the ETH they want to sell).
 2.  **Network Switch (To Reactive Network)**: The user's wallet is prompted to switch to the Reactive Network (Lasna Testnet or Mainnet).
 3.  **Fund RSC (Reactive Network)**: The user submits a transaction to fund the monitoring RSC with a small amount of `REACT` tokens.
 4.  **Network Switch (Back to Origin Chain)**: The user's wallet is prompted to switch back to the original chain.
@@ -113,15 +113,15 @@ This entire process is handled via a guided UI, abstracting away the complexity 
 
 ## Getting Started
 
-1.  **Visit the App**: Navigate to [app.thereactor.in](https://app.thereactor.in/).
+1.  **Visit the App**: Navigate to [app.theReacDEFI.in](https://app.theReacDEFI.in/).
 2.  **Connect Your Wallet**: Use MetaMask or any other Web3-compatible wallet.
 3.  **Choose an Automation**: Select either "Stop Order" or "Aave Protection" from the homepage or navigation.
-4.  **Configure & Deploy**: Use the intuitive UI or the Reactor AI assistant to configure your parameters and follow the on-screen steps to deploy your automation.
+4.  **Configure & Deploy**: Use the intuitive UI or the ReacDEFI AI assistant to configure your parameters and follow the on-screen steps to deploy your automation.
 5.  **Monitor**: Use the dashboard to track the status of your active automations.
 
 ## Support & Resources
 
-  - **Application**: [app.thereactor.in](https://app.thereactor.in/)
+  - **Application**: [app.theReacDEFI.in](https://app.theReacDEFI.in/)
   - **Socials**:
       - [Twitter/X](https://x.com/0xkasana)
       - [LinkedIn](https://www.linkedin.com/in/harsh-kasana-8b6a79258/)

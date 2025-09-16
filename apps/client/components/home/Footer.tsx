@@ -16,13 +16,13 @@ const Footer = () => {
             <div className="flex items-center gap-4">
               <Image
                 src="/Full Logo/Color/DarkBg@2x.svg"
-                alt="Reactor Logo"
+                alt="ReacDEFI Logo"
                 width={160}
                 height={50}
                 quality={100}
               />
               <p className="text-sm text-muted-foreground">
-                © {new Date().getFullYear()} REACTOR. All rights reserved.
+                © {new Date().getFullYear()} ReacDEFI. All rights reserved.
               </p>
             </div>
             <div className="flex items-center gap-4">

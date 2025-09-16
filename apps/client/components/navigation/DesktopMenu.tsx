@@ -53,13 +53,13 @@ export function DesktopMenu({ isOpen, onClose, onOpenAI }: DesktopMenuProps) {
     </Link>
   ))}
 
-  {/* Add ReactorAI here
+  {/* Add ReacDEFIAI here
   <button
     onClick={() => onOpenAI?.()}
     className="text-gray-300 hover:text-primary py-2 relative group"
   >
     <span className="relative z-10 px-1 text-base font-medium transition-colors duration-300 ease-in-out">
-      ReactorAI
+      ReacDEFIAI
     </span>
     <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-in-out" />
   </button> */}

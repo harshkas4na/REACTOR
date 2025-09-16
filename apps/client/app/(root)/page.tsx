@@ -1,6 +1,6 @@
 import Hero from '@/components/home/Hero'
 import SocialProof from '@/components/home/SocialProof'
-import WhyReactor from '@/components/home/WhyReactor'
+import WhyReacDEFI from '@/components/home/WhyReacDEFI'
 import FeaturedAutomations from '@/components/home/FeaturedAutomations'
 import Footer from '@/components/home/Footer'
 
@@ -17,7 +17,7 @@ export default function Home() {
         */}
         <div className="container mx-auto px-4 py-12 sm:py-20 space-y-20 sm:space-y-28">
           <SocialProof />
-          <WhyReactor />
+          <WhyReacDEFI />
           <FeaturedAutomations />
          
         </div>

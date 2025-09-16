@@ -127,10 +127,10 @@ export default function AboutPage() {
         className="text-center mb-16"
       >
         <h1 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-          About REACTOR
+          About ReacDEFI
         </h1>
         <p className="text-xl text-foreground max-w-3xl mx-auto">
-          REACTOR is a pioneering platform that makes DeFi automation accessible to everyone through Reactive Smart Contracts (RSCs) and intuitive, no-code interfaces.
+          ReacDEFI is a pioneering platform that makes DeFi automation accessible to everyone through Reactive Smart Contracts (RSCs) and intuitive, no-code interfaces.
         </p>
       </motion.div>
 
@@ -147,10 +147,10 @@ export default function AboutPage() {
           </CardHeader>
           <CardContent>
             <p className="text-foreground/90 text-lg leading-relaxed mb-6">
-              REACTOR exists to democratize DeFi automation by removing technical barriers and making sophisticated blockchain operations accessible to traders, investors, and DeFi enthusiasts regardless of their programming knowledge.
+              ReacDEFI exists to democratize DeFi automation by removing technical barriers and making sophisticated blockchain operations accessible to traders, investors, and DeFi enthusiasts regardless of their programming knowledge.
             </p>
             <p className="text-foreground/90 leading-relaxed">
-              We believe that powerful automation shouldn't be limited to developers. Whether you're protecting your portfolio from market crashes, optimizing your yield farming strategies, or safeguarding lending positions from liquidation, REACTOR provides the tools you need with interfaces that anyone can understand and use.
+              We believe that powerful automation shouldn't be limited to developers. Whether you're protecting your portfolio from market crashes, optimizing your yield farming strategies, or safeguarding lending positions from liquidation, ReacDEFI provides the tools you need with interfaces that anyone can understand and use.
             </p>
           </CardContent>
         </Card>
@@ -218,7 +218,7 @@ export default function AboutPage() {
       >
         <Card className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-zinc-100 text-2xl">How REACTOR Works</CardTitle>
+            <CardTitle className="text-zinc-100 text-2xl">How ReacDEFI Works</CardTitle>
             <CardDescription className="text-zinc-300">
               Understanding the technology behind our automation platform
             </CardDescription>
@@ -228,7 +228,7 @@ export default function AboutPage() {
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-zinc-100">Reactive Smart Contracts (RSCs)</h3>
                 <p className="text-zinc-300">
-                  At the core of REACTOR are Reactive Smart Contracts - a revolutionary approach to blockchain automation that enables contracts to autonomously monitor and react to on-chain events without requiring manual intervention.
+                  At the core of ReacDEFI are Reactive Smart Contracts - a revolutionary approach to blockchain automation that enables contracts to autonomously monitor and react to on-chain events without requiring manual intervention.
                 </p>
                 <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
                   <h4 className="font-medium text-zinc-100 mb-2">Key Features:</h4>
@@ -273,7 +273,7 @@ export default function AboutPage() {
               <Users className="w-6 h-6 text-zinc-100" />
             </div>
             <CardTitle className="text-zinc-100">Who We Serve</CardTitle>
-            <CardDescription className="text-zinc-300">REACTOR is designed for the entire DeFi ecosystem</CardDescription>
+            <CardDescription className="text-zinc-300">ReacDEFI is designed for the entire DeFi ecosystem</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -402,17 +402,17 @@ export default function AboutPage() {
           <CardHeader>
             <CardTitle className="text-zinc-100">Frequently Asked Questions</CardTitle>
             <CardDescription className="text-zinc-300">
-              Learn more about REACTOR and how it works
+              Learn more about ReacDEFI and how it works
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="what-is" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
-                  What is REACTOR?
+                  What is ReacDEFI?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  REACTOR is a platform that makes DeFi automation accessible to everyone. We offer ready-to-use
+                  ReacDEFI is a platform that makes DeFi automation accessible to everyone. We offer ready-to-use
                   automations like Stop Orders and Aave Liquidation Protection, with Fee Collectors and Range Managers coming soon. Our platform bridges 
                   the gap between complex blockchain technology and everyday traders.
                 </AccordionContent>
@@ -420,28 +420,28 @@ export default function AboutPage() {
 
               <AccordionItem value="technical" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
-                  Do I need technical knowledge to use REACTOR?
+                  Do I need technical knowledge to use ReacDEFI?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  Not at all! REACTOR is designed for traders and DeFi users. You can start using our pre-built automations like Stop Orders and Aave Liquidation Protection even if you've never written a line of code. Just connect your wallet and follow our step-by-step guides.
+                  Not at all! ReacDEFI is designed for traders and DeFi users. You can start using our pre-built automations like Stop Orders and Aave Liquidation Protection even if you've never written a line of code. Just connect your wallet and follow our step-by-step guides.
                 </AccordionContent>
               </AccordionItem>
               
               <AccordionItem value="how-it-works" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
-                  How does REACTOR work?
+                  How does ReacDEFI work?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  REACTOR uses Reactive Smart Contracts (RSCs) to enable event-driven automation across blockchain networks. We provide simple interfaces to create automations that protect your tokens and maximize your earnings. Behind the scenes, we handle all the complex blockchain interactions, including deployment, monitoring, and execution, so you don't have to.
+                  ReacDEFI uses Reactive Smart Contracts (RSCs) to enable event-driven automation across blockchain networks. We provide simple interfaces to create automations that protect your tokens and maximize your earnings. Behind the scenes, we handle all the complex blockchain interactions, including deployment, monitoring, and execution, so you don't have to.
                 </AccordionContent>
               </AccordionItem>
               
               <AccordionItem value="chains" className="border-zinc-800">
                 <AccordionTrigger className="text-zinc-200 hover:text-zinc-100">
-                  Which blockchains does REACTOR support?
+                  Which blockchains does ReacDEFI support?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  REACTOR currently supports multiple chains including Ethereum Mainnet, Sepolia Testnet, and Avalanche C-Chain. Our Stop Order automations work with Uniswap V2 on Ethereum networks and Pangolin on Avalanche. Aave Liquidation Protection is live on Sepolia with Mainnet support coming soon. We're continuously expanding our blockchain and protocol support.
+                  ReacDEFI currently supports multiple chains including Ethereum Mainnet, Sepolia Testnet, and Avalanche C-Chain. Our Stop Order automations work with Uniswap V2 on Ethereum networks and Pangolin on Avalanche. Aave Liquidation Protection is live on Sepolia with Mainnet support coming soon. We're continuously expanding our blockchain and protocol support.
                 </AccordionContent>
               </AccordionItem>
 
@@ -465,7 +465,7 @@ export default function AboutPage() {
                   How do I get started?
                 </AccordionTrigger>
                 <AccordionContent className="text-zinc-300">
-                  <p>Getting started with REACTOR is easy:</p>
+                  <p>Getting started with ReacDEFI is easy:</p>
                   <ol className="list-decimal pl-5 mt-2 space-y-1">
                     <li>Connect your wallet</li>
                     <li>Choose an automation (like Stop Orders or Aave Protection)</li>
