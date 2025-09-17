@@ -323,6 +323,386 @@ const validateStoredContracts = async (
   }
 };
 
+// ===== BASE MAINNET TOKEN DATABASE =====
+const BASE_TOKEN_DATABASE: Record<string, Token> = {
+  // USDC on Base
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': {
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    symbol: 'USDC',
+    name: 'USD Coin',
+    decimals: 6
+  },
+  // DAI on Base  
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': {
+    address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+    symbol: 'DAI',
+    name: 'Dai Stablecoin',
+    decimals: 18
+  },
+  // WETH on Base
+  '0x4200000000000000000000000000000000000006': {
+    address: '0x4200000000000000000000000000000000000006',
+    symbol: 'WETH',
+    name: 'Wrapped Ether',
+    decimals: 18
+  },
+  // cbETH on Base
+  '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22': {
+    address: '0x2Ae3F1Ec7F1F5012CFEAb0185bfc7aa3cf0DEc22',
+    symbol: 'cbETH',
+    name: 'Coinbase Wrapped Staked ETH',
+    decimals: 18
+  }
+};
+
+// ===== MULTIPLE BASE RPC ENDPOINTS =====
+const BASE_RPC_ENDPOINTS = [
+  'https://base.llamarpc.com'
+];
+
+// ===== ENHANCED ADDRESS VALIDATION =====
+const isValidAddress = (address: string): boolean => {
+  if (!address) return false;
+  if (!ethers.isAddress(address)) return false;
+  // Check for zero address
+  if (address.toLowerCase() === '0x0000000000000000000000000000000000000000') return false;
+  return true;
+};
+
+// ===== ENHANCED CONTRACT EXISTENCE CHECK =====
+const checkContractExists = async (address: string, provider: ethers.JsonRpcProvider): Promise<boolean> => {
+  try {
+    const code = await provider.getCode(address);
+    return code !== '0x';
+  } catch (error) {
+    console.warn(`Failed to check contract existence for ${address}:`, error);
+    return false;
+  }
+};
+
+// ===== ENHANCED TOKEN FETCHING WITH BASE SUPPORT =====
+const fetchTokenInfoSafe = async (
+  address: string, 
+  provider: ethers.JsonRpcProvider, 
+  chainId?: string,
+  retryCount = 2
+): Promise<Token> => {
+  const addressLower = address.toLowerCase();
+  
+  // Validate address first
+  if (!isValidAddress(address)) {
+    throw new Error(`Invalid token address: ${address}`);
+  }
+  
+  // Check Base token database first for known tokens
+  if (chainId === '8453' && BASE_TOKEN_DATABASE[addressLower]) {
+    console.log(`Using Base token database for ${address}: ${BASE_TOKEN_DATABASE[addressLower].symbol}`);
+    return BASE_TOKEN_DATABASE[addressLower];
+  }
+
+  // For Base Mainnet, try multiple RPC providers
+  if (chainId === '8453') {
+    for (const rpcUrl of BASE_RPC_ENDPOINTS) {
+      try {
+        console.log(`Trying Base RPC: ${rpcUrl} for token ${address}`);
+        const alternateProvider = new ethers.JsonRpcProvider(rpcUrl);
+        
+        // Check if contract exists
+        const exists = await checkContractExists(address, alternateProvider);
+        if (!exists) {
+          console.warn(`Contract does not exist at ${address} on ${rpcUrl}`);
+          continue;
+        }
+        
+        const result = await fetchTokenInfoWithProvider(address, alternateProvider, retryCount);
+        console.log(`Successfully fetched from ${rpcUrl}:`, result);
+        return result;
+      } catch (error) {
+        console.warn(`Failed with RPC ${rpcUrl}:`, error);
+        continue;
+      }
+    }
+  }
+
+  // Fallback to original provider
+  return await fetchTokenInfoWithProvider(address, provider, retryCount);
+};
+
+// ===== PROVIDER-SPECIFIC TOKEN FETCHER =====
+const fetchTokenInfoWithProvider = async (
+  address: string,
+  provider: ethers.JsonRpcProvider,
+  retryCount = 2
+): Promise<Token> => {
+  for (let i = 0; i < retryCount; i++) {
+    try {
+      console.log(`Fetching token info for ${address}, attempt ${i + 1}`);
+      
+      const tokenContract = new ethers.Contract(address, TOKEN_ABI, provider);
+      
+      let symbol = 'UNKNOWN';
+      let name = 'Unknown Token';
+      let decimals = 18;
+
+      // Try different approaches with shorter timeouts for Base
+      const timeout = 10000; // 10 seconds timeout
+      
+      try {
+        symbol = await Promise.race([
+          tokenContract.symbol({ gasLimit: 100000 }),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), timeout)
+          )
+        ]);
+      } catch (error) {
+        console.warn(`Symbol fetch failed for ${address}:`, error);
+        symbol = `${address.slice(2, 6).toUpperCase()}`;
+      }
+
+      try {
+        name = await Promise.race([
+          tokenContract.name({ gasLimit: 100000 }),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), timeout)
+          )
+        ]);
+      } catch (error) {
+        console.warn(`Name fetch failed for ${address}:`, error);
+        name = `Token ${address.slice(0, 6)}...${address.slice(-4)}`;
+      }
+
+      try {
+        const decimalsResult = await Promise.race([
+          tokenContract.decimals({ gasLimit: 100000 }),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), timeout)
+          )
+        ]);
+        decimals = Number(decimalsResult);
+      } catch (error) {
+        console.warn(`Decimals fetch failed for ${address}:`, error);
+        decimals = 18;
+      }
+
+      return {
+        address: address.toLowerCase(),
+        symbol,
+        name,
+        decimals
+      };
+    } catch (error) {
+      console.error(`Attempt ${i + 1} failed:`, error);
+      if (i === retryCount - 1) {
+        // Return fallback
+        return {
+          address: address.toLowerCase(),
+          symbol: `${address.slice(2, 6).toUpperCase()}`,
+          name: `Token ${address.slice(0, 6)}...${address.slice(-4)}`,
+          decimals: 18
+        };
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+
+  throw new Error('Unexpected error');
+};
+
+// ===== ENHANCED PRICE CALCULATION WITH BASE SUPPORT =====
+const calculatePairPriceWithTokensSafe = async (
+  pairAddress: string,
+  sellTokenAddress: string,
+  buyTokenAddress: string,
+  provider: ethers.JsonRpcProvider,
+  chainId?: string,
+  retryCount = 2
+): Promise<{ currentPrice: number; sellToken: Token; buyToken: Token }> => {
+  
+  // Validate pair address first
+  if (!isValidAddress(pairAddress)) {
+    throw new Error(`Invalid pair address: ${pairAddress}`);
+  }
+  
+  // For Base Mainnet, try multiple RPC providers
+  if (chainId === '8453') {
+    for (const rpcUrl of BASE_RPC_ENDPOINTS) {
+      try {
+        console.log(`Trying pair calculation with Base RPC: ${rpcUrl}`);
+        const alternateProvider = new ethers.JsonRpcProvider(rpcUrl);
+        
+        // Test provider connectivity
+        await alternateProvider.getNetwork();
+        
+        // Check if pair contract exists
+        const exists = await checkContractExists(pairAddress, alternateProvider);
+        if (!exists) {
+          console.warn(`Pair contract does not exist at ${pairAddress} on ${rpcUrl}`);
+          continue;
+        }
+        
+        const result = await calculatePairPriceWithSpecificProvider(
+          pairAddress,
+          sellTokenAddress,
+          buyTokenAddress,
+          alternateProvider,
+          chainId,
+          retryCount
+        );
+        
+        console.log(`Successfully calculated price with ${rpcUrl}`);
+        return result;
+      } catch (error) {
+        console.warn(`Pair calculation failed with RPC ${rpcUrl}:`, error);
+        continue;
+      }
+    }
+    
+    // All Base RPCs failed, return fallback
+    console.error(`All Base RPC endpoints failed for pair ${pairAddress}`);
+    const fallbackSellToken = await fetchTokenInfoSafe(sellTokenAddress, provider, chainId);
+    const fallbackBuyToken = await fetchTokenInfoSafe(buyTokenAddress, provider, chainId);
+    
+    return {
+      currentPrice: 0,
+      sellToken: fallbackSellToken,
+      buyToken: fallbackBuyToken
+    };
+  }
+  
+  // For non-Base chains, use the original provider
+  return await calculatePairPriceWithSpecificProvider(
+    pairAddress,
+    sellTokenAddress,
+    buyTokenAddress,
+    provider,
+    chainId,
+    retryCount
+  );
+};
+
+// ===== PROVIDER-SPECIFIC PAIR CALCULATOR =====
+const calculatePairPriceWithSpecificProvider = async (
+  pairAddress: string,
+  sellTokenAddress: string,
+  buyTokenAddress: string,
+  provider: ethers.JsonRpcProvider,
+  chainId?: string,
+  retryCount = 2
+): Promise<{ currentPrice: number; sellToken: Token; buyToken: Token }> => {
+  
+  for (let i = 0; i < retryCount; i++) {
+    try {
+      console.log(`Calculating price for pair ${pairAddress}, attempt ${i + 1}`);
+      
+      const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+      
+      // Get pair info with timeout
+      const timeout = 15000; // 15 seconds timeout
+      
+      const [reserves, token0Address, token1Address] = await Promise.race([
+        Promise.all([
+          pairContract.getReserves({ gasLimit: 200000 }),
+          pairContract.token0({ gasLimit: 100000 }),
+          pairContract.token1({ gasLimit: 100000 })
+        ]),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Pair contract calls timeout')), timeout)
+        )
+      ]);
+      
+      console.log(`Successfully got pair data`);
+      console.log(`Reserves: ${reserves[0].toString()}, ${reserves[1].toString()}`);
+      console.log(`Tokens: ${token0Address}, ${token1Address}`);
+
+      // Validate reserves
+      if (!reserves || reserves.length < 2) {
+        throw new Error('Invalid reserves data');
+      }
+
+      if (reserves[0] === BigInt(0) || reserves[1] === BigInt(0)) {
+        throw new Error('No liquidity in pair');
+      }
+
+      // Validate token addresses
+      if (!isValidAddress(token0Address) || !isValidAddress(token1Address)) {
+        throw new Error('Invalid token addresses from pair');
+      }
+
+      // Fetch token info with Base support
+      const [token0Info, token1Info] = await Promise.all([
+        fetchTokenInfoSafe(token0Address, provider, chainId),
+        fetchTokenInfoSafe(token1Address, provider, chainId)
+      ]);
+
+      const sellTokenLower = sellTokenAddress.toLowerCase();
+      const token0Lower = token0Address.toLowerCase();
+      const token1Lower = token1Address.toLowerCase();
+      
+      // Determine which token is which
+      let isSellTokenToken0;
+      if (sellTokenLower === token0Lower) {
+        isSellTokenToken0 = true;
+      } else if (sellTokenLower === token1Lower) {
+        isSellTokenToken0 = false;
+      } else {
+        console.error(`Sell token ${sellTokenAddress} not found in pair ${pairAddress}`);
+        console.error(`Token0: ${token0Address}, Token1: ${token1Address}`);
+        throw new Error('Sell token not found in pair');
+      }
+
+      const sellToken = isSellTokenToken0 ? token0Info : token1Info;
+      const buyToken = isSellTokenToken0 ? token1Info : token0Info;
+
+      // Calculate price with proper decimal handling
+      const formattedReserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
+      const formattedReserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
+
+      const reserve0Num = parseFloat(formattedReserve0);
+      const reserve1Num = parseFloat(formattedReserve1);
+
+      if (reserve0Num <= 0 || reserve1Num <= 0) {
+        throw new Error('Invalid reserve amounts');
+      }
+
+      const currentPrice = isSellTokenToken0 
+        ? reserve1Num / reserve0Num
+        : reserve0Num / reserve1Num;
+
+      if (!isFinite(currentPrice) || currentPrice <= 0) {
+        throw new Error('Invalid price calculation result');
+      }
+
+      console.log(`Successfully calculated price: ${currentPrice} for ${sellToken.symbol}/${buyToken.symbol}`);
+
+      return {
+        currentPrice,
+        sellToken,
+        buyToken
+      };
+    } catch (error) {
+      console.error(`Price calculation attempt ${i + 1} failed:`, error);
+      
+      if (i === retryCount - 1) {
+        console.error(`All price calculation attempts failed for pair ${pairAddress}`);
+        
+        // Return fallback data
+        const fallbackSellToken = await fetchTokenInfoSafe(sellTokenAddress, provider, chainId);
+        const fallbackBuyToken = await fetchTokenInfoSafe(buyTokenAddress, provider, chainId);
+        
+        return {
+          currentPrice: 0,
+          sellToken: fallbackSellToken,
+          buyToken: fallbackBuyToken
+        };
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+    }
+  }
+
+  throw new Error('Unexpected error in calculatePairPriceWithSpecificProvider');
+};
+
 // ===== CONTRACT BALANCE MANAGEMENT COMPONENT =====
 const ContractBalanceManager = ({ 
   userContracts, 
@@ -986,79 +1366,6 @@ const ContractBalanceManager = ({
   );
 };
 
-// ===== TOKEN AND PAIR DATA FETCHING =====
-const fetchTokenInfo = async (address: string, provider: ethers.JsonRpcProvider): Promise<Token> => {
-  try {
-    const tokenContract = new ethers.Contract(address, TOKEN_ABI, provider);
-    const [symbol, name, decimals] = await Promise.all([
-      tokenContract.symbol(),
-      tokenContract.name(),
-      tokenContract.decimals()
-    ]);
-
-    return {
-      address,
-      symbol,
-      name,
-      decimals: Number(decimals)
-    };
-  } catch (error) {
-    console.error('Error fetching token info for', address, ':', error);
-    return {
-      address,
-      symbol: 'UNKNOWN',
-      name: 'Unknown Token',
-      decimals: 18
-    };
-  }
-};
-
-// ===== ENHANCED PRICE CALCULATION =====
-const calculatePairPriceWithTokens = async (
-  pairAddress: string,
-  sellTokenAddress: string,
-  buyTokenAddress: string,
-  provider: ethers.JsonRpcProvider
-): Promise<{ currentPrice: number; sellToken: Token; buyToken: Token }> => {
-  try {
-    const pairContract = new ethers.Contract(pairAddress, PAIR_ABI, provider);
-    const [reserves, token0Address, token1Address] = await Promise.all([
-      pairContract.getReserves(),
-      pairContract.token0(),
-      pairContract.token1()
-    ]);
-
-    if (reserves[0] === BigInt(0) || reserves[1] === BigInt(0)) {
-      throw new Error('No liquidity in pair');
-    }
-
-    const [token0Info, token1Info] = await Promise.all([
-      fetchTokenInfo(token0Address, provider),
-      fetchTokenInfo(token1Address, provider)
-    ]);
-
-    const isSellTokenToken0 = sellTokenAddress.toLowerCase() === token0Address.toLowerCase();
-    const sellToken = isSellTokenToken0 ? token0Info : token1Info;
-    const buyToken = isSellTokenToken0 ? token1Info : token0Info;
-
-    const formattedReserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
-    const formattedReserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
-
-    const currentPrice = isSellTokenToken0 
-      ? parseFloat(formattedReserve1) / parseFloat(formattedReserve0)
-      : parseFloat(formattedReserve0) / parseFloat(formattedReserve1);
-
-    return {
-      currentPrice,
-      sellToken,
-      buyToken
-    };
-  } catch (error) {
-    console.error('Error calculating pair price with tokens:', error);
-    throw error;
-  }
-};
-
 // ===== MAIN DASHBOARD COMPONENT =====
 export default function UpdatedPersonalStopOrderDashboard() {
   const [orders, setOrders] = useState<StopOrder[]>([]);
@@ -1080,19 +1387,19 @@ export default function UpdatedPersonalStopOrderDashboard() {
   // Convex hook to get contract data
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
 
-  // ===== UPDATED ORDER FETCHING FOR PERSONAL CONTRACTS =====
+  // ===== ENHANCED ORDER FETCHING WITH BASE SUPPORT =====
   const fetchUserOrders = useCallback(async () => {
     if (!connectedAccount || !connectedChain) {
       console.log('DASHBOARD: Missing required data - account:', !!connectedAccount, 'chain:', !!connectedChain);
       return;
     }
 
-    console.log('DASHBOARD: Fetching orders for', connectedAccount, 'on', connectedChain.name, 'chainId:', connectedChain.id);
+    console.log(`DASHBOARD: Starting enhanced fetch for ${connectedAccount} on ${connectedChain.name}`);
     setIsLoading(true);
     
     try {
       if (!contractData) {
-        console.log('DASHBOARD: No personal contracts found for user in Convex');
+        console.log('DASHBOARD: No contract data from Convex');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -1100,8 +1407,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
       }
 
       if (contractData.chainId !== connectedChain.id) {
-        console.log(`DASHBOARD: User has contracts on chain ${contractData.chainId} but currently connected to ${connectedChain.id}`);
-        console.log(`DASHBOARD: No contracts found for ${connectedChain.name} - showing empty state`);
+        console.log(`DASHBOARD: Chain mismatch - contracts on ${contractData.chainId}, connected to ${connectedChain.id}`);
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -1116,18 +1422,60 @@ export default function UpdatedPersonalStopOrderDashboard() {
         deployer: contractData.userAddress.toLowerCase()
       };
 
-      console.log('DASHBOARD: Found matching contracts for', connectedChain.name, ':', storedContracts);
+      console.log('DASHBOARD: Using contracts:', storedContracts);
 
-      const callbackRpcUrl = connectedChain.rpcUrl || 
-        (connectedChain.id === '8453' ? 'https://mainnet.base.org' : 'https://ethereum-sepolia-rpc.publicnode.com');
+      // Setup providers with enhanced error handling
+      let workingProvider: ethers.JsonRpcProvider | undefined;
       
-      const callbackProvider = new ethers.JsonRpcProvider(callbackRpcUrl);
+      if (connectedChain.id === '8453') {
+        // For Base, try multiple RPC endpoints
+        console.log('DASHBOARD: Setting up Base Mainnet providers...');
+        let providerFound = false;
+        
+        for (const rpcUrl of BASE_RPC_ENDPOINTS) {
+          try {
+            console.log(`Testing Base provider: ${rpcUrl}`);
+            const testProvider = new ethers.JsonRpcProvider(rpcUrl);
+            
+            // Test with timeout
+            await Promise.race([
+              testProvider.getNetwork(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Provider timeout')), 10000)
+              )
+            ]);
+            
+            workingProvider = testProvider;
+            console.log(`Found working Base provider: ${rpcUrl}`);
+            providerFound = true;
+            break;
+          } catch (error) {
+            console.warn(`Base provider ${rpcUrl} failed:`, error);
+            continue;
+          }
+        }
+        
+        if (!providerFound) {
+          throw new Error('No working Base RPC provider found');
+        }
+      } else {
+        // For other chains, use standard provider
+        const callbackRpcUrl = connectedChain.rpcUrl || 'https://ethereum-sepolia-rpc.publicnode.com';
+        workingProvider = new ethers.JsonRpcProvider(callbackRpcUrl);
+        await workingProvider.getNetwork();
+        console.log('DASHBOARD: Standard provider connected successfully');
+      }
+
+      if (!workingProvider) {
+        throw new Error('Working provider was not initialized');
+      }
+
       const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
 
-      const valid = await validateStoredContracts(storedContracts, rscProvider, callbackProvider, connectedAccount);
+      const valid = await validateStoredContracts(storedContracts, rscProvider, workingProvider, connectedAccount);
       
       if (!valid) {
-        console.log('DASHBOARD: Personal contracts are invalid for', connectedChain.name);
+        console.log('DASHBOARD: Contract validation failed');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
@@ -1137,117 +1485,368 @@ export default function UpdatedPersonalStopOrderDashboard() {
       setUserContracts(storedContracts);
       setContractsValid(true);
 
-      // Get the correct ABI for the chain
+      // Get contract ABI
       const contractConfig = getContractABIs(storedContracts.chainId);
-
       const callbackContract = new ethers.Contract(
         storedContracts.callbackContract,
         contractConfig.CALLBACK_CONTRACT_ABI,
-        callbackProvider
+        workingProvider
       );
 
-      console.log('DASHBOARD: Using personal callback contract on', connectedChain.name, ':', storedContracts.callbackContract);
+      console.log('DASHBOARD: Fetching order IDs from contract...');
 
-      const allOrderIds = await callbackContract.getAllOrders();
+      // Get all order IDs with enhanced error handling and timeout
+      let allOrderIds;
+      const timeout = 20000; // 20 seconds timeout
       
-      console.log('DASHBOARD: Found', allOrderIds.length, 'order IDs from personal contract on', connectedChain.name);
+      try {
+        allOrderIds = await Promise.race([
+          callbackContract.getAllOrders({ gasLimit: 500000 }),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('getAllOrders timeout')), timeout)
+          )
+        ]);
+        
+        console.log(`Successfully got ${allOrderIds.length} order IDs`);
+      } catch (error:any) {
+        console.error('Failed to fetch order IDs:', error);
+        throw new Error(`Failed to fetch order IDs: ${error.message}`);
+      }
       
-      if (allOrderIds.length === 0) {
-        console.log('DASHBOARD: No orders found in personal contract on', connectedChain.name);
+      if (!allOrderIds || allOrderIds.length === 0) {
+        console.log('DASHBOARD: No orders found in contract');
         setOrders([]);
         return;
       }
 
-      const orderPromises = allOrderIds.map(async (orderId: bigint) => {
+      console.log(`DASHBOARD: Processing ${allOrderIds.length} orders...`);
+
+      // Process orders with enhanced error handling and retry mechanism
+      const validOrders: StopOrder[] = [];
+      const failedOrders: number[] = [];
+
+      for (const orderId of allOrderIds) {
+        const orderIdNum = Number(orderId);
+        console.log(`DASHBOARD: Processing order ${orderIdNum}...`);
+        
         try {
-          console.log('DASHBOARD: Fetching personal order:', Number(orderId), 'from', connectedChain.name);
-          const orderData = await callbackContract.getOrder(Number(orderId));
+          // Fetch order data with enhanced retry mechanism
+          let orderData;
+          let orderFetchSuccess = false;
           
-          console.log('DASHBOARD: Raw personal order data:', orderData);
+          // Try multiple approaches for getting order data
+          const orderFetchAttempts = [
+            () => callbackContract.getOrder(orderIdNum, { gasLimit: 400000 }),
+            () => callbackContract.getOrder(orderIdNum, { gasLimit: 600000 }),
+            () => callbackContract.getOrder(orderIdNum), // No gas limit
+          ];
           
-          const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, callbackProvider);
-          const [token0Address, token1Address] = await Promise.all([
-            pairContract.token0(),
-            pairContract.token1()
-          ]);
-      
-          const [token0Info, token1Info] = await Promise.all([
-            fetchTokenInfo(token0Address, callbackProvider),
-            fetchTokenInfo(token1Address, callbackProvider)
-          ]);
-      
-          const tokenSellInfo = orderData.sellToken0 ? token0Info : token1Info;
-          const tokenBuyInfo = orderData.sellToken0 ? token1Info : token0Info;
-      
-          let currentPrice = '0';
-          let triggerPrice = '0';
-          let dropPercentage = 0;
-      
-          try {
-            const priceData = await calculatePairPriceWithTokens(
-              orderData.pair,
-              tokenSellInfo.address,
-              tokenBuyInfo.address,
-              callbackProvider
-            );
-      
-            currentPrice = priceData.currentPrice.toFixed(6);
-      
-            const coefficient = Number(orderData.coefficient);
-            const threshold = Number(orderData.threshold);
-            const triggerPriceNum = threshold / coefficient;
-            triggerPrice = triggerPriceNum.toFixed(6);
-      
-            if (priceData.currentPrice > 0 && triggerPriceNum > 0) {
-              dropPercentage = ((priceData.currentPrice - triggerPriceNum) / priceData.currentPrice) * 100;
-              dropPercentage = Math.max(0, Math.min(50, dropPercentage));
-              dropPercentage = Math.round(dropPercentage * 10) / 10;
+          for (let attempt = 0; attempt < orderFetchAttempts.length && !orderFetchSuccess; attempt++) {
+            try {
+              console.log(`Order ${orderIdNum} fetch attempt ${attempt + 1}`);
+              orderData = await Promise.race([
+                orderFetchAttempts[attempt](),
+                new Promise<never>((_, reject) => 
+                  setTimeout(() => reject(new Error('getOrder timeout')), 15000)
+                )
+              ]);
+              orderFetchSuccess = true;
+              console.log(`Order ${orderIdNum} fetch successful on attempt ${attempt + 1}`);
+            } catch (error) {
+              console.warn(`Order ${orderIdNum} fetch attempt ${attempt + 1} failed:`, error);
+              if (attempt < orderFetchAttempts.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between attempts
+              }
             }
-          } catch (priceError) {
-            console.warn('Price calculation failed for personal order', Number(orderId), ':', priceError);
           }
           
-          const formattedAmount = ethers.formatUnits(orderData.amount, tokenSellInfo.decimals);
+          if (!orderFetchSuccess || !orderData) {
+            throw new Error(`Failed to fetch order ${orderIdNum} after all attempts`);
+          }
           
+          console.log(`Order ${orderIdNum} data:`, {
+            pair: orderData.pair,
+            amount: orderData.amount?.toString(),
+            status: Number(orderData.status),
+            sellToken0: orderData.sellToken0,
+            createdAt: orderData.createdAt?.toString(),
+            executedAt: orderData.executedAt?.toString()
+          });
+
+          // Enhanced validation
+          if (!orderData.pair || !isValidAddress(orderData.pair)) {
+            console.warn(`Order ${orderIdNum} has invalid pair address: ${orderData.pair}`);
+            throw new Error(`Invalid pair address: ${orderData.pair}`);
+          }
+
+          // Validate amount exists
+          if (!orderData.amount || orderData.amount.toString() === '0') {
+            console.warn(`Order ${orderIdNum} has invalid amount: ${orderData.amount}`);
+            throw new Error(`Order ${orderIdNum} has invalid amount`);
+          }
+
+          // Check if pair contract exists before proceeding
+          const pairExists = await checkContractExists(orderData.pair, workingProvider);
+          if (!pairExists) {
+            console.warn(`Pair contract does not exist at ${orderData.pair} for order ${orderIdNum}`);
+            throw new Error(`Pair contract ${orderData.pair} does not exist`);
+          }
+
+          // Get pair token addresses with enhanced error handling and retry
+          let token0Address, token1Address;
+          let pairTokenSuccess = false;
+          
+          // Try multiple approaches for getting pair tokens
+          for (let attempt = 0; attempt < 3 && !pairTokenSuccess; attempt++) {
+            try {
+              console.log(`Order ${orderIdNum} pair token fetch attempt ${attempt + 1}`);
+              const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, workingProvider);
+              
+              const gasLimits = [100000, 150000, 200000];
+              const gasLimit = gasLimits[attempt] || 100000;
+              
+              [token0Address, token1Address] = await Promise.race([
+                Promise.all([
+                  pairContract.token0({ gasLimit }),
+                  pairContract.token1({ gasLimit })
+                ]),
+                new Promise<never>((_, reject) => 
+                  setTimeout(() => reject(new Error('Pair token fetch timeout')), 12000)
+                )
+              ]);
+              
+              pairTokenSuccess = true;
+              console.log(`Order ${orderIdNum} pair tokens successful - Token0: ${token0Address}, Token1: ${token1Address}`);
+            } catch (error) {
+              console.warn(`Order ${orderIdNum} pair token attempt ${attempt + 1} failed:`, error);
+              if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s between attempts
+              }
+            }
+          }
+          
+          if (!pairTokenSuccess || !token0Address || !token1Address) {
+            throw new Error(`Failed to get pair tokens for order ${orderIdNum} after all attempts`);
+          }
+
+          // Validate token addresses
+          if (!isValidAddress(token0Address) || !isValidAddress(token1Address)) {
+            throw new Error(`Invalid token addresses: ${token0Address}, ${token1Address}`);
+          }
+
+          // Determine actual token addresses based on sellToken0
+          const tokenSellAddress = orderData.sellToken0 ? token0Address : token1Address;
+          const tokenBuyAddress = orderData.sellToken0 ? token1Address : token0Address;
+
+          console.log(`Order ${orderIdNum} determined tokens - Sell: ${tokenSellAddress}, Buy: ${tokenBuyAddress}`);
+
+          // Fetch token info with enhanced error handling and retry
+          let tokenSellInfo, tokenBuyInfo;
+          let tokenInfoSuccess = false;
+          
+          for (let attempt = 0; attempt < 2 && !tokenInfoSuccess; attempt++) {
+            try {
+              console.log(`Order ${orderIdNum} token info fetch attempt ${attempt + 1}`);
+              [tokenSellInfo, tokenBuyInfo] = await Promise.all([
+                fetchTokenInfoSafe(tokenSellAddress, workingProvider, connectedChain.id),
+                fetchTokenInfoSafe(tokenBuyAddress, workingProvider, connectedChain.id)
+              ]);
+              
+              tokenInfoSuccess = true;
+              console.log(`Order ${orderIdNum} token info - Sell: ${tokenSellInfo.symbol}, Buy: ${tokenBuyInfo.symbol}`);
+            } catch (error) {
+              console.warn(`Order ${orderIdNum} token info attempt ${attempt + 1} failed:`, error);
+              if (attempt < 1) {
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5s between attempts
+              }
+            }
+          }
+          
+          if (!tokenInfoSuccess || !tokenSellInfo || !tokenBuyInfo) {
+            throw new Error(`Failed to fetch token info for order ${orderIdNum} after all attempts`);
+          }
+
+          // Calculate price with enhanced error handling and multiple retry strategies
+          let currentPrice = '0';
+          let triggerPrice = '0';  
+          let dropPercentage = 0;
+          let priceDataAvailable = false;
+
+          // Multiple price calculation attempts with different strategies
+          for (let priceAttempt = 0; priceAttempt < 3 && !priceDataAvailable; priceAttempt++) {
+            try {
+              console.log(`Order ${orderIdNum} price calculation attempt ${priceAttempt + 1}...`);
+              
+              // Strategy 1: Normal calculation
+              if (priceAttempt === 0) {
+                const priceData = await calculatePairPriceWithTokensSafe(
+                  orderData.pair,
+                  tokenSellAddress,
+                  tokenBuyAddress,
+                  workingProvider,
+                  connectedChain.id
+                );
+                
+                if (priceData.currentPrice > 0) {
+                  currentPrice = priceData.currentPrice.toFixed(6);
+                  priceDataAvailable = true;
+                }
+              }
+              // Strategy 2: Try with different RPC if Base Mainnet
+              else if (priceAttempt === 1 && connectedChain.id === '8453') {
+                const alternativeRpc = BASE_RPC_ENDPOINTS[1]; // Use second RPC
+                const altProvider = new ethers.JsonRpcProvider(alternativeRpc);
+                
+                const priceData = await calculatePairPriceWithSpecificProvider(
+                  orderData.pair,
+                  tokenSellAddress,
+                  tokenBuyAddress,
+                  altProvider,
+                  connectedChain.id,
+                  1 // Single retry
+                );
+                
+                if (priceData.currentPrice > 0) {
+                  currentPrice = priceData.currentPrice.toFixed(6);
+                  priceDataAvailable = true;
+                }
+              }
+              // Strategy 3: Manual reserves calculation as last resort
+              else if (priceAttempt === 2) {
+                console.log(`Order ${orderIdNum} trying manual price calculation...`);
+                const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, workingProvider);
+                
+                const reserves = await Promise.race([
+                  pairContract.getReserves({ gasLimit: 300000 }),
+                  new Promise<never>((_, reject) => 
+                    setTimeout(() => reject(new Error('Manual reserves timeout')), 8000)
+                  )
+                ]);
+                
+                if (reserves && reserves[0] > 0 && reserves[1] > 0) {
+                  const reserve0Num = parseFloat(ethers.formatUnits(reserves[0], tokenSellInfo.decimals === tokenBuyInfo.decimals ? 18 : (orderData.sellToken0 ? tokenSellInfo.decimals : tokenBuyInfo.decimals)));
+                  const reserve1Num = parseFloat(ethers.formatUnits(reserves[1], tokenSellInfo.decimals === tokenBuyInfo.decimals ? 18 : (orderData.sellToken0 ? tokenBuyInfo.decimals : tokenSellInfo.decimals)));
+                  
+                  if (reserve0Num > 0 && reserve1Num > 0) {
+                    const calculatedPrice = orderData.sellToken0 
+                      ? reserve1Num / reserve0Num
+                      : reserve0Num / reserve1Num;
+                    
+                    if (isFinite(calculatedPrice) && calculatedPrice > 0) {
+                      currentPrice = calculatedPrice.toFixed(6);
+                      priceDataAvailable = true;
+                      console.log(`Order ${orderIdNum} manual price calculation successful: ${currentPrice}`);
+                    }
+                  }
+                }
+              }
+              
+              // Calculate trigger price and drop percentage if we have current price
+              if (priceDataAvailable) {
+                const coefficient = Number(orderData.coefficient);
+                const threshold = Number(orderData.threshold);
+                
+                if (coefficient > 0 && threshold > 0) {
+                  const triggerPriceNum = threshold / coefficient;
+                  triggerPrice = triggerPriceNum.toFixed(6);
+
+                  // Calculate drop percentage
+                  const currentPriceNum = parseFloat(currentPrice);
+                  if (currentPriceNum > 0 && triggerPriceNum > 0) {
+                    dropPercentage = ((currentPriceNum - triggerPriceNum) / currentPriceNum) * 100;
+                    dropPercentage = Math.max(0, Math.min(100, dropPercentage));
+                    dropPercentage = Math.round(dropPercentage * 10) / 10;
+                  }
+                }
+                
+                console.log(`Order ${orderIdNum} price calculation successful (attempt ${priceAttempt + 1}) - Current: ${currentPrice}, Trigger: ${triggerPrice}, Drop: ${dropPercentage}%`);
+                break;
+              }
+              
+            } catch (priceError) {
+              console.warn(`Order ${orderIdNum} price calculation attempt ${priceAttempt + 1} failed:`, priceError);
+              if (priceAttempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between attempts
+              }
+            }
+          }
+          
+          // Log final result
+          if (!priceDataAvailable) {
+            console.warn(`Order ${orderIdNum} all price calculation attempts failed - using fallback values`);
+            // For executed orders, this is expected since they may not have active liquidity monitoring
+            if (orderData.status === 3) { // Executed
+              console.log(`Order ${orderIdNum} is executed - price calculation failure is expected`);
+            }
+          }
+
+          // Format amount
+          let formattedAmount = '0';
+          try {
+            if (orderData.amount && tokenSellInfo.decimals) {
+              formattedAmount = ethers.formatUnits(orderData.amount, tokenSellInfo.decimals);
+            }
+          } catch (error) {
+            console.warn(`Failed to format amount for order ${orderIdNum}:`, error);
+            formattedAmount = orderData.amount?.toString() || '0';
+          }
+
           const order: StopOrder = {
-            id: Number(orderId),
+            id: orderIdNum,
             pair: orderData.pair,
             client: connectedAccount,
-            tokenSell: orderData.tokenSell || tokenSellInfo.address,
-            tokenBuy: orderData.tokenBuy || tokenBuyInfo.address,
+            tokenSell: tokenSellAddress,
+            tokenBuy: tokenBuyAddress,
             amount: formattedAmount,
             sellToken0: orderData.sellToken0,
-            coefficient: orderData.coefficient.toString(),
-            threshold: orderData.threshold.toString(),
-            status: Number(orderData.status),
-            createdAt: Number(orderData.createdAt),
+            coefficient: orderData.coefficient?.toString() || '0',
+            threshold: orderData.threshold?.toString() || '0',
+            status: Number(orderData.status || 0),
+            createdAt: Number(orderData.createdAt || 0),
             executedAt: Number(orderData.executedAt || 0),
             tokenSellInfo,
             tokenBuyInfo,
-            currentPrice,
+            currentPrice: priceDataAvailable ? currentPrice : 'N/A',
             dropPercentage,
-            triggerPrice,
+            triggerPrice: priceDataAvailable ? triggerPrice : 'N/A',
             contractAddress: storedContracts.callbackContract
           };
-      
-          console.log('DASHBOARD: Processed personal order on', connectedChain.name, ':', order);
-          return order;
-        } catch (error) {
-          console.error('DASHBOARD: Error fetching personal order:', orderId, error);
-          return null;
-        }
-      });
 
-      const resolvedOrders = await Promise.all(orderPromises);
-      const validOrders = resolvedOrders.filter(order => order !== null) as StopOrder[];
-      
+          validOrders.push(order);
+          console.log(`Successfully processed order ${orderIdNum} - Status: ${order.status}, Pair: ${tokenSellInfo.symbol}/${tokenBuyInfo.symbol}`);
+
+        } catch (error: any) {
+          console.error(`Failed to process order ${orderIdNum}:`, error);
+          console.error(`Error details:`, error.message);
+          failedOrders.push(orderIdNum);
+        }
+        
+        // Add small delay between order processing to avoid rate limiting
+        if (orderIdNum < allOrderIds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // Sort by creation time
       validOrders.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('DASHBOARD: Final personal orders on', connectedChain.name, ':', validOrders.length, 'orders');
+      console.log(`DASHBOARD: Successfully processed ${validOrders.length} out of ${allOrderIds.length} orders`);
+      
+      if (failedOrders.length > 0) {
+        console.warn(`Failed orders: ${failedOrders.join(', ')}`);
+        toast.error(`${failedOrders.length} order(s) failed to load due to network issues`, {
+          duration: 5000
+        });
+      } else if (validOrders.length > 0) {
+        toast.success(`Successfully loaded ${validOrders.length} orders`);
+      }
+      
       setOrders(validOrders);
-    } catch (error) {
-      console.error('DASHBOARD: Error fetching personal orders for', connectedChain?.name, ':', error);
-      toast.error(`Failed to load personal stop orders from ${connectedChain?.name}`);
+    } catch (error: any) {
+      console.error('DASHBOARD: Critical error in fetchUserOrders:', error);
+      toast.error(`Failed to load orders: ${error.message}`, {
+        duration: 8000
+      });
       setOrders([]);
       setUserContracts(null);
       setContractsValid(false);
@@ -1260,10 +1859,9 @@ export default function UpdatedPersonalStopOrderDashboard() {
     setIsRefreshing(true);
     await fetchUserOrders();
     setIsRefreshing(false);
-    toast.success('Personal orders refreshed');
   };
 
-  // ===== UPDATED ACTION HANDLERS FOR PERSONAL CONTRACTS =====
+  // ===== ORDER ACTION HANDLERS =====
   const handleCancelOrder = async (orderId: number) => {
     if (!connectedChain || !userContracts) return;
     
@@ -1425,6 +2023,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
 
           if (accounts.length > 0) {
             setConnectedAccount(accounts[0].address);
+            console.log('DASHBOARD: Connected account:', accounts[0].address);
           }
 
           const chainId = network.chainId.toString();
@@ -1468,6 +2067,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
 
   useEffect(() => {
     if (connectedAccount && contractData !== undefined && connectedChain) {
+      console.log('DASHBOARD: Triggering order fetch due to dependency change');
       fetchUserOrders();
     }
   }, [connectedAccount, contractData, connectedChain, fetchUserOrders]);
@@ -1548,10 +2148,18 @@ export default function UpdatedPersonalStopOrderDashboard() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-200">
-                          {Number(order.currentPrice).toFixed(6) || '0.000000'}
+                          {order.currentPrice === 'N/A' ? (
+                            <span className="text-slate-400 italic">Price unavailable</span>
+                          ) : (
+                            Number(order.currentPrice).toFixed(6)
+                          )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-red-300">
-                          {order.triggerPrice || '0.000000'}
+                        <td className="px-6 py-4 text-sm">
+                          {order.triggerPrice === 'N/A' ? (
+                            <span className="text-slate-400 italic">N/A</span>
+                          ) : (
+                            <span className="text-red-300">{order.triggerPrice}</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm text-amber-300">
                           -{order.dropPercentage || 0}%
@@ -1650,6 +2258,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
           <p className="text-slate-300">Loading your personal stop orders...</p>
+          <p className="text-slate-500 text-sm mt-2">Connecting to blockchain and fetching contract data...</p>
         </div>
       </div>
     );
@@ -1844,6 +2453,30 @@ export default function UpdatedPersonalStopOrderDashboard() {
           </motion.div>
         )}
 
+        {/* Error State for Failed Orders */}
+        {orders.length === 0 && userContracts && contractsValid && !isLoading && (
+          <Alert className="bg-orange-900/20 border-orange-600/30 text-orange-200 mb-8">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-medium">No orders found in your personal contracts</p>
+                <p className="text-sm">
+                  Your personal contracts are deployed and active, but no stop orders were found. This could be due to:
+                </p>
+                <ul className="text-xs list-disc list-inside space-y-1 ml-4">
+                  <li>No orders have been created yet</li>
+                  <li>All orders have been cancelled or executed</li>
+                  <li>Network connectivity issues with Base Mainnet</li>
+                  <li>Contract synchronization delays</li>
+                </ul>
+                <p className="text-xs text-orange-300 mt-2">
+                  Try creating a new order or refreshing the page if you expect to see orders.
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Empty State */}
         {!userContracts && orders.length === 0 && !isLoading && (
           <Card className="border-slate-700 bg-slate-900/50">
@@ -1873,7 +2506,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
               <div className="space-y-2">
                 <p className="font-medium">Personal Contract System Ready on Base Mainnet</p>
                 <p className="text-sm">
-                  Your first stop order will deploy your personal smart contracts - callback contract on Base Mainnet and reactive contract on Lasna. 
+                  Your first stop order will deploy your personal smart contracts - callback contract on Base Mainnet and reactive contract on Reactive Network. 
                   You'll own these contracts completely and can add unlimited additional orders at minimal cost (~$0.50-2 per order).
                 </p>
                 <p className="text-xs text-blue-300 mt-2">
