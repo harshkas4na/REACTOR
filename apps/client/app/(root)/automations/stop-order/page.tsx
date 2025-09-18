@@ -161,7 +161,7 @@ const checkContractFundingStatus = async (
     const totalReserves = reactiveReserves;
     
     // Contract is active if it has sufficient balance and reserves > debt
-    const hasBalance = reactiveBalance > ethers.parseEther('0.001') && callbackBalance > ethers.parseEther('0.001');
+    const hasBalance = reactiveBalance > ethers.parseEther('0.00001') && callbackBalance > ethers.parseEther('0.00001');
     const isActive = totalReserves >= totalDebt && hasBalance;
     
     console.log('Contract funding status:', {
@@ -381,7 +381,7 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
   ]
 };
 
-// ===== ENHANCED TOKEN SERVICE CLASS =====
+// ===== ENHANCED TOKEN SERVICE CLASS WITH ALCHEMY INTEGRATION =====
 class TokenService {
   private static cache = new Map<string, { data: Token[]; timestamp: number }>();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -409,12 +409,112 @@ class TokenService {
       return cachedTokens;
     }
 
-    const tokens = chainId === '8453' 
-      ? await this.fetchPopularTokensWithBalances(chainId, address)
-      : await this.fetchTokensFromEthplorer(chainId, address);
+    let tokens: Token[] = [];
+    
+    if (chainId === '8453') { // Base Mainnet - use Alchemy API
+      tokens = await this.fetchTokensFromAlchemy(address);
+    } else {
+      tokens = await this.fetchTokensFromEthplorer(chainId, address);
+    }
     
     this.setCachedTokens(cacheKey, tokens);
     return tokens;
+  }
+
+  private static async fetchTokensFromAlchemy(address: string): Promise<Token[]> {
+    try {
+      console.log('Fetching tokens from Alchemy API for Base mainnet address:', address);
+      
+      const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_BASE_API_KEY;
+      if (!apiKey) {
+        console.warn('Alchemy API key not found, falling back to popular tokens method');
+        return this.fetchPopularTokensWithBalances('8453', address);
+      }
+
+      const options = {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          addresses: [{
+            address: address,
+            networks: ["base-mainnet"]
+          }]
+        })
+      };
+
+      const response = await fetch(`https://api.g.alchemy.com/data/v1/docs-demo/assets/tokens/by-address`, options);
+
+      if (!response.ok) {
+        throw new Error(`Alchemy API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data || !data.data || !Array.isArray(data.data)) {
+        throw new Error('Invalid response format from Alchemy API');
+      }
+
+      const tokens: Token[] = [];
+
+      for (const addressData of data.data) {
+        if (addressData.address !== address || !addressData.tokenBalances) continue;
+        
+        for (const tokenBalance of addressData.tokenBalances) {
+          try {
+            const tokenInfo = tokenBalance.tokenMetadata;
+            if (!tokenInfo || !tokenInfo.contractAddress || !tokenInfo.symbol || !tokenInfo.name) {
+              continue;
+            }
+
+            const decimals = parseInt(tokenInfo.decimals) || 18;
+            const rawBalance = tokenBalance.tokenBalance || '0';
+            
+            let balance = '0';
+            if (rawBalance && rawBalance !== '0' && rawBalance !== '0x0') {
+              try {
+                // Remove 0x prefix and convert hex to decimal
+                const cleanBalance = rawBalance.startsWith('0x') ? rawBalance.slice(2) : rawBalance;
+                const balanceWei = BigInt('0x' + cleanBalance);
+                balance = ethers.formatUnits(balanceWei, decimals);
+                const balanceNumber = parseFloat(balance);
+                balance = balanceNumber > 0 ? balanceNumber.toFixed(6) : '0';
+              } catch (balanceError) {
+                console.warn('Error parsing balance for token:', tokenInfo.symbol, balanceError);
+                balance = '0';
+              }
+            }
+
+            if (parseFloat(balance) > 0) {
+              tokens.push({
+                address: tokenInfo.contractAddress,
+                symbol: tokenInfo.symbol,
+                name: tokenInfo.name,
+                decimals: decimals,
+                balance: balance,
+                logoURI: tokenInfo.logo || `https://tokens.1inch.io/${tokenInfo.contractAddress.toLowerCase()}.png`
+              });
+            }
+          } catch (tokenError) {
+            console.warn('Error processing token data:', tokenError, tokenBalance);
+          }
+        }
+      }
+
+      console.log(`Successfully fetched ${tokens.length} tokens with positive balance from Alchemy`);
+      
+      if (tokens.length > 0) {
+        return tokens;
+      }
+
+      console.log('No tokens found via Alchemy, falling back to popular tokens method');
+      return this.fetchPopularTokensWithBalances('8453', address);
+
+    } catch (error) {
+      console.error('Error fetching tokens from Alchemy API:', error);
+      
+      console.log('Falling back to popular tokens method due to Alchemy API error');
+      return this.fetchPopularTokensWithBalances('8453', address);
+    }
   }
 
   private static async fetchTokensFromEthplorer(chainId: string, address: string): Promise<Token[]> {
@@ -609,7 +709,7 @@ class TokenService {
   }
 }
 
-// Helper function to format large numbers
+// Helper function to format large numbers with improved small amount handling
 function formatTokenBalance(balance: string): string {
   const num = parseFloat(balance);
   if (num === 0) return '0';
@@ -619,6 +719,97 @@ function formatTokenBalance(balance: string): string {
   if (num < 1000000) return `${(num / 1000).toFixed(2)}K`;
   return `${(num / 1000000).toFixed(2)}M`;
 }
+
+// ===== TRANSACTION PROGRESS INDICATOR COMPONENT =====
+const TransactionProgressIndicator = ({ 
+  steps, 
+  currentStep, 
+  isVisible 
+}: { 
+  steps: Array<{
+    id: DeploymentStep;
+    title: string;
+    description: string;
+  }>;
+  currentStep: DeploymentStep;
+  isVisible: boolean;
+}) => {
+  if (!isVisible) return null;
+
+  const getCurrentStepIndex = () => {
+    return steps.findIndex(step => step.id === currentStep);
+  };
+
+  const currentStepIndex = getCurrentStepIndex();
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="bg-zinc-900/95 border border-zinc-700 rounded-xl p-4 sm:p-6 mb-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-zinc-100">Transaction Progress</h3>
+          <div className="text-sm text-zinc-400">
+            {currentStepIndex + 1} of {steps.length}
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          {steps.map((step, index) => {
+            const isActive = index === currentStepIndex;
+            const isCompleted = index < currentStepIndex;
+            const isPending = index > currentStepIndex;
+            
+            return (
+              <div key={step.id} className="flex items-start space-x-3">
+                <div className="flex-shrink-0 mt-1">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                    isCompleted 
+                      ? 'bg-green-500 border-green-500 text-white' 
+                      : isActive 
+                      ? 'bg-blue-500 border-blue-500 text-white' 
+                      : 'bg-zinc-800 border-zinc-600 text-zinc-400'
+                  }`}>
+                    {isCompleted ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : isActive ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <div className={`w-2 h-2 rounded-full ${
+                        isPending ? 'bg-zinc-600' : 'bg-current'
+                      }`} />
+                    )}
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className={`w-0.5 h-8 ml-3 mt-2 transition-colors duration-300 ${
+                      isCompleted ? 'bg-green-500' : 'bg-zinc-700'
+                    }`} />
+                  )}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium transition-colors duration-300 ${
+                    isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-zinc-400'
+                  }`}>
+                    {step.title}
+                  </p>
+                  <p className={`text-sm mt-1 transition-colors duration-300 ${
+                    isActive ? 'text-blue-400' : isCompleted ? 'text-green-400' : 'text-zinc-500'
+                  }`}>
+                    {step.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
 
 // ===== ENHANCED TOKEN SELECTION MODAL =====
 const TokenSelectionModal = ({ 
@@ -960,6 +1151,20 @@ const EnhancedStatusIndicator = ({
     }
   };
 
+  const getCostInfo = () => {
+    if (!connectedChain || safeStatus.type !== 'success') return '';
+    
+    if (existingContracts && contractsValid && contractFundingStatus?.isActive) {
+      return connectedChain.id === '8453' 
+        ? 'Gas fee only (~$0.50-1)'
+        : 'Gas fee only (~$2-5)';
+    } else {
+      return connectedChain.id === '8453'
+        ? `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 1 ${connectedChain.rscNetwork.currencySymbol} + gas (~$2-5)`
+        : `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 1 ${connectedChain.rscNetwork.currencySymbol} + gas (~$5-15)`;
+    }
+  };
+
   return (
     <Alert className={`${getStatusStyles()} mb-6 sm:mb-8 lg:mb-10`}>
       <div className="flex items-start space-x-3">
@@ -975,76 +1180,11 @@ const EnhancedStatusIndicator = ({
           )}
           {connectedChain && safeStatus.type === 'success' && (
             <div className="text-xs sm:text-sm mt-1 opacity-80">
-              Cost: {existingContracts && contractsValid && contractFundingStatus?.isActive
-                ? 'Gas fee only (~$0.50-2)' 
-                : connectedChain.id === '8453'
-                ? `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 0.1 ${connectedChain.rscNetwork.currencySymbol} + gas (~$5-15)`
-                : `~${connectedChain.defaultFunding} ${connectedChain.nativeCurrency} + 0.1 ${connectedChain.rscNetwork.currencySymbol} + gas`
-              }
+              Cost: {getCostInfo()}
             </div>
           )}
         </AlertDescription>
       </div>
-    </Alert>
-  );
-};
-
-// ===== DEPLOYMENT STATUS COMPONENT =====
-const DeploymentStatus = ({ deploymentStep }: { deploymentStep: DeploymentStep }) => {
-  const getFundingStepDescription = (step: DeploymentStep) => {
-    switch (step) {
-      case 'checking-contracts':
-        return { title: 'Checking Existing Contracts', message: 'Looking for your existing stop order contracts...', color: 'blue' };
-      case 'checking-approval':
-        return { title: 'Checking Token Approval', message: 'Verifying if tokens are approved for trading...', color: 'blue' };
-      case 'approving':
-        return { title: 'Approving Tokens', message: 'Please confirm token approval in your wallet...', color: 'yellow' };
-      case 'switching-rsc':
-        return { title: 'Switching to Reactive Network', message: 'Please confirm network switch in your wallet...', color: 'purple' };
-      case 'funding-rsc':
-        return { title: 'Funding RSC System', message: 'Sending 0.1 REACT to the system contract...', color: 'blue' };
-      case 'deploying-callback':
-        return { title: 'Deploying Callback Contract', message: 'Creating your personal callback contract on Base/Sepolia...', color: 'green' };
-      case 'deploying-reactive':
-        return { title: 'Deploying Reactive Contract', message: 'Creating your multi-order stop loss contract on Reactive Network...', color: 'green' };
-      case 'creating-order':
-        return { title: 'Creating Stop Order', message: 'Adding stop order to your contract...', color: 'green' };
-      case 'covering-callback-debt':
-        return { title: 'Covering Callback Debt', message: 'Funding callback contract and clearing debt...', color: 'purple' };
-      case 'covering-rsc-debt':
-        return { title: 'Covering RSC Debt', message: 'Funding RSC contract and clearing debt...', color: 'purple' };
-      case 'complete':
-        return { title: 'Stop Order Active!', message: 'Your stop order is now monitoring prices 24/7', color: 'green' };
-      default:
-        return null;
-    }
-  };
-
-  if (deploymentStep === 'idle') return null;
-
-  const stepInfo = getFundingStepDescription(deploymentStep);
-  if (!stepInfo) return null;
-
-  const colorClasses = {
-    blue: 'bg-blue-900/20 border-blue-500/50 text-blue-300',
-    purple: 'bg-purple-900/20 border-purple-500/50 text-purple-300',
-    green: 'bg-green-900/20 border-green-500/50 text-green-300',
-    yellow: 'bg-yellow-900/20 border-yellow-500/50 text-yellow-300'
-  };
-
-  return (
-    <Alert className={colorClasses[stepInfo.color as keyof typeof colorClasses]}>
-      {deploymentStep === 'complete' ? (
-        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-      ) : (
-        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-      )}
-      <AlertDescription>
-        <div className="space-y-1">
-          <span className="font-medium text-zinc-200 text-sm sm:text-base">{stepInfo.title}</span>
-          <div className="text-xs sm:text-sm opacity-80">{stepInfo.message}</div>
-        </div>
-      </AlertDescription>
     </Alert>
   );
 };
@@ -1083,7 +1223,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     threshold: '',
     amount: '',
     destinationFunding: '0.0003',
-    rscFunding: '0.1',
+    rscFunding: '1',
     dropPercentage: '10',
     currentPrice: '',
     stopPrice: ''
@@ -1126,6 +1266,26 @@ export default function EnhancedStopOrderWithPersonalContracts() {
   );
 
   const shouldDisableTokenSelection = !!contractsHaveDebt && !!existingContracts && contractsValid;
+
+  // Define deployment steps
+  const deploymentSteps = [
+    { id: 'checking-contracts' as DeploymentStep, title: 'Checking Contracts', description: 'Looking for existing stop order contracts...' },
+    { id: 'checking-approval' as DeploymentStep, title: 'Checking Approval', description: 'Verifying token approvals...' },
+    { id: 'approving' as DeploymentStep, title: 'Approving Tokens', description: 'Please confirm token approval in wallet...' },
+    { id: 'deploying-callback' as DeploymentStep, title: 'Deploying Callback', description: 'Creating callback contract on Base/Sepolia...' },
+    { id: 'switching-rsc' as DeploymentStep, title: 'Switching Network', description: 'Please switch to Reactive Network...' },
+    { id: 'deploying-reactive' as DeploymentStep, title: 'Deploying Reactive', description: 'Creating reactive contract...' },
+    { id: 'funding-rsc' as DeploymentStep, title: 'Funding RSC', description: 'Sending 1 REACT to system contract...' },
+    { id: 'storing-contracts' as DeploymentStep, title: 'Storing Contracts', description: 'Saving contract addresses...' },
+    { id: 'creating-order' as DeploymentStep, title: 'Creating Order', description: 'Adding stop order to contract...' },
+    { id: 'complete' as DeploymentStep, title: 'Complete', description: 'Stop order is now active!' }
+  ];
+
+  const debtCoveringSteps = [
+    { id: 'covering-callback-debt' as DeploymentStep, title: 'Covering Callback Debt', description: 'Funding callback contract...' },
+    { id: 'covering-rsc-debt' as DeploymentStep, title: 'Covering RSC Debt', description: 'Funding RSC contract...' },
+    { id: 'complete' as DeploymentStep, title: 'Complete', description: 'Contracts are now active!' }
+  ];
 
   useEffect(() => {
     return () => {
@@ -1311,7 +1471,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
               setFormData(prev => ({
                 ...prev,
                 destinationFunding: connectedChain.defaultFunding,
-                rscFunding: '0.1'
+                rscFunding: '1'
               }));
             }
           } else {
@@ -1323,7 +1483,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             setFormData(prev => ({
               ...prev,
               destinationFunding: connectedChain.defaultFunding,
-              rscFunding: '0.1'
+              rscFunding: '1'
             }));
           }
         } else {
@@ -1335,7 +1495,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           setFormData(prev => ({
             ...prev,
             destinationFunding: connectedChain.defaultFunding,
-            rscFunding: '0.1'
+            rscFunding: '1'
           }));
         }
       } catch (error) {
@@ -1351,27 +1511,39 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     validateContracts();
   }, [connectedAccount, connectedChain, contractData]);
 
-  // Calculate threshold from percentage using actual current price
+  // ===== FIXED THRESHOLD CALCULATION FUNCTION WITH DYNAMIC COEFFICIENT =====
   const calculateThresholdFromPercentage = useCallback((percentage: string) => {
-    if (!percentage || isNaN(parseFloat(percentage)) || !formData.selectedPair) return;
+    if (!percentage || isNaN(parseFloat(percentage)) || !formData.selectedPair || !formData.sellToken || !formData.buyToken) return;
     
     const dropPercent = parseFloat(percentage);
-    const coefficient = 1000;
     
+    console.log('=== CALCULATING THRESHOLD WITH DYNAMIC COEFFICIENT ===');
+    console.log('Trading pair:', formData.selectedPair);
+    console.log('Sell token:', formData.sellToken.symbol, 'Decimals:', formData.sellToken.decimals);
+    console.log('Buy token:', formData.buyToken.symbol, 'Decimals:', formData.buyToken.decimals);
+    console.log('sellToken0:', formData.sellToken0);
+    console.log('Raw reserve0:', formData.selectedPair.reserve0);
+    console.log('Raw reserve1:', formData.selectedPair.reserve1);
+    
+    // The reserves are already properly formatted with decimals from the pair finding logic
+    // So we can directly use them as decimal numbers
     const reserve0 = parseFloat(formData.selectedPair.reserve0);
     const reserve1 = parseFloat(formData.selectedPair.reserve1);
     
-    if (reserve0 <= 0 || reserve1 <= 0) {
-      console.error('Invalid reserves for threshold calculation');
+    if (reserve0 <= 0 || reserve1 <= 0 || !isFinite(reserve0) || !isFinite(reserve1)) {
+      console.error('Invalid reserves for threshold calculation:', { reserve0, reserve1 });
       return;
     }
 
+    // Calculate current price based on which token we're selling
+    // If sellToken0 = true: we're selling token0, so price = reserve1/reserve0 (token1 per token0)
+    // If sellToken0 = false: we're selling token1, so price = reserve0/reserve1 (token0 per token1)
     const currentPrice = formData.sellToken0 
-      ? reserve1 / reserve0
-      : reserve0 / reserve1;
+      ? reserve1 / reserve0  // Selling token0, getting token1
+      : reserve0 / reserve1; // Selling token1, getting token0
 
     if (currentPrice <= 0 || !isFinite(currentPrice)) {
-      console.error('Invalid current price calculated from reserves');
+      console.error('Invalid current price calculated from reserves:', currentPrice);
       return;
     }
 
@@ -1382,15 +1554,50 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       return;
     }
     
-    const threshold = Math.floor(stopPrice * coefficient);
+    // CRITICAL FIX: Dynamic coefficient based on price magnitude and token decimals
+    // We need to ensure the threshold is a meaningful integer (> 0)
+    let coefficient = 1000; // Default coefficient
     
-    console.log('Updated threshold calculation:', {
-      currentPrice,
-      dropPercent,
-      stopPrice,
-      coefficient,
-      threshold
-    });
+    // Calculate what the threshold would be with default coefficient
+    let potentialThreshold = Math.floor(stopPrice * coefficient);
+    
+    // If threshold would be 0 or very small, increase coefficient
+    if (potentialThreshold < 10) {
+      // For very small prices, we need much larger coefficients
+      // Try different coefficient scales until we get a meaningful threshold
+      const coefficientOptions = [1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000];
+      
+      for (const testCoeff of coefficientOptions) {
+        const testThreshold = Math.floor(stopPrice * testCoeff);
+        if (testThreshold >= 100) { // Ensure threshold is at least 100 for meaningful precision
+          coefficient = testCoeff;
+          potentialThreshold = testThreshold;
+          break;
+        }
+      }
+      
+      // If still too small, use the largest coefficient
+      if (potentialThreshold < 10) {
+        coefficient = 1000000000;
+        potentialThreshold = Math.floor(stopPrice * coefficient);
+      }
+    }
+    
+    const threshold = potentialThreshold;
+    
+    console.log('=== CALCULATION RESULTS ===');
+    console.log('Current price:', currentPrice);
+    console.log('Drop percentage:', dropPercent);
+    console.log('Stop price:', stopPrice);
+    console.log('Dynamic coefficient:', coefficient);
+    console.log('Threshold (integer):', threshold);
+    console.log('Threshold validation:', threshold > 0 ? 'VALID' : 'INVALID');
+    console.log('=== END CALCULATION ===');
+    
+    if (threshold <= 0) {
+      console.error('CRITICAL ERROR: Threshold is still 0 even with dynamic coefficient!');
+      return;
+    }
     
     setFormData(prev => ({
       ...prev,
@@ -1400,7 +1607,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       currentPrice: currentPrice.toString(),
       stopPrice: stopPrice.toString()
     }));
-  }, [formData.selectedPair, formData.sellToken0]);
+  }, [formData.selectedPair, formData.sellToken0, formData.sellToken, formData.buyToken]);
 
   // ===== ENHANCED DEBT COVERING FUNCTION =====
   const handleCoverDebt = useCallback(async () => {
@@ -1436,7 +1643,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const callbackProvider = new ethers.BrowserProvider(window.ethereum);
         const callbackSigner = await callbackProvider.getSigner();
 
-        const callbackFundingAmount = callbackDebt + 0.01;
+        const callbackFundingAmount = callbackDebt + 0.001;
         console.log(`Sending ${callbackFundingAmount} ETH to callback contract`);
         
         const fundCallbackTx = await callbackSigner.sendTransaction({
@@ -1631,12 +1838,13 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         );
 
         const dropPercent = parseFloat(formData.dropPercentage);
-        const coefficient = 1000;
-
+        
+        // CRITICAL FIX: Use dynamic coefficient system matching the threshold calculation
+        // Calculate current price from properly formatted reserves
         const reserve0 = parseFloat(formData.selectedPair.reserve0);
         const reserve1 = parseFloat(formData.selectedPair.reserve1);
         
-        if (reserve0 <= 0 || reserve1 <= 0) {
+        if (reserve0 <= 0 || reserve1 <= 0 || !isFinite(reserve0) || !isFinite(reserve1)) {
           throw new Error('Invalid pair reserves - no liquidity available');
         }
 
@@ -1654,10 +1862,33 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           throw new Error('Invalid stop price - check your drop percentage');
         }
         
-        const threshold = Math.floor(stopPrice * coefficient);
+        // Dynamic coefficient matching the calculateThresholdFromPercentage function
+        let coefficient = 1000; // Default coefficient
+        let potentialThreshold = Math.floor(stopPrice * coefficient);
+        
+        // If threshold would be 0 or very small, increase coefficient
+        if (potentialThreshold < 10) {
+          const coefficientOptions = [1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000];
+          
+          for (const testCoeff of coefficientOptions) {
+            const testThreshold = Math.floor(stopPrice * testCoeff);
+            if (testThreshold >= 100) {
+              coefficient = testCoeff;
+              potentialThreshold = testThreshold;
+              break;
+            }
+          }
+          
+          if (potentialThreshold < 10) {
+            coefficient = 1000000000;
+            potentialThreshold = Math.floor(stopPrice * coefficient);
+          }
+        }
+        
+        const threshold = potentialThreshold;
         
         if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
-          throw new Error('Invalid threshold calculated - check parameters');
+          throw new Error(`Invalid threshold calculated: ${threshold}. Current price threshold would be: ${Math.floor(currentPrice * coefficient)}`);
         }
 
         console.log('Adding order with params:', {
@@ -1665,7 +1896,10 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           sellToken0: formData.sellToken0,
           amount: requiredAmount,
           coefficient,
-          threshold
+          threshold,
+          currentPrice,
+          stopPrice,
+          dropPercent
         });
 
         const createOrderTx = await callbackContract.createStopOrder(
@@ -1765,7 +1999,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast.success('Tokens approved for personal contract');
         }
 
-        setDeploymentStep('deploying-reactive');
+        setDeploymentStep('switching-rsc');
         console.log('Switching to RSC to deploy personal reactive contract...');
         await switchToRSCNetwork();
         
@@ -1774,6 +2008,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
         const rscSigner2 = await rscProvider2.getSigner();
 
+        setDeploymentStep('deploying-reactive');
         console.log('Deploying personal reactive contract...');
         console.log('Constructor params:', {
           callbackAddress: callbackContractAddress
@@ -1789,7 +2024,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           connectedAccount,
           callbackContractAddress,
           { 
-            value: ethers.parseEther("0.1"),
+            value: ethers.parseEther("1"),
             gasLimit: 5000000 
           }
         );
@@ -1830,12 +2065,13 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         );
 
         const dropPercent = parseFloat(formData.dropPercentage);
-        const coefficient = 1000;
-
+        
+        // CRITICAL FIX: Use dynamic coefficient system matching the threshold calculation
+        // Calculate current price from properly formatted reserves
         const reserve0 = parseFloat(formData.selectedPair.reserve0);
         const reserve1 = parseFloat(formData.selectedPair.reserve1);
         
-        if (reserve0 <= 0 || reserve1 <= 0) {
+        if (reserve0 <= 0 || reserve1 <= 0 || !isFinite(reserve0) || !isFinite(reserve1)) {
           throw new Error('Invalid pair reserves - no liquidity available');
         }
 
@@ -1853,7 +2089,30 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           throw new Error('Invalid stop price - check your drop percentage');
         }
         
-        const threshold = Math.floor(stopPrice * coefficient);
+        // Dynamic coefficient matching the calculateThresholdFromPercentage function
+        let coefficient = 1000; // Default coefficient
+        let potentialThreshold = Math.floor(stopPrice * coefficient);
+        
+        // If threshold would be 0 or very small, increase coefficient
+        if (potentialThreshold < 10) {
+          const coefficientOptions = [1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000];
+          
+          for (const testCoeff of coefficientOptions) {
+            const testThreshold = Math.floor(stopPrice * testCoeff);
+            if (testThreshold >= 100) {
+              coefficient = testCoeff;
+              potentialThreshold = testThreshold;
+              break;
+            }
+          }
+          
+          if (potentialThreshold < 10) {
+            coefficient = 1000000000;
+            potentialThreshold = Math.floor(stopPrice * coefficient);
+          }
+        }
+        
+        const threshold = potentialThreshold;
 
         console.log('Creating first order on personal callback contract with params:', {
           pair: formData.selectedPair.pairAddress,
@@ -2059,7 +2318,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     return () => clearTimeout(preloadTimer);
   }, [connectedAccount, connectedChain, isInitializing]);
 
-  // Find trading pair when both tokens are selected
+  // ===== FIXED FIND TRADING PAIR FUNCTION WITH PROPER DECIMAL HANDLING =====
   useEffect(() => {
     const findTradingPair = async () => {
       if (!formData.sellToken || !formData.buyToken || !connectedChain) return;
@@ -2097,24 +2356,56 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           pairContract.token0()
         ]);
 
+        console.log('=== PAIR FINDING WITH FIXED DECIMAL HANDLING ===');
+        console.log('Pair address:', pairAddress);
+        console.log('Pair token0:', pairToken0);
+        console.log('Sell token:', formData.sellToken.address, formData.sellToken.symbol, formData.sellToken.decimals);
+        console.log('Buy token:', formData.buyToken.address, formData.buyToken.symbol, formData.buyToken.decimals);
+        console.log('Raw reserves[0]:', reserves[0].toString());
+        console.log('Raw reserves[1]:', reserves[1].toString());
+
+        // Determine which token is token0 and which is token1
         const isToken0First = pairToken0.toLowerCase() === formData.sellToken.address.toLowerCase();
-        const reserve0 = ethers.formatUnits(reserves[0], isToken0First ? formData.sellToken.decimals : formData.buyToken.decimals);
-        const reserve1 = ethers.formatUnits(reserves[1], isToken0First ? formData.buyToken.decimals : formData.sellToken.decimals);
         
+        console.log('isToken0First (sellToken is token0):', isToken0First);
+
+        // CRITICAL FIX: Apply correct decimals to each reserve
+        let reserve0: string, reserve1: string;
+        
+        if (isToken0First) {
+          // sellToken is token0, buyToken is token1
+          reserve0 = ethers.formatUnits(reserves[0], formData.sellToken.decimals);
+          reserve1 = ethers.formatUnits(reserves[1], formData.buyToken.decimals);
+        } else {
+          // buyToken is token0, sellToken is token1  
+          reserve0 = ethers.formatUnits(reserves[0], formData.buyToken.decimals);
+          reserve1 = ethers.formatUnits(reserves[1], formData.sellToken.decimals);
+        }
+        
+        console.log('Formatted reserve0:', reserve0);
+        console.log('Formatted reserve1:', reserve1);
+        
+        // Calculate current price for display
         const currentPrice = isToken0First 
-          ? parseFloat(reserve1) / parseFloat(reserve0)
-          : parseFloat(reserve0) / parseFloat(reserve1);
+          ? parseFloat(reserve1) / parseFloat(reserve0)  // token1 per token0 (buyToken per sellToken)
+          : parseFloat(reserve0) / parseFloat(reserve1); // token0 per token1 (buyToken per sellToken)
+
+        console.log('Current price (buyToken per sellToken):', currentPrice);
 
         const tradingPair: TradingPair = {
           token0: isToken0First ? formData.sellToken : formData.buyToken,
           token1: isToken0First ? formData.buyToken : formData.sellToken,
           pairAddress,
-          reserve0,
-          reserve1,
+          reserve0,  // Already properly formatted
+          reserve1,  // Already properly formatted
           currentPrice
         };
 
         const sellToken0 = pairToken0.toLowerCase() === formData.sellToken.address.toLowerCase();
+
+        console.log('Final tradingPair:', tradingPair);
+        console.log('sellToken0 flag:', sellToken0);
+        console.log('=== END PAIR FINDING ===');
 
         setFormData(prev => ({ 
           ...prev, 
@@ -2290,60 +2581,63 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             contractFundingStatus={contractFundingStatus}
           />
 
-          {/* Deployment Status */}
-          <DeploymentStatus deploymentStep={deploymentStep} />
+          {/* Transaction Progress Indicator */}
+          <TransactionProgressIndicator
+            steps={isCoveringDebt ? debtCoveringSteps : deploymentSteps}
+            currentStep={deploymentStep}
+            isVisible={deploymentStep !== 'idle'}
+          />
 
-          {/* Debt Warning Card - Show when contracts exist but have debt */}
+          {/* Debt Warning Card - Enhanced Design */}
           {contractsHaveDebt && existingContracts && contractsValid && (
-            <Alert className="bg-amber-900/20 border-amber-500/30 text-amber-200">
-              <AlertTriangle className="h-4 w-4 sm:h-5 sm:h-5" />
-              <AlertDescription>
-                <div className="space-y-3">
-                  <div>
-                    <span className="font-medium text-amber-200">Contract Debt Outstanding</span>
-                    <div className="text-xs sm:text-sm mt-1 opacity-80">
-                      Your personal contracts have accumulated debt and need funding before you can create new orders.
+            <Card className="bg-zinc-900/95 border-zinc-700 shadow-xl">
+              <CardHeader className="border-b border-zinc-700 pb-4">
+                <CardTitle className="text-zinc-100 flex items-center text-lg">
+                  <AlertTriangle className="h-5 w-5 mr-3 text-zinc-400" />
+                  Contract Debt Outstanding
+                </CardTitle>
+                <CardDescription className="text-zinc-400">
+                  Your personal contracts have accumulated debt and need funding before you can create new orders.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {parseFloat(contractFundingStatus?.callbackDebt || '0') > 0 && (
+                    <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+                      <p className="text-zinc-300 text-sm mb-1">Callback Contract Debt:</p>
+                      <p className="text-zinc-100 font-semibold">{parseFloat(contractFundingStatus?.callbackDebt || '0').toFixed(4)} ETH</p>
                     </div>
-                  </div>
+                  )}
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    {parseFloat(contractFundingStatus?.callbackDebt || '0') > 0 && (
-                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
-                        <p className="text-amber-300 mb-1">Callback Contract Debt:</p>
-                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.callbackDebt || '0').toFixed(4)} ETH</p>
-                      </div>
-                    )}
-                    
-                    {parseFloat(contractFundingStatus?.rscDebt || '0') > 0 && (
-                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
-                        <p className="text-amber-300 mb-1">RSC Contract Debt:</p>
-                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.rscDebt || '0').toFixed(4)} REACT</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t border-amber-500/20">
-                    <Button
-                      onClick={handleCoverDebt}
-                      disabled={isCoveringDebt || isDeploymentActive}
-                      className="bg-amber-600 hover:bg-amber-700 text-amber-50 text-sm"
-                    >
-                      {isCoveringDebt ? (
-                        <div className="flex items-center">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Covering Debt...
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <Wallet className="w-4 h-4 mr-2" />
-                          Cover Debt & Activate Contracts
-                        </div>
-                      )}
-                    </Button>
-                  </div>
+                  {parseFloat(contractFundingStatus?.rscDebt || '0') > 0 && (
+                    <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+                      <p className="text-zinc-300 text-sm mb-1">RSC Contract Debt:</p>
+                      <p className="text-zinc-100 font-semibold">{parseFloat(contractFundingStatus?.rscDebt || '0').toFixed(4)} REACT</p>
+                    </div>
+                  )}
                 </div>
-              </AlertDescription>
-            </Alert>
+
+                <div className="pt-4 border-t border-zinc-700">
+                  <Button
+                    onClick={handleCoverDebt}
+                    disabled={isCoveringDebt || isDeploymentActive}
+                    className="bg-zinc-700 hover:bg-zinc-600 text-zinc-100 border border-zinc-600 hover:border-zinc-500"
+                  >
+                    {isCoveringDebt ? (
+                      <div className="flex items-center">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Covering Debt...
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <Wallet className="w-4 h-4 mr-2" />
+                        Cover Debt & Activate Contracts
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Combined Stop Order Configuration */}
@@ -2360,7 +2654,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                         Add to existing
                       </div>
                     ) : (
-                      <div className="bg-amber-900/30 text-amber-300 flex items-center">
+                      <div className="bg-zinc-800/50 text-zinc-400 flex items-center">
                         <AlertTriangle className="w-3 h-3 mr-1" />
                         Needs funding
                       </div>
@@ -2462,7 +2756,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                   
                   {formData.sellToken?.balance && (
                     <div className="text-xs sm:text-sm text-zinc-400 mt-2">
-                      Balance: {parseFloat(formData.sellToken.balance).toFixed(4)} {formData.sellToken.symbol}
+                      Balance: {formatTokenBalance(formData.sellToken.balance)} {formData.sellToken.symbol}
                     </div>
                   )}
                 </div>
@@ -2721,7 +3015,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                       <div className="bg-blue-900/20 p-3 sm:p-4 rounded-lg border border-blue-500/20">
                         <h4 className="font-medium text-blue-200 mb-2 text-sm sm:text-base">Key Advantages</h4>
                         <p className="text-xs sm:text-sm text-blue-300">
-                          • Low gas costs (~$0.50-2 per transaction vs $20-100 on Ethereum)<br/>
+                          • Low gas costs (~$0.50-1 per transaction vs $20-100 on Ethereum)<br/>
                           • 2-second block times for responsive automation<br/>
                           • Growing ecosystem with major DeFi protocols<br/>
                           • Ethereum L1 security with L2 efficiency
@@ -2773,14 +3067,14 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                       <div className="bg-purple-900/20 p-3 sm:p-4 rounded-lg border border-purple-500/20">
                         <h4 className="font-medium text-purple-200 mb-2 text-sm sm:text-base">First Order (Contract Deployment)</h4>
                         <p className="text-xs sm:text-sm text-purple-300">
-                          ~0.0003 ETH + 0.1 REACT + gas fees (~$5-15 total). Deploys your personal contracts and creates first stop order.
+                          ~0.0003 ETH + 1 REACT + gas fees (~$2-5 total). Deploys your personal contracts and creates first stop order.
                         </p>
                       </div>
                       
                       <div className="bg-green-900/20 p-3 sm:p-4 rounded-lg border border-green-500/20">
                         <h4 className="font-medium text-green-200 mb-2 text-sm sm:text-base">Additional Orders (2nd, 3rd, 4th...)</h4>
                         <p className="text-xs sm:text-sm text-green-300">
-                          Gas fees only (~$0.50-2 each). All orders use your existing personal contracts on Base.
+                          Gas fees only (~$0.50-1 each). All orders use your existing personal contracts on Base.
                         </p>
                       </div>
                       

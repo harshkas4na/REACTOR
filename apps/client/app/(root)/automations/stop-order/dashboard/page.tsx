@@ -135,6 +135,99 @@ interface UserContractAddresses {
   deployer: string;
 }
 
+// ===== CONTRACT FUNDING STATUS CHECKS =====
+const checkContractFundingStatus = async (
+  contracts: UserContractAddresses,
+  rscProvider: ethers.JsonRpcProvider
+): Promise<{ debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string }> => {
+  try {
+    const systemContractAddress = '0x0000000000000000000000000000000000fffFfF';
+    let callbackProxyAddress = '0xc9f36411C9897e7F959D99ffca2a0Ba7ee0D7bDA'; // Default Sepolia proxy
+    
+    // Set callback proxy based on the contracts' chain
+    if (contracts.chainId === '8453') { // Base mainnet
+      callbackProxyAddress = '0x0D3E76De6bC44309083cAAFdB49A088B8a250947'; 
+    }
+    
+    const systemContract = new ethers.Contract(
+      systemContractAddress,
+      [
+        'function debts(address) view returns (uint256)',
+        'function reserves(address) view returns (uint256)'
+      ],
+      rscProvider
+    );
+
+    // Check debt and reserves for RSC contract using system contract
+    const [reactiveDebt, reactiveReserves] = await Promise.all([
+      systemContract.debts(contracts.reactiveContract),
+      systemContract.reserves(contracts.reactiveContract)
+    ]);
+
+    // Check callback contract debt using appropriate proxy
+    let callbackDebt = BigInt(0);
+    try {
+      const callbackProvider = contracts.chainId === '8453' 
+        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+        
+      if (callbackProxyAddress !== '0x0000000000000000000000000000000000000000') {
+        const callbackProxyContract = new ethers.Contract(
+          callbackProxyAddress,
+          ['function debts(address) view returns (uint256)'],
+          callbackProvider
+        );
+        callbackDebt = await callbackProxyContract.debts(contracts.callbackContract);
+      }
+    } catch (callbackError) {
+      console.warn('Could not check callback contract debt:', callbackError);
+    }
+
+    // Check actual balances
+    const [reactiveBalance, callbackBalance] = await Promise.all([
+      rscProvider.getBalance(contracts.reactiveContract),
+      (contracts.chainId === '8453' 
+        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com')
+      ).getBalance(contracts.callbackContract)
+    ]);
+
+    // Convert to readable format
+    const totalDebt = reactiveDebt + callbackDebt;
+    const totalReserves = reactiveReserves;
+    
+    // Contract is active if it has sufficient balance and reserves > debt
+    const hasBalance = reactiveBalance > ethers.parseEther('0.001') && callbackBalance > ethers.parseEther('0.001');
+    const isActive = totalReserves >= totalDebt && hasBalance;
+    
+    console.log('DASHBOARD: Contract funding status:', {
+      reactiveContract: contracts.reactiveContract,
+      callbackContract: contracts.callbackContract,
+      chainId: contracts.chainId,
+      reactiveDebt: ethers.formatEther(reactiveDebt),
+      reactiveReserves: ethers.formatEther(reactiveReserves),
+      callbackDebt: ethers.formatEther(callbackDebt),
+      reactiveBalance: ethers.formatEther(reactiveBalance),
+      callbackBalance: ethers.formatEther(callbackBalance),
+      totalDebt: ethers.formatEther(totalDebt),
+      totalReserves: ethers.formatEther(totalReserves),
+      hasBalance,
+      isActive
+    });
+
+    return {
+      debt: ethers.formatEther(totalDebt),
+      reserves: ethers.formatEther(totalReserves),
+      isActive,
+      callbackDebt: ethers.formatEther(callbackDebt),
+      rscDebt: ethers.formatEther(reactiveDebt)
+    };
+  } catch (error) {
+    console.error('Error checking funding status:', error);
+    return { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' };
+  }
+};
+
 const PAIR_ABI = [
   {
     "inputs": [],
@@ -240,6 +333,22 @@ const formatTimeAgo = (timestamp: number) => {
   return 'Just now';
 };
 
+// ===== ENHANCED DROP PERCENTAGE FORMATTING =====
+const formatDropPercentage = (percentage: number): string => {
+  if (percentage === 0) return '0%';
+  
+  // Use appropriate precision based on magnitude
+  if (percentage < 0.01) {
+    return `${percentage.toFixed(4)}%`; // 4 decimal places for very small values
+  } else if (percentage < 0.1) {
+    return `${percentage.toFixed(3)}%`; // 3 decimal places for small values
+  } else if (percentage < 1) {
+    return `${percentage.toFixed(2)}%`; // 2 decimal places for moderate values
+  } else {
+    return `${percentage.toFixed(1)}%`; // 1 decimal place for larger values
+  }
+};
+
 const getExplorerUrl = (address: string, chainId: string, type: 'address' | 'tx' = 'address', connectedAccount?: string): string => {
   const explorers: Record<string, string> = {
     '1': 'https://etherscan.io',
@@ -306,20 +415,30 @@ const STATUS_CONFIG = {
 const validateStoredContracts = async (
   contracts: UserContractAddresses,
   rscProvider: ethers.JsonRpcProvider,
-  callbackProvider: ethers.JsonRpcProvider,
   userAddress: string
-): Promise<boolean> => {
+): Promise<{ isValid: boolean; fundingStatus: { debt: string; reserves: string; isActive: boolean; callbackDebt: string; rscDebt: string } }> => {
   try {
     console.log('DASHBOARD: Validating personal contracts:', contracts);
     
     const normalizedUserAddress = userAddress.toLowerCase().trim();
     const normalizedContractDeployer = contracts.deployer.toLowerCase().trim();
     
-    console.log('DASHBOARD: Contract validation successful');
-    return true;
+    // First check: User must be the deployer (using stored deployer address from Convex)
+    if (normalizedUserAddress !== normalizedContractDeployer) {
+      console.error('DASHBOARD VALIDATION FAILED: User is not the deployer');
+      console.error('User address:', normalizedUserAddress);
+      console.error('Contract deployer:', normalizedContractDeployer);
+      return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
+    }
+    
+    // Check funding status
+    const fundingStatus = await checkContractFundingStatus(contracts, rscProvider);
+    
+    console.log('DASHBOARD VALIDATION SUCCESS: All contracts verified');
+    return { isValid: true, fundingStatus };
   } catch (error) {
-    console.error('DASHBOARD: Contract validation failed:', error);
-    return false;
+    console.error('DASHBOARD VALIDATION ERROR:', error);
+    return { isValid: false, fundingStatus: { debt: '0', reserves: '0', isActive: false, callbackDebt: '0', rscDebt: '0' } };
   }
 };
 
@@ -703,6 +822,241 @@ const calculatePairPriceWithSpecificProvider = async (
   throw new Error('Unexpected error in calculatePairPriceWithSpecificProvider');
 };
 
+// ===== DEBT CLEARING FUNCTIONALITY =====
+const handleCoverDebt = async (
+  userContracts: UserContractAddresses,
+  connectedChain: ChainConfig,
+  contractFundingStatus: { callbackDebt: string; rscDebt: string },
+  onSuccess: () => void
+) => {
+  if (!connectedChain || !userContracts || !contractFundingStatus) {
+    toast.error('Contract information not available');
+    return;
+  }
+
+  // Get the correct ABIs for the chain
+  const contractConfig = getContractABIs(userContracts.chainId);
+
+  const originalChainId = userContracts.chainId;
+  const rscChainId = connectedChain.rscNetwork.chainId;
+  
+  const callbackDebt = parseFloat(contractFundingStatus.callbackDebt);
+  const rscDebt = parseFloat(contractFundingStatus.rscDebt);
+
+  const switchNetwork = async (targetChainId: string) => {
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet detected');
+
+    try {
+      const targetChainIdHex = `0x${parseInt(targetChainId).toString(16)}`;
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() === targetChainId) {
+        console.log(`Already on chain ${targetChainId}`);
+        return true;
+      }
+
+      console.log(`Switching from ${currentNetwork.chainId} to chain ${targetChainId}`);
+      
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: targetChainIdHex }],
+        });
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          console.log(`Chain ${targetChainId} not added to wallet, attempting to add it`);
+          
+          let chainConfig;
+          
+          if (targetChainId === '5318007') {
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: 'Reactive Lasna',
+              nativeCurrency: {
+                name: 'REACT',
+                symbol: 'REACT',
+                decimals: 18
+              },
+              rpcUrls: ['https://lasna-rpc.rnk.dev/'],
+              blockExplorerUrls: ['https://lasna.reactscan.net']
+            };
+          } else if (targetChainId === '1597') {
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: 'Reactive Mainnet',
+              nativeCurrency: {
+                name: 'REACT',
+                symbol: 'REACT',
+                decimals: 18
+              },
+              rpcUrls: ['https://mainnet-rpc.rnk.dev/'],
+              blockExplorerUrls: ['https://reactscan.net']
+            };
+          } else if (targetChainId === '8453') {
+            chainConfig = {
+              chainId: targetChainIdHex,
+              chainName: 'Base',
+              nativeCurrency: {
+                name: 'ETH',
+                symbol: 'ETH',
+                decimals: 18
+              },
+              rpcUrls: ['https://mainnet.base.org'],
+              blockExplorerUrls: ['https://basescan.org']
+            };
+          }
+          
+          if (chainConfig) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [chainConfig],
+            });
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } else {
+          throw switchError;
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newProvider = new ethers.BrowserProvider(window.ethereum);
+      const newNetwork = await newProvider.getNetwork();
+      
+      if (newNetwork.chainId.toString() !== targetChainId) {
+        throw new Error(`Network switch failed. Expected ${targetChainId}, got ${newNetwork.chainId}`);
+      }
+      
+      console.log(`Successfully switched to chain ${targetChainId}`);
+      return true;
+      
+    } catch (error: any) {
+      if (error.code === 4001) {
+        throw new Error('User rejected the request to switch networks');
+      }
+      throw new Error(`Network switch failed: ${error.message || 'User rejected the request'}`);
+    }
+  };
+
+  try {
+    console.log('Starting debt covering process...');
+    console.log(`Callback debt: ${callbackDebt} ETH, RSC debt: ${rscDebt} REACT`);
+
+    // Step 1: Handle Callback Contract Debt (if exists)
+    if (callbackDebt > 0) {
+      console.log(`Covering callback debt: ${callbackDebt} ETH`);
+
+      await switchNetwork(originalChainId);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const callbackProvider = new ethers.BrowserProvider(window.ethereum);
+      const callbackSigner = await callbackProvider.getSigner();
+
+      const callbackFundingAmount = callbackDebt + 0.01;
+      console.log(`Sending ${callbackFundingAmount} ETH to callback contract`);
+      
+      const fundCallbackTx = await callbackSigner.sendTransaction({
+        to: userContracts.callbackContract,
+        value: ethers.parseEther(callbackFundingAmount.toString()),
+        gasLimit: 100000
+      });
+      
+      await fundCallbackTx.wait();
+      console.log('Funds sent to callback contract');
+
+      console.log('Calling coverDebt on callback contract...');
+      const callbackContract = new ethers.Contract(
+        userContracts.callbackContract,
+        contractConfig.CALLBACK_CONTRACT_ABI,
+        callbackSigner
+      );
+
+      try {
+        const coverDebtTx = await callbackContract.coverDebt({
+          gasLimit: 200000
+        });
+        await coverDebtTx.wait();
+        console.log('Callback debt covered successfully');
+      } catch (coverError) {
+        console.warn('Could not call coverDebt on callback contract (might not exist):', coverError);
+      }
+
+      toast.success('Callback contract debt covered!');
+    }
+
+    // Step 2: Handle RSC Contract Debt (if exists)
+    if (rscDebt > 0) {
+      console.log(`Covering RSC debt: ${rscDebt} REACT`);
+
+      await switchNetwork(rscChainId);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const rscProvider = new ethers.BrowserProvider(window.ethereum);
+      const rscSigner = await rscProvider.getSigner();
+
+      const rscFundingAmount = rscDebt + 0.1;
+      console.log(`Sending ${rscFundingAmount} REACT to RSC contract`);
+      
+      const fundRscTx = await rscSigner.sendTransaction({
+        to: userContracts.reactiveContract,
+        value: ethers.parseEther(rscFundingAmount.toString()),
+        gasLimit: 100000
+      });
+      
+      await fundRscTx.wait();
+      console.log('Funds sent to RSC contract');
+
+      console.log('Calling coverDebt on RSC contract...');
+      const rscContract = new ethers.Contract(
+        userContracts.reactiveContract,
+        contractConfig.REACTIVE_STOP_ORDER_ABI,
+        rscSigner
+      );
+
+      try {
+        const coverDebtTx = await rscContract.coverDebt({
+          gasLimit: 200000
+        });
+        await coverDebtTx.wait();
+        console.log('RSC debt covered successfully');
+      } catch (coverError) {
+        console.warn('Could not call coverDebt on RSC contract (might not exist):', coverError);
+      }
+
+      toast.success('RSC contract debt covered!');
+    }
+
+    await switchNetwork(originalChainId);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    toast.success('All contract debts have been cleared! Your contracts are now active.');
+    onSuccess();
+    
+  } catch (error: any) {
+    console.error('Error covering debt:', error);
+    
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const currentNetwork = await provider.getNetwork();
+      if (currentNetwork.chainId.toString() !== originalChainId) {
+        await switchNetwork(originalChainId);
+      }
+    } catch (switchError) {
+      console.error('Failed to switch back to original network:', switchError);
+    }
+    
+    if (error.message.includes('User denied') || error.code === 4001) {
+      toast.error('Transaction cancelled by user');
+    } else if (error.message.includes('insufficient funds')) {
+      toast.error('Insufficient funds to cover debt');
+    } else {
+      toast.error(error.message || 'Failed to cover debt');
+    }
+  }
+};
+
 // ===== CONTRACT BALANCE MANAGEMENT COMPONENT =====
 const ContractBalanceManager = ({ 
   userContracts, 
@@ -730,7 +1084,7 @@ const ContractBalanceManager = ({
     rsc: false
   });
 
-  const MIN_CALLBACK_BALANCE = userContracts.chainId === '8453' ? 0.001 : 0.001;
+  const MIN_CALLBACK_BALANCE = userContracts.chainId === '8453' ? 0.00001 : 0.001;
   const MIN_RSC_BALANCE = 0.001;
 
   const [callbackFundingAmount, setCallbackFundingAmount] = useState(userContracts.chainId === '8453' ? '0.005' : '0.01');
@@ -1383,11 +1737,30 @@ export default function UpdatedPersonalStopOrderDashboard() {
     lastUpdated: 0
   });
   const [isContractsOpen, setIsContractsOpen] = useState(false);
+  
+  // ===== NEW DEBT MANAGEMENT STATE =====
+  const [contractFundingStatus, setContractFundingStatus] = useState<{
+    debt: string;
+    reserves: string;
+    isActive: boolean;
+    callbackDebt: string;
+    rscDebt: string;
+  } | null>(null);
+  const [isCoveringDebt, setIsCoveringDebt] = useState(false);
 
+  console.log("contractFundingStatus:::::::::::::::::",contractFundingStatus)
   // Convex hook to get contract data
   const contractData = useQuery(api.contracts.get, connectedAccount ? { userAddress: connectedAccount } : "skip");
 
-  // ===== ENHANCED ORDER FETCHING WITH BASE SUPPORT =====
+  // ===== DEBT CHECKING LOGIC =====
+  const contractsHaveDebt = !!contractFundingStatus && (
+    parseFloat(contractFundingStatus.callbackDebt) > 0 || 
+    parseFloat(contractFundingStatus.rscDebt) > 0
+  );
+
+  const shouldDisableOrderActions = contractsHaveDebt && userContracts && contractsValid;
+
+  // ===== ENHANCED ORDER FETCHING WITH DEBT CHECKING =====
   const fetchUserOrders = useCallback(async () => {
     if (!connectedAccount || !connectedChain) {
       console.log('DASHBOARD: Missing required data - account:', !!connectedAccount, 'chain:', !!connectedChain);
@@ -1403,6 +1776,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
+        setContractFundingStatus(null);
         return;
       }
 
@@ -1411,6 +1785,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
+        setContractFundingStatus(null);
         return;
       }
 
@@ -1472,18 +1847,22 @@ export default function UpdatedPersonalStopOrderDashboard() {
 
       const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
 
-      const valid = await validateStoredContracts(storedContracts, rscProvider, workingProvider, connectedAccount);
+      // ===== ENHANCED VALIDATION WITH DEBT CHECKING =====
+      const validationResult = await validateStoredContracts(storedContracts, rscProvider, connectedAccount);
       
-      if (!valid) {
+      if (!validationResult.isValid) {
         console.log('DASHBOARD: Contract validation failed');
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
+        setContractFundingStatus(null);
         return;
       }
 
       setUserContracts(storedContracts);
       setContractsValid(true);
+      console.log("validationResult.fundingStatus:::::::::::::::::::",validationResult.fundingStatus)
+      setContractFundingStatus(validationResult.fundingStatus);
 
       // Get contract ABI
       const contractConfig = getContractABIs(storedContracts.chainId);
@@ -1666,7 +2045,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
             throw new Error(`Failed to fetch token info for order ${orderIdNum} after all attempts`);
           }
 
-          // Calculate price with enhanced error handling and multiple retry strategies
+          // ===== ENHANCED DROP PERCENTAGE CALCULATION =====
           let currentPrice = '0';
           let triggerPrice = '0';  
           let dropPercentage = 0;
@@ -1750,12 +2129,24 @@ export default function UpdatedPersonalStopOrderDashboard() {
                   const triggerPriceNum = threshold / coefficient;
                   triggerPrice = triggerPriceNum.toFixed(6);
 
-                  // Calculate drop percentage
+                  // ===== ENHANCED DROP PERCENTAGE CALCULATION =====
                   const currentPriceNum = parseFloat(currentPrice);
                   if (currentPriceNum > 0 && triggerPriceNum > 0) {
                     dropPercentage = ((currentPriceNum - triggerPriceNum) / currentPriceNum) * 100;
                     dropPercentage = Math.max(0, Math.min(100, dropPercentage));
-                    dropPercentage = Math.round(dropPercentage * 10) / 10;
+                    
+                    // Enhanced precision for very small percentages
+                    if (dropPercentage < 0.001) {
+                      dropPercentage = Number(dropPercentage.toFixed(6));
+                    } else if (dropPercentage < 0.01) {
+                      dropPercentage = Number(dropPercentage.toFixed(4));
+                    } else if (dropPercentage < 0.1) {
+                      dropPercentage = Number(dropPercentage.toFixed(3));
+                    } else if (dropPercentage < 1) {
+                      dropPercentage = Number(dropPercentage.toFixed(2));
+                    } else {
+                      dropPercentage = Number(dropPercentage.toFixed(1));
+                    }
                   }
                 }
                 
@@ -1850,6 +2241,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
       setOrders([]);
       setUserContracts(null);
       setContractsValid(false);
+      setContractFundingStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -1861,9 +2253,36 @@ export default function UpdatedPersonalStopOrderDashboard() {
     setIsRefreshing(false);
   };
 
+  // ===== ENHANCED DEBT COVERING HANDLER =====
+  const handleCoverContractDebt = async () => {
+    if (!userContracts || !connectedChain || !contractFundingStatus) return;
+    
+    setIsCoveringDebt(true);
+    try {
+      await handleCoverDebt(
+        userContracts,
+        connectedChain,
+        contractFundingStatus,
+        () => {
+          // Refresh data after successful debt clearing
+          setTimeout(async () => {
+            await fetchUserOrders();
+          }, 3000);
+        }
+      );
+    } finally {
+      setIsCoveringDebt(false);
+    }
+  };
+
   // ===== ORDER ACTION HANDLERS =====
   const handleCancelOrder = async (orderId: number) => {
     if (!connectedChain || !userContracts) return;
+    
+    if (shouldDisableOrderActions) {
+      toast.error('Clear contract debt before managing orders');
+      return;
+    }
     
     if (!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
       return;
@@ -1917,6 +2336,11 @@ export default function UpdatedPersonalStopOrderDashboard() {
   const handlePauseOrder = async (orderId: number) => {
     if (!connectedChain || !userContracts) return;
     
+    if (shouldDisableOrderActions) {
+      toast.error('Clear contract debt before managing orders');
+      return;
+    }
+    
     setActionLoading(prev => ({ ...prev, [orderId]: 'pausing' }));
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -1964,6 +2388,11 @@ export default function UpdatedPersonalStopOrderDashboard() {
 
   const handleResumeOrder = async (orderId: number) => {
     if (!connectedChain || !userContracts) return;
+    
+    if (shouldDisableOrderActions) {
+      toast.error('Clear contract debt before managing orders');
+      return;
+    }
     
     setActionLoading(prev => ({ ...prev, [orderId]: 'resuming' }));
     try {
@@ -2052,6 +2481,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
         setOrders([]);
         setUserContracts(null);
         setContractsValid(false);
+        setContractFundingStatus(null);
       }
     };
 
@@ -2077,6 +2507,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
     if (orders.length === 0) return null;
 
     const IconComponent = icon;
+    const isCompletedOrders = title === "Order History";
     
     return (
       <motion.div
@@ -2104,7 +2535,9 @@ export default function UpdatedPersonalStopOrderDashboard() {
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Status</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Current Price</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Trigger Price</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Drop %</th>
+                    {!isCompletedOrders && (
+                      <th className="px-6 py-4 text-sm font-medium text-slate-300">Drop %</th>
+                    )}
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Created</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Actions</th>
                   </tr>
@@ -2161,9 +2594,11 @@ export default function UpdatedPersonalStopOrderDashboard() {
                             <span className="text-red-300">{order.triggerPrice}</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-amber-300">
-                          -{order.dropPercentage || 0}%
-                        </td>
+                        {!isCompletedOrders && (
+                          <td className="px-6 py-4 text-sm text-amber-300">
+                            -{formatDropPercentage(order.dropPercentage || 0)}
+                          </td>
+                        )}
                         <td className="px-6 py-4 text-xs text-slate-400">
                           {formatTimeAgo(order.createdAt)}
                         </td>
@@ -2173,10 +2608,14 @@ export default function UpdatedPersonalStopOrderDashboard() {
                               {isActive && (
                                 <Button
                                   onClick={() => handlePauseOrder(order.id)}
-                                  disabled={!!loadingAction}
+                                  disabled={!!loadingAction || !!shouldDisableOrderActions}
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-yellow-300 hover:bg-yellow-900/20 hover:text-yellow-200"
+                                  className={`h-7 px-2 ${shouldDisableOrderActions 
+                                    ? 'text-slate-500 cursor-not-allowed' 
+                                    : 'text-yellow-300 hover:bg-yellow-900/20 hover:text-yellow-200'
+                                  }`}
+                                  title={shouldDisableOrderActions ? 'Clear contract debt to manage orders' : 'Pause order'}
                                 >
                                   {loadingAction === 'pausing' ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -2189,10 +2628,14 @@ export default function UpdatedPersonalStopOrderDashboard() {
                               {isPaused && (
                                 <Button
                                   onClick={() => handleResumeOrder(order.id)}
-                                  disabled={!!loadingAction}
+                                  disabled={!!loadingAction || !!shouldDisableOrderActions}
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-green-300 hover:bg-green-900/20 hover:text-green-200"
+                                  className={`h-7 px-2 ${shouldDisableOrderActions 
+                                    ? 'text-slate-500 cursor-not-allowed' 
+                                    : 'text-green-300 hover:bg-green-900/20 hover:text-green-200'
+                                  }`}
+                                  title={shouldDisableOrderActions ? 'Clear contract debt to manage orders' : 'Resume order'}
                                 >
                                   {loadingAction === 'resuming' ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -2204,10 +2647,14 @@ export default function UpdatedPersonalStopOrderDashboard() {
                               
                               <Button
                                 onClick={() => handleCancelOrder(order.id)}
-                                disabled={!!loadingAction}
+                                disabled={!!loadingAction || !!shouldDisableOrderActions}
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-red-300 hover:bg-red-900/20 hover:text-red-200"
+                                className={`h-7 px-2 ${shouldDisableOrderActions 
+                                  ? 'text-slate-500 cursor-not-allowed' 
+                                  : 'text-red-300 hover:bg-red-900/20 hover:text-red-200'
+                                }`}
+                                title={shouldDisableOrderActions ? 'Clear contract debt to manage orders' : 'Cancel order'}
                               >
                                 {loadingAction === 'cancelling' ? (
                                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -2309,7 +2756,14 @@ export default function UpdatedPersonalStopOrderDashboard() {
                 Refresh
               </Button>
               <Link href="/automations/stop-order">
-                <Button className="bg-primary/50 hover:bg-primary/60 text-slate-100">
+                <Button 
+                  className={`${shouldDisableOrderActions 
+                    ? 'bg-slate-600 cursor-not-allowed' 
+                    : 'bg-primary/50 hover:bg-primary/60'
+                  } text-slate-100`}
+                  disabled={shouldDisableOrderActions ?? undefined}
+                  title={shouldDisableOrderActions ? 'Clear contract debt to create new orders' : ''}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Order
                 </Button>
@@ -2343,12 +2797,74 @@ export default function UpdatedPersonalStopOrderDashboard() {
                       </span>
                     )}
                   </div>
-                  {userContracts && contractsValid && (
+                  {userContracts && contractsValid && contractFundingStatus && (
                     <div className="flex items-center space-x-2">
-                      <Shield className="w-4 h-4 text-emerald-400" />
-                      <span className="text-emerald-300 text-sm">Personal Contract System Active</span>
+                      {contractFundingStatus.isActive ? (
+                        <>
+                          <Shield className="w-4 h-4 text-emerald-400" />
+                          <span className="text-emerald-300 text-sm">Personal Contract System Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-4 h-4 text-amber-400" />
+                          <span className="text-amber-300 text-sm">Contracts Need Funding</span>
+                        </>
+                      )}
                     </div>
                   )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Debt Warning Card - Show when contracts exist but have debt */}
+          {contractsHaveDebt && userContracts && contractsValid && (
+            <Alert className="bg-amber-900/20 border-amber-500/30 text-amber-200 mb-6">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:h-5" />
+              <AlertDescription>
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-medium text-amber-200">Contract Debt Outstanding</span>
+                    <div className="text-xs sm:text-sm mt-1 opacity-80">
+                      Your personal contracts have accumulated debt and need funding before you can manage orders.
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {parseFloat(contractFundingStatus?.callbackDebt || '0') > 0 && (
+                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
+                        <p className="text-amber-300 mb-1">Callback Contract Debt:</p>
+                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.callbackDebt || '0').toFixed(4)} ETH</p>
+                      </div>
+                    )}
+                    
+                    {parseFloat(contractFundingStatus?.rscDebt || '0') > 0 && (
+                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
+                        <p className="text-amber-300 mb-1">RSC Contract Debt:</p>
+                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.rscDebt || '0').toFixed(4)} REACT</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-500/20">
+                    <Button
+                      onClick={handleCoverContractDebt}
+                      disabled={isCoveringDebt}
+                      className="bg-amber-600 hover:bg-amber-700 text-amber-50 text-sm"
+                    >
+                      {isCoveringDebt ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Covering Debt...
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <Wallet className="w-4 h-4 mr-2" />
+                          Cover Debt & Activate Contracts
+                        </div>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </AlertDescription>
             </Alert>
