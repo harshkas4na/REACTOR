@@ -49,7 +49,7 @@ export default function Navigation() {
             {/* Logo */}
             <Link href="/" className="flex items-center group">
               <Image 
-                  src="/Full Logo/Color/DarkBg@2x.svg" 
+                  src="/Full Logo/Color/Group 16.svg" 
                   alt="ReacDEFI Logo" 
                   width={200} 
                   height={200}

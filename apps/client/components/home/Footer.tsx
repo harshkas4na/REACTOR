@@ -15,7 +15,7 @@ const Footer = () => {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <Image
-                src="/Full Logo/Color/DarkBg@2x.svg"
+                src="/Full Logo/Color/Group 16.svg"
                 alt="ReacDEFI Logo"
                 width={160}
                 height={50}
