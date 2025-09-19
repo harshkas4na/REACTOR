@@ -132,7 +132,7 @@ const checkContractFundingStatus = async (
     let callbackDebt = BigInt(0);
     try {
       const callbackProvider = contracts.chainId === '8453' 
-        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        ? new ethers.JsonRpcProvider('https://base.llamarpc.com')
         : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
         
       if (callbackProxyAddress !== '0x0000000000000000000000000000000000000000') {
@@ -151,7 +151,7 @@ const checkContractFundingStatus = async (
     const [reactiveBalance, callbackBalance] = await Promise.all([
       rscProvider.getBalance(contracts.reactiveContract),
       (contracts.chainId === '8453' 
-        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        ? new ethers.JsonRpcProvider('https://base.llamarpc.com')
         : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com')
       ).getBalance(contracts.callbackContract)
     ]);
@@ -218,7 +218,7 @@ const validateStoredContracts = async (
     
     // Check if callback contract exists and is valid by calling owner()
     const callbackProvider = contracts.chainId === '8453' 
-      ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+      ? new ethers.JsonRpcProvider('https://base.llamarpc.com')
       : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
       
     const callbackContract = new ethers.Contract(
@@ -243,7 +243,7 @@ const validateStoredContracts = async (
     
     try {
       // Check if the user is the owner of the reactive contract
-      const contractOwner = await reactiveContract.owner();
+      // const contractOwner = await reactiveContract.owner();
       console.log('Reactive contract validation successful');
     } catch (contractError) {
       console.error('VALIDATION FAILED: Cannot read from reactive contract:', contractError);
@@ -330,7 +330,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',
     factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
     callbackAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
-    rpcUrl: 'https://mainnet.base.org',
+    rpcUrl: 'https://base.llamarpc.com',
     nativeCurrency: 'ETH',
     defaultFunding: '0.0003',
     rscNetwork: {
@@ -371,7 +371,11 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
     { address: '0x4200000000000000000000000000000000000006', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
     { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
     { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
+    { address: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6Ca', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
+    { address: '0x4ed4E862860beD51a9570b96d89AF5E1B0Efefed', symbol: 'DEGEN', name: 'Degen', decimals: 18 },
+    { address: '0x940181a94A35A4569E4529A3CDfB74e38FD98631', symbol: 'AERO', name: 'Aerodrome Finance', decimals: 18 },
     { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH', name: 'Coinbase Wrapped Staked ETH', decimals: 18 },
+    { address: '0x1ceA84203673764245E61A83a21035252b4E42A4', symbol: 'WBTC', name: 'Wrapped BTC', decimals: 8 },
   ],
   '11155111': [ // Sepolia
     { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
@@ -1364,7 +1368,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                 symbol: 'ETH',
                 decimals: 18
               },
-              rpcUrls: ['https://mainnet.base.org'],
+              rpcUrls: ['https://base.llamarpc.com'],
               blockExplorerUrls: ['https://basescan.org']
             };
           } else {
@@ -2590,54 +2594,55 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
           {/* Debt Warning Card - Enhanced Design */}
           {contractsHaveDebt && existingContracts && contractsValid && (
-            <Card className="bg-zinc-900/95 border-zinc-700 shadow-xl">
-              <CardHeader className="border-b border-zinc-700 pb-4">
-                <CardTitle className="text-zinc-100 flex items-center text-lg">
-                  <AlertTriangle className="h-5 w-5 mr-3 text-zinc-400" />
-                  Contract Debt Outstanding
-                </CardTitle>
-                <CardDescription className="text-zinc-400">
-                  Your personal contracts have accumulated debt and need funding before you can create new orders.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {parseFloat(contractFundingStatus?.callbackDebt || '0') > 0 && (
-                    <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
-                      <p className="text-zinc-300 text-sm mb-1">Callback Contract Debt:</p>
-                      <p className="text-zinc-100 font-semibold">{parseFloat(contractFundingStatus?.callbackDebt || '0').toFixed(4)} ETH</p>
+            <Alert className="bg-amber-900/20 border-amber-500/30 text-amber-200 mb-6">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:h-5" />
+              <AlertDescription>
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-medium text-amber-200">Contract Debt Outstanding</span>
+                    <div className="text-xs sm:text-sm mt-1 opacity-80">
+                      Your personal contracts have accumulated debt and need funding before you can manage orders.
                     </div>
-                  )}
+                  </div>
                   
-                  {parseFloat(contractFundingStatus?.rscDebt || '0') > 0 && (
-                    <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
-                      <p className="text-zinc-300 text-sm mb-1">RSC Contract Debt:</p>
-                      <p className="text-zinc-100 font-semibold">{parseFloat(contractFundingStatus?.rscDebt || '0').toFixed(4)} REACT</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 border-t border-zinc-700">
-                  <Button
-                    onClick={handleCoverDebt}
-                    disabled={isCoveringDebt || isDeploymentActive}
-                    className="bg-zinc-700 hover:bg-zinc-600 text-zinc-100 border border-zinc-600 hover:border-zinc-500"
-                  >
-                    {isCoveringDebt ? (
-                      <div className="flex items-center">
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        Covering Debt...
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <Wallet className="w-4 h-4 mr-2" />
-                        Cover Debt & Activate Contracts
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {parseFloat(contractFundingStatus?.callbackDebt || '0') > 0 && (
+                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
+                        <p className="text-amber-300 mb-1">Callback Contract Debt:</p>
+                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.callbackDebt || '0').toFixed(4)} ETH</p>
                       </div>
                     )}
-                  </Button>
+                    
+                    {parseFloat(contractFundingStatus?.rscDebt || '0') > 0 && (
+                      <div className="bg-amber-800/20 p-2 rounded border border-amber-600/30">
+                        <p className="text-amber-300 mb-1">RSC Contract Debt:</p>
+                        <p className="text-amber-100 font-medium">{parseFloat(contractFundingStatus?.rscDebt || '0').toFixed(4)} REACT</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-500/20">
+                    <Button
+                      onClick={handleCoverDebt}
+                      disabled={isCoveringDebt}
+                      className="bg-amber-600 hover:bg-amber-700 text-amber-50 text-sm"
+                    >
+                      {isCoveringDebt ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Covering Debt...
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <Wallet className="w-4 h-4 mr-2" />
+                          Cover Debt & Activate Contracts
+                        </div>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Combined Stop Order Configuration */}

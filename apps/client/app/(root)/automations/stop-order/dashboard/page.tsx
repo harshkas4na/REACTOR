@@ -91,7 +91,7 @@ const SUPPORTED_CHAINS: ChainConfig[] = [
     routerAddress: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',
     factoryAddress: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
     callbackAddress: '0x0D3E76De6bC44309083cAAFdB49A088B8a250947', 
-    rpcUrl: 'https://mainnet.base.org',
+    rpcUrl: 'https://base.llamarpc.com',
     nativeCurrency: 'ETH',
     defaultFunding: '0.0003',
     rscNetwork: {
@@ -168,7 +168,7 @@ const checkContractFundingStatus = async (
     let callbackDebt = BigInt(0);
     try {
       const callbackProvider = contracts.chainId === '8453' 
-        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        ? new ethers.JsonRpcProvider('https://base.llamarpc.com')
         : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
         
       if (callbackProxyAddress !== '0x0000000000000000000000000000000000000000') {
@@ -187,7 +187,7 @@ const checkContractFundingStatus = async (
     const [reactiveBalance, callbackBalance] = await Promise.all([
       rscProvider.getBalance(contracts.reactiveContract),
       (contracts.chainId === '8453' 
-        ? new ethers.JsonRpcProvider('https://mainnet.base.org')
+        ? new ethers.JsonRpcProvider('https://base.llamarpc.com')
         : new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com')
       ).getBalance(contracts.callbackContract)
     ]);
@@ -197,7 +197,8 @@ const checkContractFundingStatus = async (
     const totalReserves = reactiveReserves;
     
     // Contract is active if it has sufficient balance and reserves > debt
-    const hasBalance = reactiveBalance > ethers.parseEther('0.001') && callbackBalance > ethers.parseEther('0.001');
+    const hasBalance = reactiveBalance > ethers.parseEther('0.0001') && callbackBalance > ethers.parseEther('0.00001');
+    
     const isActive = totalReserves >= totalDebt && hasBalance;
     
     console.log('DASHBOARD: Contract funding status:', {
@@ -902,7 +903,7 @@ const handleCoverDebt = async (
                 symbol: 'ETH',
                 decimals: 18
               },
-              rpcUrls: ['https://mainnet.base.org'],
+              rpcUrls: ['https://base.llamarpc.com'],
               blockExplorerUrls: ['https://basescan.org']
             };
           }
@@ -1102,7 +1103,7 @@ const ContractBalanceManager = ({
       setBalances(prev => ({ ...prev, isLoading: true }));
 
       const callbackRpcUrl = userContracts.chainId === '8453' 
-        ? 'https://mainnet.base.org'
+        ? 'https://base.llamarpc.com'
         : 'https://ethereum-sepolia-rpc.publicnode.com';
       
       const callbackProvider = new ethers.JsonRpcProvider(callbackRpcUrl);
@@ -1168,7 +1169,7 @@ const ContractBalanceManager = ({
             chainId: `0x${parseInt(targetChainId).toString(16)}`,
             chainName: 'Base',
             nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-            rpcUrls: ['https://mainnet.base.org'],
+            rpcUrls: ['https://base.llamarpc.com'],
             blockExplorerUrls: ['https://basescan.org'],
           };
         }
@@ -2571,7 +2572,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-slate-200">
-                            {parseFloat(order.amount).toFixed(4)} {order.tokenSellInfo?.symbol}
+                            {formatTokenBalance(order.amount)} {order.tokenSellInfo?.symbol}
                           </div>
                         </td>
                         <td className="px-6 py-4">
