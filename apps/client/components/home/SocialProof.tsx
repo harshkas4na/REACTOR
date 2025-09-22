@@ -4,7 +4,7 @@ import { ShieldCheck, Zap, Layers, Globe } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const stats = [
-  { name: 'Audited Smart Contracts', value: '100%', icon: ShieldCheck },
+  { name: 'Smart Contracts(No Servers)', value: '100%', icon: ShieldCheck },
   { name: 'Automations Executed', value: '500+', icon: Zap },
   { name: 'Core Protocols Live', value: '1', description: '(Uniswap)', icon: Layers },
   { name: 'Supported Networks', value: '2+', description: '(Sepolia, Reactive Lasna)', icon: Globe },
@@ -47,7 +47,7 @@ export default function SocialProof() {
                 Secure, On-Chain Automation You Can Trust.
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
-                Our audited smart contract architecture provides a secure foundation for your DeFi strategies. Automate your risk management and yield optimization with confidence, knowing your assets are handled by robust, on-chain logic.
+                Our smart contract architecture provides a secure foundation for your DeFi strategies. Automate your risk management and yield optimization with confidence, knowing your assets are handled by robust, on-chain logic.
               </p>
             </div>
             <motion.div 

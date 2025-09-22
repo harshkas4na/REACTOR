@@ -63,7 +63,7 @@ export default function Hero() {
               </span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 max-w-xl">
-              Deploy powerful DeFi automations in minutes. Secure positions, protect loans, and optimize yield with audited reactive smart contracts.
+              Deploy powerful DeFi automations in minutes. Secure positions, protect loans, and optimize yield with reactive smart contracts.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
