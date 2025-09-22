@@ -701,6 +701,7 @@ const calculatePairPriceWithTokensSafe = async (
 };
 
 // ===== PROVIDER-SPECIFIC PAIR CALCULATOR =====
+// ===== PROVIDER-SPECIFIC PAIR CALCULATOR (CORRECTED) =====
 const calculatePairPriceWithSpecificProvider = async (
   pairAddress: string,
   sellTokenAddress: string,
@@ -735,12 +736,8 @@ const calculatePairPriceWithSpecificProvider = async (
       console.log(`Tokens: ${token0Address}, ${token1Address}`);
 
       // Validate reserves
-      if (!reserves || reserves.length < 2) {
-        throw new Error('Invalid reserves data');
-      }
-
-      if (reserves[0] === BigInt(0) || reserves[1] === BigInt(0)) {
-        throw new Error('No liquidity in pair');
+      if (!reserves || reserves.length < 2 || reserves[0] === BigInt(0) || reserves[1] === BigInt(0)) {
+        throw new Error('No liquidity or invalid reserves data');
       }
 
       // Validate token addresses
@@ -756,38 +753,41 @@ const calculatePairPriceWithSpecificProvider = async (
 
       const sellTokenLower = sellTokenAddress.toLowerCase();
       const token0Lower = token0Address.toLowerCase();
-      const token1Lower = token1Address.toLowerCase();
       
-      // Determine which token is which
-      let isSellTokenToken0;
-      if (sellTokenLower === token0Lower) {
-        isSellTokenToken0 = true;
-      } else if (sellTokenLower === token1Lower) {
-        isSellTokenToken0 = false;
-      } else {
-        console.error(`Sell token ${sellTokenAddress} not found in pair ${pairAddress}`);
-        console.error(`Token0: ${token0Address}, Token1: ${token1Address}`);
-        throw new Error('Sell token not found in pair');
-      }
-
+      const isSellTokenToken0 = sellTokenLower === token0Lower;
       const sellToken = isSellTokenToken0 ? token0Info : token1Info;
       const buyToken = isSellTokenToken0 ? token1Info : token0Info;
 
-      // Calculate price with proper decimal handling
-      const formattedReserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
-      const formattedReserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
+      // =================================================================
+      // ===== START: CORRECTED PRICE CALCULATION LOGIC ==================
+      // =================================================================
 
-      const reserve0Num = parseFloat(formattedReserve0);
-      const reserve1Num = parseFloat(formattedReserve1);
+      const reserve0 = reserves[0]; // Raw BigInt for token0
+      const reserve1 = reserves[1]; // Raw BigInt for token1
 
-      if (reserve0Num <= 0 || reserve1Num <= 0) {
-        throw new Error('Invalid reserve amounts');
+      // **Step 1: Normalize both reserves to a common precision (18 decimals) using BigInt math.**
+      // This prevents floating-point errors and handles different token decimals correctly.
+      const adjustedReserve0 = reserve0 * (BigInt(10) ** BigInt(18 - token0Info.decimals));
+      const adjustedReserve1 = reserve1 * (BigInt(10) ** BigInt(18 - token1Info.decimals));
+
+      // **Step 2: Calculate the price, maintaining precision by scaling the numerator before division.**
+      // We scale by 10**18 so the result is also a BigInt with 18 decimals of precision.
+      let priceBigInt;
+      if (isSellTokenToken0) {
+        // Price of token0 in terms of token1
+        priceBigInt = (adjustedReserve1 * (BigInt(10) ** BigInt(18))) / adjustedReserve0;
+      } else {
+        // Price of token1 in terms of token0
+        priceBigInt = (adjustedReserve0 * (BigInt(10) ** BigInt(18))) / adjustedReserve1;
       }
-
-      const currentPrice = isSellTokenToken0 
-        ? reserve1Num / reserve0Num
-        : reserve0Num / reserve1Num;
-
+      
+      // **Step 3: Convert the final scaled BigInt price into a human-readable number.**
+      const currentPrice = parseFloat(ethers.formatUnits(priceBigInt, 18));
+      
+      // =================================================================
+      // ===== END: CORRECTED PRICE CALCULATION LOGIC ====================
+      // =================================================================
+      
       if (!isFinite(currentPrice) || currentPrice <= 0) {
         throw new Error('Invalid price calculation result');
       }

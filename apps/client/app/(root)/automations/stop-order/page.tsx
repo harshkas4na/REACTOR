@@ -319,7 +319,7 @@ interface ChainConfig {
   };
 }
 
-type DeploymentStep = 'idle' | 'checking-contracts' | 'checking-approval' | 'approving' | 'switching-rsc' | 'funding-rsc' | 'deploying-callback' | 'deploying-reactive' | 'creating-order' | 'complete' | 'storing-contracts' | 'covering-callback-debt' | 'covering-rsc-debt';
+type DeploymentStep = 'idle' | 'processing' | 'complete';
 
 // ===== CONFIGURATION DATA =====
 const SUPPORTED_CHAINS: ChainConfig[] = [
@@ -371,11 +371,11 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
     { address: '0x4200000000000000000000000000000000000006', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
     { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
     { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
-    { address: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6Ca', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
+    { address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
     { address: '0x4ed4E862860beD51a9570b96d89AF5E1B0Efefed', symbol: 'DEGEN', name: 'Degen', decimals: 18 },
     { address: '0x940181a94A35A4569E4529A3CDfB74e38FD98631', symbol: 'AERO', name: 'Aerodrome Finance', decimals: 18 },
     { address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', symbol: 'cbETH', name: 'Coinbase Wrapped Staked ETH', decimals: 18 },
-    { address: '0x1ceA84203673764245E61A83a21035252b4E42A4', symbol: 'WBTC', name: 'Wrapped BTC', decimals: 8 },
+    { address: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', symbol: 'cbBTC', name: 'Coinbase Wrapped BTC', decimals: 8 },
   ],
   '11155111': [ // Sepolia
     { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
@@ -385,7 +385,7 @@ const POPULAR_TOKENS: Record<string, Token[]> = {
   ]
 };
 
-// ===== ENHANCED TOKEN SERVICE CLASS WITH ALCHEMY INTEGRATION =====
+// ===== ENHANCED TOKEN SERVICE CLASS WITH UPDATED ALCHEMY INTEGRATION =====
 class TokenService {
   private static cache = new Map<string, { data: Token[]; timestamp: number }>();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -429,12 +429,7 @@ class TokenService {
     try {
       console.log('Fetching tokens from Alchemy API for Base mainnet address:', address);
       
-      const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_BASE_API_KEY;
-      if (!apiKey) {
-        console.warn('Alchemy API key not found, falling back to popular tokens method');
-        return this.fetchPopularTokensWithBalances('8453', address);
-      }
-
+      const url = 'https://api.g.alchemy.com/data/v1/e2aFxQC89zEStCyiWpuWK/assets/tokens/by-address';
       const options = {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -446,7 +441,7 @@ class TokenService {
         })
       };
 
-      const response = await fetch(`https://api.g.alchemy.com/data/v1/docs-demo/assets/tokens/by-address`, options);
+      const response = await fetch(url, options);
 
       if (!response.ok) {
         throw new Error(`Alchemy API request failed: ${response.status} ${response.statusText}`);
@@ -724,91 +719,39 @@ function formatTokenBalance(balance: string): string {
   return `${(num / 1000000).toFixed(2)}M`;
 }
 
-// ===== TRANSACTION PROGRESS INDICATOR COMPONENT =====
-const TransactionProgressIndicator = ({ 
-  steps, 
-  currentStep, 
-  isVisible 
+// ===== SIMPLIFIED STATUS INDICATOR COMPONENT =====
+const SimpleStatusIndicator = ({ 
+  step, 
+  isVisible,
+  message 
 }: { 
-  steps: Array<{
-    id: DeploymentStep;
-    title: string;
-    description: string;
-  }>;
-  currentStep: DeploymentStep;
+  step: DeploymentStep;
   isVisible: boolean;
+  message: string;
 }) => {
   if (!isVisible) return null;
-
-  const getCurrentStepIndex = () => {
-    return steps.findIndex(step => step.id === currentStep);
-  };
-
-  const currentStepIndex = getCurrentStepIndex();
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="bg-zinc-900/95 border border-zinc-700 rounded-xl p-4 sm:p-6 mb-6"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mb-4"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-zinc-100">Transaction Progress</h3>
-          <div className="text-sm text-zinc-400">
-            {currentStepIndex + 1} of {steps.length}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            {step === 'complete' ? (
+              <CheckCircle className="w-5 h-5 text-green-400" />
+            ) : (
+              <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+            )}
           </div>
-        </div>
-        
-        <div className="space-y-4">
-          {steps.map((step, index) => {
-            const isActive = index === currentStepIndex;
-            const isCompleted = index < currentStepIndex;
-            const isPending = index > currentStepIndex;
-            
-            return (
-              <div key={step.id} className="flex items-start space-x-3">
-                <div className="flex-shrink-0 mt-1">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                    isCompleted 
-                      ? 'bg-green-500 border-green-500 text-white' 
-                      : isActive 
-                      ? 'bg-blue-500 border-blue-500 text-white' 
-                      : 'bg-zinc-800 border-zinc-600 text-zinc-400'
-                  }`}>
-                    {isCompleted ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : isActive ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <div className={`w-2 h-2 rounded-full ${
-                        isPending ? 'bg-zinc-600' : 'bg-current'
-                      }`} />
-                    )}
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`w-0.5 h-8 ml-3 mt-2 transition-colors duration-300 ${
-                      isCompleted ? 'bg-green-500' : 'bg-zinc-700'
-                    }`} />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <p className={`font-medium transition-colors duration-300 ${
-                    isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-zinc-400'
-                  }`}>
-                    {step.title}
-                  </p>
-                  <p className={`text-sm mt-1 transition-colors duration-300 ${
-                    isActive ? 'text-blue-400' : isCompleted ? 'text-green-400' : 'text-zinc-500'
-                  }`}>
-                    {step.description}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+          <div className="flex-1">
+            <p className="text-sm text-blue-200 font-medium">
+              {message}
+            </p>
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>
@@ -1239,6 +1182,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
   const [tokenModalType, setTokenModalType] = useState<'sell' | 'buy'>('sell');
   const [isLoadingPair, setIsLoadingPair] = useState(false);
   const [deploymentStep, setDeploymentStep] = useState<DeploymentStep>('idle');
+  const [deploymentMessage, setDeploymentMessage] = useState<string>('');
   const [hasTokenBalance, setHasTokenBalance] = useState(false);
   const [tokenBalance, setTokenBalance] = useState('0');
   const [isSwapping, setIsSwapping] = useState(false);
@@ -1256,7 +1200,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     callbackDebt: string;
     rscDebt: string;
   } | null>(null);
-  const [isCoveringDebt, setIsCoveringDebt] = useState(false);
 
   const mountedRef = useRef(true);
 
@@ -1271,26 +1214,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
   const shouldDisableTokenSelection = !!contractsHaveDebt && !!existingContracts && contractsValid;
 
-  // Define deployment steps
-  const deploymentSteps = [
-    { id: 'checking-contracts' as DeploymentStep, title: 'Checking Contracts', description: 'Looking for existing stop order contracts...' },
-    { id: 'checking-approval' as DeploymentStep, title: 'Checking Approval', description: 'Verifying token approvals...' },
-    { id: 'approving' as DeploymentStep, title: 'Approving Tokens', description: 'Please confirm token approval in wallet...' },
-    { id: 'deploying-callback' as DeploymentStep, title: 'Deploying Callback', description: 'Creating callback contract on Base/Sepolia...' },
-    { id: 'switching-rsc' as DeploymentStep, title: 'Switching Network', description: 'Please switch to Reactive Network...' },
-    { id: 'deploying-reactive' as DeploymentStep, title: 'Deploying Reactive', description: 'Creating reactive contract...' },
-    { id: 'funding-rsc' as DeploymentStep, title: 'Funding RSC', description: 'Sending 1 REACT to system contract...' },
-    { id: 'storing-contracts' as DeploymentStep, title: 'Storing Contracts', description: 'Saving contract addresses...' },
-    { id: 'creating-order' as DeploymentStep, title: 'Creating Order', description: 'Adding stop order to contract...' },
-    { id: 'complete' as DeploymentStep, title: 'Complete', description: 'Stop order is now active!' }
-  ];
-
-  const debtCoveringSteps = [
-    { id: 'covering-callback-debt' as DeploymentStep, title: 'Covering Callback Debt', description: 'Funding callback contract...' },
-    { id: 'covering-rsc-debt' as DeploymentStep, title: 'Covering RSC Debt', description: 'Funding RSC contract...' },
-    { id: 'complete' as DeploymentStep, title: 'Complete', description: 'Contracts are now active!' }
-  ];
-
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -1302,11 +1225,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       const timer = setTimeout(() => {
         if (mountedRef.current) {
           setDeploymentStep('idle');
+          setDeploymentMessage('');
         }
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [formData.sellToken, formData.buyToken, formData.amount, formData.dropPercentage, deploymentStep]);
+  }, [deploymentStep]);
 
   // Professional network switching functions
   const switchNetwork = useCallback(async (targetChainId: string) => {
@@ -1433,57 +1357,44 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     return switchNetwork(rscNetworkChainId);
   }, [connectedChain, switchNetwork]);
 
-  // Check for existing contracts using Convex data
-  useEffect(() => {
+  // Check for existing contracts using Convex data and update state properly
+  const refreshContractsState = useCallback(async () => {
     if (!connectedAccount || !connectedChain || !contractData) return;
 
-    const validateContracts = async () => {
-      setIsCheckingContracts(true);
-      try {
-        console.log('Contract data from Convex:', contractData);
-        
-        if (contractData) {
-          const stored: UserContractAddresses = {
-            reactiveContract: contractData.rscContract,
-            callbackContract: contractData.callbackContract,
-            deployedAt: Date.now(),
-            chainId: contractData.chainId,
-            deployer: contractData.userAddress.toLowerCase()
-          };
+    setIsCheckingContracts(true);
+    try {
+      console.log('Contract data from Convex:', contractData);
+      
+      if (contractData) {
+        const stored: UserContractAddresses = {
+          reactiveContract: contractData.rscContract,
+          callbackContract: contractData.callbackContract,
+          deployedAt: Date.now(),
+          chainId: contractData.chainId,
+          deployer: contractData.userAddress.toLowerCase()
+        };
 
-          console.log('Validating stored contracts from Convex...');
+        console.log('Validating stored contracts from Convex...');
+        
+        const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
+        
+        const validationResult = await validateStoredContracts(stored, rscProvider, connectedAccount);
+        
+        if (validationResult.isValid) {
+          console.log('Contracts are valid, checking funding status...');
+          setExistingContracts(stored);
+          setContractsValid(true);
+          setContractFundingStatus(validationResult.fundingStatus);
           
-          const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
-          
-          const validationResult = await validateStoredContracts(stored, rscProvider, connectedAccount);
-          
-          if (validationResult.isValid) {
-            console.log('Contracts are valid, checking funding status...');
-            setExistingContracts(stored);
-            setContractsValid(true);
-            setContractFundingStatus(validationResult.fundingStatus);
-            
-            if (validationResult.fundingStatus.isActive) {
-              console.log('Contracts are active and funded, user can add additional orders');
-              setFormData(prev => ({
-                ...prev,
-                destinationFunding: '0',
-                rscFunding: '0'
-              }));
-            } else {
-              console.log('Contracts exist but are inactive/underfunded');
-              setFormData(prev => ({
-                ...prev,
-                destinationFunding: connectedChain.defaultFunding,
-                rscFunding: '1'
-              }));
-            }
+          if (validationResult.fundingStatus.isActive) {
+            console.log('Contracts are active and funded, user can add additional orders');
+            setFormData(prev => ({
+              ...prev,
+              destinationFunding: '0',
+              rscFunding: '0'
+            }));
           } else {
-            console.log('Stored contracts are invalid');
-            setExistingContracts(null);
-            setContractsValid(false);
-            setContractFundingStatus(null);
-            
+            console.log('Contracts exist but are inactive/underfunded');
             setFormData(prev => ({
               ...prev,
               destinationFunding: connectedChain.defaultFunding,
@@ -1491,7 +1402,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             }));
           }
         } else {
-          console.log('No stored contracts found in Convex, this will be first order');
+          console.log('Stored contracts are invalid');
           setExistingContracts(null);
           setContractsValid(false);
           setContractFundingStatus(null);
@@ -1502,18 +1413,31 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             rscFunding: '1'
           }));
         }
-      } catch (error) {
-        console.error('Error validating contracts from Convex:', error);
+      } else {
+        console.log('No stored contracts found in Convex, this will be first order');
         setExistingContracts(null);
         setContractsValid(false);
         setContractFundingStatus(null);
-      } finally {
-        setIsCheckingContracts(false);
+        
+        setFormData(prev => ({
+          ...prev,
+          destinationFunding: connectedChain.defaultFunding,
+          rscFunding: '1'
+        }));
       }
-    };
-
-    validateContracts();
+    } catch (error) {
+      console.error('Error validating contracts from Convex:', error);
+      setExistingContracts(null);
+      setContractsValid(false);
+      setContractFundingStatus(null);
+    } finally {
+      setIsCheckingContracts(false);
+    }
   }, [connectedAccount, connectedChain, contractData]);
+
+  useEffect(() => {
+    refreshContractsState();
+  }, [refreshContractsState]);
 
   // ===== FIXED THRESHOLD CALCULATION FUNCTION WITH DYNAMIC COEFFICIENT =====
   const calculateThresholdFromPercentage = useCallback((percentage: string) => {
@@ -1631,14 +1555,15 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
     try {
       setIsDeploymentActive(true);
-      setIsCoveringDebt(true);
+      setDeploymentStep('processing');
+      setDeploymentMessage('Covering contract debt...');
       
       console.log('Starting debt covering process...');
       console.log(`Callback debt: ${callbackDebt} ETH, RSC debt: ${rscDebt} REACT`);
 
       // Step 1: Handle Callback Contract Debt (if exists)
       if (callbackDebt > 0) {
-        setDeploymentStep('covering-callback-debt');
+        setDeploymentMessage('Covering callback contract debt...');
         console.log(`Covering callback debt: ${callbackDebt} ETH`);
 
         await switchNetwork(originalChainId);
@@ -1647,7 +1572,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const callbackProvider = new ethers.BrowserProvider(window.ethereum);
         const callbackSigner = await callbackProvider.getSigner();
 
-        const callbackFundingAmount = callbackDebt + 0.001;
+        const callbackFundingAmount = callbackDebt + (originalChainId==='11155111'? 0.001:0.00002);
         console.log(`Sending ${callbackFundingAmount} ETH to callback contract`);
         
         const fundCallbackTx = await callbackSigner.sendTransaction({
@@ -1681,7 +1606,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
 
       // Step 2: Handle RSC Contract Debt (if exists)
       if (rscDebt > 0) {
-        setDeploymentStep('covering-rsc-debt');
+        setDeploymentMessage('Covering RSC contract debt...');
         console.log(`Covering RSC debt: ${rscDebt} REACT`);
 
         await switchToRSCNetwork();
@@ -1726,19 +1651,18 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       setDeploymentStep('complete');
+      setDeploymentMessage('Debt cleared successfully!');
       toast.success('All contract debts have been cleared! Your contracts are now active.');
 
+      // Refresh contracts state after debt covering
       setTimeout(async () => {
-        if (connectedChain) {
-          const rscProvider = new ethers.JsonRpcProvider(connectedChain.rscNetwork.rpcUrl);
-          const validationResult = await validateStoredContracts(existingContracts, rscProvider, connectedAccount);
-          setContractFundingStatus(validationResult.fundingStatus);
-        }
-      }, 3000);
+        await refreshContractsState();
+      }, 2000);
       
     } catch (error: any) {
       console.error('Error covering debt:', error);
       setDeploymentStep('idle');
+      setDeploymentMessage('');
       
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -1759,9 +1683,8 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       }
     } finally {
       setIsDeploymentActive(false);
-      setIsCoveringDebt(false);
     }
-  }, [connectedChain, existingContracts, contractFundingStatus, switchNetwork, switchToRSCNetwork, connectedAccount]);
+  }, [connectedChain, existingContracts, contractFundingStatus, switchNetwork, switchToRSCNetwork, refreshContractsState]);
 
   // ===== UPDATED DEPLOYMENT FUNCTION FOR PERSONAL CONTRACTS =====
   const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
@@ -1785,10 +1708,9 @@ export default function EnhancedStopOrderWithPersonalContracts() {
     
     try {
       setIsDeploymentActive(true);
+      setDeploymentStep('processing');
       console.log('Starting deployment process for personal contracts...');
       
-      setDeploymentStep('checking-contracts');
-
       const provider = new ethers.BrowserProvider(window.ethereum);
       const currentNetwork = await provider.getNetwork();
       
@@ -1802,8 +1724,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       if (existingContracts && contractsValid) {
         // ===== ADDITIONAL ORDER FLOW =====
         console.log('Adding order to existing personal contracts...');
-        
-        setDeploymentStep('checking-approval');
+        setDeploymentMessage('Adding stop order to your existing contracts...');
         
         const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
         const tokenContract = new ethers.Contract(
@@ -1819,13 +1740,8 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const currentAllowance = await tokenContract.allowance(connectedAccount, spenderAddress);
 
         if (currentAllowance < requiredAmount) {
-          setDeploymentStep('approving');
+          setDeploymentMessage('Approving tokens...');
           
-          if (currentAllowance > 0) {
-            const resetTx = await tokenContract.approve(spenderAddress, 0);
-            await resetTx.wait();
-          }
-
           const approvalTx = await tokenContract.approve(spenderAddress, requiredAmount);
           await approvalTx.wait();
           toast.success('Token approval confirmed');
@@ -1833,7 +1749,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast.success('Tokens already approved');
         }
 
-        setDeploymentStep('creating-order');
+        setDeploymentMessage('Creating stop order...');
         
         const callbackContract = new ethers.Contract(
           existingContracts.callbackContract,
@@ -1942,18 +1858,16 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         }
         
         toast.success(`Additional stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
+        setDeploymentMessage('Stop order created successfully!');
         setDeploymentStep('complete');
         
       } else {
         // ===== FIRST ORDER FLOW =====
         console.log('Deploying new personal contracts for first order...');
-        
-        setDeploymentStep('checking-approval');
+        setDeploymentMessage('Deploying your personal smart contracts...');
         
         const mainProvider = new ethers.BrowserProvider(window.ethereum);
         const mainSigner = await mainProvider.getSigner();
-        
-        setDeploymentStep('deploying-callback');
         
         console.log('Deploying personal callback contract...');
         
@@ -1979,6 +1893,8 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         
         toast.success(`Personal callback contract deployed on ${connectedChain.name}`);
 
+        setDeploymentMessage('Approving tokens for your contract...');
+
         const tokenContract = new ethers.Contract(
           formData.sellToken.address,
           [
@@ -1991,20 +1907,12 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const currentAllowance = await tokenContract.allowance(connectedAccount, callbackContractAddress);
 
         if (currentAllowance < requiredAmount) {
-          setDeploymentStep('approving');
-          
-          if (currentAllowance > 0) {
-            const resetTx = await tokenContract.approve(callbackContractAddress, 0);
-            await resetTx.wait();
-          }
-
           const approvalTx = await tokenContract.approve(callbackContractAddress, requiredAmount);
           await approvalTx.wait();
           toast.success('Tokens approved for personal contract');
         }
 
-        setDeploymentStep('switching-rsc');
-        console.log('Switching to RSC to deploy personal reactive contract...');
+        setDeploymentMessage('Deploying reactive contract...');
         await switchToRSCNetwork();
         
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -2012,7 +1920,6 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         const rscProvider2 = new ethers.BrowserProvider(window.ethereum);
         const rscSigner2 = await rscProvider2.getSigner();
 
-        setDeploymentStep('deploying-reactive');
         console.log('Deploying personal reactive contract...');
         console.log('Constructor params:', {
           callbackAddress: callbackContractAddress
@@ -2038,7 +1945,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         console.log('Personal reactive contract deployed at:', reactiveContractAddress);
         toast.success('Personal reactive contract deployed');
 
-        setDeploymentStep('storing-contracts');
+        setDeploymentMessage('Storing contract addresses...');
         
         try {
           console.log('Storing personal contract addresses in Convex...');
@@ -2055,7 +1962,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           toast('Warning: Could not store contract addresses in database');
         }
 
-        setDeploymentStep('creating-order');
+        setDeploymentMessage('Creating your first stop order...');
         await switchNetwork(originalChainId);
         await new Promise(resolve => setTimeout(resolve, 2000));
         
@@ -2175,19 +2082,23 @@ export default function EnhancedStopOrderWithPersonalContracts() {
         setContractsValid(true);
         toast.success(`First stop order created! ${orderId ? `Order ID: ${orderId}` : ''}`);
         toast.success(`Personal contracts deployed successfully on ${connectedChain.name}! Future orders will be cheaper.`);
+        setDeploymentMessage('Contracts deployed and order created!');
       }
 
       toast.success('Your stop order is now active and monitoring prices 24/7');
       setDeploymentStep('complete');
       console.log('Deployment completed successfully!');
       
-      setTimeout(() => {
+      // Refresh contracts state after successful deployment
+      setTimeout(async () => {
+        await refreshContractsState();
         window.location.href = '/automations/stop-order/dashboard';
-      }, 2000);
+      }, 3000);
       
     } catch (error: any) {
       console.error('Error creating stop order:', error);
       setDeploymentStep('idle');
+      setDeploymentMessage('');
       
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -2215,7 +2126,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
       setIsDeploymentActive(false);
       console.log('Deployment process ended');
     }
-  }, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract]);
+  }, [connectedChain, formData, existingContracts, contractsValid, connectedAccount, switchNetwork, switchToRSCNetwork, storeContract, refreshContractsState]);
 
   // Form validation
   const isFormValid = 
@@ -2585,11 +2496,11 @@ export default function EnhancedStopOrderWithPersonalContracts() {
             contractFundingStatus={contractFundingStatus}
           />
 
-          {/* Transaction Progress Indicator */}
-          <TransactionProgressIndicator
-            steps={isCoveringDebt ? debtCoveringSteps : deploymentSteps}
-            currentStep={deploymentStep}
+          {/* Simple Status Indicator for Processing */}
+          <SimpleStatusIndicator
+            step={deploymentStep}
             isVisible={deploymentStep !== 'idle'}
+            message={deploymentMessage}
           />
 
           {/* Debt Warning Card - Enhanced Design */}
@@ -2622,23 +2533,28 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                   </div>
 
                   <div className="pt-2 border-t border-amber-500/20">
-                    <Button
-                      onClick={handleCoverDebt}
-                      disabled={isCoveringDebt}
-                      className="bg-amber-600 hover:bg-amber-700 text-amber-50 text-sm"
-                    >
-                      {isCoveringDebt ? (
-                        <div className="flex items-center">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Covering Debt...
-                        </div>
-                      ) : (
+                    {deploymentStep === 'processing' ? (
+                      <div className="flex items-center text-sm text-amber-200">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Covering debt...
+                      </div>
+                    ) : deploymentStep === 'complete' ? (
+                      <div className="flex items-center text-sm text-green-200">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Debt cleared successfully!
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleCoverDebt}
+                        disabled={isDeploymentActive}
+                        className="bg-amber-600 hover:bg-amber-700 text-amber-50 text-sm"
+                      >
                         <div className="flex items-center">
                           <Wallet className="w-4 h-4 mr-2" />
                           Cover Debt & Activate Contracts
                         </div>
-                      )}
-                    </Button>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </AlertDescription>
@@ -2931,7 +2847,7 @@ export default function EnhancedStopOrderWithPersonalContracts() {
                         <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                         Stop Order Created!
                       </div>
-                    ) : deploymentStep !== 'idle' ? (
+                    ) : deploymentStep === 'processing' ? (
                       <div className="flex items-center">
                         <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
                         Processing...
