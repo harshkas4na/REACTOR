@@ -700,7 +700,6 @@ const calculatePairPriceWithTokensSafe = async (
   );
 };
 
-// ===== PROVIDER-SPECIFIC PAIR CALCULATOR =====
 // ===== PROVIDER-SPECIFIC PAIR CALCULATOR (CORRECTED) =====
 const calculatePairPriceWithSpecificProvider = async (
   pairAddress: string,
@@ -2052,86 +2051,102 @@ export default function UpdatedPersonalStopOrderDashboard() {
           let dropPercentage = 0;
           let priceDataAvailable = false;
 
-          // Multiple price calculation attempts with different strategies
-          for (let priceAttempt = 0; priceAttempt < 3 && !priceDataAvailable; priceAttempt++) {
-            try {
-              console.log(`Order ${orderIdNum} price calculation attempt ${priceAttempt + 1}...`);
-              
-              // Strategy 1: Normal calculation
-              if (priceAttempt === 0) {
-                const priceData = await calculatePairPriceWithTokensSafe(
-                  orderData.pair,
-                  tokenSellAddress,
-                  tokenBuyAddress,
-                  workingProvider,
-                  connectedChain.id
-                );
+          // Calculate trigger price first (always available from contract data)
+          try {
+            const threshold = BigInt(orderData.threshold);
+            const numeratorTokenDecimals = tokenBuyInfo.decimals;
+            triggerPrice = ethers.formatUnits(threshold, numeratorTokenDecimals);
+            console.log(`Order ${orderIdNum} trigger price calculated: ${triggerPrice}`);
+          } catch (error) {
+            console.warn(`Order ${orderIdNum} trigger price calculation failed:`, error);
+            triggerPrice = 'N/A';
+          }
+
+          // Skip expensive price calculation for completed orders (optimization)
+          const orderStatus = Number(orderData.status || 0);
+          const isCompletedOrder = orderStatus === 2 || orderStatus === 3; // Cancelled or Executed
+
+          if (isCompletedOrder) {
+            console.log(`Order ${orderIdNum} is completed (status: ${orderStatus}) - skipping price calculation for performance`);
+            currentPrice = 'N/A';
+            dropPercentage = 0;
+            priceDataAvailable = false;
+          } else {
+            // Only fetch current price for active/paused orders
+            // Multiple price calculation attempts with different strategies
+            for (let priceAttempt = 0; priceAttempt < 3 && !priceDataAvailable; priceAttempt++) {
+              try {
+                console.log(`Order ${orderIdNum} price calculation attempt ${priceAttempt + 1}...`);
                 
-                if (priceData.currentPrice > 0) {
-                  currentPrice = priceData.currentPrice.toFixed(6);
-                  priceDataAvailable = true;
-                }
-              }
-              // Strategy 2: Try with different RPC if Base Mainnet
-              else if (priceAttempt === 1 && connectedChain.id === '8453') {
-                const alternativeRpc = BASE_RPC_ENDPOINTS[1]; // Use second RPC
-                const altProvider = new ethers.JsonRpcProvider(alternativeRpc);
-                
-                const priceData = await calculatePairPriceWithSpecificProvider(
-                  orderData.pair,
-                  tokenSellAddress,
-                  tokenBuyAddress,
-                  altProvider,
-                  connectedChain.id,
-                  1 // Single retry
-                );
-                
-                if (priceData.currentPrice > 0) {
-                  currentPrice = priceData.currentPrice.toFixed(6);
-                  priceDataAvailable = true;
-                }
-              }
-              // Strategy 3: Manual reserves calculation as last resort
-              else if (priceAttempt === 2) {
-                console.log(`Order ${orderIdNum} trying manual price calculation...`);
-                const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, workingProvider);
-                
-                const reserves = await Promise.race([
-                  pairContract.getReserves({ gasLimit: 300000 }),
-                  new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Manual reserves timeout')), 8000)
-                  )
-                ]);
-                
-                if (reserves && reserves[0] > 0 && reserves[1] > 0) {
-                  const reserve0Num = parseFloat(ethers.formatUnits(reserves[0], tokenSellInfo.decimals === tokenBuyInfo.decimals ? 18 : (orderData.sellToken0 ? tokenSellInfo.decimals : tokenBuyInfo.decimals)));
-                  const reserve1Num = parseFloat(ethers.formatUnits(reserves[1], tokenSellInfo.decimals === tokenBuyInfo.decimals ? 18 : (orderData.sellToken0 ? tokenBuyInfo.decimals : tokenSellInfo.decimals)));
+                // Strategy 1: Normal calculation
+                if (priceAttempt === 0) {
+                  const priceData = await calculatePairPriceWithTokensSafe(
+                    orderData.pair,
+                    tokenSellAddress,
+                    tokenBuyAddress,
+                    workingProvider,
+                    connectedChain.id
+                  );
                   
-                  if (reserve0Num > 0 && reserve1Num > 0) {
-                    const calculatedPrice = orderData.sellToken0 
-                      ? reserve1Num / reserve0Num
-                      : reserve0Num / reserve1Num;
+                  if (priceData.currentPrice > 0) {
+                    currentPrice = priceData.currentPrice.toFixed(6);
+                    priceDataAvailable = true;
+                  }
+                }
+                // Strategy 2: Try with different RPC if Base Mainnet
+                else if (priceAttempt === 1 && connectedChain.id === '8453') {
+                  const alternativeRpc = BASE_RPC_ENDPOINTS[1]; // Use second RPC
+                  const altProvider = new ethers.JsonRpcProvider(alternativeRpc);
+                  
+                  const priceData = await calculatePairPriceWithSpecificProvider(
+                    orderData.pair,
+                    tokenSellAddress,
+                    tokenBuyAddress,
+                    altProvider,
+                    connectedChain.id,
+                    1 // Single retry
+                  );
+                  
+                  if (priceData.currentPrice > 0) {
+                    currentPrice = priceData.currentPrice.toFixed(6);
+                    priceDataAvailable = true;
+                  }
+                }
+                // Strategy 3: Manual reserves calculation as last resort
+                else if (priceAttempt === 2) {
+                  console.log(`Order ${orderIdNum} trying manual price calculation...`);
+                  const pairContract = new ethers.Contract(orderData.pair, PAIR_ABI, workingProvider);
+                  
+                  const reserves = await Promise.race([
+                    pairContract.getReserves({ gasLimit: 300000 }),
+                    new Promise<never>((_, reject) => 
+                      setTimeout(() => reject(new Error('Manual reserves timeout')), 8000)
+                    )
+                  ]);
+                  
+                  if (reserves && reserves[0] > 0 && reserves[1] > 0) {
+                    const reserve0Num = parseFloat(ethers.formatUnits(reserves[0], tokenSellInfo.decimals === tokenBuyInfo.decimals ? 18 : (orderData.sellToken0 ? tokenSellInfo.decimals : tokenBuyInfo.decimals)));
+                    const reserve1Num = parseFloat(ethers.formatUnits(reserves[1], tokenSellInfo.decimals === tokenBuyInfo.decimals ? 18 : (orderData.sellToken0 ? tokenBuyInfo.decimals : tokenSellInfo.decimals)));
                     
-                    if (isFinite(calculatedPrice) && calculatedPrice > 0) {
-                      currentPrice = calculatedPrice.toFixed(6);
-                      priceDataAvailable = true;
-                      console.log(`Order ${orderIdNum} manual price calculation successful: ${currentPrice}`);
+                    if (reserve0Num > 0 && reserve1Num > 0) {
+                      const calculatedPrice = orderData.sellToken0 
+                        ? reserve1Num / reserve0Num
+                        : reserve0Num / reserve1Num;
+                      
+                      if (isFinite(calculatedPrice) && calculatedPrice > 0) {
+                        currentPrice = calculatedPrice.toFixed(6);
+                        priceDataAvailable = true;
+                        console.log(`Order ${orderIdNum} manual price calculation successful: ${currentPrice}`);
+                      }
                     }
                   }
                 }
-              }
-              
-              // Calculate trigger price and drop percentage if we have current price
-              if (priceDataAvailable) {
-                const coefficient = Number(orderData.coefficient);
-                const threshold = Number(orderData.threshold);
                 
-                if (coefficient > 0 && threshold > 0) {
-                  const triggerPriceNum = threshold / coefficient;
-                  triggerPrice = triggerPriceNum.toFixed(6);
-
-                  // ===== ENHANCED DROP PERCENTAGE CALCULATION =====
+                // Calculate drop percentage if we have both current price and trigger price
+                if (priceDataAvailable && triggerPrice !== 'N/A') {
                   const currentPriceNum = parseFloat(currentPrice);
+                  const triggerPriceNum = parseFloat(triggerPrice);
+                  
                   if (currentPriceNum > 0 && triggerPriceNum > 0) {
                     dropPercentage = ((currentPriceNum - triggerPriceNum) / currentPriceNum) * 100;
                     dropPercentage = Math.max(0, Math.min(100, dropPercentage));
@@ -2149,26 +2164,23 @@ export default function UpdatedPersonalStopOrderDashboard() {
                       dropPercentage = Number(dropPercentage.toFixed(1));
                     }
                   }
+                  
+                  console.log(`Order ${orderIdNum} price calculation successful (attempt ${priceAttempt + 1}) - Current: ${currentPrice}, Trigger: ${triggerPrice}, Drop: ${dropPercentage}%`);
+                  break;
                 }
                 
-                console.log(`Order ${orderIdNum} price calculation successful (attempt ${priceAttempt + 1}) - Current: ${currentPrice}, Trigger: ${triggerPrice}, Drop: ${dropPercentage}%`);
-                break;
-              }
-              
-            } catch (priceError) {
-              console.warn(`Order ${orderIdNum} price calculation attempt ${priceAttempt + 1} failed:`, priceError);
-              if (priceAttempt < 2) {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between attempts
+              } catch (priceError) {
+                console.warn(`Order ${orderIdNum} price calculation attempt ${priceAttempt + 1} failed:`, priceError);
+                if (priceAttempt < 2) {
+                  await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between attempts
+                }
               }
             }
-          }
-          
-          // Log final result
-          if (!priceDataAvailable) {
-            console.warn(`Order ${orderIdNum} all price calculation attempts failed - using fallback values`);
-            // For executed orders, this is expected since they may not have active liquidity monitoring
-            if (orderData.status === 3) { // Executed
-              console.log(`Order ${orderIdNum} is executed - price calculation failure is expected`);
+            
+            // Log final result for active orders
+            if (!priceDataAvailable) {
+              console.warn(`Order ${orderIdNum} all price calculation attempts failed - using fallback values`);
+              currentPrice = 'N/A';
             }
           }
 
@@ -2200,7 +2212,7 @@ export default function UpdatedPersonalStopOrderDashboard() {
             tokenBuyInfo,
             currentPrice: priceDataAvailable ? currentPrice : 'N/A',
             dropPercentage,
-            triggerPrice: priceDataAvailable ? triggerPrice : 'N/A',
+            triggerPrice: triggerPrice,
             contractAddress: storedContracts.callbackContract
           };
 
@@ -2534,7 +2546,9 @@ export default function UpdatedPersonalStopOrderDashboard() {
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Pair</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Amount</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Status</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-300">Current Price</th>
+                    {!isCompletedOrders && (
+                      <th className="px-6 py-4 text-sm font-medium text-slate-300">Current Price</th>
+                    )}
                     <th className="px-6 py-4 text-sm font-medium text-slate-300">Trigger Price</th>
                     {!isCompletedOrders && (
                       <th className="px-6 py-4 text-sm font-medium text-slate-300">Drop %</th>
@@ -2581,18 +2595,20 @@ export default function UpdatedPersonalStopOrderDashboard() {
                             <span>{statusConfig.label}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-200">
-                          {order.currentPrice === 'N/A' ? (
-                            <span className="text-slate-400 italic">Price unavailable</span>
-                          ) : (
-                            Number(order.currentPrice).toFixed(6)
-                          )}
-                        </td>
+                        {!isCompletedOrders && (
+                          <td className="px-6 py-4 text-sm text-slate-200">
+                            {order.currentPrice === 'N/A' ? (
+                              <span className="text-slate-400 italic">Price unavailable</span>
+                            ) : (
+                              Number(order.currentPrice).toFixed(6)
+                            )}
+                          </td>
+                        )}
                         <td className="px-6 py-4 text-sm">
                           {order.triggerPrice === 'N/A' ? (
                             <span className="text-slate-400 italic">N/A</span>
                           ) : (
-                            <span className="text-red-300">{order.triggerPrice}</span>
+                            <span className="text-red-300">{Number(order.triggerPrice).toFixed(6)}</span>
                           )}
                         </td>
                         {!isCompletedOrders && (

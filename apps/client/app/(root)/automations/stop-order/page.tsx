@@ -1757,78 +1757,81 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           signer
         );
 
-        const dropPercent = parseFloat(formData.dropPercentage);
         
-        // CRITICAL FIX: Use dynamic coefficient system matching the threshold calculation
-        // Calculate current price from properly formatted reserves
+
+        // Get the decimals for both tokens
+        const sellTokenDecimals = formData.sellToken.decimals;
+        const buyTokenDecimals = formData.buyToken.decimals;
+        const dropPercent = parseFloat(formData.dropPercentage);
+
+        // Re-calculate price and stopPrice here to ensure data is fresh
         const reserve0 = parseFloat(formData.selectedPair.reserve0);
         const reserve1 = parseFloat(formData.selectedPair.reserve1);
-        
-        if (reserve0 <= 0 || reserve1 <= 0 || !isFinite(reserve0) || !isFinite(reserve1)) {
+
+        if (reserve0 <= 0 || reserve1 <= 0) {
           throw new Error('Invalid pair reserves - no liquidity available');
         }
 
         const currentPrice = formData.sellToken0 
-          ? reserve1 / reserve0
+          ? reserve1 / reserve0 
           : reserve0 / reserve1;
 
-        if (currentPrice <= 0 || !isFinite(currentPrice)) {
-          throw new Error('Invalid current price calculated from reserves');
-        }
-
         const stopPrice = currentPrice * (1 - dropPercent / 100);
-        
-        if (stopPrice <= 0) {
-          throw new Error('Invalid stop price - check your drop percentage');
-        }
-        
-        // Dynamic coefficient matching the calculateThresholdFromPercentage function
-        let coefficient = 1000; // Default coefficient
-        let potentialThreshold = Math.floor(stopPrice * coefficient);
-        
-        // If threshold would be 0 or very small, increase coefficient
-        if (potentialThreshold < 10) {
-          const coefficientOptions = [1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000];
-          
-          for (const testCoeff of coefficientOptions) {
-            const testThreshold = Math.floor(stopPrice * testCoeff);
-            if (testThreshold >= 100) {
-              coefficient = testCoeff;
-              potentialThreshold = testThreshold;
-              break;
-            }
-          }
-          
-          if (potentialThreshold < 10) {
-            coefficient = 1000000000;
-            potentialThreshold = Math.floor(stopPrice * coefficient);
-          }
-        }
-        
-        const threshold = potentialThreshold;
-        
-        if (threshold <= 0 || threshold >= (currentPrice * coefficient)) {
-          throw new Error(`Invalid threshold calculated: ${threshold}. Current price threshold would be: ${Math.floor(currentPrice * coefficient)}`);
-        }
 
-        console.log('Adding order with params:', {
-          pair: formData.selectedPair.pairAddress,
-          sellToken0: formData.sellToken0,
-          amount: requiredAmount,
-          coefficient,
-          threshold,
-          currentPrice,
-          stopPrice,
-          dropPercent
-        });
+       // =================================================================
+// ===== START: FINAL CORRECTED COEFFICIENT & THRESHOLD LOGIC ======
+// =================================================================
 
-        const createOrderTx = await callbackContract.createStopOrder(
-          formData.selectedPair.pairAddress,
-          formData.sellToken0,
-          requiredAmount,
-          coefficient,
-          threshold,
-        );
+
+
+let numeratorTokenDecimals, denominatorTokenDecimals;
+
+if (formData.sellToken0) {
+  // Selling token0 for token1. On-chain formula: (reserve1 * coeff) / reserve0
+  // Price is in terms of token1 (the buy token).
+  numeratorTokenDecimals = buyTokenDecimals;
+  denominatorTokenDecimals = sellTokenDecimals;
+} else {
+  // Selling token1 for token0. On-chain formula: (reserve0 * coeff) / reserve1
+  // Price is in terms of token0 (the buy token).
+  numeratorTokenDecimals = buyTokenDecimals;
+  denominatorTokenDecimals = sellTokenDecimals;
+}
+
+// Step 1: The coefficient is 10 to the power of the decimal difference.
+// This is the factor needed to make the units of the reserves equal.
+// const decimalDifference = numeratorTokenDecimals - denominatorTokenDecimals;
+const coefficient = BigInt(10) ** BigInt((denominatorTokenDecimals));
+
+// Step 2: The threshold is the stopPrice scaled to the precision of the NUMERATOR token.
+// This ensures both sides of the contract's comparison are on the same scale.
+const threshold = ethers.parseUnits(stopPrice.toFixed(numeratorTokenDecimals), numeratorTokenDecimals);
+
+// =================================================================
+// ===== END: FINAL CORRECTED COEFFICIENT & THRESHOLD LOGIC ========
+// =================================================================
+      console.log('Final, Corrected Parameters for Smart Contract:', {
+        stopPrice,
+        numeratorTokenDecimals,
+        denominatorTokenDecimals,
+        coefficient: coefficient.toString(),
+        threshold: threshold.toString()
+      });
+
+      if (threshold <= 0) {
+        throw new Error(`Invalid threshold calculated: ${threshold}. Please check token prices and drop percentage.`);
+      }
+
+      // Now, use these dynamic values in your transaction
+      const createOrderTx = await callbackContract.createStopOrder(
+        formData.selectedPair.pairAddress,
+        formData.sellToken0,
+        requiredAmount,
+        coefficient, // Use the new correct coefficient
+        threshold,   // Use the new correct threshold
+      );
+
+                
 
         const receipt = await createOrderTx.wait();
         
@@ -1975,70 +1978,77 @@ export default function EnhancedStopOrderWithPersonalContracts() {
           finalSigner
         );
 
+        // Get the decimals for both tokens
+        const sellTokenDecimals = formData.sellToken.decimals;
+        const buyTokenDecimals = formData.buyToken.decimals;
         const dropPercent = parseFloat(formData.dropPercentage);
-        
-        // CRITICAL FIX: Use dynamic coefficient system matching the threshold calculation
-        // Calculate current price from properly formatted reserves
+
+        // Re-calculate price and stopPrice here to ensure data is fresh
         const reserve0 = parseFloat(formData.selectedPair.reserve0);
         const reserve1 = parseFloat(formData.selectedPair.reserve1);
-        
-        if (reserve0 <= 0 || reserve1 <= 0 || !isFinite(reserve0) || !isFinite(reserve1)) {
+
+        if (reserve0 <= 0 || reserve1 <= 0) {
           throw new Error('Invalid pair reserves - no liquidity available');
         }
 
         const currentPrice = formData.sellToken0 
-          ? reserve1 / reserve0
+          ? reserve1 / reserve0 
           : reserve0 / reserve1;
 
-        if (currentPrice <= 0 || !isFinite(currentPrice)) {
-          throw new Error('Invalid current price calculated from reserves');
-        }
-
         const stopPrice = currentPrice * (1 - dropPercent / 100);
-        
-        if (stopPrice <= 0) {
-          throw new Error('Invalid stop price - check your drop percentage');
-        }
-        
-        // Dynamic coefficient matching the calculateThresholdFromPercentage function
-        let coefficient = 1000; // Default coefficient
-        let potentialThreshold = Math.floor(stopPrice * coefficient);
-        
-        // If threshold would be 0 or very small, increase coefficient
-        if (potentialThreshold < 10) {
-          const coefficientOptions = [1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000];
-          
-          for (const testCoeff of coefficientOptions) {
-            const testThreshold = Math.floor(stopPrice * testCoeff);
-            if (testThreshold >= 100) {
-              coefficient = testCoeff;
-              potentialThreshold = testThreshold;
-              break;
-            }
-          }
-          
-          if (potentialThreshold < 10) {
-            coefficient = 1000000000;
-            potentialThreshold = Math.floor(stopPrice * coefficient);
-          }
-        }
-        
-        const threshold = potentialThreshold;
 
-        console.log('Creating first order on personal callback contract with params:', {
-          pair: formData.selectedPair.pairAddress,
-          sellToken0: formData.sellToken0,
-          amount: requiredAmount,
-          coefficient,
-          threshold
+       // =================================================================
+// ===== START: FINAL CORRECTED COEFFICIENT & THRESHOLD LOGIC ======
+// =================================================================
+
+
+
+let numeratorTokenDecimals, denominatorTokenDecimals;
+
+if (formData.sellToken0) {
+  // Selling token0 for token1. On-chain formula: (reserve1 * coeff) / reserve0
+  // Price is in terms of token1 (the buy token).
+  numeratorTokenDecimals = buyTokenDecimals;
+  denominatorTokenDecimals = sellTokenDecimals;
+} else {
+  // Selling token1 for token0. On-chain formula: (reserve0 * coeff) / reserve1
+  // Price is in terms of token0 (the buy token).
+  numeratorTokenDecimals = buyTokenDecimals;
+  denominatorTokenDecimals = sellTokenDecimals;
+}
+
+// Step 1: The coefficient is 10 to the power of the decimal difference.
+// This is the factor needed to make the units of the reserves equal.
+const decimalDifference = numeratorTokenDecimals - denominatorTokenDecimals;
+const coefficient = BigInt(10) ** BigInt(Math.abs(decimalDifference));
+
+// Step 2: The threshold is the stopPrice scaled to the precision of the NUMERATOR token.
+// This ensures both sides of the contract's comparison are on the same scale.
+const threshold = ethers.parseUnits(stopPrice.toFixed(numeratorTokenDecimals), numeratorTokenDecimals);
+
+// =================================================================
+// ===== END: FINAL CORRECTED COEFFICIENT & THRESHOLD LOGIC ========
+// =================================================================
+
+        console.log('Final, Corrected Parameters for Smart Contract:', {
+          stopPrice,
+          numeratorTokenDecimals,
+          denominatorTokenDecimals,
+          coefficient: coefficient.toString(),
+          threshold: threshold.toString()
         });
 
+        if (threshold <= 0) {
+          throw new Error(`Invalid threshold calculated: ${threshold}. Please check token prices and drop percentage.`);
+        }
+
+        // Now, use these dynamic values in your transaction
         const firstOrderTx = await finalCallbackContract.createStopOrder(
           formData.selectedPair.pairAddress,
           formData.sellToken0,
           requiredAmount,
-          coefficient,
-          threshold,
+          coefficient, // Use the new correct coefficient
+          threshold,   // Use the new correct threshold
         );
 
         const receipt = await firstOrderTx.wait();
