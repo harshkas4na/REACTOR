@@ -80,13 +80,13 @@ export default function Hero() {
               </Button>
               <Button
                 as={Link}
-                href="/deploy-reactive-contract"
+                href="/about"
                 className="w-full sm:w-auto rounded-full"
                 variant="bordered"
                 size="lg"
                 startContent={<SparklesIcon className="h-5 w-5" />}
               >
-                For Developers
+                Learn more
               </Button>
             </div>
           </div>
