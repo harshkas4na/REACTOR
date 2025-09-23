@@ -1997,7 +1997,7 @@ const threshold = ethers.parseUnits(stopPrice.toFixed(numeratorTokenDecimals), n
 
         const stopPrice = currentPrice * (1 - dropPercent / 100);
 
-       // =================================================================
+        // =================================================================
 // ===== START: FINAL CORRECTED COEFFICIENT & THRESHOLD LOGIC ======
 // =================================================================
 
@@ -2019,12 +2019,13 @@ if (formData.sellToken0) {
 
 // Step 1: The coefficient is 10 to the power of the decimal difference.
 // This is the factor needed to make the units of the reserves equal.
-const decimalDifference = numeratorTokenDecimals - denominatorTokenDecimals;
-const coefficient = BigInt(10) ** BigInt(Math.abs(decimalDifference));
+// const decimalDifference = numeratorTokenDecimals - denominatorTokenDecimals;
+const coefficient = BigInt(10) ** BigInt((denominatorTokenDecimals));
 
 // Step 2: The threshold is the stopPrice scaled to the precision of the NUMERATOR token.
 // This ensures both sides of the contract's comparison are on the same scale.
 const threshold = ethers.parseUnits(stopPrice.toFixed(numeratorTokenDecimals), numeratorTokenDecimals);
+
 
 // =================================================================
 // ===== END: FINAL CORRECTED COEFFICIENT & THRESHOLD LOGIC ========
